@@ -1,3 +1,6 @@
 [submodule "clingo"]
 	path = clingo
 	url = git@github.com:potassco/clingo.git
+[submodule "libcsp"]
+	path = libcsp
+	url = git@github.com:potassco/libcsp.git
