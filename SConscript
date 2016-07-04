@@ -384,30 +384,30 @@ if not env.GetOption('clean'):
 
 
 # {{{1 PyClingo + LuaClingo
-
-if with_python:
-    PYCLINGO_SOURCES = find_files(env, 'app/pyclingo/src')
-
-    pyclingoEnv = clingoEnv.Clone()
-    pyclingoEnv["LIBPREFIX"] = ""
-    pyclingoEnv.Prepend(LIBS   = [clingoLibS, gringoLibS, claspLibS, optsLibS, lpLibS])
-
-    pyclingo = pyclingoEnv.SharedLibrary('python/clingo.so', PYCLINGO_SOURCES)
-    pyclingoEnv.Alias('pyclingo', pyclingo)
-    if not env.GetOption('clean'):
-        Default(pyclingo)
-
-if with_lua:
-    LUACLINGO_SOURCES = find_files(env, 'app/luaclingo/src')
-
-    luaclingoEnv = clingoEnv.Clone()
-    luaclingoEnv["LIBPREFIX"] = ""
-    luaclingoEnv.Prepend(LIBS   = [clingoLibS, gringoLibS, claspLibS, optsLibS, lpLibS])
-
-    luaclingo = luaclingoEnv.SharedLibrary('lua/clingo.so', LUACLINGO_SOURCES)
-    luaclingoEnv.Alias('luaclingo', luaclingo)
-    if not env.GetOption('clean'):
-        Default(luaclingo)
+##
+##if with_python:
+##    PYCLINGO_SOURCES = find_files(env, 'app/pyclingo/src')
+##
+##    pyclingoEnv = clingoEnv.Clone()
+##    pyclingoEnv["LIBPREFIX"] = ""
+##    pyclingoEnv.Prepend(LIBS   = [clingoLibS, gringoLibS, claspLibS, optsLibS, lpLibS])
+##
+##    pyclingo = pyclingoEnv.SharedLibrary('python/clingo.so', PYCLINGO_SOURCES)
+##    pyclingoEnv.Alias('pyclingo', pyclingo)
+##    if not env.GetOption('clean'):
+##        Default(pyclingo)
+##
+##if with_lua:
+##    LUACLINGO_SOURCES = find_files(env, 'app/luaclingo/src')
+##
+##    luaclingoEnv = clingoEnv.Clone()
+##    luaclingoEnv["LIBPREFIX"] = ""
+##    luaclingoEnv.Prepend(LIBS   = [clingoLibS, gringoLibS, claspLibS, optsLibS, lpLibS])
+##
+##    luaclingo = luaclingoEnv.SharedLibrary('lua/clingo.so', LUACLINGO_SOURCES)
+##    luaclingoEnv.Alias('luaclingo', luaclingo)
+##    if not env.GetOption('clean'):
+##        Default(luaclingo)
 
 # {{{1 Gringo: Tests
 
