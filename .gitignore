@@ -1,3 +1,8 @@
 make.sh
 .sconf_temp
 .sconsign.dblite
+clingcon.config
+clingcon.files
+clingcon.includes
+clingcon.creator
+clingcon.creator.user
