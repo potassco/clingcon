@@ -5,10 +5,7 @@
 % 3. add a fresh distinct for all variables every step, do not reuse old constraints
 % 3.5. this works, as old constraints are disabled, there fore we use nonstrict constraints
 %%% Difference to incqueens2
-% use of nonstrict constraints
 % releasing the external and removing the constraint
-% manual "completion" of the constraints using 2 rules
-% no "old" constraints are reused
 % no "old" constraints can be found in the solver
 
 #script(python)
@@ -34,7 +31,7 @@ pos(n).
 &dom{1..n} = q(X) :- pos(X), active(n).
 
 &distinct{q(X) : pos(X)} :- active(n).
-%%%%diagonals
+%diagonals
 &distinct{q(X)+X-1 : pos(X)} :- active(n).
 &distinct{q(X)-X+1 : pos(X)} :- active(n).
 

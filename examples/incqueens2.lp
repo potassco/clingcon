@@ -29,12 +29,12 @@ def main(prg):
 pos(n).
 
 % all further rules are only true in the current active step
-&dom {1..n} = q(X) :- pos(X), active(n).
+&dom{1..n} = q(X) :- pos(X), active(n).
 
-&distinct {q(X) : pos(X)} :- active(n).
+&distinct{q(X) : pos(X)} :- active(n).
 %diagonals
-&distinct {q(X)+X-1 : pos(X)} :- active(n).
-&distinct {q(X)-X+1 : pos(X)} :- active(n).
+&distinct{q(X)+X-1 : pos(X)} :- active(n).
+&distinct{q(X)-X+1 : pos(X)} :- active(n).
 
 % add the last queen to the show statement
 &show {q(n)}.
