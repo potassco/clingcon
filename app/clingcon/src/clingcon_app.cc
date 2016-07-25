@@ -68,7 +68,7 @@ void ClingoApp::initOptions(ProgramOptions::OptionContext& root) {
              "      reify       : print program as reified facts\n"
              "      smodels     : print smodels format\n"
              "                    (only supports basic features)")
-        ("output-debug", storeTo(grOpts_.outputDebug = Gringo::Output::OutputDebug::NONE, values<Gringo::Output::OutputDebug>()
+        ("output-debug", storeTo(grOpts_.outputOptions.debug = Gringo::Output::OutputDebug::NONE, values<Gringo::Output::OutputDebug>()
           ("none", Gringo::Output::OutputDebug::NONE)
           ("text", Gringo::Output::OutputDebug::TEXT)
           ("translate", Gringo::Output::OutputDebug::TRANSLATE)
@@ -88,6 +88,8 @@ void ClingoApp::initOptions(ProgramOptions::OptionContext& root) {
          "      [no-]other:               clasp related and uncategorized warnings")
         ("rewrite-minimize"         , flag(grOpts_.rewriteMinimize = false), "Rewrite minimize constraints into rules")
         ("keep-facts"               , flag(grOpts_.keepFacts = false), "Do not remove facts from normal rules")
+        ("reify-sccs"               , flag(grOpts_.outputOptions.reifySCCs = false), "Calculate SCCs for reified output")
+        ("reify-steps"              , flag(grOpts_.outputOptions.reifySteps = false), "Add step numbers to reified output")
         ("foobar,@4"                , storeTo(grOpts_.foobar, parseFoobar) , "Foobar")
         ;
     root.add(gringo);
@@ -97,7 +99,7 @@ void ClingoApp::initOptions(ProgramOptions::OptionContext& root) {
         ("mode", storeTo(mode_ = mode_clingo, values<Mode>()
             ("clingo", mode_clingo)
             ("clasp", mode_clasp)
-            ("gringo", mode_gringo)), 
+            ("gringo", mode_gringo)),
          "Run in {clingo|clasp|gringo} mode\n")
         ;
     root.add(basic);
@@ -164,7 +166,7 @@ void ClingoApp::printVersion() {
     printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
     printf("Gringo is free software: you are free to change and redistribute it.\n");
     printf("There is NO WARRANTY, to the extent permitted by law.\n");
-    printf("\n");   
+    printf("\n");
     BaseType::printLibClaspVersion();
 }
 bool ClingoApp::onModel(Clasp::Solver const& s, Clasp::Model const& m) {

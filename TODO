@@ -3,6 +3,7 @@ TODO:
    e.g. a<b and b<a, bound propagation has problems with this
  - remove magic numbers
  - add a difference logic propagator
+ - add free lists for unused clasp variables, s.t. they can be reued in a multi-shot approach
 
 KNOWN_BUGS:
  - library for python/lua support is called clingo (not clingcon)
