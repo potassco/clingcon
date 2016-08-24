@@ -21,6 +21,7 @@
 #include <clasp/solver.h>
 #include <clasp/dependency_graph.h>
 #include <clasp/parser.h>
+#include <potassco/aspif.h>
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
@@ -64,7 +65,7 @@ inline bool isStdOut(const std::string& out){ return out == "-" || out == "stdou
 // ClaspAppOptions
 /////////////////////////////////////////////////////////////////////////////////////////
 namespace Cli {
-ClaspAppOptions::ClaspAppOptions() : outf(0), compute(0), ifs(' '), hideAux(false), onlyPre(false), printPort(false), lemmaLbd(Clasp::LBD_MAX) {
+ClaspAppOptions::ClaspAppOptions() : outf(0), compute(0), ifs(' '), hideAux(false), onlyPre(false), printPort(false) {
 	quiet[0] = quiet[1] = quiet[2] = static_cast<uint8>(UCHAR_MAX);
 }
 void ClaspAppOptions::initOptions(ProgramOptions::OptionContext& root) {
@@ -79,13 +80,15 @@ void ClaspAppOptions::initOptions(ProgramOptions::OptionContext& root) {
 		 "        <call>: print {0=all|1=last|2=no} call steps      [2]")
 		("pre" , flag(onlyPre), "Run preprocessing and exit")
 		("print-portfolio" , flag(printPort), "Print default portfolio and exit")
-		("parse-ext", notify(this, &ClaspAppOptions::mappedOpts)->flag(), "Enable extensions in smodels and dimacs input")
 		("outf,@1", storeTo(outf)->arg("<n>"), "Use {0=default|1=competition|2=JSON|3=no} output")
 		("out-atomf,@1" , storeTo(outAtom), "Set atom format string (<Pre>?%%s<Post>?)")
 		("out-ifs,@1"   , notify(this, &ClaspAppOptions::mappedOpts), "Set internal field separator")
-		("out-hide-aux,@1", flag(hideAux), "Hide auxiliary atoms in answers")
-		("lemma-out,@1" , storeTo(lemmaLog)->arg("<file>"), "Write learnt lemmas to %A on exit")
-		("lemma-out-lbd,@1",notify(this, &ClaspAppOptions::mappedOpts)->arg("<n>"), "Only write lemmas with lbd <= %A")
+		("out-hide-aux,@1" , flag(hideAux), "Hide auxiliary atoms in answers")
+		("lemma-in,@1"     , storeTo(lemmaIn)->arg("<file>"), "Read additional lemmas from %A")
+		("lemma-out,@1"    , storeTo(lemmaLog)->arg("<file>"), "Log learnt lemmas to %A")
+		("lemma-out-lbd,@1", storeTo(lemma.lbdMax)->arg("<n>"), "Only log lemmas with lbd <= %A")
+		("lemma-out-dom,@1", notify(this, &ClaspAppOptions::mappedOpts), "Log lemmas over <arg {input|output}> variables")
+		("lemma-out-txt,@1", flag(lemma.logText), "Log lemmas as ground integrity constraints")
 		("hcc-out,@1", storeTo(hccOut)->arg("<file>"), "Write non-hcf programs to %A.#scc")
 		("file,f,@2" , storeTo(input)->composing(), "Input files")
 		("compute,@2", storeTo(compute)->arg("<lit>"), "Force given literal to true")
@@ -93,7 +96,6 @@ void ClaspAppOptions::initOptions(ProgramOptions::OptionContext& root) {
 	root.add(basic);
 }
 bool ClaspAppOptions::mappedOpts(ClaspAppOptions* this_, const std::string& name, const std::string& value) {
-	uint32 x;
 	if (name == "quiet") {
 		const char* err = 0;
 		uint32      q[3]= {uint32(UCHAR_MAX),uint32(UCHAR_MAX),uint32(UCHAR_MAX)};
@@ -109,10 +111,10 @@ bool ClaspAppOptions::mappedOpts(ClaspAppOptions* this_, const std::string& name
 		if (value[1] == 'v')   { this_->ifs = '\v'; return true; }
 		if (value[1] == '\\')  { this_->ifs = '\\'; return true; }
 	}
-	else if (name == "lemma-out-lbd") {
-		return  bk_lib::string_cast(value, x) && x < Clasp::LBD_MAX && (this_->lemmaLbd = (uint8)x, true);
+	else if (name == "lemma-out-dom") {
+		return (this_->lemma.domOut = (strcasecmp(value.c_str(), "output") == 0)) == true || strcasecmp(value.c_str(), "input") == 0;
 	}
-	return name == "parse-ext";
+	return false;
 }
 bool ClaspAppOptions::validateOptions(const ProgramOptions::ParsedOptions&) {
 	if (quiet[1] == static_cast<uint8>(UCHAR_MAX)) { quiet[1] = quiet[0]; }
@@ -157,9 +159,13 @@ void ClaspAppBase::validateOptions(const ProgramOptions::OptionContext&, const P
 	}
 	ClaspAppOptions& app = claspAppOpts_;
 	if (!app.lemmaLog.empty() && !isStdOut(app.lemmaLog)) {
-		if (std::find(app.input.begin(), app.input.end(), app.lemmaLog) != app.input.end()) {
+		if (std::find(app.input.begin(), app.input.end(), app.lemmaLog) != app.input.end() || app.lemmaIn == app.lemmaLog) {
 			throw Error("'lemma-out': cowardly refusing to overwrite input file!");
 		}
+	}
+	if (!app.lemmaIn.empty() && !isStdIn(app.lemmaIn) && !std::ifstream(app.lemmaIn.c_str()).is_open()) {
+		error("'lemma-in': could not open file!");
+		exit(E_NO_RUN);
 	}
 	for (std::size_t i = 1; i < app.input.size(); ++i) {
 		if (!isStdIn(app.input[i]) && !std::ifstream(app.input[i].c_str()).is_open()) {
@@ -168,11 +174,6 @@ void ClaspAppBase::validateOptions(const ProgramOptions::OptionContext&, const P
 	}
 	if (app.onlyPre && pt != Problem_t::Asp) {
 		throw Error("Option '--pre' only supported for ASP!");
-	}
-	if (parsed.count("parse-ext") != 0) {
-		claspConfig_.parse.enableMinimize();
-		claspConfig_.parse.enableAcycEdges();
-		claspConfig_.parse.enableProject();
 	}
 	setExitCode(0);
 	storeCommandArgs(values);
@@ -186,7 +187,7 @@ void ClaspAppBase::setup() {
 		Event::Verbosity verb	= (Event::Verbosity)std::min(verbose(), (uint32)Event::verbosity_max);
 		if (out_.get() && out_->verbosity() < (uint32)verb) { verb = (Event::Verbosity)out_->verbosity(); }
 		if (!claspAppOpts_.lemmaLog.empty()) {
-			logger_ = new LemmaLogger(claspAppOpts_.lemmaLog.c_str(), claspAppOpts_.lemmaLbd);
+			logger_ = new LemmaLogger(claspAppOpts_.lemmaLog.c_str(), claspAppOpts_.lemma);
 		}
 		EventHandler::setVerbosity(Event::subsystem_facade , verb);
 		EventHandler::setVerbosity(Event::subsystem_load   , verb);
@@ -199,6 +200,7 @@ void ClaspAppBase::setup() {
 void ClaspAppBase::shutdown() {
 	if (!clasp_.get()) { return; }
 	if (logger_.get()) { logger_->close(); }
+	lemmaIn_ = 0;
 	const ClaspFacade::Summary& result = clasp_->shutdown();
 	if (shutdownTime_g) {
 		shutdownTime_g += RealTime::getTime();
@@ -258,6 +260,15 @@ bool ClaspAppBase::onModel(const Solver& s, const Model& m) {
 	if (out_.get() && !out_->quiet()) {
 		blockSignals();
 		ret = out_->onModel(s, m);
+		unblockSignals(true);
+	}
+	return ret;
+}
+bool ClaspAppBase::onUnsat(const Solver& s, const Model& m) {
+	bool ret = true;
+	if (out_.get() && !out_->quiet()) {
+		blockSignals();
+		ret = out_->onUnsat(s, m);
 		unblockSignals(true);
 	}
 	return ret;
@@ -426,14 +437,33 @@ void ClaspAppBase::handleStartOptions(ClaspFacade& clasp) {
 		claspConfig_.releaseOptions();
 	}
 	if (claspAppOpts_.compute && clasp.program()->type() == Problem_t::Asp) {
-		bool val = claspAppOpts_.compute < 0;
-		Var  var = static_cast<Var>(!val ? claspAppOpts_.compute : -claspAppOpts_.compute);
-		static_cast<Asp::LogicProgram*>(clasp.program())->startRule().addToBody(var, val).endRule();
+		Potassco::Lit_t lit = Potassco::neg(claspAppOpts_.compute);
+		static_cast<Asp::LogicProgram*>(clasp.program())->addRule(Potassco::Head_t::Disjunctive, Potassco::toSpan<Potassco::Atom_t>(), Potassco::toSpan(&lit, 1));
+	}
+	if (!claspAppOpts_.lemmaIn.empty()) {
+		class LemmaIn : public Potassco::AspifInput {
+		public:
+			typedef Potassco::AbstractProgram PrgAdapter;
+			LemmaIn(const std::string& fn, PrgAdapter* prg) : Potassco::AspifInput(*prg), prg_(prg) {
+				if (!isStdIn(fn)) { file_.open(fn.c_str()); }
+				CLASP_FAIL_IF(!accept(getStream()), "'lemma-in': invalid input file");
+			}
+			~LemmaIn() { delete prg_; }
+		private:
+			std::istream& getStream() { return file_.is_open() ? file_ : std::cin; }
+			PrgAdapter*   prg_;
+			std::ifstream file_;
+		};
+		SingleOwnerPtr<Potassco::AbstractProgram> prgTemp;
+		if (clasp.program()->type() == Problem_t::Asp) { prgTemp = new Asp::LogicProgramAdapter(*static_cast<Asp::LogicProgram*>(clasp.program())); }
+		else { prgTemp = new BasicProgramAdapter(*clasp.program()); }
+		lemmaIn_ = new LemmaIn(claspAppOpts_.lemmaIn, prgTemp.release());
 	}
 }
 bool ClaspAppBase::handlePostGroundOptions(ProgramBuilder& prg) {
 	if (!claspAppOpts_.onlyPre) { 
-		if (logger_.get()) { logger_->start(prg); }
+		if (lemmaIn_.get()) { lemmaIn_->parse(); }
+		if (logger_.get())  { logger_->startStep(prg, clasp_->incremental()); }
 		return true; 
 	}
 	prg.endProgram();
@@ -482,15 +512,21 @@ void ClaspApp::printHelp(const ProgramOptions::OptionContext& root) {
 /////////////////////////////////////////////////////////////////////////////////////////
 // LemmaLogger
 /////////////////////////////////////////////////////////////////////////////////////////
-LemmaLogger::LemmaLogger(const std::string& to, uint32 maxLbd)
+LemmaLogger::LemmaLogger(const std::string& to, const Options& o)
 	: str_(isStdOut(to) ? stdout : fopen(to.c_str(), "w"))
-	, lbd_(maxLbd)
-	, fmt_(Problem_t::Asp) {
+	, inputType_(Problem_t::Asp)
+	, options_(o)
+	, step_(0) {
 	CLASP_FAIL_IF(!str_, "Could not open lemma log file '%s'!", to.c_str());
 }
 LemmaLogger::~LemmaLogger() { close(); }
-void LemmaLogger::start(ProgramBuilder& prg) {
-	if ( (fmt_ = static_cast<Problem_t::Type>(prg.type())) == Problem_t::Asp && prg.endProgram() ) {
+void LemmaLogger::startStep(ProgramBuilder& prg, bool inc) {
+	++step_;
+	if (!options_.logText) {
+		if (step_ == 1) { fprintf(str_, "asp 1 0 0%s\n", inc ? " incremental" : ""); }
+		else            { fprintf(str_, "0\n"); }
+	}
+	if ((inputType_ = static_cast<Problem_t::Type>(prg.type())) == Problem_t::Asp && prg.endProgram()) {
 		// create solver variable to potassco literal mapping
 		Asp::LogicProgram& asp = static_cast<Asp::LogicProgram&>(prg);
 		for (Asp::Atom_t a = asp.startAtom(); a != asp.inputEnd(); ++a) {
@@ -504,62 +540,82 @@ void LemmaLogger::start(ProgramBuilder& prg) {
 			}
 		}
 	}
+	solver2NameIdx_.clear();
+	if (options_.logText && prg.endProgram()) {
+		const SharedContext& ctx = *prg.ctx();
+		for (OutputTable::pred_iterator beg = ctx.output.pred_begin(), it = beg, end = ctx.output.pred_end(); it != end; ++it) {
+			Var v = it->cond.var();
+			if (ctx.varInfo(v).output()) {
+				if (solver2NameIdx_.size() <= v) { solver2NameIdx_.resize(v + 1, UINT32_MAX); }
+				solver2NameIdx_[v] = static_cast<uint32>(it - beg);
+			}
+		}
+	}
 }
 void LemmaLogger::add(const Solver& s, const LitVec& cc, const ConstraintInfo& info) {
 	LitVec temp;
 	const LitVec* out = &cc;
 	uint32 lbd = info.lbd();
-	if (lbd > lbd_) { return; }
-	if (info.aux() || std::find_if(cc.begin(), cc.end(), std::not1(std::bind1st(std::mem_fun(&Solver::inputVar), &s))) != cc.end()) {
-		if (!s.resolveToInput(cc, temp, lbd) || lbd > lbd_) { return; }
+	if (lbd > options_.lbdMax) { return; }
+	if (info.aux() || options_.domOut || std::find_if(cc.begin(), cc.end(), std::not1(std::bind1st(std::mem_fun(&Solver::inputVar), &s))) != cc.end()) {
+		uint8 vf = options_.domOut ? VarInfo::Input|VarInfo::Output : VarInfo::Input;
+		if (!s.resolveToFlagged(cc, vf, temp, lbd) || lbd > options_.lbdMax) { return; }
 		out = &temp;
 	}
-	PodVector<char>::type buf;
-	buf.reserve(cc.size() * 2);
-	switch (fmt_) {
-		case Problem_t::Asp: formatAspif(*out , lbd, buf); break;
-		case Problem_t::Sat: formatDimacs(*out, lbd, buf); break;
-		case Problem_t::Pb:  formatOpb(*out, lbd, buf);    break;
-		default: break;
-	}
-	if (!buf.empty()) { fwrite(&buf[0], sizeof(char), buf.size(), str_); }
+	std::string lemma;
+	if (options_.logText) { formatText(*out, s.sharedContext()->output, lbd, lemma); }
+	else                  { formatAspif(*out, lbd, lemma); }
 }
-void LemmaLogger::append(BufT& out, const char* fmt, int data) const {
-	char temp[1024];
-	int w = snprintf(temp, sizeof(temp), fmt, data);
-	CLASP_FAIL_IF(w < 0 || w >= (int)sizeof(temp), "Invalid format!");
-	out.insert(out.end(), temp, temp + w);
-}
-void LemmaLogger::formatDimacs(const LitVec& cc, uint32, BufT& buf) const {
-	for (LitVec::const_iterator it = cc.begin(), end = cc.end(); it != end; ++it) {
-		append(buf, "%d ", toInt(*it));
-	}
-	append(buf, "%d\n", 0);
-}
-void LemmaLogger::formatOpb(const LitVec& cc, uint32, BufT& buf) const {
-	for (LitVec::const_iterator it = cc.begin(), end = cc.end(); it != end; ++it) {
-		append(buf, "%+d ", it->sign() ? -1 : 1);
-		append(buf, "x%d ", Potassco::atom(toInt(*it)));
-	}
-	append(buf, ">= %d;\n", 1);
-}
-void LemmaLogger::formatAspif(const LitVec& cc, uint32, BufT& out) const {
-	append(out, "1 0 0 0 %d", (int)cc.size());
+void LemmaLogger::formatAspif(const LitVec& cc, uint32, std::string& out) const {
+	char temp[20];
+	out.reserve((cc.size() * 10) + 8);
+	out.append(clasp_format(temp, sizeof(temp), "1 0 0 0 %u", (uint32)cc.size()));
 	for (LitVec::const_iterator it = cc.begin(), end = cc.end(); it != end; ++it) {
 		Literal sLit = ~*it; // clause -> constraint
-		Potassco::Lit_t a = sLit.var() < solver2asp_.size() ? solver2asp_[sLit.var()] : 0;
-		if (!a) { out.clear(); return; }
-		if (sLit.sign() != (a < 0)) { a = -a; }
-		append(out, " %d", a);
+		Potassco::Lit_t a = toInt(sLit);
+		if (inputType_ == Problem_t::Asp) {
+			a = sLit.var() < solver2asp_.size() ? solver2asp_[sLit.var()] : 0;
+			if (!a) { return; }
+			if (sLit.sign() != (a < 0)) { a = -a; }
+		}
+		out.append(clasp_format(temp, sizeof(temp), " %d", a));
 	}
-	out.push_back('\n');
+	out.append(1, '\n');
+}
+void LemmaLogger::formatText(const LitVec& cc, const OutputTable& tab, uint32 lbd, std::string& out) const {
+	out.reserve(std::max(uint32(cc.size() * 10), uint32(1024)));
+	const char* sep = ":- ";
+	char temp[40];
+	for (LitVec::const_iterator it = cc.begin(), end = cc.end(); it != end; ++it) {
+		Literal sLit = ~*it; // clause -> constraint
+		uint32 idx = sLit.var() < solver2NameIdx_.size() ? solver2NameIdx_[sLit.var()] : UINT32_MAX;
+		out.append(sep);
+		sep = ", ";
+		if (idx != UINT32_MAX) {
+			const OutputTable::PredType& p = *(tab.pred_begin() + idx);
+			assert(sLit.var() == p.cond.var());
+			if (sLit.sign() != p.cond.sign()) { out.append("not "); }
+			out.append(p.name.c_str());
+		}
+		else {
+			if (inputType_ == Problem_t::Asp) {
+				Potassco::Lit_t a = sLit.var() < solver2asp_.size() ? solver2asp_[sLit.var()] : 0;
+				if (!a) { return; }
+				if (sLit.sign() != (a < 0)) { a = -a; }
+				sLit = Literal(Potassco::atom(a), a < 0);
+			}
+			out.append(clasp_format(temp, sizeof(temp), "%s__atom(%u)", sLit.sign() ? "not " : "", sLit.var()));
+		}
+	}
+	out.append(clasp_format(temp, sizeof(temp), ".  %%lbd = %u\n", lbd));
 }
 void LemmaLogger::close() {
 	if (!str_) { return; }
-	solver2asp_.clear();
+	fprintf(str_, "0\n");
 	fflush(str_);
 	if (str_ != stdout) { fclose(str_); }
 	str_ = 0;
+	solver2asp_.clear();
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 // WriteCnf

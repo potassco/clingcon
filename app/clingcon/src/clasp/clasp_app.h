@@ -67,28 +67,35 @@ private:
 };
 class LemmaLogger {
 public:
-	LemmaLogger(const std::string& outFile, uint32 maxLbd);
+	struct Options {
+		Options() : lbdMax(UINT32_MAX), domOut(false), logText(false) {}
+		uint32 lbdMax;  // only log lemmas with lbd <= lbdMax
+		bool   domOut;  // only log lemmas that can be expressed over out variables
+		bool   logText; // log lemmas in ground lp format
+	};
+	LemmaLogger(const std::string& outFile, const Options& opts);
 	~LemmaLogger();
-	void start(ProgramBuilder& prg);
+	void startStep(ProgramBuilder& prg, bool inc);
 	void add(const Solver& s, const LitVec& cc, const ConstraintInfo& info);
 	void close();
 private:
-	typedef PodVector<char>::type BufT;
+	typedef PodVector<uint32>::type Var2Idx;
 	LemmaLogger(const LemmaLogger&);
 	LemmaLogger& operator=(const LemmaLogger&);
-	void formatDimacs(const LitVec& cc, uint32 lbd, BufT& out) const;
-	void formatOpb(const LitVec& cc, uint32 lbd, BufT& out)    const;
-	void formatAspif(const LitVec& cc, uint32 lbd, BufT& out)  const;
-	void append(BufT& out, const char* fmt, int data) const;
+	void formatAspif(const LitVec& cc, uint32 lbd, std::string& out)  const;
+	void formatText(const LitVec& cc, const OutputTable& tab, uint32 lbd, std::string& out) const;
 	FILE*            str_;
 	Potassco::LitVec solver2asp_;
-	uint32           lbd_;
-	Problem_t::Type  fmt_;
+	Var2Idx          solver2NameIdx_;
+	ProblemType      inputType_;
+	Options          options_;
+	int              step_;
 };
 /////////////////////////////////////////////////////////////////////////////////////////
 // clasp specific application options
 /////////////////////////////////////////////////////////////////////////////////////////
 struct ClaspAppOptions {
+	typedef LemmaLogger::Options LogOptions;
 	ClaspAppOptions();
 	typedef std::vector<std::string>  StringSeq;
 	static bool mappedOpts(ClaspAppOptions*, const std::string&, const std::string&);
@@ -96,16 +103,17 @@ struct ClaspAppOptions {
 	bool validateOptions(const ProgramOptions::ParsedOptions& parsed);
 	StringSeq   input;     // list of input files - only first used!
 	std::string lemmaLog;  // optional file name for writing learnt lemmas
+	std::string lemmaIn;   // optional file name for reading learnt lemmas
 	std::string hccOut;    // optional file name for writing scc programs
 	std::string outAtom;   // optional format string for atoms
 	uint32      outf;      // output format
 	int         compute;   // force literal compute to true
+	LogOptions  lemma;     // options for lemma logging
 	char        ifs;       // output field separator
 	bool        hideAux;   // output aux atoms?
 	uint8       quiet[3];  // configure printing of models, optimization values, and call steps
 	bool        onlyPre;   // run preprocessor and exit
 	bool        printPort; // print portfolio and exit
-	uint8       lemmaLbd;  // optional lbd limit for lemma logging
 	enum OutputFormat { out_def = 0, out_comp = 1, out_json = 2, out_none = 3 };
 };
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -149,24 +157,28 @@ protected:
 	// Event handler
 	virtual void onEvent(const Event& ev);
 	virtual bool onModel(const Solver& s, const Model& m);
+	virtual bool onUnsat(const Solver& s, const Model& m);
 	// -------------------------------------------------------------------------------------------
 	// Status information & output
 	int  exitCode(const RunSummary& sol)    const;
 	void printTemplate()                    const;
 	void printDefaultConfigs()              const;
 	void printLibClaspVersion()             const;
-	std::istream&   getStream();
+	std::istream& getStream();
 	// -------------------------------------------------------------------------------------------  
 	// Functions called in handlePreSolveOptions()
 	void writeNonHcfs(const PrgDepGraph& graph) const;
+	typedef Potassco::ProgramReader     LemmaReader;
 	typedef SingleOwnerPtr<Output>      OutPtr;
 	typedef SingleOwnerPtr<ClaspFacade> ClaspPtr;
 	typedef SingleOwnerPtr<LemmaLogger> LogPtr;
+	typedef SingleOwnerPtr<LemmaReader> LemmaPtr;
 	ClaspCliConfig  claspConfig_;
 	ClaspAppOptions claspAppOpts_;
 	ClaspPtr        clasp_;
 	OutPtr          out_;
 	LogPtr          logger_;
+	LemmaPtr        lemmaIn_;
 };
 /////////////////////////////////////////////////////////////////////////////////////////
 // clasp application
