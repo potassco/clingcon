@@ -3,6 +3,8 @@ TODO:
    e.g. a<b and b<a, bound propagation has problems with this
  - remove magic numbers
  - add a difference logic propagator
+ - have a drink
 
 KNOWN_BUGS:
  - library for python/lua support is called clingo (not clingcon)
+ - preground incremental programs do not work
