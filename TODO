@@ -1,9 +1,11 @@
 TODO:
+ - Im WIP gibt's jetzt eine Methode LogicProgram::setMaxInputAtom(a),
+   use this after reading the problem before introducing aux atoms to fix problem with preground incremental programs
  - find out whether two linear constraint exclude each other
    e.g. a<b and b<a, bound propagation has problems with this
+   - subset relations like x+y<=7 and x+y <=9 and  x+y+z<=c can maybe be exploited
  - remove magic numbers
  - add a difference logic propagator
- - have a drink
 
 KNOWN_BUGS:
  - library for python/lua support is called clingo (not clingcon)
