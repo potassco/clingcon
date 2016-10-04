@@ -68,7 +68,8 @@ private:
 class LemmaLogger {
 public:
 	struct Options {
-		Options() : lbdMax(UINT32_MAX), domOut(false), logText(false) {}
+		Options() : logMax(UINT32_MAX), lbdMax(UINT32_MAX), domOut(false), logText(false) {}
+		uint32 logMax;  // log at most logMax lemmas
 		uint32 lbdMax;  // only log lemmas with lbd <= lbdMax
 		bool   domOut;  // only log lemmas that can be expressed over out variables
 		bool   logText; // log lemmas in ground lp format
@@ -80,16 +81,18 @@ public:
 	void close();
 private:
 	typedef PodVector<uint32>::type Var2Idx;
+	typedef Atomic_t<uint32>::type Counter;
 	LemmaLogger(const LemmaLogger&);
 	LemmaLogger& operator=(const LemmaLogger&);
-	void formatAspif(const LitVec& cc, uint32 lbd, std::string& out)  const;
-	void formatText(const LitVec& cc, const OutputTable& tab, uint32 lbd, std::string& out) const;
+	void formatAspif(const LitVec& cc, uint32 lbd, ClaspStringBuffer& out)  const;
+	void formatText(const LitVec& cc, const OutputTable& tab, uint32 lbd, ClaspStringBuffer& out) const;
 	FILE*            str_;
 	Potassco::LitVec solver2asp_;
 	Var2Idx          solver2NameIdx_;
 	ProblemType      inputType_;
 	Options          options_;
 	int              step_;
+	Counter          logged_;
 };
 /////////////////////////////////////////////////////////////////////////////////////////
 // clasp specific application options
@@ -112,7 +115,7 @@ struct ClaspAppOptions {
 	char        ifs;       // output field separator
 	bool        hideAux;   // output aux atoms?
 	uint8       quiet[3];  // configure printing of models, optimization values, and call steps
-	bool        onlyPre;   // run preprocessor and exit
+	uint8       onlyPre;   // run preprocessor and exit
 	bool        printPort; // print portfolio and exit
 	enum OutputFormat { out_def = 0, out_comp = 1, out_json = 2, out_none = 3 };
 };
@@ -164,7 +167,7 @@ protected:
 	void printTemplate()                    const;
 	void printDefaultConfigs()              const;
 	void printLibClaspVersion()             const;
-	std::istream& getStream();
+	std::istream& getStream(bool reopen = false) const;
 	// -------------------------------------------------------------------------------------------  
 	// Functions called in handlePreSolveOptions()
 	void writeNonHcfs(const PrgDepGraph& graph) const;
