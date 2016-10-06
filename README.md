@@ -7,7 +7,7 @@ Please consult the following resources for further information:
 
 For more information please visit the project website: 
   
-  http://potassco.sourceforge.net/
+  http://potassco.org/
 
 [![Build Status master](https://badges.herokuapp.com/travis/potassco/clingcon?branch=master&label=master)](https://travis-ci.org/potassco/clingcon?branch=master)
 [![Build Status wip](https://badges.herokuapp.com/travis/potassco/clingcon?branch=wip&label=wip)](https://travis-ci.org/potassco/clingcon?branch=wip)
