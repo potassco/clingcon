@@ -15,8 +15,8 @@ end
 function main(prg)
     on_model = function (m)
         print("theory")
-        print("  positive: " .. tostringTable(m:atoms{theory=true}))
-        print("  negative: " .. tostringTable(m:atoms{theory=true, comp=true}))
+        print("  positive: " .. tostringTable(m:symbols{extra=true}))
+        print("  negative: " .. tostringTable(m:symbols{extra=true, complement=true}))
     end
     prg:ground({{"base", {}}})
     prg:solve(on_model)
