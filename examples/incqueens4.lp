@@ -20,7 +20,7 @@ def main(prg):
      prg.solve()
 #end.
 
-#include "csp.lp".
+#include "../csp.lp".
 #program step(n).
 #external active(n).
 

@@ -23,7 +23,7 @@ function main(prg)
 end
 
 #end.
-#include "csp.lp".
+#include "../csp.lp".
 
 
 {a}.

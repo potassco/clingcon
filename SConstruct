@@ -54,7 +54,7 @@ opts.AddVariables(
     ('WITH_PYTHON'   , 'enable python integration; None, "auto", or library name or path'),
     ('WITH_LUA'      , 'enable lua integration; None, "auto", library name, or path'),
     ('WITH_THREADS'  , 'enable thread support in clasp library; "posix", "windows", or None'),
-    ('TESTS'         , 'enable specific unit tests; [libgringo, libclingo, clingo, libreify, liblp, liborder, libclingcon]'),
+    ('TESTS'         , 'enable specific unit tests; [libgringo, libclingo, clingo, libreify, liblp, liborder, libclingcon, clingcon]'),
     )
 
 env = Environment()
@@ -76,7 +76,7 @@ env['RPATH']          = []
 env['WITH_PYTHON']    = 'auto'
 env['WITH_LUA']       = 'auto'
 env['WITH_THREADS']   = 'posix'
-env['TESTS']          = ['libreify', 'libgringo', 'libclingo', 'liblp', 'clingo', 'liborder', 'libclingcon']
+env['TESTS']          = ['libreify', 'libgringo', 'libclingo', 'liblp', 'clingo', 'liborder', 'libclingcon', 'clingcon']
 
 if GetOption("build_dir") == "static":
     env['CXXFLAGS'] = ['-std=c++11', '-O3', '-Wall']

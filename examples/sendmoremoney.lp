@@ -1,4 +1,4 @@
-#include "csp.lp".
+#include "../csp.lp".
 
 letter(s;e;n;d;m;o;r;y).
 

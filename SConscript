@@ -474,6 +474,7 @@ env.AlwaysBuild(env.Alias('test-clingo', [clingoTestCommand]))
 if "clingo" in env["TESTS"]:
     env.AlwaysBuild(env.Alias('test', [clingoTestCommand]))
 
+
 # {{{1 liborder: Tests
 
 TEST_LIBORDER_SOURCES = find_files(env, 'libcsp/tests/testliborder/src')

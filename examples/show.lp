@@ -3,7 +3,7 @@ import clingo
 from clingo import *
 
 def on_model(m):
-        print ", ".join(map(str, m.atoms(extra=True, shown=True)))
+        print ", ".join(map(str, m.symbols(extra=True, shown=True)))
 
 
 def main(prg):
@@ -11,7 +11,7 @@ def main(prg):
   prg.solve(on_model=on_model)
 #end.
 
-#include "csp.lp".
+#include "../csp.lp".
 &dom{1..10} = x.
 
 {a}.

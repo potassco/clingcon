@@ -19,7 +19,7 @@ def main(prg):
      prg.solve()
 #end.
 
-#include "csp.lp".
+#include "../csp.lp".
 #const max=300.
 #program step(n).
 #external active(n).

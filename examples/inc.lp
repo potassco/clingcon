@@ -27,12 +27,13 @@ def main(prg):
   prg.ground([("test",[10])])
   prg.assign_external(Function("active",[10]),True)
   prg.solve(on_model=on_model)
-###  prg.release_external(Function("active",[10]))
-###
-###  prg.ground([("test",[20])])
-###  prg.assign_external(Function("active",[20]),True)
-###  prg.solve(on_model=on_model)
-#  prg.release_external(Function("active",[20]))
+  prg.release_external(Function("active",[10]))
+  prg.solve(on_model=on_model)
+  prg.ground([("test2",[5])])
+  prg.assign_external(Function("active",[5]),True)
+  prg.solve(on_model=on_model)
+  prg.release_external(Function("active",[5]))
+  prg.solve(on_model=on_model)
 
 #end.
 
@@ -41,7 +42,7 @@ def main(prg):
 
 
 #program base.
-#include "csp.lp".
+#include "../csp.lp".
 &sum{x}>=0.
 &show {x}.
 
@@ -51,9 +52,14 @@ def main(prg):
 #program test(n).
 #external active(n).
 {b}.
-&show{y}. %%% bug, adds UNSAT
+&show{y}.
 &sum{y} < 15.
 :- active(n), not &sum{x} <= n.
-:- not &sum{y;x} <= 5.
 
-
+#program test2(n).
+#external active(n).
+&show{z}.
+:- not &sum{y;x} <= n.
+&distinct{3*x;4*y;z}.
+&dom{0..n}=z.
+&dom{0..n}=w :- active(n).

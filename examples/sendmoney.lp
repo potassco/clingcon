@@ -1,4 +1,4 @@
-#include "csp.lp".
+#include "../csp.lp".
 
 digit(1,3,s).   digit(2,3,m).   digit(sum,4,m).
 digit(1,2,e).	digit(2,2,o).	digit(sum,3,o).
@@ -19,7 +19,6 @@ high(D) :- digit(N,E,D), not digit(N,E+1,_).
 &sum { M*D : digit(N,E,D),   power(M,E), number(N);
       -M*D : digit(sum,E,D), power(M,E)           } = 0.
 
-%&sum { D : high(D) } > 0.
 &sum { D } > 0 :- high(D).
 
 %added distinct for all digits
