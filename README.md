@@ -1,5 +1,5 @@
 Clingcon extends the possibilities of Clingo by (mostly linear) constraints over Integers.
-For the syntax of constraint logic programs please see the examples/ folder.
+For the syntax of constraint logic programs please see the examples folder.
 Use the theory language description file csp.lp to enable constraint parsing.
 Call clingcon --help=2 for further options on constraint processing.
 Please consult the following resources for further information:
