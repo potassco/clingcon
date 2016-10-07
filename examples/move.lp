@@ -1,21 +1,22 @@
 #include "../csp.lp".
 #const end=20.
-step(0..end).
 #const stepsize=7.
+step(0..end).
 
-&sum {at(player,0)} = 0.
+% initial state
+&sum {at(0)} = 0.
 
+% actions
 {move(T)} :- step(T), T > 0.
 
 %effects
-&sum {at(player,V); stepsize} = at(player,T) :- move(T), V = T-1.
+&sum {at(V); stepsize} = at(T) :- move(T), V = T-1.
 
 %frame axiom
-&sum {at(player,V)} = at(player,T)    :- not move(T); step(T); step(V); V = T-1.
+&sum {at(V)} = at(T) :- not move(T); step(T); step(V); V = T-1.
 
-loose :- &sum {at(player,end)} <= 100. 
-:- loose.
+%goals
+:- &sum {at(end)} <= 100. 
 
-&show {at(player,X):step(X)}.
-#show loose/0.
+&show {at(X):step(X)}.
 #show move/1.
