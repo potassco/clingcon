@@ -28,6 +28,7 @@
 #include "clingcon_app.hh"
 #include <clingcon/appsupport.h>
 #include <clingcon/version.h>
+#include "version.h"
 #include <clasp/parser.h>
 #include <climits>
 #include <unistd.h>
@@ -145,10 +146,16 @@ void ClingoApp::printHelp(const ProgramOptions::OptionContext& root) {
 }
 
 void ClingoApp::printVersion() {
+    printf("clingcon version " CLINGCON_VERSION "\n");
     ProgramOptions::Application::printVersion();
     printf("\n");
+    printf("libcsp version " LIBCSP_VERSION "\n");
+    printf("Copyright (C) Max Ostrowski\n");
+    printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
+    printf("libcsp is free software: you are free to change and redistribute it.\n");
+    printf("There is NO WARRANTY, to the extent permitted by law.\n");
+    printf("\n");
     printf("libgringo version " GRINGO_VERSION "\n");
-    printf("libclingcon version " LIBCLINGCON_VERSION "\n");
     printf("Configuration: "
 #ifdef WITH_PYTHON
         "with Python " PY_VERSION
