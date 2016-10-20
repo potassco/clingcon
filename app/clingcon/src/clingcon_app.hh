@@ -23,6 +23,7 @@
 #define _GRINGO_CLINGCONAPP_HH
 
 #include "clasp/clasp_app.h"
+#include "version.h"
 #include <gringo/version.hh>
 #include <clingo/clingocontrol.hh>
 #include <order/config.h>
@@ -36,8 +37,8 @@ class ClingoApp : public Clasp::Cli::ClaspAppBase {
     enum class ConfigUpdate { KEEP, REPLACE };
 public:
     ClingoApp();
-    const char* getName()    const override { return "clingo"; }
-    const char* getVersion() const override { return GRINGO_VERSION; }
+    const char* getName()    const override { return "clingcon"; }
+    const char* getVersion() const override { return CLINGCON_VERSION; }
     const char* getUsage()   const override { return "[number] [options] [files]"; }
 
     void shutdown() override;

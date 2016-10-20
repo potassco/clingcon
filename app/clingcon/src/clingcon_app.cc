@@ -28,7 +28,6 @@
 #include "clingcon_app.hh"
 #include <clingcon/appsupport.h>
 #include <clingcon/version.h>
-#include "version.h"
 #include <clasp/parser.h>
 #include <climits>
 #include <unistd.h>
