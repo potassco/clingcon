@@ -1,6 +1,5 @@
 TODO:
  - make <csp.lp> an internal file
- - clingo version 5.1.0 is written on every startup, maybe change or add clingcon
  - make windows binary
  - find out whether two linear constraint exclude each other
    e.g. a<b and b<a, bound propagation has problems with this
