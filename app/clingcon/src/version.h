@@ -1,6 +1,6 @@
 // {{{ GPL License
 
-// This file is part of clingcon 
+// This file is part of clingcon
 // Copyright (C) 2016  Max Ostrowski
 
 // This program is free software: you can redistribute it and/or modify

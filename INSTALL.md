@@ -1,4 +1,4 @@
-Requirements (copied from clingo)
+Requirements
 ============
 
 - a c++11 conforming compiler
