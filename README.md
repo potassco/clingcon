@@ -16,9 +16,9 @@ Features:
 Call clingcon --help=2 for further options on constraint processing.
 Please consult the following resources for further information:
 
-  - CHANGES:  changes between different releases
-  - INSTALL:  installation instructions and software requirements
-  - examples: a folder with examples each having a focus on certain features
+  - [CHANGES](CHANGES.md):  changes between different releases
+  - [INSTALL](INSTALL.md):  installation instructions and software requirements
+  - [examples](examples/): a folder with examples each having a focus on certain features
 
 For more information please visit the project website: 
   
