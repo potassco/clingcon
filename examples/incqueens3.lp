@@ -26,6 +26,7 @@ def main(prg):
 #external active(n).
 
 pos(n).
+&sum{q(n)} > 0.
 
 % all further rules are only true in the current active step
 &dom{1..n} = q(X) :- pos(X), active(n).

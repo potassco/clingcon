@@ -1,7 +1,4 @@
 TODO:
- - make --strict option public
- - print warning if one of the bounds for csp variable could not be determined and is defaulted,
-   print name of the variable
  - add test s.isChoice() for transformHeadRules, remove these rules and add :- a, not a.
  - make <csp.lp> an internal file
  - make windows binary

@@ -25,6 +25,7 @@ def main(prg):
 #external active(n).
 
 pos(n).
+&sum{q(n)} > 0.
 
 % add a maximum value for this variable,
 %this restricts the encoding to increment only up to this value
