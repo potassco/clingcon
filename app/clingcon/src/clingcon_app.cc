@@ -145,7 +145,7 @@ void ClingoApp::printHelp(const ProgramOptions::OptionContext& root) {
 }
 
 void ClingoApp::printVersion() {
-    printf("clingcon version " CLINGCON_VERSION "\n");
+//    printf("clingcon version " CLINGCON_VERSION "\n");
     ProgramOptions::Application::printVersion();
     printf("\n");
     printf("libcsp version " LIBCSP_VERSION "\n");
