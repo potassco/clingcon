@@ -1,4 +1,9 @@
-3.1.5
+3.2.0
+ - changed default configuration
+   --split-size=-1
+   --distinct-to-card=false
+   --flatten-optimization=true
+   --translate-constraints=10000 
  - simplified incqueens examples
  - fixed bug which prevented multi-shot optimization
 
