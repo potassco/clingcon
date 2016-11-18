@@ -5,7 +5,8 @@
    --flatten-optimization=true
    --translate-constraints=10000 
  - simplified incqueens examples
- - fixed bug which prevented multi-shot optimization
+ - fixed bug which prevented multi-level optimization
+ - fixed bug in equality-preprocessing
 
 3.1.4
  - bugfix for variable size estimation

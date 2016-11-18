@@ -2,14 +2,14 @@ Requirements
 ============
 
 - a c++11 conforming compiler
-    gcc version 5.2 (earlier versions will not work)
+    gcc version 4.9 (earlier versions will not work)
     other compilers might work
-- clingo 5.0.0 sourcecode,
+- clingo 5.x sourcecode,
     to be put into the clingo folder
     if you received this code via git clone, just call
     git submodule init
     git submodule update
-- libcsp 1.0.0 sourcecode,
+- libcsp 1.x sourcecode,
     to be put into the libcsp folder
     if you received this code via git clone, just call
     git submodule init
