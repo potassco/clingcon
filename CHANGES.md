@@ -7,6 +7,7 @@
  - simplified incqueens examples
  - fixed bug which prevented multi-level optimization
  - fixed bug in equality-preprocessing
+ - fixed bug in --flatten-optimization
 
 3.1.4
  - bugfix for variable size estimation
