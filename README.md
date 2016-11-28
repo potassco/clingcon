@@ -19,6 +19,10 @@ Please consult the following resources for further information:
   - [CHANGES](CHANGES.md):  changes between different releases
   - [INSTALL](INSTALL.md):  installation instructions and software requirements
   - [examples](examples/): a folder with examples each having a focus on certain features
+  
+For solving minizinc CSP problems with clingcon
+we provide a [CONVERTER](https://github.com/potassco/fz2aspif).
+
 
 For more information please visit the project website: 
   
