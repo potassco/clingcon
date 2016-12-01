@@ -10,3 +10,5 @@ TODO:
 
 KNOWN_BUGS:
  - library for python/lua support is called clingo (not clingcon)
+ - sometimes variable solutions are printed multiple times,
+   if using var(5) and var(6-1) in the encoding
