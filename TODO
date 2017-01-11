@@ -1,4 +1,5 @@
 TODO:
+ - optimize theoryAtom reader, string handling causes quite some overhead
  - add test s.isChoice() for transformHeadRules, remove these rules and add :- a, not a.
  - make <csp.lp> an internal file
  - make windows binary
@@ -7,8 +8,9 @@ TODO:
    - subset relations like x+y<=7 and x+y <=9 and  x+y+z<=c can maybe be exploited
  - remove magic numbers
  - add a difference logic propagator
+ - on flattening, remove the constraint but preserve printing
 
 KNOWN_BUGS:
  - library for python/lua support is called clingo (not clingcon)
- - sometimes variable solutions are printed multiple times,
+ - sometimes variable assignments are printed multiple times,
    if using var(5) and var(6-1) in the encoding
