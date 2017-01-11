@@ -1,3 +1,5 @@
+3.2.1
+ - bugfix with linear preprocessing
 3.2.0
  - changed default configuration
    --split-size=-1
