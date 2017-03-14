@@ -1,4 +1,4 @@
-// {{{ GPL License 
+// {{{ GPL License
 
 // This file is part of gringo - a grounder for logic programs.
 // Copyright (C) 2013  Benjamin Kaufmann
@@ -19,12 +19,8 @@
 
 // }}}
 
-#ifdef WITH_PYTHON
-#  include <Python.h>
-#endif
-#ifdef WITH_LUA
-#  include <lua.h>
-#endif
+#include <clingo/clingo_app.hh>
+#include <clingo/script.h>
 #include "clingcon_app.hh"
 #include <clingcon/appsupport.h>
 #include <clingcon/version.h>
@@ -34,10 +30,11 @@
 
 using namespace Clasp;
 using namespace Clasp::Cli;
+using namespace Gringo;
 
-// {{{ declaration of ClingoApp
+// {{{ declaration of ClingconApp
 
-ClingoApp::ClingoApp() { }
+ClingconApp::ClingconApp() { }
 
 static bool parseConst(const std::string& str, std::vector<std::string>& out) {
     out.push_back(str);
@@ -49,8 +46,8 @@ static bool parseText(const std::string&, ClingoOptions& out) {
     return true;
 }
 
-void ClingoApp::initOptions(ProgramOptions::OptionContext& root) {
-    using namespace ProgramOptions;
+void ClingconApp::initOptions(Potassco::ProgramOptions::OptionContext& root) {
+    using namespace Potassco::ProgramOptions;
     BaseType::initOptions(root);
     grOpts_.defines.clear();
     grOpts_.verbose = false;
@@ -106,47 +103,48 @@ void ClingoApp::initOptions(ProgramOptions::OptionContext& root) {
     clingcon::Helper::addOptions(root, conf_);
 }
 
-void ClingoApp::validateOptions(const ProgramOptions::OptionContext& root, const ProgramOptions::ParsedOptions& parsed, const ProgramOptions::ParsedValues& vals) {
+void ClingconApp::validateOptions(const Potassco::ProgramOptions::OptionContext& root, const Potassco::ProgramOptions::ParsedOptions& parsed, const Potassco::ProgramOptions::ParsedValues& vals) {
     BaseType::validateOptions(root, parsed, vals);
     if (parsed.count("text") > 0) {
         if (parsed.count("output") > 0) {
             error("'--text' and '--output' are mutually exclusive!");
-            exit(E_NO_RUN);
+            exit(Clasp::Cli::E_NO_RUN);
         }
         if (parsed.count("mode") > 0 && mode_ != mode_gringo) {
             error("'--text' can only be used with '--mode=gringo'!");
-            exit(E_NO_RUN);
+            exit(Clasp::Cli::E_NO_RUN);
         }
         mode_ = mode_gringo;
     }
     if (parsed.count("output") > 0) {
         if (parsed.count("mode") > 0 && mode_ != mode_gringo) {
             error("'--output' can only be used with '--mode=gringo'!");
-            exit(E_NO_RUN);
+            exit(Clasp::Cli::E_NO_RUN);
         }
         mode_ = mode_gringo;
     }
 }
 
-ProblemType ClingoApp::getProblemType() {
-    if (mode_ != mode_clasp) return Problem_t::Asp;
-    return ClaspFacade::detectProblemType(getStream());
+Clasp::ProblemType ClingconApp::getProblemType() {
+    if (mode_ != mode_clasp) return Clasp::Problem_t::Asp;
+    return Clasp::ClaspFacade::detectProblemType(getStream());
 }
-Output* ClingoApp::createOutput(ProblemType f) {
+ClingconApp::ClaspOutput* ClingconApp::createOutput(ProblemType f) {
     if (mode_ == mode_gringo) return 0;
     return BaseType::createOutput(f);
 }
 
-void ClingoApp::printHelp(const ProgramOptions::OptionContext& root) {
+void ClingconApp::printHelp(const Potassco::ProgramOptions::OptionContext& root) {
     BaseType::printHelp(root);
-    printf("\nclingo is part of Potassco: %s\n", "http://potassco.sourceforge.net/#clingo");
-    printf("Get help/report bugs via : http://sourceforge.net/projects/potassco/support\n");
+    printf("\nclingo is part of Potassco: %s\n", "https://potassco.org/clingo");
+    printf("Get help/report bugs via : https://potassco.org/support\n");
     fflush(stdout);
 }
 
-void ClingoApp::printVersion() {
-//    printf("clingcon version " CLINGCON_VERSION "\n");
-    ProgramOptions::Application::printVersion();
+void ClingconApp::printVersion() {
+    char const *py_version = clingo_script_version_(clingo_ast_script_type_python);
+    char const *lua_version = clingo_script_version_(clingo_ast_script_type_lua);
+    Potassco::Application::printVersion();
     printf("\n");
     printf("libcsp version " LIBCSP_VERSION "\n");
     printf("Copyright (C) Max Ostrowski\n");
@@ -154,44 +152,26 @@ void ClingoApp::printVersion() {
     printf("libcsp is free software: you are free to change and redistribute it.\n");
     printf("There is NO WARRANTY, to the extent permitted by law.\n");
     printf("\n");
-    printf("libgringo version " GRINGO_VERSION "\n");
-    printf("Configuration: "
-#ifdef WITH_PYTHON
-        "with Python " PY_VERSION
-#else
-        "without Python"
-#endif
-        ", "
-#ifdef WITH_LUA
-        "with " LUA_RELEASE
-#else
-        "without Lua"
-#endif
-        "\n");
-    printf("Copyright (C) Roland Kaminski\n");
-    printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
-    printf("Gringo is free software: you are free to change and redistribute it.\n");
-    printf("There is NO WARRANTY, to the extent permitted by law.\n");
+    printf("libgringo version " CLINGO_VERSION "\n");
+    printf("Configuration: %s%s, %s%s\n",
+         py_version ? "with Python " : "without Python", py_version ?  py_version : "",
+        lua_version ? "with Lua "    : "without Lua",   lua_version ? lua_version : "");
+    printf("License: MIT\n");
     printf("\n");
     BaseType::printLibClaspVersion();
 }
-bool ClingoApp::onModel(Clasp::Solver const& s, Clasp::Model const& m) {
+bool ClingconApp::onModel(Clasp::Solver const& s, Clasp::Model const& m) {
     bool ret = !grd || grd->onModel(m);
     return BaseType::onModel(s, m) && ret;
 }
-void ClingoApp::shutdown() {
+void ClingconApp::shutdown() {
     // TODO: can be removed in future...
     //       or could be bound differently given the new interface...
-#if WITH_THREADS
-    if (grd) {
-        grd->solveIter_   = nullptr;
-        grd->solveFuture_ = nullptr;
-    }
-#endif
+    if (grd) grd->solveFuture_ = nullptr;
     Clasp::Cli::ClaspAppBase::shutdown();
 }
-void ClingoApp::onEvent(Event const& ev) {
-#if WITH_THREADS
+void ClingconApp::onEvent(Clasp::Event const& ev) {
+#if CLASP_HAS_THREADS
     Clasp::ClaspFacade::StepReady const *r = Clasp::event_cast<Clasp::ClaspFacade::StepReady>(ev);
     if (r && grd) { grd->onFinish(r->summary->result); }
 #endif
@@ -211,7 +191,7 @@ public:
             h_->postRead();
         ClingoControl::postGround(prg);
     }
-    
+
     virtual void prePrepare(Clasp::ClaspFacade& ) override {
         if (h_)
             h_->postEnd(); /// can return false
@@ -255,21 +235,21 @@ private:
 };
 
 }
-void ClingoApp::run(Clasp::ClaspFacade& clasp) {
+void ClingconApp::run(Clasp::ClaspFacade& clasp) {
     try {
         using namespace std::placeholders;
         if (mode_ != mode_clasp) {
             ProblemType     pt  = getProblemType();
-            ProgramBuilder* prg = &clasp.start(claspConfig_, pt);
+            Clasp::ProgramBuilder* prg = &clasp.start(claspConfig_, pt);
             grOpts_.verbose = verbose() == UINT_MAX;
-            Asp::LogicProgram* lp = mode_ != mode_gringo ? static_cast<Asp::LogicProgram*>(prg) : nullptr;
+            Clasp::Asp::LogicProgram* lp = mode_ != mode_gringo ? static_cast<Clasp::Asp::LogicProgram*>(prg) : nullptr;
             std::unique_ptr<clingcon::Helper> cspapp;
             if (lp) {
                 cspapp.reset(new clingcon::Helper(clasp.ctx,claspConfig_,lp,conf_));
             }
-            grd = Gringo::gringo_make_unique<ClingconControl>(module.scripts, mode_ == mode_clingo, clasp_.get(), claspConfig_,
-                                                            std::bind(&ClingoApp::handlePostGroundOptions, this, _1),
-                                                            std::bind(&ClingoApp::handlePreSolveOptions, this, _1),
+            grd = Gringo::gringo_make_unique<ClingconControl>(g_scripts(), mode_ == mode_clingo, clasp_.get(), claspConfig_,
+                                                            std::bind(&ClingconApp::handlePostGroundOptions, this, _1),
+                                                            std::bind(&ClingconApp::handlePreSolveOptions, this, _1),
                                                             nullptr, 20, cspapp.get());
             grd->parse(claspAppOpts_.input, grOpts_, lp);
             grd->main();

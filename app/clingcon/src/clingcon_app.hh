@@ -1,4 +1,4 @@
-// {{{ GPL License 
+// {{{ GPL License
 
 // This file is part of gringo - a grounder for logic programs.
 // Copyright (C) 2013  Benjamin Kaufmann
@@ -19,24 +19,22 @@
 
 // }}}
 
-#ifndef _GRINGO_CLINGCONAPP_HH
-#define _GRINGO_CLINGCONAPP_HH
+#ifndef CLINGO_CLINGCONAPP_HH
+#define CLINGO_CLINGCONAPP_HH
 
-#include "clasp/clasp_app.h"
 #include "version.h"
-#include <gringo/version.hh>
+#include <clasp_app.h>
 #include <clingo/clingocontrol.hh>
 #include <order/config.h>
 
 // Standalone clingo application.
-class ClingoApp : public Clasp::Cli::ClaspAppBase {
-    using StringVec   = std::vector<std::string>;
-    using Output      = Clasp::Cli::Output;
+class ClingconApp : public Clasp::Cli::ClaspAppBase {
+    using ClaspOutput = Clasp::Cli::Output;
     using ProblemType = Clasp::ProblemType;
     using BaseType    = Clasp::Cli::ClaspAppBase;
     enum class ConfigUpdate { KEEP, REPLACE };
 public:
-    ClingoApp();
+    ClingconApp();
     const char* getName()    const override { return "clingcon"; }
     const char* getVersion() const override { return CLINGCON_VERSION; }
     const char* getUsage()   const override { return "[number] [options] [files]"; }
@@ -44,13 +42,13 @@ public:
     void shutdown() override;
 protected:
     enum Mode { mode_clingo = 0, mode_clasp = 1, mode_gringo = 2 };
-    void        initOptions(ProgramOptions::OptionContext& root) override;
-    void        validateOptions(const ProgramOptions::OptionContext& root, const ProgramOptions::ParsedOptions& parsed, const ProgramOptions::ParsedValues& vals) override;
+    void        initOptions(Potassco::ProgramOptions::OptionContext& root) override;
+    void        validateOptions(const Potassco::ProgramOptions::OptionContext& root, const Potassco::ProgramOptions::ParsedOptions& parsed, const Potassco::ProgramOptions::ParsedValues& vals) override;
 
     ProblemType getProblemType() override;
     void        run(Clasp::ClaspFacade& clasp) override;
-    Output*     createOutput(ProblemType f) override;
-    void        printHelp(const ProgramOptions::OptionContext& root) override;
+    ClaspOutput* createOutput(ProblemType f) override;
+    void        printHelp(const Potassco::ProgramOptions::OptionContext& root) override;
     void        printVersion() override;
 
     // -------------------------------------------------------------------------------------------
@@ -59,13 +57,12 @@ protected:
     bool onModel(const Clasp::Solver& s, const Clasp::Model& m) override;
     // -------------------------------------------------------------------------------------------
 private:
-    ClingoApp(const ClingoApp&);
-    ClingoApp& operator=(const ClingoApp&);
-    ClingoOptions grOpts_;
+    ClingconApp(const ClingconApp&);
+    ClingconApp& operator=(const ClingconApp&);
+    Gringo::ClingoOptions grOpts_;
     Mode mode_;
-    DefaultGringoModule module;
-    std::unique_ptr<ClingoControl> grd;
+    std::unique_ptr<Gringo::ClingoControl> grd;
     order::Config conf_;
 };
 
-#endif // _GRINGO_CLINGCONAPP_HH
+#endif // CLINGO_CLINGCONAPP_HH

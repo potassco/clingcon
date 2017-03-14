@@ -21,7 +21,7 @@
 #include "clingcon_app.hh"
 
 int main(int argc, char** argv) {
-    ClingoApp app;
+    ClingconApp app;
     return app.main(argc, argv);
 }
 
