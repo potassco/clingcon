@@ -13,10 +13,14 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 include(CMakeDependentOption)
-#list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+#list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/clingo/cmake")
 
 # Enable folders in IDEs like Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+
+option(CLINGCON_BUILD_TESTS       "build tests"                   OFF)
+option(CLINGCON_BUILD_APPS        "build applications"            ON)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,23 +48,20 @@ enable_testing()
 
 # NOTE: assumes that submodule has been initialized
 set(clingcon_library_targets libclingo libgringo libpotassco libclasp libreify libopts liblp liborder libclingcon)
-#set(CLASP_BUILD_APP ${CLINGO_BUILD_APPS} CACHE BOOL "")
-#add_subdirectory(clasp)
-#add_subdirectory(libreify)
-#add_subdirectory(libgringo)
-#add_subdirectory(libclingo)
 
-set(CLINGO_BUILD_STATIC ON)
+set(CLINGO_BUILD_STATIC ON CACHE BOOL "need to build static")
+set(CLINGO_BUILD_APPS OFF CACHE BOOL "no other apps")
+set(CLASP_BUILD_TEST OFF CACHE BOOL "no clasp tests")
 add_subdirectory(clingo)
 add_subdirectory(libcsp)
 
-if (CLINGO_BUILD_APPS)
+#set(CLINGO_BUILD_STATIC ON)
+#set(CLINGO_BUILD_APPS OFF)
+#set(CLASP_BUILD_TEST OFF)
+if (CLINGCON_BUILD_APPS)
     add_subdirectory(app/clingcon)
 endif()
-#if (CLINGO_BUILD_EXAMPLES)
-#    add_subdirectory(examples/c)
-#    add_subdirectory(examples/cc)
-#endif()
+
 if (NOT CLINGO_BUILD_STATIC AND (CLINGO_BUILD_SHARED OR PYTHONLIBS_FOUND OR LUA_FOUND))
     foreach(target ${clingo_library_targets})
         set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
