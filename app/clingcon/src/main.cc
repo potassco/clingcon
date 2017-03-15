@@ -20,7 +20,29 @@
 
 #include "clingcon_app.hh"
 
+#ifdef CLINGO_WITH_PYTHON
+#   include <pyclingo.h>
+#endif
+#ifdef CLINGO_WITH_LUA
+#   include <luaclingo.h>
+#endif
+
+#include <clingo.h>
+#include <iostream>
+
 int main(int argc, char** argv) {
+#   ifdef CLINGO_WITH_PYTHON
+    if (!clingo_register_python_()) {
+        std::cerr << clingo_error_message() << std::endl;
+        return 1;
+    }
+#   endif
+#   ifdef CLINGO_WITH_LUA
+    if (!clingo_register_lua_(nullptr)) {
+        std::cerr << clingo_error_message() << std::endl;
+        return 1;
+    }
+#   endif
     ClingconApp app;
     return app.main(argc, argv);
 }
