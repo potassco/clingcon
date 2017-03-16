@@ -1,5 +1,6 @@
 3.3.0
  - updated to clingo-5.2.0 refactor-solve branch
+ - changed --flatten-optimization default to false
 3.2.1
  - bugfix with linear preprocessing
 3.2.0
