@@ -7,13 +7,11 @@ Requirements
 - clingo 5.x sourcecode,
     to be put into the clingo folder
     if you received this code via git clone, just call
-    git submodule init
-    git submodule update
+    git submodule update --init --recursive
 - libcsp 1.x sourcecode,
     to be put into the libcsp folder
     if you received this code via git clone, just call
-    git submodule init
-    git submodule update
+    git submodule update --init --recursive
 - the bison parser generator
     version 3.0 is tested (produces warnings to stay backwards-compatible)
     version 2.5 and newer should work (earlier versions will not work)
