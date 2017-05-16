@@ -1,5 +1,7 @@
 3.3.0
- - updated to clingo-5.2.0 refactor-solve branch
+ - updated to clingo-5.2.0 release
+ - switched to MIT license
+ - switched build system from scons to cmake
  - changed --flatten-optimization default to false
  - changed --permutation-optimization to --distinct-permutation
  - changed --pidgeon-optimization to --distinct-pigeon
@@ -7,6 +9,7 @@
  - changed --strict to --dont-care-propagation with opposing meaning
  - changed --sort-descend-coef to --sort-descend-coefficient
  - changed --sort-descend-dom to --sort-descend-domain
+ - bugfix with equality processing and incremental grounding
 
 3.2.1
  - bugfix with linear preprocessing

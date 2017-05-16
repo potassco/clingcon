@@ -34,6 +34,8 @@
 #include <clingo.h>
 #include <iostream>
 
+extern "C" CLINGO_VISIBILITY_DEFAULT int clingcon_main_(int argc, char *argv[]);
+
 int main(int argc, char** argv) {
 #   ifdef CLINGO_WITH_PYTHON
     if (!clingo_register_python_()) {
@@ -47,7 +49,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 #   endif
-    ClingconApp app;
-    return app.main(argc, argv);
+    return clingcon_main_(argc, argv);
 }
 
