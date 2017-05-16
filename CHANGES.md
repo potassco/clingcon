@@ -3,6 +3,10 @@
  - changed --flatten-optimization default to false
  - changed --permutation-optimization to --distinct-permutation
  - changed --pidgeon-optimization to --distinct-pigeon
+ - changed --domain-size to --domain-propagation
+ - changed --strict to --dont-care-propagation with opposing meaning
+ - changed --sort-descend-coef to --sort-descend-coefficient
+ - changed --sort-descend-dom to --sort-descend-domain
 
 3.2.1
  - bugfix with linear preprocessing
