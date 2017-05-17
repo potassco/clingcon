@@ -1,5 +1,6 @@
 3.3.0
  - updated to clingo-5.2.0 release
+ - support for #include <csp>.
  - switched to MIT license
  - switched build system from scons to cmake
  - changed --flatten-optimization default to false

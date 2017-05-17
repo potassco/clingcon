@@ -19,13 +19,15 @@ include(CMakeDependentOption)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 
-option(CLINGCON_BUILD_TESTS       "build tests"                   OFF)
-option(CLINGCON_BUILD_APPS        "build applications"            ON)
-option(CLINGCON_MANAGE_RPATH      "set rpath if not installed into system directory" ON)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+
+option(CLINGCON_BUILD_TESTS       "build tests"                   OFF)
+
+option(CLINGCON_BUILD_APPS        "build applications"             ON)
 
 if (NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -56,20 +58,13 @@ set(CLASP_BUILD_TEST OFF CACHE BOOL "no clasp tests")
 add_subdirectory(clingo)
 add_subdirectory(libcsp)
 
-#set(CLINGO_BUILD_STATIC ON)
-#set(CLINGO_BUILD_APPS OFF)
-#set(CLASP_BUILD_TEST OFF)
-
-if (CLINGCON_MANAGE_RPATH)
-    set(CLINGO_MANAGE_RPATH ON)
-endif()
 if (CLINGCON_BUILD_APPS)
     add_subdirectory(app/clingcon)
 endif()
 
-if (NOT CLINGO_BUILD_STATIC AND (CLINGO_BUILD_SHARED OR PYTHONLIBS_FOUND OR LUA_FOUND))
-    foreach(target ${clingo_library_targets})
-        set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    endforeach()
-endif()
+#if (NOT CLINGO_BUILD_STATIC AND (CLINGO_BUILD_SHARED OR PYTHONLIBS_FOUND OR LUA_FOUND))
+#    foreach(target ${clingo_library_targets})
+#        set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+#    endforeach()
+#endif()
 

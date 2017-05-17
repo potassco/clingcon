@@ -1,4 +1,4 @@
-#include "../csp.lp".
+#include <csp>.
 
 digit(1,3,s).   digit(2,3,m).   digit(sum,4,m).
 digit(1,2,e).	digit(2,2,o).	digit(sum,3,o).

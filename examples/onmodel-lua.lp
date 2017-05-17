@@ -19,11 +19,11 @@ function main(prg)
         print("  negative: " .. tostringTable(m:symbols{extra=true, complement=true}))
     end
     prg:ground({{"base", {}}})
-    prg:solve(on_model)
+    prg:solve{on_model=on_model}
 end
 
 #end.
-#include "../csp.lp".
+#include <csp>.
 
 
 {a}.

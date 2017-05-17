@@ -42,7 +42,7 @@ def main(prg):
 
 
 #program base.
-#include "../csp.lp".
+#include <csp>.
 &sum{x}>=0.
 &show {x}.
 

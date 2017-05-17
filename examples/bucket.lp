@@ -11,7 +11,7 @@ def main(prg):
      prg.solve()
 #end.
 
-#include "../csp.lp".
+#include <csp>.
 sides(l;r).
 &show{add/2}.
 &show{bucket/2}.

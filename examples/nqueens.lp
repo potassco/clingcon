@@ -1,4 +1,4 @@
-#include "../csp.lp".
+#include <csp>.
 #const n = 10.
 
 pos(1..n).
