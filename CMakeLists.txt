@@ -21,6 +21,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 option(CLINGCON_BUILD_TESTS       "build tests"                   OFF)
 option(CLINGCON_BUILD_APPS        "build applications"            ON)
+option(CLINGCON_MANAGE_RPATH      "set rpath if not installed into system directory" ON)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,6 +59,10 @@ add_subdirectory(libcsp)
 #set(CLINGO_BUILD_STATIC ON)
 #set(CLINGO_BUILD_APPS OFF)
 #set(CLASP_BUILD_TEST OFF)
+
+if (CLINGCON_MANAGE_RPATH)
+    set(CLINGO_MANAGE_RPATH ON)
+endif()
 if (CLINGCON_BUILD_APPS)
     add_subdirectory(app/clingcon)
 endif()

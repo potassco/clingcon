@@ -1,193 +1,173 @@
-Requirements
-============
+# Table of Contents
 
-- a c++11 conforming compiler
-    gcc version 4.9 (earlier versions will not work)
-    other compilers might work
-- clingo 5.x sourcecode,
-    to be put into the clingo folder
-    if you received this code via git clone, just call
+- [Requirements](#requirements)
+  - [Development Dependencies](#development-dependencies)
+  - [Optional Dependencies](#optional-dependencies)
+- [Build, Install, and Test](#build-install-and-test)
+  - [Build Options](#build-options)
+    - [Generic Options](#generic-options)
+    - [Python Support](#python-support)
+    - [Lua Support](#lua-support)
+- [Troubleshooting](#troubleshooting)
+  - [Notes for Windows Users](#notes-for-windows-users)
+
+# Requirements
+
+- a c++14 conforming compiler
+  - *at least* [gcc](https://gcc.gnu.org/) version 4.9
+  - [clang](http://clang.llvm.org/) version 3.1 (using either libstdc++
+    provided by gcc 4.9 or libc++)
+  - *at least* msvc++ 14.0 ([Visual Studio](https://www.visualstudio.com/) 2015
+    Update 3)
+  - other compilers might work
+- the [cmake](https://www.cmake.org/) build system
+  - at least version 3.3 is recommended
+  - at least version 3.1 is *required*
+
+## Development Dependencies
+
+- the [clingo](https://github.com/potassco/clingo/releases/) sourcecode
+  - version 5.2 or higher
+  - when cloning clingcon via the git repository,
+    the source can be obtained by  using
     git submodule update --init --recursive
-- libcsp 1.x sourcecode,
-    to be put into the libcsp folder
-    if you received this code via git clone, just call
+- the [bison](https://www.gnu.org/software/bison/) parser generator
+  - *at least* version 2.5
+  - version 3.0 produces harmless warnings
+    (to stay backwards-compatible)
+- the [re2c]() lexer generator
+  - version 0.15.3 is used for development
+  - the earliest tested version is 0.13.5
+
+## Optional Dependencies
+
+- the [Python](https://www.python.org/) script language
+  - version 2.7 is tested
+- the [Lua](https://www.lua.org/) script language
+  - version 5.1 is used for development
+  - version 5.2 and 5.3 should work
+
+# Build, Install, and Test
+
+When cloning the git repository, do not forget to update the submodules (with
+source releases, you can skip this step):
+
     git submodule update --init --recursive
-- the bison parser generator
-    version 3.0 is tested (produces warnings to stay backwards-compatible)
-    version 2.5 and newer should work (earlier versions will not work)
-- the re2c lexer generator
-    version 0.13.5 is tested
-    newer versions should work
-- the scons build system
-    version 2.2 is tested
-    version 2.1 and newer should work
 
-Optional Dependencies
----------------------
-
-- the python script language (optional)
-    version 2.7 is tested
-- the lua script language (optional)
-    version 5.1 is tested
-    version 5.2 should work
-
-Compilation
-===========
-
-To build clingcon in the default configurations in release
+To build clingcon in its default configuration in release
 mode, run:
-    scons --build-dir=release
 
-There is no installation target.
-You can find the binaries/libraries in the build/release folder:
-    build/release/clingcon
+    cmake -H<SOURCE_DIR> -B<BUILD_DIR> -DCMAKE_BUILD_TYPE=Release
+    cmake --build <BUILD_DIR>
 
-For enabling lua/python/threading support, please see the Enabling Scripting
-Support Section.
+The resulting binaries and shared libraries will be in `<BUILD_DIR>/bin` and
+are ready to use.
 
-Troubleshooting
----------------
+To install all binaries and development files under cmake's install
+prefix (see the [build options](#build-options)), run:
 
-If configuration fails, always inspect the build log, e.g.:
-    build/release.log
+    cmake --build <BUILD_DIR> --target install
 
-It contains all the compiler invocations performed when testing the
-configuration, along with generated error messages.  Typically, this makes it
-very easy to fix the problem.
+To run the tests, enable option `CLINGCON_BUILD_TESTS` (see [build
+options](#build-options)) and run:
 
+    cmake --build <BUILD_DIR> --target test
 
-Build Options
-=============
+## Build Options
 
 To get an overview over the variables that can be set for building
-gringo/clingo, please run:
-    scons --help
+clingcon run `cmake -B <BUILD_DIR> -LH` or `cmake -B <BUILD_DIR> -LAH`. The latter also prints important
+cmake specific configuration variables. Options and variables can be passed to
+cmake on the command line using `-D<VARIABLE>=<VALUE>` or by editing
+`<BUILD_DIR>/CMakeCache.txt` after running cmake.
 
-You can edit build/release.py to edit these values. Make sure to generate the
-file beforehand:
-    scons configure --build-dir=release
+The build scripts by default try to detect optional dependencies, like Python
+and Lua scripting support.
 
-The scons scripts try to automatically find libraries using python-config and
-pkg-config.  Relevant parts of the configuration are:
-    $ grep "PYTHON_CONFIG\|PKG_CONFIG" build/release.py
-    PYTHON_CONFIG = None
-    PKG_CONFIG = 'pkg-config'
+Clingcon uses [clingo](https://github.com/potassco/clingo/)
+which again uses [libpotassco](https://github.com/potassco/libpotassco) and
+[clasp](https://github.com/potassco/potassco).  All components have their own
+sets of configuration variables:
+- [building clingo](https://github.com/potassco/clingo/blob/master/INSTALL.md)
+- [building libpotassco](https://github.com/potassco/libpotassco#installation)
+- [building clasp](https://github.com/potassco/clasp#building--installing)
 
-By default python-config is used to obtain compile and link flags for building
-with python.  This can be disabled by setting PYTHON_CONFIG to None to always
-use pkg-config.
+In the following, the most important options to control the build are listed.
 
+### Generic Options
 
-Enabling Scripting Support
---------------------------
+- Variable `CMAKE_BUILD_TYPE` should be set to `release`.
+- Variable `CMAKE_INSTALL_PREFIX` controls where to install clingcon.
+- Option `CLINGO_BUILD_APPS` controls whether to build the application clingcon
+  (Default: `ON`)
+- Option `CLINGCON_BUILD_TESTS` controls whether to build the clingcon tests and
+  enable the test target running unit as well as acceptance tests.
+  (Default: `OFF`)
+- Option `CLINGCON_MANAGE_RPATH` controls how to find libraries on platforms
+  where this is supported, like Linux, macOS, or BSD but not Windows. This
+  option should be enabled if clingo is installed in a non-default location,
+  like the users home directory; otherwise it has no effect.
+  (Default: `ON`)
 
-By default the build script tries to automatically detect available libraries
-on the system and sets the configuration accordingly.  If detection fails, you
-have to set the respective library names and (typically) the paths to the
-includes. The relevant portions of the configuration file are:
-    $ grep "CPPPATH\|WITH_PYTHON\|WITH_LUA" build/release.py
-    CPPPATH     = ['/usr/include/python2.7', '/usr/include/lua5.1']
-    WITH_PYTHON = 'python2.7'
-    WITH_LUA    = 'lua5.1'
+### Python Support
 
-Make sure to match the version numbers above with what is installed on your
-system.  Depending on your system further paths might have to be adjusted -
-e.g., LIBPATH if libraries are installed in non-default locations.
+With the default configuration, Python support will be auto-detected if the
+Python development packages are installed.
 
-Enabling Threading
-------------------
+- Option `CLINGO_BUILD_WITH_PYTHON` can be used to enable or disable Python
+  support.
+  (Default: `ON`)
+- If option `CLINGO_REQUIRE_PYTHON` is enabled, configuration will fail if no
+  Python support is detected; otherwise, Python support will simply be disabled
+  if not detected.
+  (Default: `OFF`)
+- If option `PYCLINGO_USER_INSTALL` is enabled, the clingo Python module is
+  installed in the users home directory; otherwise it is installed in the
+  system's Python library directory.
+  (Default: `ON`)
+- Variable `PYCLINGO_INSTALL_DIR` can be used to customize where to install the
+  python module.
+  (Default: automatically detected)
 
-By default multi-threading is enabled using posix threads.  The relevant part
-in the configuration is:
-    $ grep "WITH_THREADS" build/release.py
-    WITH_THREADS = 'posix'
+### Lua Support
 
-Depending on your system further paths might have to be adjusted - e.g.,
-CPPPATH, LIBPATH if the library is installed in a non-default location.
+With the default configuration, Lua support will be auto-detected if the Lua
+development packages are installed.
 
+- Option `CLINGO_BUILD_WITH_LUA` can be used to enable or disable Lua support.
+  (Default: `ON`)
+- If option `CLINGO_REQUIRE_LUA` is enabled, configuration will fail if no Lua
+  support is detected; otherwise, Lua support will simply be disabled if not
+  detected. (Default: `OFF`)
+- If variable `LUACLINGO_INSTALL_DIR` is set, the clingo lua module will be
+  installed there.
+  (Default: not set)
 
-Testing
-=======
+# Troubleshooting
 
-The test target can be used to run unit and acceptance tests:
-    $ scons --build-dir=release test
+After installing the required packages clingo should compile on most \*nixes.
+If a dependency is missing or a software version too old, then there are
+typically community repositories that provide the necessary packages. To list a
+few:
+- the [ToolChain](https://wiki.ubuntu.com/ToolChain) repository for Ubuntu
+  14.04 and earlier (later versions should include all required packages)
+- the [Developer
+  Toolset](https://wiki.centos.org/SpecialInterestGroup/SCLo/CollectionsList)
+  for CentOS
+- the [Cygwin](http://cygwin.org) project under Windows (re2c must be compiled
+  by hand)
+- both [Homebrew](https://brew.sh/) and [MacPorts](https://www.macports.org/)
+  provide all the software necessary to compile clingo
 
-Notes for Windows Users
-=======================
+And, well, you can compile a recent gcc version yourself. Even on ancient Linux
+systems. ;)
 
-With a few tweaks gringo/clingo can be compiled using the Mingw-w64 compiler.
-The binaries on Sourceforge have been compiled with a Mingw-w64 based
-cross-compiler.
+## Notes for Windows Users
 
-Additionally, gringo can be compiled under Windows using cygwin.  All
-additional software is available via cygwin and cygwinports.  I cannot test
-this myself because I do not have a Windows installation.  You might encounter
-problems.  Patches to improve compatibility are welcome.
-
-Note that I had problems with cygwin's bison and had to resort to another bison
-port (for some reason I had to delete the last line of the generated parser):
-    win flex-bison
-
-Relevant parts of the configuration:
-$ grep "CXX\|CPPPATH\|WITH_PYTHON\|WITH_LUA" build/release.py
-CXX          = 'g++'
-CPPPATH      = ['/usr/include/python2.7']
-WITH_PYTHON  = 'python2.7.dll'
-WITH_LUA     = 'lua.dll'
-
-
-Notes for Mac Users
-===================
-
-gringo/clingo has successfully been built using software provided by macports.
-
-This are the relevant installed packages:
-    $ port installed \
-        | grep "lua\|clang-3.3\|bison\|re2c\|scons\| python27" \
-        | grep active
-    bison @2.7.1_0+universal (active)
-    clang-3.3 @3.3_1+analyzer+python27+universal (active)
-    python27 @2.7.5_1+universal (active)
-    lua @5.2.2_1+universal (active)
-    re2c @0.13.5_0 (active)
-    scons @2.3.0_0 (active)
-
-Relevant parts of the configuration:
-    $ grep "CXX\|CPPPATH\|WITH_PYTHON\|WITH_LUA\|LIBPATH\|WITH_THREADS\|BISON\|RE2C" build/release.py
-    CXX          = '/opt/local/bin/clang++-mp-3.3'
-    CPPPATH      = ['/opt/local/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7', '/opt/local/include']
-    LIBPATH      = ['/opt/local/lib']
-    BISON        = '/opt/local/bin/bison'
-    RE2C         = '/opt/local/bin/re2c'
-    WITH_PYTHON  = 'python2.7'
-    WITH_LUA     = 'lua'
-    WITH_THREADS = 'posix'
-
-Note that the clang and python versions provided by the latest Xcode release
-can be used to compile gringo/clingo.  The binaries provided on the sourceforge
-page are built using these.
-
-
-Links
-=====
-
-http://clang.llvm.org/
-http://cygwin.com/
-http://cygwinports.com/
-http://gcc.gnu.org/
-http://libcxx.llvm.org/
-http://llvm.org/
-http://mingw-w64.sourceforge.net/
-http://potassco.sourceforge.net/
-http://potassco.sourceforge.net/clingo.html
-https://github.com/potassco/
-https://github.com/potassco/clingo
-http://re2c.org/
-https://github.com/philsquared/Catch
-http://sourceforge.net/projects/winflexbison/
-http://virtualenv.pypa.io
-http://www.gnu.org/software/bison/
-http://www.lua.org/
-http://www.macports.org/
-http://www.python.org/
-http://www.scons.org/
+clingo can be compiled using the
+[Mingw-w64](https://mingw-w64.sourceforge.net/) compiler, the Cygwin project,
+or Visual Studio 2015 Update 3. For development,
+[bison](http://cs.uni-potsdam.de/~kaminski/win_flex_bison-latest.zip) from the
+[Win flex-bison](https://sourceforge.net/projects/winflexbison/) project and a
+self compiled [re2c](http://cs.uni-potsdam.de/~kaminski/re2c.exe) executable
+can be used.
