@@ -22,7 +22,7 @@ target_include_directories(clingcon
     "$<BUILD_INTERFACE:${CLASP_SOURCE_DIR}/app>"
     "$<BUILD_INTERFACE:${CLINGO_SOURCE_DIR}/libgringo>")
 
-target_link_libraries(clingcon PUBLIC libclingo libgringo libpyclingo libluaclingo libclingcon)
+target_link_libraries(clingcon PUBLIC libclingo libgringo libclingcon)
 set_target_properties(clingcon PROPERTIES FOLDER exe)
 
 install(TARGETS clingcon RUNTIME DESTINATION bin)
