@@ -1,5 +1,6 @@
 3.3.0
  - updated to clingo-5.2.0 release
+  - python and lua support is disabled for this version
  - support for #include <csp>.
  - switched to MIT license
  - switched build system from scons to cmake

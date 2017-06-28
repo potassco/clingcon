@@ -55,6 +55,8 @@ set(clingcon_library_targets libclingo libgringo libpotassco libclasp libreify l
 set(CLINGO_BUILD_STATIC ON CACHE BOOL "need to build static")
 set(CLINGO_BUILD_APPS OFF CACHE BOOL "no other apps")
 set(CLASP_BUILD_TEST OFF CACHE BOOL "no clasp tests")
+set(CLINGO_BUILD_WITH_PYTHON OFF CACHE BOOL "no python support - use version 3.2.1")
+set(CLINGO_BUILD_WITH_LUA OFF CACHE BOOL "no lua support - use version 3.2.1")
 add_subdirectory(clingo)
 add_subdirectory(libcsp)
 

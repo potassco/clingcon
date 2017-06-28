@@ -7,11 +7,12 @@ Features:
  * based on clingo 5.x and libcsp 1.x
  * lazy nogood generation based on the order encoding
  * lazy variable generation allows for huge domains
- * supports multi-shot solving
+ * supports multi-shot solving (currently only <incmode> supported
  * supports optimization
  * no blackbox csp libraries used
  * uses gringo-5.x theory language interface, please include "csp.lp"
  * use --help=2 to find specific options for constraint solving 
+ * python and lua support is disabled for this version
 
 Call clingcon --help=2 for further options on constraint processing.
 Please consult the following resources for further information:
