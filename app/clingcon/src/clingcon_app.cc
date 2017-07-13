@@ -29,7 +29,6 @@
 #include <clingcon/version.h>
 #include <clasp/parser.h>
 #include <climits>
-#include <unistd.h>
 
 using namespace Clasp;
 using namespace Clasp::Cli;
@@ -225,7 +224,7 @@ public:
 
 private:
 
-    Gringo::Symbol convert(const char* name, int32 value)
+    Gringo::Symbol convert(const char* name, order::int32 value)
     {
         ///TODO: it would be better if i would return a function symbol instead of a string name
         /// for gringo: actually this function symbol exists already in gringo ?
