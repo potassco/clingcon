@@ -34,6 +34,8 @@
 #include <iomanip>
 #include <cstdlib>
 
+#include "clingcon/theoryparser.h"
+
 //#define CROSSCHECK
 #define CHECKSOLUTION
 
@@ -67,14 +69,6 @@ inline T numeric_cast(S s) {
     ::Detail::nc_check<T>(s, ::Detail::int_type<sv>());
     return static_cast<T>(s);
 }
-
-template <typename T>
-struct Edge {
-    int from;
-    int to;
-    T weight;
-    literal_t lit;
-};
 
 template <class K, class V>
 std::ostream &operator<<(std::ostream &out, std::unordered_map<K, V> const &map);
