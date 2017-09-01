@@ -1,0 +1,14 @@
+What is the exact relation between grounding atoms/literals and solver literals (n to 1 I assume)
+
+- shouldn't I always use solver literals ?
+- how to create new ASPIF rules (backend) with solver literals?
+- I assume that grounding atoms/literals and solver literals share the same DataType but are actually different
+- use C++ API clingo.hh
+
+First I need to do grounding.
+Than I can access the backend, to modify the ground program.
+I can access the theoryAtoms via Clingo::Control::theory_atoms()
+Then I need to modify the program/do completion, add new theory atoms via the backend.
+I have to do this outside the propagator (at least not during the init call)
+
+

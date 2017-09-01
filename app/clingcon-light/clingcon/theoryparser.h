@@ -23,10 +23,10 @@
 // }}}
 
 #pragma once
-#include <clingcon/solver.h>
-#include <order/normalizer.h>
+#include "clingcon/solver.h"
+#include "clingcon/normalizer.h"
 #include <potassco/theory_data.h>
-#include <order/constraint.h>
+#include "clingcon/constraint.h"
 #include <unordered_map>
 #include <sstream>
 
