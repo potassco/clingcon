@@ -38,7 +38,7 @@
 #include <cmath>
 
 
-namespace order
+namespace clingcon
 {
 
 struct ReifiedLinearConstraint;
@@ -54,16 +54,14 @@ class orderStorage
 {
 public:
     friend pure_LELiteral_iterator;
-    using vector = LitVec;
     using map = std::map<unsigned int, Literal>;
 private:
     enum store : unsigned int {hasvector=1, hasmap=2};
     unsigned int store_;
-    /// \brief vector
+    /// \brief
     /// we may have a vector and/or a map (non-exclusive or but at least one)
     ///
-    vector vector_;
-    //std::unique_ptr<std::unordered_map<unsigned int,Literal>> hashMap;
+    LitVec vector_;
     map map_;
     unsigned int maxSize_;
 public:
@@ -81,18 +79,17 @@ public:
         if (hasMap())
             return map_.size();
         Literal l(0,false);
-        l.flag();
         if (hasVector())
-            return std::count_if(vector_.begin(),vector_.end(),[&l](const Literal& in){ return in.asUint()!=l.asUint();});
+            return std::count_if(vector_.begin(),vector_.end(),[&l](const Literal& in){ return in != l;});
 
         return 0;
     }
 
     bool isPrepared() const { return (hasMap() || hasVector()) && maxSize_>0 && store_>0; }
     //pre: hasVector
-    vector& getVector() { assert(isPrepared()); return vector_; }
+    LitVec& getVector() { assert(isPrepared()); return vector_; }
     //pre: hasVector
-    const vector& getVector() const { assert(isPrepared()); return vector_; }
+    const LitVec& getVector() const { assert(isPrepared()); return vector_; }
     //pre: hasMap
     map& getMap() { assert(isPrepared()); return map_; }
     //pre: hasMap
@@ -106,7 +103,6 @@ public:
         if (hasVector())
         {
             Literal l(0,false);
-            l.flag();
             vector_.resize(maxSize_,l);
         }
     }
@@ -116,7 +112,7 @@ public:
         assert(isPrepared());
         assert(index < maxSize_);
         if (store_ & hasvector)
-            return vector_[index].flagged();
+            return vector_[index] == Literal(0,false);
         else
             return map_.find(index) == map_.end();
     }
@@ -124,8 +120,10 @@ public:
     void setLiteral(unsigned int index, const Literal &l)
     {
         assert(isPrepared());
+        assert(l != Literal(0,false));
         if (store_ & hasvector)
         {
+            assert(index < vector_.size());
             //std::cout << "create lit in vector " << l.var() << std::endl;
             vector_[index]=l;
         }
@@ -147,7 +145,6 @@ public:
         {
             store_ = hasvector;
             Literal l(0,false);
-            l.flag();
             vector_.resize(maxSize_, l);
             while(!map_.empty())
             {
@@ -166,7 +163,10 @@ public:
             assert(map_.find(index)->second == vector_[index]);
         }
         if (store_ & hasvector)
+        {
+            assert(index<vector_.size());
             return vector_[index];
+        }
         else
         {
             assert(map_.find(index)!=map_.end());
@@ -221,7 +221,7 @@ public:
             vectorit_ = storage_.getVector().begin()+realIndex;
             if (up)
             {
-                while(vectorit_!=storage_.getVector().end() && vectorit_->flagged())
+                while(vectorit_!=storage_.getVector().end() && (*vectorit_ == Literal(0,false)))
                     ++vectorit_;
                 valid_ = vectorit_ != storage_.getVector().end();
             }
@@ -229,9 +229,9 @@ public:
             {
                 if (vectorit_==storage_.getVector().end())
                     --vectorit_;
-                while(vectorit_!=storage_.getVector().begin() && vectorit_->flagged())
+                while(vectorit_!=storage_.getVector().begin() && (*vectorit_ == Literal(0,false)))
                     --vectorit_;
-                valid_ = vectorit_!=storage_.getVector().begin() || !vectorit_->flagged();
+                valid_ = vectorit_!=storage_.getVector().begin() || !(*vectorit_ == Literal(0,false));
             }
         }
     }
@@ -269,7 +269,7 @@ public:
             while(vectorit_ != storage_.getVector().end())
             {
                 ++vectorit_;
-                if (!vectorit_->flagged())
+                if (!(*vectorit_ == Literal(0,false)))
                     break;
             }
             valid_ = vectorit_ != storage_.getVector().end();
@@ -291,7 +291,7 @@ public:
             while(vectorit_ != storage_.getVector().end())
             {
                 ++vectorit_;
-                if (!vectorit_->flagged())
+                if (!(*vectorit_ == Literal(0,false)))
                     break;
             }
             valid_ = vectorit_ != storage_.getVector().end();
@@ -316,10 +316,10 @@ public:
             while(vectorit_ != storage_.getVector().begin())
             {
                 --vectorit_;
-                if (!vectorit_->flagged())
+                if (!(*vectorit_ == Literal(0,false)))
                     break;
             }
-            valid_ = !vectorit_->flagged();
+            valid_ = !(*vectorit_ == Literal(0,false));
         }
         return *this;
     }
@@ -341,10 +341,10 @@ public:
             while(vectorit_ != storage_.getVector().begin())
             {
                 --vectorit_;
-                if (!vectorit_->flagged())
+                if (!(*vectorit_ == Literal(0,false)))
                     break;
             }
-            valid_ = !vectorit_->flagged();
+            valid_ = !(*vectorit_ == Literal(0,false));
         }
         return temp;
     }
@@ -359,24 +359,13 @@ private:
 
     using Mapit = orderStorage::map::const_iterator;
     //using Hashit = VariableCreator::orderStorage::hashMap::element_type::iterator;
-    using Vectorit = orderStorage::vector::const_iterator;
+    using Vectorit = LitVec::const_iterator;
     const orderStorage & storage_;
     Mapit mapit_;
     Vectorit vectorit_;
     bool valid_;
 };
 
-
-
-
-
-/*
-inline orderStorage::store operator|(orderStorage::store a, orderStorage::store b)
-{return static_cast<orderStorage::store>(static_cast<int>(a) | static_cast<int>(b));}
-inline orderStorage::store operator&(orderStorage::store a, orderStorage::store b)
-{return static_cast<orderStorage::store>(static_cast<int>(a) & static_cast<int>(b));}
-explicit operator bool(orderStorage::store a) { return static_cast<bool>(a); }
-*/
 
 class VariableCreator
 {
@@ -385,18 +374,15 @@ public:
     friend VariableStorage;
     friend VolatileVariableStorage;
 
-    VariableCreator(CreatingSolver& s, Config conf) : s_(s), conf_(conf) {}
+    VariableCreator(Grounder& s, Config conf) : s_(s), conf_(conf) {}
     std::size_t numVariables() const { return domains_.size(); }
 
     ViewDomain getViewDomain(const View& v) const
     {
         assert(isValid(v.v));
-        /*Domain d = *domains_[v.v];
-        d.inplace_times(v.a,d.getRanges().size()); /// view domains must be correct,
-                                                   /// otherwise getDomainSize() is incorrect
-                                                   /// and i can also not compare View numElement with Var numElement
-        d +=(v.c);
-        */
+        /// view domains must be correct,
+        /// otherwise getDomainSize() is incorrect
+        /// and i can also not compare View numElement with Var numElement
         ViewDomain d(*domains_[v.v],v);
         return d;
     }
@@ -416,11 +402,6 @@ public:
         assert(isValid(v.v));
         return domains_[v.v]->size();
     }
-//    const Domain& getDomain(const Variable& v) const
-//    {
-//        assert(isValid(v.v));
-//        return *domains_[v];
-//    }
 
     /// only possible before creating literals for it
     void removeVar(const Variable& v)
@@ -541,7 +522,7 @@ public:
         assert(isValid(v));
         prepareOrderLitMemory(v);
         if (isFlagged(it))
-            orderLitMemory_[v].setLiteral(it.numElement(), s_.getNewLiteral(true));
+            orderLitMemory_[v].setLiteral(it.numElement(), s_.createNewLiteral());
         return orderLitMemory_[v].getLiteral(it.numElement());
     }
 
@@ -579,7 +560,7 @@ public:
         assert(isValid(v));
         prepareOrderLitMemory(v);
         if (isFlagged(it-1))
-            orderLitMemory_[v].setLiteral((it-1).numElement(), s_.getNewLiteral(true));
+            orderLitMemory_[v].setLiteral((it-1).numElement(), s_.createNewLiteral());
         return ~orderLitMemory_[v].getLiteral((it-1).numElement());
     }
 
@@ -596,24 +577,6 @@ public:
         else
             return ~getLELiteral(it-1);
     }
-
-
-
-  /*  TODO, if view is reversed, then negate the literal!!!
-    Literal getLELit(const View& v, int32 rhs)
-    {
-        assert(c.getViews().size()==1);
-        assert(c.getRelation()==LinearConstraint::Relation::LE);
-        auto r = vc_.getRestrictor(view);
-        auto found = std::upper_bound(r.begin(), r.end(), rhs);
-
-        Is this correct here ? should i have a -1 interface
-        if (found!=r.begin())
-            return vc_.getLiteral(view.first, found-1);
-        else
-            return ~trueLit_;
-    }
-    */
 
     /// restrict the domain of all variables according to the literals that are already set in the solver
     /// as orderliterals and equality literals
@@ -637,7 +600,7 @@ public:
     Literal getEqualLit(const View& v, int32 i)
     {
         Restrictor r = getRestrictor(v);
-        auto it = order::wrap_lower_bound(r.begin(), r.end(), i);
+        auto it = clingcon::wrap_lower_bound(r.begin(), r.end(), i);
         it = (it==r.end() || *it != i) ? r.end() : it;
         return getEqualLit(it);
     }
@@ -707,7 +670,7 @@ private:
     /// new holes are detected and allowed,
     bool domainChange(const Variable& var, const Domain& d);
 
-    CreatingSolver& s_;
+    Grounder& s_;
     // have to use unique pointers, otherwise pointers to domains will get invalid on resize
     std::vector<std::unique_ptr<Domain> > domains_;
 

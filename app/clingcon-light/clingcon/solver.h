@@ -108,6 +108,7 @@ using LitVec = std::vector<Literal>;
 // at runtime and add new runtime literals
 // --- No, PropagateControl has an assignment() which provides this functionality,
 // no need to wrap it, unnecessary complex
+// --- I still wrap it for completion, to be indepent of changes etc...
 //
 //
 
@@ -126,9 +127,12 @@ public:
        c_.rule(false,{trueLit_},{}); // add a fact for trueLit_
     }
 
-    Literal getNewLiteral()
+    /// creates a new literal, makes a choice rule for it
+    Literal createNewLiteral()
     {
-        return Literal(c_.add_atom(),false);
+        Literal l = Literal(c_.add_atom(),false);
+        c_.rule(true,{l},{});
+        return l;
     }
 
     Literal trueLit() const { return trueLit_; }
@@ -179,6 +183,42 @@ public:
 private:
 
     Clingo::Backend& c_;
+    Literal trueLit_;
+};
+
+
+class Solver
+{
+public:
+    Solver(Literal trueLit) : c_(nullptr), trueLit_(trueLit) {}
+    /// call these functions before any other stuff with the object
+    void beginPropagate(Clingo::PropagateControl& c)
+    {
+       assert(c_==nullptr);
+       c_ = &c;
+    }
+
+    void endPropagate()
+    {
+       assert(c_!=nullptr);
+       c_=nullptr;
+    }
+    bool isTrue(Literal l) {
+       return c_->assignment().is_true(l.rep());
+    }
+    bool isFalse(Literal l) {
+       return c_->assignment().is_false(l.rep());
+    }
+    bool isUnknown(Literal l) {
+       return !isFalse(l) && ! isTrue(l);
+    }
+
+    Literal trueLit() { return trueLit_; }
+    Literal falseLit() { return ~trueLit_; }
+    Literal getNewLiteral() { return Literal::fromRep(c_->add_literal()); }
+    ///TODO: add addclause and stuff
+private:
+    Clingo::PropagateControl* c_;
     Literal trueLit_;
 };
 

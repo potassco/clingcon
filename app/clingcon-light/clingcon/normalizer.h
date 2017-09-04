@@ -29,14 +29,14 @@
 #include <clingcon/config.h>
 #include <map>
 
-namespace order
+namespace clingcon
 {
 
 /// contains the orderLiterals, either need to be moved or Normalizer to be kept
 class Normalizer
 {
 public:
-    Normalizer(CreatingSolver& s, Config conf) : s_(s), vc_(s, conf), conf_(conf), ep_(s_,vc_), firstRun_(true),
+    Normalizer(Grounder& s, Config conf) : s_(s), vc_(s, conf), conf_(conf), ep_(s_,vc_), firstRun_(true),
     varsBefore_(0), varsAfter_(0), varsAfterFinalize_(0) {}
 
     /// can be made const, only changed for unit tests
@@ -54,7 +54,6 @@ public:
     void addConstraint(ReifiedLinearConstraint&& l);
     void addConstraint(ReifiedDomainConstraint&& d);
     void addConstraint(ReifiedAllDistinct&& l);
-    void addConstraint(ReifiedDisjoint&& l);
     void addMinimize(View& v, unsigned int level);
 
     /// do initial propagation
@@ -72,13 +71,13 @@ public:
 
 
     /// returns two lists of variables that do not have lower or upper bounds
-    void variablesWithoutBounds(std::vector<order::Variable>& lb, std::vector<order::Variable>& ub);
+    void variablesWithoutBounds(std::vector<clingcon::Variable>& lb, std::vector<clingcon::Variable>& ub);
 
     /// converts some of the aux literals in the VVS's into normal once
-    /// numVars must be the biggest+1 boolean variable used in all order::Literals so far,
+    /// numVars must be the biggest+1 boolean variable used in all clingcon::Literals so far,
     /// sucht that the test l.var() < numVars is true for all "normal" variables
     /// and false for all aux variables
-    void convertAuxLiterals(std::vector<const order::VolatileVariableStorage*>& vvs, unsigned int numVars);
+    void convertAuxLiterals(std::vector<const clingcon::VolatileVariableStorage*>& vvs, unsigned int numVars);
 
     /// a reference to all linear implications
     /// pre: prepare and createClauses must have been called
@@ -127,7 +126,7 @@ public:
         View v = *l.getViews().begin();
         Restrictor r = vc_.getRestrictor(v);
 
-        auto it = order::wrap_lower_bound(r.begin(), r.end(), l.getRhs());
+        auto it = clingcon::wrap_lower_bound(r.begin(), r.end(), l.getRhs());
         switch(l.getRelation())
         {
             case LinearConstraint::Relation::EQ:
@@ -159,8 +158,6 @@ public:
         return getLitFromUnary(l);
     }
 
-    const EqualityProcessor::EqualityClassMap& getEqualities() const { return ep_.equalities(); }
-
 //private:
 
     /// pre: prepare()
@@ -172,14 +169,7 @@ public:
     bool calculateDomains();
     /// throw exception (currently only std::string) if a domain was not restricted
     /// on one of the sides
-    ///TODO: need better specification
-    /// return sum{domain(i).size()-1} for all domains
-    /// pre: prepare() must have been called
-
-    uint64 estimateVariables(const ReifiedDomainConstraint& c);
-    uint64 estimateVariables(ReifiedLinearConstraint &c);
-    uint64 estimateVariables(const ReifiedAllDistinct& c);
-    uint64 estimateVariables(const ReifiedDisjoint& c);
+    
     /// add constraint l as implications to vector insert
     bool convertLinear(ReifiedLinearConstraint&& l, std::vector<ReifiedLinearConstraint> &insert);
     bool addDomainConstraint(ReifiedDomainConstraint&& l);
@@ -222,10 +212,9 @@ public:
     std::vector<uint64>  estimateEQ_; // for each variable, number of estimated literals (equal)
 
 
-    CreatingSolver& s_;
+    Grounder& s_;
     VariableCreator vc_;
     Config conf_;
-    EqualityProcessor ep_;
 
     std::unique_ptr<LinearPropagator> propagator_;
     bool firstRun_;
