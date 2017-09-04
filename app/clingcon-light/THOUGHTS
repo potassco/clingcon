@@ -4,6 +4,14 @@ What is the exact relation between grounding atoms/literals and solver literals 
 - how to create new ASPIF rules (backend) with solver literals?
 - I assume that grounding atoms/literals and solver literals share the same DataType but are actually different
 - use C++ API clingo.hh
+- Domains:
+  Should I still use domains with holes
+   Holes:
+   - can represent (x=2y) without constraints (needs buggy equality processing)
+   - can represent small domains and is needed for some initial propagation using facts
+   No Holes:
+   - faster lookup, no binary search, easier implementation
+  FAZIT: Use old classes with Holes, afterwards compare with optimized version without holes.
 
 First I need to do grounding.
 Than I can access the backend, to modify the ground program.

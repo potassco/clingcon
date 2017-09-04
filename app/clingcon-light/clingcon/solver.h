@@ -50,14 +50,11 @@ public:
     Literal(clingo_atom_t var, bool sign) : rep_(sign ? -var : var)  {
     }
 
-    //! Returns the unique index of this literal.
-    uint32_t index() const { return rep_; }
+    //! Returns the clingo representation of this literal.
+    clingo_literal_t rep() const { return rep_; }
 
-    //! Creates a literal from an unsigned integer.
-    static Literal fromRep(uint32_t rep) { return Literal(rep); }
-
-//    uint32_t& asUint()        { return static_cast<uint32_t>(rep_); }
-//    uint32_t  asUint() const  { return rep_; }
+    //! Creates a literal from a clingo_literal_t.
+    static Literal fromRep(clingo_literal_t rep) { return Literal(rep); }
 
     //! Returns the variable of the literal.
     uint32_t var() const { return std::abs(rep_); }
@@ -98,7 +95,6 @@ public:
     }
 private:
     Literal(clingo_literal_t rep) : rep_(rep) {}
-//    uint32_t rep_;
     clingo_literal_t rep_;
 };
 
@@ -110,6 +106,8 @@ using LitVec = std::vector<Literal>;
 // It can not determine the truth value of literals
 // The Incremental Solver is now known as "Solver" and can determine the truth value of literals
 // at runtime and add new runtime literals
+// --- No, PropagateControl has an assignment() which provides this functionality,
+// no need to wrap it, unnecessary complex
 //
 //
 
@@ -164,57 +162,18 @@ public:
 
     void createCardinality(Literal v, int lb, LitVec &&lits)
     {
-        //Clasp::WeightLitVec wvec;
-        //for (auto& l : lits)
-        //{
-        //    wvec.push_back(Clasp::WeightLiteral(toClaspFormat(l),1));
-        //}
-        //return Clasp::WeightConstraint::create(s_,toClaspFormat(v),wvec,lb).ok();
-
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
         c_.weight_rule(false,{v},lb,lits);
     }
-
 
     void intermediateVariableOutOfRange() const
     {
         throw std::runtime_error("Intermediate Variable out of bounds (32bit integer)");
     }
 
-
-
-    //const LitVec& clauses() const { /*std::cout << std::endl;*/ return clauses_; }
-
-
-
-    /// assure that there are no variables left
-    void createNewLiterals(uint64 num)
-    {
-        assert(maxVar_==currentVar_);
-//        if (num<=maxVar_-currentVar_)
-//            return;
-//        num -= maxVar_-currentVar_;
-//        c_.numVars()
-        //currentVar_ = c_.addVar(Clasp::Var_t::Atom);
-        if ((uint64)(c_.numVars()) + num > std::numeric_limits<uint32>::max())
-            throw std::runtime_error("Trying to create more than 2^32 atoms.\n Restrict your domains or choose other options.");
-        currentVar_ = c_.addVars(num,Clasp::Var_t::Atom);
-//        for (size_t i = 1; i < num; ++i)
-//        {
-//            Clasp::Var vnew = c_.addVar(Clasp::Var_t::Atom);
-//            (void)(vnew);
-//            assert(vnew==currentVar_+i);
-//            vnew = 0; /// disable warning in release mode
-//        }
-        maxVar_ = currentVar_+num;
-        c_.startAddConstraints();///TODO: give a guess ?
-
-    }
-
     void addMinimize(Literal v, int32 weight, unsigned int level)
     {
-        Clasp::WeightLiteral wl= std::make_pair(toClaspFormat(v),weight);
-        c_.addMinimize(wl,level);
+        c_.minimize(level,{Clingo::WeightedLiteral(v.rep(),weight)});
     }
 
 private:
@@ -222,31 +181,6 @@ private:
     Clingo::Backend& c_;
     Literal trueLit_;
 };
-
-
-class MyLocalSolver : public order::IncrementalSolver
-{
-public:
-    using Literal = order::Literal;
-    using LitVec = order::LitVec;
-    MyLocalSolver(Clasp::Solver& s) : s_(s) {}
-    bool isTrue( Literal l) const { return s_.isTrue(toClaspFormat(l)); }
-    bool isFalse( Literal l) const { return s_.isFalse(toClaspFormat(l)); }
-    bool isUnknown( Literal l) const { return s_.value(toClaspFormat(l).var())==Clasp::value_free; }
-
-    Literal getNewLiteral() { return toOrderFormat(Clasp::Literal(s_.pushAuxVar(), false)); }
-    //Literal getNewLiteral() { auto x = s_.pushAuxVar(); std::cout << x << std::endl; return toOrderFormat(Clasp::Literal(x, false)); }
-
-    //std::size_t numVars() const { return s_.numVars(); }
-    Literal trueLit() const { return toOrderFormat(Clasp::posLit(0)); }
-    Literal falseLit() const { return ~trueLit(); }
-
-private:
-    Clasp::Solver& s_;
-
-
-};
-
 
 
 } // namespace clingcon
