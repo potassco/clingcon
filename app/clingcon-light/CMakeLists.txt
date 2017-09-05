@@ -39,6 +39,12 @@ set(source
 list(APPEND header "${CLINGO_INCLUDE_DIR}/clingo.hh")
 
 set( CMAKE_VERBOSE_MAKEFILE on )
+# Enable folders in IDEs like Visual Studio
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 
 add_executable(clingcon ${header} ${source})
 
