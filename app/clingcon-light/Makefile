@@ -11,7 +11,7 @@ LDFLAGS?=-L$(CLINGOROOT)/lib -Wl,-rpath=$(CLINGOROOT)/lib
 LDLIBS?=-lclingo
 
 TARGET=clingoDL
-SOURCE=main.cpp src/*.cpp
+SOURCE=main.cpp src/constraint.cpp
 
 OBJECT=$(patsubst %,%.o,$(basename $(SOURCE)))
 DEPEND=$(patsubst %,%.d,$(basename $(SOURCE)))
@@ -37,7 +37,7 @@ $(TARGET): $(OBJECT) FLAGS
 
 .PHONY: format
 format:
-	clang-format-3.8 -style="{BasedOnStyle: llvm, IndentWidth: 4, SortIncludes: false, ColumnLimit: 256, AccessModifierOffset: -4, BreakBeforeBraces: Custom, BraceWrapping: {BeforeElse: true, BeforeCatch: true}, BreakConstructorInitializersBeforeComma: true, AlwaysBreakTemplateDeclarations: true, AlignAfterOpenBracket: AlwaysBreak, AllowShortBlocksOnASingleLine: true, IndentCaseLabels: true}" -i $(SOURCE)
+	clang-format -style="{BasedOnStyle: llvm, IndentWidth: 4, SortIncludes: false, ColumnLimit: 256, AccessModifierOffset: -4, BreakBeforeBraces: Custom, BraceWrapping: {BeforeElse: true, BeforeCatch: true}, BreakConstructorInitializersBeforeComma: true, AlwaysBreakTemplateDeclarations: true, AlignAfterOpenBracket: AlwaysBreak, AllowShortBlocksOnASingleLine: true, IndentCaseLabels: true}" -i $(SOURCE)
 
 .PHONY: clean
 clean:

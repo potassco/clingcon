@@ -198,17 +198,11 @@ T evaluate(Clingo::TheoryTerm term) {
                 }
             }
         }
-        default: {
-            throw std::runtime_error("could not evaluate term: only numeric terms with basic arithmetic operations are supported");
-        }
+        default: { throw std::runtime_error("could not evaluate term: only numeric terms with basic arithmetic operations are supported"); }
     }
 }
 
-int require_number(Clingo::Symbol sym) {
-    return sym.type() == Clingo::SymbolType::Number
-        ? sym.number()
-        : throw std::runtime_error("could not evaluate term: artithmetic on non-integer");
-}
+int require_number(Clingo::Symbol sym) { return sym.type() == Clingo::SymbolType::Number ? sym.number() : throw std::runtime_error("could not evaluate term: artithmetic on non-integer"); }
 
 Clingo::Symbol evaluate_term(Clingo::TheoryTerm term) {
     switch (term.type()) {
@@ -253,9 +247,7 @@ Clingo::Symbol evaluate_term(Clingo::TheoryTerm term) {
                             }
                             // [[fallthrough]]
                         }
-                        default: {
-                            throw std::runtime_error("could not evaluate term: only numbers and functions can be inverted");
-                        }
+                        default: { throw std::runtime_error("could not evaluate term: only numbers and functions can be inverted"); }
                     }
                 }
             }
@@ -268,9 +260,7 @@ Clingo::Symbol evaluate_term(Clingo::TheoryTerm term) {
             }
             return Clingo::Function("", args);
         }
-        default: {
-            throw std::runtime_error("could not evaluate term: sets and lists are not supported");
-        }
+        default: { throw std::runtime_error("could not evaluate term: sets and lists are not supported"); }
     }
 }
 template <typename T>
@@ -293,28 +283,28 @@ public:
         , propagate_(propagate) {}
 
     void print_assignment(int thread) const {
-/*        auto &state = states_[thread];
-        T adjust = 0;
-        int idx = 0;
-        auto null = Clingo::Number(0);
-        for (auto &name : vert_map_) {
-            if (name == null) {
-                adjust = state.dl_graph.node_value(idx);
-                break;
-            }
-            ++idx;
-        }
+        /*        auto &state = states_[thread];
+                T adjust = 0;
+                int idx = 0;
+                auto null = Clingo::Number(0);
+                for (auto &name : vert_map_) {
+                    if (name == null) {
+                        adjust = state.dl_graph.node_value(idx);
+                        break;
+                    }
+                    ++idx;
+                }
 
-        std::cout << "with assignment:\n";
-        idx = 0;
-        for (auto &name : vert_map_) {
-            if (state.dl_graph.node_value_defined(idx) && name != null) {
-                std::cout << name << ":" << adjust + state.dl_graph.node_value(idx) << " ";
-            }
-            ++idx;
-        }
-        std::cout << "\n";
-*/
+                std::cout << "with assignment:\n";
+                idx = 0;
+                for (auto &name : vert_map_) {
+                    if (state.dl_graph.node_value_defined(idx) && name != null) {
+                        std::cout << name << ":" << adjust + state.dl_graph.node_value(idx) << " ";
+                    }
+                    ++idx;
+                }
+                std::cout << "\n";
+        */
     }
 
 private:
@@ -322,137 +312,137 @@ private:
 
     void init(PropagateInit &init) override {
         Timer t{stats_.time_init};
-  /*      for (auto atom : init.theory_atoms()) {
-            auto term = atom.term();
-            if (term.to_string() == "diff") {
-                add_edge_atom(init, atom);
-            }
-        }
-        initialize_states(init);
-  */
+        /*      for (auto atom : init.theory_atoms()) {
+                  auto term = atom.term();
+                  if (term.to_string() == "diff") {
+                      add_edge_atom(init, atom);
+                  }
+              }
+              initialize_states(init);
+        */
     }
 
     void add_edge_atom(PropagateInit &init, TheoryAtom const &atom) {
-    /*    int lit = init.solver_literal(atom.literal());
-        T weight = get_weight<T>(atom);
-        auto elems = atom.elements();
-        char const *msg = "parsing difference constraint failed: only constraints of form &diff {u - v} <= b are accepted";
-        if (elems.size() != 1) {
-            throw std::runtime_error(msg);
-        }
-        auto tuple = elems[0].tuple();
-        if (tuple.size() != 1) {
-            throw std::runtime_error(msg);
-        }
-        auto term = tuple[0];
-        if (term.type() != Clingo::TheoryTermType::Function || std::strcmp(term.name(), "-") != 0) {
-            throw std::runtime_error(msg);
-        }
-        auto args = term.arguments();
-        if (args.size() != 2) {
-            throw std::runtime_error(msg);
-        }
-        auto u_id = map_vert(evaluate_term(args[0]));
-        auto v_id = map_vert(evaluate_term(args[1]));
-        auto id = numeric_cast<int>(edges_.size());
-        edges_.push_back({u_id, v_id, weight, lit});
-        lit_to_edges_.emplace(lit, id);
-        init.add_watch(lit);
-        if (propagate_) {
-            false_lit_to_edges_.emplace(-lit, id);
-            init.add_watch(-lit);
-        }
-        if (strict_) {
-            auto id = numeric_cast<int>(edges_.size());
-            edges_.push_back({v_id, u_id, -weight - 1, -lit});
-            lit_to_edges_.emplace(-lit, id);
-            if (propagate_) {
-                false_lit_to_edges_.emplace(lit, id);
+        /*    int lit = init.solver_literal(atom.literal());
+            T weight = get_weight<T>(atom);
+            auto elems = atom.elements();
+            char const *msg = "parsing difference constraint failed: only constraints of form &diff {u - v} <= b are accepted";
+            if (elems.size() != 1) {
+                throw std::runtime_error(msg);
             }
-            else {
+            auto tuple = elems[0].tuple();
+            if (tuple.size() != 1) {
+                throw std::runtime_error(msg);
+            }
+            auto term = tuple[0];
+            if (term.type() != Clingo::TheoryTermType::Function || std::strcmp(term.name(), "-") != 0) {
+                throw std::runtime_error(msg);
+            }
+            auto args = term.arguments();
+            if (args.size() != 2) {
+                throw std::runtime_error(msg);
+            }
+            auto u_id = map_vert(evaluate_term(args[0]));
+            auto v_id = map_vert(evaluate_term(args[1]));
+            auto id = numeric_cast<int>(edges_.size());
+            edges_.push_back({u_id, v_id, weight, lit});
+            lit_to_edges_.emplace(lit, id);
+            init.add_watch(lit);
+            if (propagate_) {
+                false_lit_to_edges_.emplace(-lit, id);
                 init.add_watch(-lit);
             }
-        }
-*/
+            if (strict_) {
+                auto id = numeric_cast<int>(edges_.size());
+                edges_.push_back({v_id, u_id, -weight - 1, -lit});
+                lit_to_edges_.emplace(-lit, id);
+                if (propagate_) {
+                    false_lit_to_edges_.emplace(lit, id);
+                }
+                else {
+                    init.add_watch(-lit);
+                }
+            }
+    */
     }
 
     int map_vert(Clingo::Symbol v) {
- /*       auto ret = vert_map_inv_.emplace(v, vert_map_.size());
-        if (ret.second) {
-            vert_map_.emplace_back(ret.first->first);
-        }
-        return ret.first->second;
-*/
+        /*       auto ret = vert_map_inv_.emplace(v, vert_map_.size());
+               if (ret.second) {
+                   vert_map_.emplace_back(ret.first->first);
+               }
+               return ret.first->second;
+       */
     }
 
     void initialize_states(PropagateInit &init) {
-//        stats_.dl_stats.resize(init.number_of_threads());
-//        for (int i = 0; i < init.number_of_threads(); ++i) {
-//            states_.emplace_back(stats_.dl_stats[i], edges_);
-//        }
+        //        stats_.dl_stats.resize(init.number_of_threads());
+        //        for (int i = 0; i < init.number_of_threads(); ++i) {
+        //            states_.emplace_back(stats_.dl_stats[i], edges_);
+        //        }
     }
 
     // propagation
 
     void propagate(PropagateControl &ctl, LiteralSpan changes) override {
-  /*      auto &state = states_[ctl.thread_id()];
-        Timer t{state.stats.time_propagate};
-        auto level = ctl.assignment().decision_level();
-        state.dl_graph.ensure_decision_level(level);
-        // NOTE: vector copy only because clasp bug
-        //       can only be triggered with propagation
-        //       (will be fixed with 5.2.1)
-        for (auto lit : std::vector<Clingo::literal_t>(changes.begin(), changes.end())) {
-            for (auto it = false_lit_to_edges_.find(lit), ie = false_lit_to_edges_.end(); it != ie && it->first == lit; ++it) {
-                if (state.dl_graph.edge_is_active(it->second)) {
-                    state.dl_graph.remove_candidate_edge(it->second);
-                }
-            }
-            for (auto it = lit_to_edges_.find(lit), ie = lit_to_edges_.end(); it != ie && it->first == lit; ++it) {
-                if (state.dl_graph.edge_is_active(it->second)) {
-                    auto neg_cycle = state.dl_graph.add_edge(it->second);
-                    if (!neg_cycle.empty()) {
-                        std::vector<literal_t> clause;
-                        for (auto eid : neg_cycle) {
-                            clause.emplace_back(-edges_[eid].lit);
-                        }
-                        if (!ctl.add_clause(clause) || !ctl.propagate()) {
-                            return;
-                        }
-                        assert(false && "must not happen");
-                    }
-                    else if (propagate_) {
-                        if (!state.dl_graph.propagate(it->second, ctl)) {
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-*/
+        /*      auto &state = states_[ctl.thread_id()];
+              Timer t{state.stats.time_propagate};
+              auto level = ctl.assignment().decision_level();
+              state.dl_graph.ensure_decision_level(level);
+              // NOTE: vector copy only because clasp bug
+              //       can only be triggered with propagation
+              //       (will be fixed with 5.2.1)
+              for (auto lit : std::vector<Clingo::literal_t>(changes.begin(), changes.end())) {
+                  for (auto it = false_lit_to_edges_.find(lit), ie = false_lit_to_edges_.end(); it != ie && it->first == lit; ++it) {
+                      if (state.dl_graph.edge_is_active(it->second)) {
+                          state.dl_graph.remove_candidate_edge(it->second);
+                      }
+                  }
+                  for (auto it = lit_to_edges_.find(lit), ie = lit_to_edges_.end(); it != ie && it->first == lit; ++it) {
+                      if (state.dl_graph.edge_is_active(it->second)) {
+                          auto neg_cycle = state.dl_graph.add_edge(it->second);
+                          if (!neg_cycle.empty()) {
+                              std::vector<literal_t> clause;
+                              for (auto eid : neg_cycle) {
+                                  clause.emplace_back(-edges_[eid].lit);
+                              }
+                              if (!ctl.add_clause(clause) || !ctl.propagate()) {
+                                  return;
+                              }
+                              assert(false && "must not happen");
+                          }
+                          else if (propagate_) {
+                              if (!state.dl_graph.propagate(it->second, ctl)) {
+                                  return;
+                              }
+                          }
+                      }
+                  }
+              }
+      */
     }
 
     // undo
 
     void undo(PropagateControl const &ctl, LiteralSpan changes) override {
-//        static_cast<void>(changes);
-//        auto &state = states_[ctl.thread_id()];
-//        Timer t{state.stats.time_undo};
-//        state.dl_graph.backtrack();
+        //        static_cast<void>(changes);
+        //        auto &state = states_[ctl.thread_id()];
+        //        Timer t{state.stats.time_undo};
+        //        state.dl_graph.backtrack();
     }
 
 #if defined(CHECKSOLUTION) || defined(CROSSCHECK)
     void check(PropagateControl &ctl) override {
-/*        auto &state = states_[ctl.thread_id()];
-        for (auto &x : edges_) {
-            if (ctl.assignment().is_true(x.lit)) {
-                if (!state.dl_graph.node_value_defined(x.from) ||
-                    !state.dl_graph.node_value_defined(x.to) ||
-                    !(state.dl_graph.node_value(x.from) - state.dl_graph.node_value(x.to) <= x.weight)) {
-                    throw std::logic_error("not a valid solution");
-                }
-            }
-        }*/
+        /*        auto &state = states_[ctl.thread_id()];
+                for (auto &x : edges_) {
+                    if (ctl.assignment().is_true(x.lit)) {
+                        if (!state.dl_graph.node_value_defined(x.from) ||
+                            !state.dl_graph.node_value_defined(x.to) ||
+                            !(state.dl_graph.node_value(x.from) - state.dl_graph.node_value(x.to) <= x.weight)) {
+                            throw std::logic_error("not a valid solution");
+                        }
+                    }
+                }*/
     }
 #endif
 
@@ -478,7 +468,8 @@ void solve(Stats &stats, Control &ctl, bool strict, bool propagate) {
 
 class ClingconApp : public Clingo::ClingoApplication {
 public:
-    ClingconApp(Stats &stats) : stats_{stats} { }
+    ClingconApp(Stats &stats)
+        : stats_{stats} {}
     char const *program_name() const noexcept override { return "clingcon"; }
     void main(Control &ctl, StringSpan files) override {
         ctl.add("base", {}, R"(
@@ -517,8 +508,12 @@ public:
     &minimize/0 : minimize_term, directive
 }.
 )");
-        for (auto &file : files) { ctl.load(file); }
-        if (files.empty()) { ctl.load("-"); }
+        for (auto &file : files) {
+            ctl.load(file);
+        }
+        if (files.empty()) {
+            ctl.load("-");
+        }
 
         if (rdl_) {
             solve<double>(stats_, ctl, strict_, propagate_);
@@ -529,17 +524,17 @@ public:
     }
 
     void register_options(ClingoOptions &options) override {
-//        char const *group = "Clingcon Options";
-//        options.add_flag(group, "propagate,p", "Enable propagation.", propagate_);
-//        options.add_flag(group, "rdl", "Enable support for real numbers.", rdl_);
-//        options.add_flag(group, "strict", "Enable strict mode.", strict_);
+        //        char const *group = "Clingcon Options";
+        //        options.add_flag(group, "propagate,p", "Enable propagation.", propagate_);
+        //        options.add_flag(group, "rdl", "Enable support for real numbers.", rdl_);
+        //        options.add_flag(group, "strict", "Enable strict mode.", strict_);
     }
 
     void validate_options() override {
-//        if (rdl_ && strict_) {
-//            // NOTE: could be implemented by introducing and epsilon
-//            throw std::runtime_error("real difference logic not available with strict semantics");
-//        }
+        //        if (rdl_ && strict_) {
+        //            // NOTE: could be implemented by introducing and epsilon
+        //            throw std::runtime_error("real difference logic not available with strict semantics");
+        //        }
     }
 
 private:
@@ -555,9 +550,8 @@ int main(int argc, char *argv[]) {
     {
         Timer t{stats.time_total};
         ClingconApp app{stats};
-        ret = Clingo::clingo_main(app, {argv+1, numeric_cast<size_t>(argc-1)});
+        ret = Clingo::clingo_main(app, {argv + 1, numeric_cast<size_t>(argc - 1)});
     }
 
     return ret;
 }
-

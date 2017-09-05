@@ -22,3 +22,8 @@ Then I need to modify the program/do completion, add new theory atoms via the ba
 I have to do this outside the propagator (at least not during the init call)
 
 
+Current Call:
+cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib
+or
+cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
+
