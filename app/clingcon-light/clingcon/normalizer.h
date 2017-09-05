@@ -36,7 +36,7 @@ namespace clingcon
 class Normalizer
 {
 public:
-    Normalizer(Grounder& s, Config conf) : s_(s), vc_(s, conf), conf_(conf), ep_(s_,vc_), firstRun_(true),
+    Normalizer(Grounder& s, Config conf) : s_(s), vc_(s, conf), conf_(conf), firstRun_(true),
     varsBefore_(0), varsAfter_(0), varsAfterFinalize_(0) {}
 
     /// can be made const, only changed for unit tests
@@ -146,7 +146,7 @@ public:
             default: assert(false);
         }
         assert(false);
-        return Literal(0,false);
+        return Literal(0);
     }
 
     Literal getEqualLit(View v, int i)
@@ -179,7 +179,6 @@ public:
     bool addDistinctPairwiseUnequal(ReifiedAllDistinct&& l);
     //bool addDistinctHallIntervals(ReifiedAllDistinct&& l);
     bool addDistinctCardinality(ReifiedAllDistinct&& l);
-    bool addDisjoint(ReifiedDisjoint &&l);
 
     void addMinimize();
     /// if constraint is true/false and (0-1 ary), retrict the domain and return true on first parameter(can be simplified away),
@@ -206,7 +205,6 @@ public:
     std::vector<ReifiedLinearConstraint> linearConstraints_;
     std::vector<ReifiedAllDistinct> allDistincts_;
     std::vector<ReifiedDomainConstraint> domainConstraints_;
-    std::vector<ReifiedDisjoint> disjoints_;
     std::vector<std::pair<View,unsigned int> > minimize_; /// Views on a level to minimize
     std::vector<uint64>  estimateLE_; // for each variable, number of estimated literals (order)
     std::vector<uint64>  estimateEQ_; // for each variable, number of estimated literals (equal)

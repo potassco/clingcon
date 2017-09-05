@@ -78,7 +78,7 @@ public:
     {
         if (hasMap())
             return map_.size();
-        Literal l(0,false);
+        Literal l(0);
         if (hasVector())
             return std::count_if(vector_.begin(),vector_.end(),[&l](const Literal& in){ return in != l;});
 
@@ -102,7 +102,7 @@ public:
         maxSize_ = s;
         if (hasVector())
         {
-            Literal l(0,false);
+            Literal l(0);
             vector_.resize(maxSize_,l);
         }
     }
@@ -112,7 +112,7 @@ public:
         assert(isPrepared());
         assert(index < maxSize_);
         if (store_ & hasvector)
-            return vector_[index] == Literal(0,false);
+            return vector_[index] == Literal(0);
         else
             return map_.find(index) == map_.end();
     }
@@ -120,7 +120,7 @@ public:
     void setLiteral(unsigned int index, const Literal &l)
     {
         assert(isPrepared());
-        assert(l != Literal(0,false));
+        assert(l != Literal(0));
         if (store_ & hasvector)
         {
             assert(index < vector_.size());
@@ -144,7 +144,7 @@ public:
         if (store_ == hasmap && map_.size()*3>=maxSize_) /// convert map to vector if it gets too large
         {
             store_ = hasvector;
-            Literal l(0,false);
+            Literal l(0);
             vector_.resize(maxSize_, l);
             while(!map_.empty())
             {
@@ -221,7 +221,7 @@ public:
             vectorit_ = storage_.getVector().begin()+realIndex;
             if (up)
             {
-                while(vectorit_!=storage_.getVector().end() && (*vectorit_ == Literal(0,false)))
+                while(vectorit_!=storage_.getVector().end() && (*vectorit_ == Literal(0)))
                     ++vectorit_;
                 valid_ = vectorit_ != storage_.getVector().end();
             }
@@ -229,9 +229,9 @@ public:
             {
                 if (vectorit_==storage_.getVector().end())
                     --vectorit_;
-                while(vectorit_!=storage_.getVector().begin() && (*vectorit_ == Literal(0,false)))
+                while(vectorit_!=storage_.getVector().begin() && (*vectorit_ == Literal(0)))
                     --vectorit_;
-                valid_ = vectorit_!=storage_.getVector().begin() || !(*vectorit_ == Literal(0,false));
+                valid_ = vectorit_!=storage_.getVector().begin() || !(*vectorit_ == Literal(0));
             }
         }
     }
@@ -269,7 +269,7 @@ public:
             while(vectorit_ != storage_.getVector().end())
             {
                 ++vectorit_;
-                if (!(*vectorit_ == Literal(0,false)))
+                if (!(*vectorit_ == Literal(0)))
                     break;
             }
             valid_ = vectorit_ != storage_.getVector().end();
@@ -291,7 +291,7 @@ public:
             while(vectorit_ != storage_.getVector().end())
             {
                 ++vectorit_;
-                if (!(*vectorit_ == Literal(0,false)))
+                if (!(*vectorit_ == Literal(0)))
                     break;
             }
             valid_ = vectorit_ != storage_.getVector().end();
@@ -316,10 +316,10 @@ public:
             while(vectorit_ != storage_.getVector().begin())
             {
                 --vectorit_;
-                if (!(*vectorit_ == Literal(0,false)))
+                if (!(*vectorit_ == Literal(0)))
                     break;
             }
-            valid_ = !(*vectorit_ == Literal(0,false));
+            valid_ = !(*vectorit_ == Literal(0));
         }
         return *this;
     }
@@ -341,10 +341,10 @@ public:
             while(vectorit_ != storage_.getVector().begin())
             {
                 --vectorit_;
-                if (!(*vectorit_ == Literal(0,false)))
+                if (!(*vectorit_ == Literal(0)))
                     break;
             }
-            valid_ = !(*vectorit_ == Literal(0,false));
+            valid_ = !(*vectorit_ == Literal(0));
         }
         return temp;
     }

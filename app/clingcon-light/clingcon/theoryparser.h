@@ -25,7 +25,6 @@
 #pragma once
 #include "clingcon/solver.h"
 #include "clingcon/normalizer.h"
-#include <potassco/theory_data.h>
 #include "clingcon/constraint.h"
 #include <unordered_map>
 #include <sstream>
@@ -43,7 +42,7 @@ inline void hash_combine(std::size_t & seed, const T & v)
 }
 
 
-using NameList = std::unordered_map<order::Variable,std::pair<std::string,Clasp::LitVec>>;
+using NameList = std::unordered_map<Variable,std::pair<std::string,LitVec>>;
 
 
 class TheoryParser
@@ -51,20 +50,20 @@ class TheoryParser
 public:
 
     enum CType {SUM, DOM, DISTINCT, SHOW, MINIMIZE};
-    using mytuple = std::vector<Potassco::Id_t>;   /// a tuple identifier
-    using tuple2View = std::map<mytuple, order::View>; // could be unordered
+    using mytuple = std::vector<Clingo::id_t>;   /// a tuple identifier
+    using tuple2View = std::map<mytuple, View>; // could be unordered
 
 
-    TheoryParser(order::Normalizer& n, Potassco::TheoryData& td, Clasp::Asp::LogicProgram* lp, order::Literal trueLit) :
-        n_(n), td_(td), lp_(lp), trueLit_(trueLit)
+    TheoryParser(Normalizer& n, Clingo::TheoryAtoms td, Literal trueLit) :
+        n_(n), td_(td), trueLit_(trueLit)
     {}
-    bool isClingconConstraint(Potassco::TheoryData::atom_iterator& i);
-    bool isUnarySum(Potassco::TheoryData::atom_iterator& i);
+    bool isClingconConstraint(Clingo::TheoryAtomIterator& i);
+    bool isUnarySum(Clingo::TheoryAtomIterator& i);
 
     /// returns false, if not a constraint of this theory
     /// throws string with error if error occurs
     /// save constraint as strict or nonstrict
-    bool readConstraint(Potassco::TheoryData::atom_iterator& i, order::Direction dir);
+    bool readConstraint(Clingo::TheoryAtomIterator& i, Direction dir);
     /// turn show predicates to variables
     NameList& postProcess();
     const std::vector<tuple2View>& minimize() const;
@@ -72,33 +71,33 @@ public:
     void reset();
 
     /// slow lookup, use with care
-    std::string getName(order::Variable v);
+    std::string getName(Variable v);
 
 private:
 
     void error(const std::string& s);
-    void error(const std::string& s, Potassco::Id_t id);
+    void error(const std::string& s, Clingo::id_t id);
 
 
-    bool getConstraintType(Potassco::Id_t id, CType& t);
-    bool getGuard(Potassco::Id_t id, order::LinearConstraint::Relation& rel);
+    bool getConstraintType(Clingo::id_t id, CType& t);
+    bool getGuard(Clingo::id_t id, LinearConstraint::Relation& rel);
 
 
-    std::string toString(const Potassco::TheoryData::Term& t)
+    std::string toString(const Clingo::TheoryTerm& t)
     {
         std::stringstream ss;
         return toString(ss,t).str();
     }
 
-    std::stringstream& toString(std::stringstream& ss, const Potassco::TheoryData::Term& t);
+    std::stringstream& toString(std::stringstream& ss, const Clingo::TheoryTerm& t);
 
-    bool isNumber(Potassco::Id_t id);
-    bool isNumber(const Potassco::TheoryData::Term& a);
+    bool isNumber(Clingo::id_t id);
+    bool isNumber(const Clingo::TheoryTerm& a);
 
-    int getNumber(Potassco::Id_t id);
-    int getNumber(const Potassco::TheoryData::Term& a);
+    int getNumber(Clingo::id_t id);
+    int getNumber(const Clingo::TheoryTerm& a);
 
-    void add2Shown(order::Variable v, uint32 tid, Clasp::Literal l);
+    void add2Shown(Variable v, uint32 tid, Literal l);
 
     ///
     /// \brief getView
@@ -115,32 +114,31 @@ private:
     ///        operator - binary -> one is number, other getView or both is number -> create Var
     ///        operator * binary -> one is number, other getView or both is number -> create Var
     ///
-    bool getView(Potassco::Id_t id, order::View& v);
+    bool getView(Clingo::id_t id, View& v);
 
-    order::View createVar(Potassco::Id_t id);
+    View createVar(Clingo::id_t id);
 
-    order::View createVar(Potassco::Id_t id, int32 val);
+    View createVar(Clingo::id_t id, int32 val);
 
 
 private:
 
-    bool check(Potassco::Id_t id);
-    bool isVariable(Potassco::Id_t id);
+    bool check(Clingo::id_t id);
+    bool isVariable(Clingo::id_t id);
 
 
-    std::unordered_map<Potassco::Id_t, std::pair<CType,bool>>  termId2constraint_;
-    std::unordered_map<Potassco::Id_t, order::LinearConstraint::Relation>  termId2guard_;
-    std::vector<std::pair<Potassco::Id_t,Clasp::Literal>> shown_; /// order::Variable to TermId + condition literal
-    std::vector<std::pair<Potassco::Id_t,Clasp::Literal>> shownPred_; /// a list of p/3 predicates to be shown + condition literal
+    std::unordered_map<Clingo::id_t, std::pair<CType,bool>>  termId2constraint_;
+    std::unordered_map<Clingo::id_t, LinearConstraint::Relation>  termId2guard_;
+    std::vector<std::pair<Clingo::id_t,Literal>> shown_; /// Variable to TermId + condition literal
+    std::vector<std::pair<Clingo::id_t,Literal>> shownPred_; /// a list of p/3 predicates to be shown + condition literal
     std::vector<tuple2View> minimize_;                /// for each level
 
-    std::vector<order::View>  termId2View_;
-    order::Normalizer& n_;
-    Potassco::TheoryData& td_;
-    Clasp::Asp::LogicProgram* lp_;
-    order::Literal trueLit_;
-    const Potassco::Id_t MAXID = std::numeric_limits<Potassco::Id_t>::max();
-    std::unordered_map<std::string, order::View> string2view_;
+    std::vector<View>  termId2View_;
+    Normalizer& n_;
+    Clingo::TheoryAtoms td_;
+    Literal trueLit_;
+    const Clingo::id_t MAXID = std::numeric_limits<Clingo::id_t>::max();
+    std::unordered_map<std::string, View> string2view_;
     using Predicate = std::pair<std::string,unsigned int>;
 
     struct PredicateHasher
@@ -154,9 +152,9 @@ private:
         }
     };
 
-    std::unordered_map<Predicate,std::set<order::Variable>,PredicateHasher> pred2Variables_;
-    std::unordered_map<order::Variable,std::pair<std::string,Clasp::LitVec>> orderVar2nameAndConditions_;
-    std::unordered_map<Predicate,Clasp::LitVec,PredicateHasher> shownPredPerm_;
+    std::unordered_map<Predicate,std::set<Variable>,PredicateHasher> pred2Variables_;
+    std::unordered_map<Variable,std::pair<std::string,LitVec>> orderVar2nameAndConditions_;
+    std::unordered_map<Predicate,LitVec,PredicateHasher> shownPredPerm_;
 };
 
 }

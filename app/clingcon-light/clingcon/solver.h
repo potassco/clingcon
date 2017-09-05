@@ -37,67 +37,7 @@ namespace clingcon
 {
 
 
-class Literal {
-public:
-    //! The default constructor creates the positive literal of the special sentinel var.
-    //Literal() : rep_(0) { }
-
-    //! Creates a literal of the variable var with sign s.
-    /*!
-     * \param var The literal's variable.
-     * \param s true if new literal should be negative.
-     */
-    Literal(clingo_atom_t var, bool sign) : rep_(sign ? -var : var)  {
-    }
-
-    //! Returns the clingo representation of this literal.
-    clingo_literal_t rep() const { return rep_; }
-
-    //! Creates a literal from a clingo_literal_t.
-    static Literal fromRep(clingo_literal_t rep) { return Literal(rep); }
-
-    //! Returns the variable of the literal.
-    uint32_t var() const { return std::abs(rep_); }
-
-    //! Returns the sign of the literal.
-    /*!
-     * \return true if the literal is negative. Otherwise false.
-     */
-
-    bool sign() const { return rep_ < 0; }
-
-    void swap(Literal& other) { std::swap(rep_, other.rep_); }
-
-    //! Returns the complementary literal of this literal.
-    /*!
-     *  The complementary Literal of a Literal is a Literal referring to the
-     *  same variable but with inverted sign.
-     */
-    inline Literal operator~() const {
-        return Literal( rep_*-1); 
-    }
-
-    //! Equality-Comparison for literals.
-    /*!
-     * Two Literals p and q are equal, iff
-     * - they both refer to the same variable
-     * - they have the same sign
-     * .
-     */
-    inline bool operator==(const Literal& rhs) const {
-        return rep_ == rhs.rep_;
-    }
-    inline bool operator!=(const Literal& rhs) const {
-        return rep_ != rhs.rep_;
-    }
-    inline bool operator<(const Literal& rhs) const {
-        return rep_ < rhs.rep_;
-    }
-private:
-    Literal(clingo_literal_t rep) : rep_(rep) {}
-    clingo_literal_t rep_;
-};
-
+using Literal = Clingo::literal_t;
 using LitVec = std::vector<Literal>;
 
 /// REWRITE
@@ -112,26 +52,20 @@ using LitVec = std::vector<Literal>;
 //
 //
 
-inline std::ostream& operator<< (std::ostream& stream, const Literal& l)
-{
-    stream << (l.sign() ? '-' : ' ') << l.var();
-    return stream;
-}
-
 
 class Grounder
 {
 public:
-    Grounder(Clingo::Backend& c) : c_(c), trueLit_(Literal(c.add_atom(),false))
+    Grounder(Clingo::Backend& c) : c_(c), trueLit_(c.add_atom())
     {
-       c_.rule(false,{trueLit_},{}); // add a fact for trueLit_
+       c_.rule(false,{Clingo::atom_t(std::abs(trueLit_))},{}); // add a fact for trueLit_
     }
 
     /// creates a new literal, makes a choice rule for it
     Literal createNewLiteral()
     {
-        Literal l = Literal(c_.add_atom(),false);
-        c_.rule(true,{l},{});
+        Literal l = c_.add_atom();
+        c_.rule(true,{Clingo::atom_t(std::abs(l))},{});
         return l;
     }
 
@@ -143,7 +77,7 @@ public:
         //class Negate {
         //public:
         //    Literal operator ()(Literal const *id) const {
-        //      return ~(*id);
+        //      return -(*id);
         //    }
         //};
         //c_.rule(false,Clingo::Span<Literal,Negate>(lvv),{});
@@ -153,21 +87,26 @@ public:
         v.reserve(lvv.size());
         for (auto i : lvv)
         {
-            v.push_back(~i);
+            v.push_back(-i);
         }
-        c_.rule(false,lvv,{});
+        c_.rule(false,{},{&lvv[0],lvv.size()});
     }
 
     void setEqual(const Literal &a, const Literal &b)
     {
-        createClause({a,~b});
-        createClause({~a,b});
+        createClause({a,-b});
+        createClause({-a,b});
     }
 
     void createCardinality(Literal v, int lb, LitVec &&lits)
     {
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
-        c_.weight_rule(false,{v},lb,lits);
+        //c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
+        std::vector<Clingo::WeightedLiteral> wlv;
+        for (auto i : lits) {
+            wlv.emplace_back(i,1);
+        }
+        c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,{&wlv[0],wlv.size()});
     }
 
     void intermediateVariableOutOfRange() const
@@ -177,7 +116,7 @@ public:
 
     void addMinimize(Literal v, int32 weight, unsigned int level)
     {
-        c_.minimize(level,{Clingo::WeightedLiteral(v.rep(),weight)});
+        c_.minimize(level,{Clingo::WeightedLiteral(v,weight)});
     }
 
 private:
@@ -204,10 +143,10 @@ public:
        c_=nullptr;
     }
     bool isTrue(Literal l) {
-       return c_->assignment().is_true(l.rep());
+       return c_->assignment().is_true(l);
     }
     bool isFalse(Literal l) {
-       return c_->assignment().is_false(l.rep());
+       return c_->assignment().is_false(l);
     }
     bool isUnknown(Literal l) {
        return !isFalse(l) && ! isTrue(l);
@@ -215,7 +154,7 @@ public:
 
     Literal trueLit() { return trueLit_; }
     Literal falseLit() { return ~trueLit_; }
-    Literal getNewLiteral() { return Literal::fromRep(c_->add_literal()); }
+    Literal getNewLiteral() { return c_->add_literal(); }
     ///TODO: add addclause and stuff
 private:
     Clingo::PropagateControl* c_;
