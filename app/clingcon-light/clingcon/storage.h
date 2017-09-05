@@ -480,11 +480,11 @@ public:
 
     /// reification lit will be equal to the order literal afterwards
     /// will be equal to false, if used on end iterator
-    bool setLELit(const Restrictor::ViewIterator &it, Literal l);
+    void setLELit(const Restrictor::ViewIterator &it, Literal l);
 
     /// reification lit will be equal to the order literal afterwards
     /// /// will be equal to false, if used on end iterator
-    bool setGELit(const Restrictor::ViewIterator &it, Literal l);
+    void setGELit(const Restrictor::ViewIterator &it, Literal l);
 
 
     /// true if there exists an order literal
