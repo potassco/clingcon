@@ -3,15 +3,15 @@ undefine CXX
 
 CLINGOROOT?=/home/wv/opt/clingo-banane
 
-#CXX?=clang++-3.8
-CXX?=clang++
+CXX?=clang++-3.8
+#CXX?=clang++
 CXXFLAGS?=-std=c++11 -W -Wall -O3 -DNDEBUG
-CPPFLAGS?=-I/home/ostrowsk/work/git/clingo/libclingo
-LDFLAGS?=-L/home/ostrowsk/work/git/clingo/build/bin -Wl,-rpath=/home/ostrowsk/work/git/clingo/build/bin
+CPPFLAGS?=-I$(CLINGOROOT)/include
+LDFLAGS?=-L$(CLINGOROOT)/lib -Wl,-rpath=$(CLINGOROOT)/lib
 LDLIBS?=-lclingo
 
 TARGET=clingoDL
-SOURCE=main.cpp
+SOURCE=main.cpp src/*.cpp
 
 OBJECT=$(patsubst %,%.o,$(basename $(SOURCE)))
 DEPEND=$(patsubst %,%.d,$(basename $(SOURCE)))
