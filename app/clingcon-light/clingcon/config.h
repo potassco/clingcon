@@ -25,21 +25,24 @@
 #pragma once
 #include <clingcon/types.h>
 
-
 namespace clingcon
 {
 
 struct Config
 {
 public:
-    Config() {}//= default;
+    Config() {} //= default;
 
-    Config(unsigned int domSize, bool dontcare) : domSize(domSize), dontcare(dontcare)
+    Config(int64 minLitsPerVar, unsigned int domSize, bool dontcare)
+        : minLitsPerVar(minLitsPerVar)
+        , domSize(domSize)
+        , dontcare(dontcare)
     {
     }
-    int64 domSize; /// the maximum number of chunks a domain can have when multiplied (if avoidable)
-    bool dontcare; /// option for testing strict/vs fwd/back inferences only
+    int64 minLitsPerVar; /// precreate at least this number of literals per
+                         /// variable (-1 = all)
+    int64 domSize;       /// the maximum number of chunks a domain can have when
+                         /// multiplied (if avoidable)
+    bool dontcare;       /// option for testing strict/vs fwd/back inferences only
 };
-
-
 }

@@ -23,50 +23,54 @@
 // }}}
 
 #pragma once
-#include "clingcon/solver.h"
-#include "clingcon/normalizer.h"
 #include "clingcon/constraint.h"
-#include <unordered_map>
+#include "clingcon/normalizer.h"
+#include "clingcon/solver.h"
 #include <sstream>
-
-
+#include <unordered_map>
 
 namespace clingcon
 {
 
-template <class T>
-inline void hash_combine(std::size_t & seed, const T & v)
+template < class T >
+inline void hash_combine(std::size_t &seed, const T &v)
 {
-  std::hash<T> hasher;
-  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    std::hash< T > hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-
-using NameList = std::unordered_map<Variable,std::pair<std::string,LitVec>>;
-
+using NameList = std::unordered_map< Variable, std::pair< std::string, LitVec > >;
 
 class TheoryParser
 {
 public:
+    enum CType
+    {
+        SUM,
+        DOM,
+        DISTINCT,
+        SHOW,
+        MINIMIZE
+    };
+    using mytuple = std::vector< Clingo::id_t >;  /// a tuple identifier
+    using tuple2View = std::map< mytuple, View >; // could be unordered
 
-    enum CType {SUM, DOM, DISTINCT, SHOW, MINIMIZE};
-    using mytuple = std::vector<Clingo::id_t>;   /// a tuple identifier
-    using tuple2View = std::map<mytuple, View>; // could be unordered
-
-
-    TheoryParser(Normalizer& n, Clingo::TheoryAtoms td, Literal trueLit) :
-        n_(n), td_(td), trueLit_(trueLit)
-    {}
-    bool isClingconConstraint(Clingo::TheoryAtomIterator& i);
-    bool isUnarySum(Clingo::TheoryAtomIterator& i);
+    TheoryParser(Normalizer &n, Clingo::TheoryAtoms td, Literal trueLit)
+        : n_(n)
+        , td_(td)
+        , trueLit_(trueLit)
+    {
+    }
+    bool isClingconConstraint(Clingo::TheoryAtomIterator &i);
+    bool isUnarySum(Clingo::TheoryAtomIterator &i);
 
     /// returns false, if not a constraint of this theory
     /// throws string with error if error occurs
     /// save constraint as strict or nonstrict
-    bool readConstraint(Clingo::TheoryAtomIterator& i, Direction dir);
+    bool readConstraint(Clingo::TheoryAtomIterator &i, Direction dir);
     /// turn show predicates to variables
-    NameList& postProcess();
-    const std::vector<tuple2View>& minimize() const;
+    NameList &postProcess();
+    const std::vector< tuple2View > &minimize() const;
 
     void reset();
 
@@ -74,28 +78,25 @@ public:
     std::string getName(Variable v);
 
 private:
+    void error(const std::string &s);
+    void error(const std::string &s, Clingo::id_t id);
 
-    void error(const std::string& s);
-    void error(const std::string& s, Clingo::id_t id);
+    bool getConstraintType(Clingo::id_t id, CType &t);
+    bool getGuard(Clingo::id_t id, LinearConstraint::Relation &rel);
 
-
-    bool getConstraintType(Clingo::id_t id, CType& t);
-    bool getGuard(Clingo::id_t id, LinearConstraint::Relation& rel);
-
-
-    std::string toString(const Clingo::TheoryTerm& t)
+    std::string toString(const Clingo::TheoryTerm &t)
     {
         std::stringstream ss;
-        return toString(ss,t).str();
+        return toString(ss, t).str();
     }
 
-    std::stringstream& toString(std::stringstream& ss, const Clingo::TheoryTerm& t);
+    std::stringstream &toString(std::stringstream &ss, const Clingo::TheoryTerm &t);
 
     bool isNumber(Clingo::id_t id);
-    bool isNumber(const Clingo::TheoryTerm& a);
+    bool isNumber(const Clingo::TheoryTerm &a);
 
     int getNumber(Clingo::id_t id);
-    int getNumber(const Clingo::TheoryTerm& a);
+    int getNumber(const Clingo::TheoryTerm &a);
 
     void add2Shown(Variable v, uint32 tid, Literal l);
 
@@ -110,51 +111,55 @@ private:
     ///        named function -> eval and create var
     ///        operator + unary ->getView of Rest
     ///        operator - unary ->getView of Rest
-    ///        operator + binary -> one is number, other getView or both is number -> create Var
-    ///        operator - binary -> one is number, other getView or both is number -> create Var
-    ///        operator * binary -> one is number, other getView or both is number -> create Var
+    ///        operator + binary -> one is number, other getView or both is
+    ///        number
+    ///        -> create Var
+    ///        operator - binary -> one is number, other getView or both is
+    ///        number
+    ///        -> create Var
+    ///        operator * binary -> one is number, other getView or both is
+    ///        number
+    ///        -> create Var
     ///
-    bool getView(Clingo::id_t id, View& v);
+    bool getView(Clingo::id_t id, View &v);
 
     View createVar(Clingo::id_t id);
 
     View createVar(Clingo::id_t id, int32 val);
 
-
 private:
-
     bool check(Clingo::id_t id);
     bool isVariable(Clingo::id_t id);
 
+    std::unordered_map< Clingo::id_t, std::pair< CType, bool > > termId2constraint_;
+    std::unordered_map< Clingo::id_t, LinearConstraint::Relation > termId2guard_;
+    std::vector< std::pair< Clingo::id_t, Literal > >
+        shown_; /// Variable to TermId + condition literal
+    std::vector< std::pair< Clingo::id_t, Literal > >
+        shownPred_; /// a list of p/3 predicates to be shown + condition literal
+    std::vector< tuple2View > minimize_; /// for each level
 
-    std::unordered_map<Clingo::id_t, std::pair<CType,bool>>  termId2constraint_;
-    std::unordered_map<Clingo::id_t, LinearConstraint::Relation>  termId2guard_;
-    std::vector<std::pair<Clingo::id_t,Literal>> shown_; /// Variable to TermId + condition literal
-    std::vector<std::pair<Clingo::id_t,Literal>> shownPred_; /// a list of p/3 predicates to be shown + condition literal
-    std::vector<tuple2View> minimize_;                /// for each level
-
-    std::vector<View>  termId2View_;
-    Normalizer& n_;
+    std::vector< View > termId2View_;
+    Normalizer &n_;
     Clingo::TheoryAtoms td_;
     Literal trueLit_;
-    const Clingo::id_t MAXID = std::numeric_limits<Clingo::id_t>::max();
-    std::unordered_map<std::string, View> string2view_;
-    using Predicate = std::pair<std::string,unsigned int>;
+    const Clingo::id_t MAXID = std::numeric_limits< Clingo::id_t >::max();
+    std::unordered_map< std::string, View > string2view_;
+    using Predicate = std::pair< std::string, unsigned int >;
 
     struct PredicateHasher
     {
-        std::size_t operator()(Predicate const& p) const
+        std::size_t operator()(Predicate const &p) const
         {
-        std::size_t seed = 0;
-        hash_combine(seed, p.first);
-        hash_combine(seed, p.second);
-        return seed;
+            std::size_t seed = 0;
+            hash_combine(seed, p.first);
+            hash_combine(seed, p.second);
+            return seed;
         }
     };
 
-    std::unordered_map<Predicate,std::set<Variable>,PredicateHasher> pred2Variables_;
-    std::unordered_map<Variable,std::pair<std::string,LitVec>> orderVar2nameAndConditions_;
-    std::unordered_map<Predicate,LitVec,PredicateHasher> shownPredPerm_;
+    std::unordered_map< Predicate, std::set< Variable >, PredicateHasher > pred2Variables_;
+    std::unordered_map< Variable, std::pair< std::string, LitVec > > orderVar2nameAndConditions_;
+    std::unordered_map< Predicate, LitVec, PredicateHasher > shownPredPerm_;
 };
-
 }

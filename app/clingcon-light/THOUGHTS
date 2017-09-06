@@ -27,3 +27,7 @@ cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/inclu
 or
 cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
 
+
+
+Functions possibly subject to remove:
+VariableCreator::constrainUpper/LowerBound

@@ -23,90 +23,106 @@
 // }}}
 
 #pragma once
-#include <iostream>
-#include <sstream>
-#include <ostream>
-#include <cstdlib>
-#include <vector>
-#include <cassert>
-#include <clingo.hh>
 #include "clingcon/platform.h"
 #include "clingcon/variable.h"
+#include <cassert>
+#include <clingo.hh>
+#include <cstdlib>
+#include <iostream>
+#include <ostream>
+#include <sstream>
+#include <vector>
 
 namespace clingcon
 {
 
-
 using Literal = Clingo::literal_t;
-using LitVec = std::vector<Literal>;
+using LitVec = std::vector< Literal >;
 
 /// REWRITE
 // No common Solver object
-// The Creating Solver is now known as "Grounder" and can create literals and rules.
+// The Creating Solver is now known as "Grounder" and can create literals and
+// rules.
 // It can not determine the truth value of literals
-// The Incremental Solver is now known as "Solver" and can determine the truth value of literals
+// The Incremental Solver is now known as "Solver" and can determine the truth
+// value of literals
 // at runtime and add new runtime literals
-// --- No, PropagateControl has an assignment() which provides this functionality,
+// --- No, PropagateControl has an assignment() which provides this
+// functionality,
 // no need to wrap it, unnecessary complex
 // --- I still wrap it for completion, to be indepent of changes etc...
 //
 //
 
-
 class Grounder
 {
 public:
-    Grounder(Clingo::Backend& c) : c_(c), trueLit_(c.add_atom())
+    Grounder(Clingo::Backend &c)
+        : c_(c)
+        , trueLit_(c.add_atom())
     {
-       c_.rule(false,{Clingo::atom_t(std::abs(trueLit_))},{}); // add a fact for trueLit_
+        c_.rule(false, {Clingo::atom_t(std::abs(trueLit_))}, {}); // add a fact for trueLit_
     }
 
     /// creates a new literal, makes a choice rule for it
     Literal createNewLiteral()
     {
         Literal l = c_.add_atom();
-        c_.rule(true,{Clingo::atom_t(std::abs(l))},{});
+        c_.rule(true, {Clingo::atom_t(std::abs(l))}, {});
         return l;
     }
 
     Literal trueLit() const { return trueLit_; }
     Literal falseLit() const { return ~trueLit(); }
 
-    void createClause(const LitVec& lvv)
+    /// very limited currently
+    // TODO: any chance for other facts?
+    bool isTrue(Literal l) { return l == trueLit_; }
+    bool isFalse(Literal l)
     {
-        //class Negate {
-        //public:
+        return l == -trueLit_;
+        ;
+    }
+    bool isUnknown(Literal l) { return !isFalse(l) && !isTrue(l); }
+
+    bool createClause(const LitVec &lvv)
+    {
+        // class Negate {
+        // public:
         //    Literal operator ()(Literal const *id) const {
         //      return -(*id);
         //    }
         //};
-        //c_.rule(false,Clingo::Span<Literal,Negate>(lvv),{});
+        // c_.rule(false,Clingo::Span<Literal,Negate>(lvv),{});
 
-        ///TODO: currently does a copy, can this be avoided ?
+        /// TODO: currently does a copy, can this be avoided ?
         LitVec v;
         v.reserve(lvv.size());
         for (auto i : lvv)
         {
             v.push_back(-i);
         }
-        c_.rule(false,{},{&lvv[0],lvv.size()});
+        c_.rule(false, {}, {&lvv[0], lvv.size()});
+        return !(lvv.size() == 1 && lvv[0] == -trueLit_);
     }
 
-    void setEqual(const Literal &a, const Literal &b)
+    bool setEqual(const Literal &a, const Literal &b)
     {
-        createClause({a,-b});
-        createClause({-a,b});
+        createClause({a, -b});
+        createClause({-a, b});
+        return a != -b;
     }
 
     void createCardinality(Literal v, int lb, LitVec &&lits)
     {
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
-        //c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
-        std::vector<Clingo::WeightedLiteral> wlv;
-        for (auto i : lits) {
-            wlv.emplace_back(i,1);
+        // c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
+        std::vector< Clingo::WeightedLiteral > wlv;
+        for (auto i : lits)
+        {
+            wlv.emplace_back(i, 1);
         }
-        c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,{&wlv[0],wlv.size()});
+        c_.weight_rule(false, {Clingo::atom_t(std::abs(v))}, lb, {&wlv[0], wlv.size()});
     }
 
     void intermediateVariableOutOfRange() const
@@ -116,53 +132,45 @@ public:
 
     void addMinimize(Literal v, int32 weight, unsigned int level)
     {
-        c_.minimize(level,{Clingo::WeightedLiteral(v,weight)});
+        c_.minimize(level, {Clingo::WeightedLiteral(v, weight)});
     }
 
 private:
-
-    Clingo::Backend& c_;
+    Clingo::Backend &c_;
     Literal trueLit_;
 };
-
 
 class Solver
 {
 public:
-    Solver(Literal trueLit) : c_(nullptr), trueLit_(trueLit) {}
-    /// call these functions before any other stuff with the object
-    void beginPropagate(Clingo::PropagateControl& c)
+    Solver(Literal trueLit)
+        : c_(nullptr)
+        , trueLit_(trueLit)
     {
-       assert(c_==nullptr);
-       c_ = &c;
+    }
+    /// call these functions before any other stuff with the object
+    void beginPropagate(Clingo::PropagateControl &c)
+    {
+        assert(c_ == nullptr);
+        c_ = &c;
     }
 
     void endPropagate()
     {
-       assert(c_!=nullptr);
-       c_=nullptr;
+        assert(c_ != nullptr);
+        c_ = nullptr;
     }
-    bool isTrue(Literal l) {
-       return c_->assignment().is_true(l);
-    }
-    bool isFalse(Literal l) {
-       return c_->assignment().is_false(l);
-    }
-    bool isUnknown(Literal l) {
-       return !isFalse(l) && ! isTrue(l);
-    }
+    bool isTrue(Literal l) { return c_->assignment().is_true(l); }
+    bool isFalse(Literal l) { return c_->assignment().is_false(l); }
+    bool isUnknown(Literal l) { return !isFalse(l) && !isTrue(l); }
 
     Literal trueLit() { return trueLit_; }
     Literal falseLit() { return ~trueLit_; }
     Literal getNewLiteral() { return c_->add_literal(); }
-    ///TODO: add addclause and stuff
+    /// TODO: add addclause and stuff
 private:
-    Clingo::PropagateControl* c_;
+    Clingo::PropagateControl *c_;
     Literal trueLit_;
 };
 
-
 } // namespace clingcon
-
-
-
