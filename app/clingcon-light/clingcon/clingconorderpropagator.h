@@ -23,7 +23,6 @@
 // }}}
 
 #pragma once
-#include <clasp/constraint.h>
 #include <clingcon/solver.h>
 #include <clingcon/theoryparser.h>
 #include <cstdint>
@@ -32,30 +31,21 @@
 #include <order/linearpropagator.h>
 #include <unordered_map>
 
-/// needed for unordered_map<Clasp::Literal>
-namespace std
-{
-template <>
-struct hash< Clasp::Literal >
-{
-    std::size_t operator()(const Clasp::Literal &x) const { return hash< uint32 >()(x.rep()); }
-};
-}
 
 namespace clingcon
 {
 
 /// sign of the literal, for order literals a positive literal is alsways a <=
 /// x, while a negative one is a > x
-class ClingconOrderPropagator : public Clasp::PostPropagator
+class ClingconOrderPropagator : public Clingo::Propagator
 {
 public:
     using DataBlob = Clasp::Literal;
 
-    ClingconOrderPropagator(Clasp::Solver &s, const order::VariableCreator &vc,
-                            const order::Config &conf,
-                            const std::vector< order::ReifiedLinearConstraint > &constraints,
-                            const order::EqualityProcessor::EqualityClassMap &equalities,
+    ClingconOrderPropagator(Clasp::Solver &s, const VariableCreator &vc,
+                            const Config &conf,
+                            const std::vector< ReifiedLinearConstraint > &constraints,
+                            const EqualityProcessor::EqualityClassMap &equalities,
                             const NameList *names)
         : s_(s)
         , conf_(conf)
@@ -142,14 +132,14 @@ public:
         {
             if (watched_[var])
             {
-                auto lr = order::pure_LELiteral_iterator(
-                    vc.getRestrictor(order::View(var)).begin(),
+                auto lr = pure_LELiteral_iterator(
+                    vc.getRestrictor(View(var)).begin(),
                     p_.getVVS().getVariableStorage().getOrderStorage(var), true);
 
                 while (lr.isValid())
                 {
                     /// TODO: do i need to do this for true lits ?
-                    addWatch((order::Variable)(var), toClaspFormat(*lr), lr.numElement());
+                    addWatch((Variable)(var), toClaspFormat(*lr), lr.numElement());
                     ++lr;
                 }
             }
@@ -171,8 +161,8 @@ public:
         {
             if (watched_[var])
             {
-                auto lr = order::pure_LELiteral_iterator(
-                    p_.getVVS().getVariableStorage().getRestrictor(order::View(var)).begin(),
+                auto lr = pure_LELiteral_iterator(
+                    p_.getVVS().getVariableStorage().getRestrictor(View(var)).begin(),
                     p_.getVVS().getVariableStorage().getOrderStorage(var), true);
                 while (lr.isValid())
                 {
@@ -204,7 +194,7 @@ public:
     /// watches removed
     ///
     ///
-    void addLazyShow(order::Variable v, const std::string &s)
+    void addLazyShow(Variable v, const std::string &s)
     {
         show_.resize(std::max(( unsigned int )(show_.size()), v + 1));
         show_[v] = s;
@@ -216,31 +206,31 @@ public:
     /// virtual uint32 estimateComplexity(const Clasp::Solver& s) const { return
     /// 42; /* do some rought guessing by the number of constraints/size*/}
 
-    const char *printModel(order::Variable v, const std::string &name);
+    const char *printModel(Variable v, const std::string &name);
     /// only to be used of a model has been found
-    bool getValue(order::Variable v, int32 &value);
+    bool getValue(Variable v, int32 &value);
 
     Clasp::Solver &solver() { return s_; }
 
-    const order::VolatileVariableStorage &getVVS() const { return p_.getVVS(); }
+    const VolatileVariableStorage &getVVS() const { return p_.getVVS(); }
 
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
-    void addWatch(const order::Variable &var, const Clasp::Literal &cl, unsigned int step);
+    void addWatch(const Variable &var, const Clasp::Literal &cl, unsigned int step);
     /// debug function
     bool orderLitsAreOK();
     Clasp::Solver &s_;
-    order::Config conf_;
-    std::unique_ptr< order::IncrementalSolver > ms_;
-    order::LinearLiteralPropagator p_;
-    const order::EqualityProcessor::EqualityClassMap &eqs_; /// equalities of variables for printing
+    Config conf_;
+    std::unique_ptr< IncrementalSolver > ms_;
+    LinearLiteralPropagator p_;
+    const EqualityProcessor::EqualityClassMap &eqs_; /// equalities of variables for printing
 
     /// force a new literal l, associated with it to be true,
     /// where l==x>it because x>it+eps
     /// where eps is the next valid literal
-    void forceKnownLiteralLE(order::ViewIterator it, Clasp::Literal l);
-    void forceKnownLiteralGE(order::ViewIterator it, Clasp::Literal l);
+    void forceKnownLiteralLE(ViewIterator it, Clasp::Literal l);
+    void forceKnownLiteralGE(ViewIterator it, Clasp::Literal l);
 
     /// for each Clasp Variable there is a vector of csp Variables with bounds
     /// For each CSP Variable there is an int x
@@ -248,9 +238,9 @@ private:
     /// value that is referenced
     /// sign(x): positive if literal without sign means v <= y, negative if
     /// literal with sign means v <= y
-    std::unordered_map< Clasp::Var, std::vector< std::pair< order::Variable, int32 > > >
+    std::unordered_map< Clasp::Var, std::vector< std::pair< Variable, int32 > > >
         propVar2cspVar_; /// Clasp Literals to csp variables+bound
-    // const std::vector<std::unique_ptr<order::LitVec> >& var2OrderLits_; ///
+    // const std::vector<std::unique_ptr<LitVec> >& var2OrderLits_; ///
     // CSP
     // variables to Clasp::order
 
@@ -264,11 +254,11 @@ private:
     Clasp::LitVec conflict_; /// only set in imediate conflict in addition to reasons,
     /// as reason can already be set for this variable (opposite sign)
 
-    std::vector< std::string > show_; /// order::Variable -> string name
+    std::vector< std::string > show_; /// Variable -> string name
     std::string outputbuf_;
     std::vector< bool > watched_; /// which variables we need to watch
 
-    std::unordered_map< order::Variable, int32 >
+    std::unordered_map< Variable, int32 >
         lastModel_;         /// values of all shown variables in the last model
     const NameList *names_; /// for every Variable, a name and a disjunction of
                             /// condition if shown
