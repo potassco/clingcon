@@ -36,6 +36,7 @@ set(source-group
     "${CMAKE_CURRENT_SOURCE_DIR}/src/theoryparser.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/normalizer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/linearpropagator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/translator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 source_group("${ide_source_group}" FILES ${source-group})
 set(source

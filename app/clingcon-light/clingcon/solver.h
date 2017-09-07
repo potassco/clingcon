@@ -54,7 +54,17 @@ using LitVec = std::vector< Literal >;
 //
 //
 
-class Grounder
+class BaseSolver
+{
+public:
+    virtual Literal trueLit() const = 0;
+    virtual Literal falseLit() const = 0;
+    virtual bool isTrue(Literal l) const = 0;
+    virtual bool isFalse(Literal l) const = 0;
+    virtual bool isUnknown(Literal l) const = 0;
+};
+
+class Grounder : public BaseSolver
 {
 public:
     Grounder(Clingo::Backend &c)
@@ -137,7 +147,7 @@ private:
     Literal trueLit_;
 };
 
-class Solver
+class Solver : public BaseSolver
 {
 public:
     Solver(Literal trueLit)

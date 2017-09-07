@@ -68,7 +68,7 @@ void ConstraintStorage::removeLevel()
 
 
 /// return false if the domain is empty
-void ConstraintStorage::constrainUpperBound(const View &view, const Solver &s)
+void ConstraintStorage::constrainUpperBound(const View &view, const BaseSolver &s)
 {
     Variable v = view.v;
 
@@ -90,7 +90,7 @@ void ConstraintStorage::constrainUpperBound(const View &view, const Solver &s)
 }
 
 /// return false if the domain is empty
-void ConstraintStorage::constrainLowerBound(const View &u, const Solver &s)
+void ConstraintStorage::constrainLowerBound(const View &u, const BaseSolver &s)
 {
     constrainUpperBound(u * -1, s);
 }

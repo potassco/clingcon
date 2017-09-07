@@ -61,8 +61,8 @@ private:
     /// true if we are at a fixpoint
     bool atFixPoint() { return toProcess_.empty(); }
     /// return false if the domain is empty
-    void constrainUpperBound(const View &view, const Solver &s);
-    void constrainLowerBound(const View &view, const Solver &s);
+    void constrainUpperBound(const View &view, const BaseSolver &s);
+    void constrainLowerBound(const View &view, const BaseSolver &s);
     void queueConstraint(std::size_t id);
     std::size_t popConstraint();
 
