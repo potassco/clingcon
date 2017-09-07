@@ -77,13 +77,9 @@ public:
 
     /// very limited currently
     // TODO: any chance for other facts?
-    bool isTrue(Literal l) { return l == trueLit_; }
-    bool isFalse(Literal l)
-    {
-        return l == -trueLit_;
-        ;
-    }
-    bool isUnknown(Literal l) { return !isFalse(l) && !isTrue(l); }
+    bool isTrue(Literal l) const { return l == trueLit_; }
+    bool isFalse(Literal l) const { return l == -trueLit_; }
+    bool isUnknown(Literal l) const { return !isFalse(l) && !isTrue(l); }
 
     bool createClause(const LitVec &lvv)
     {
@@ -113,7 +109,7 @@ public:
         return a != -b;
     }
 
-    void createCardinality(Literal v, int lb, LitVec &&lits)
+    bool createCardinality(Literal v, int lb, LitVec &&lits)
     {
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
         // c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
@@ -123,6 +119,7 @@ public:
             wlv.emplace_back(i, 1);
         }
         c_.weight_rule(false, {Clingo::atom_t(std::abs(v))}, lb, {&wlv[0], wlv.size()});
+        return true;
     }
 
     void intermediateVariableOutOfRange() const
@@ -160,12 +157,12 @@ public:
         assert(c_ != nullptr);
         c_ = nullptr;
     }
-    bool isTrue(Literal l) { return c_->assignment().is_true(l); }
-    bool isFalse(Literal l) { return c_->assignment().is_false(l); }
-    bool isUnknown(Literal l) { return !isFalse(l) && !isTrue(l); }
+    bool isTrue(Literal l) const { return c_->assignment().is_true(l); }
+    bool isFalse(Literal l) const { return c_->assignment().is_false(l); }
+    bool isUnknown(Literal l) const { return !isFalse(l) && !isTrue(l); }
 
-    Literal trueLit() { return trueLit_; }
-    Literal falseLit() { return ~trueLit_; }
+    Literal trueLit() const { return trueLit_; }
+    Literal falseLit() const { return ~trueLit_; }
     Literal getNewLiteral() { return c_->add_literal(); }
     /// TODO: add addclause and stuff
 private:

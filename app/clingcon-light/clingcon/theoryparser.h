@@ -79,10 +79,10 @@ public:
 
 private:
     void error(const std::string &s);
-    void error(const std::string &s, const Clingo::TheoryTerm& t);
+    void error(const std::string &s, const Clingo::TheoryTerm &t);
 
-    bool getConstraintType(const Clingo::TheoryTerm& term, CType &t);
-    bool getGuard(const char* c, LinearConstraint::Relation &rel);
+    bool getConstraintType(const Clingo::TheoryTerm &term, CType &t);
+    bool getGuard(const char *c, LinearConstraint::Relation &rel);
 
     std::string toString(const Clingo::TheoryTerm &t);
     std::stringstream &toString(std::stringstream &ss, const Clingo::TheoryTerm &t);
@@ -114,15 +114,15 @@ private:
     ///        number
     ///        -> create Var
     ///
-    bool getView(const Clingo::TheoryTerm& a, View &v);
+    bool getView(const Clingo::TheoryTerm &a, View &v);
 
-    View createVar(const Clingo::TheoryTerm& t);
+    View createVar(const Clingo::TheoryTerm &t);
 
-    View createVar(const Clingo::TheoryTerm& t, int32 val);
+    View createVar(const Clingo::TheoryTerm &t, int32 val);
 
 private:
-    bool check(const Clingo::TheoryTerm& id);
-    bool isVariable(const Clingo::TheoryTerm& id);
+    bool check(const Clingo::TheoryTerm &id);
+    bool isVariable(const Clingo::TheoryTerm &id);
 
     std::unordered_map< Clingo::id_t, CType > termId2constraint_;
     std::vector< std::pair< Clingo::id_t, Literal > >

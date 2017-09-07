@@ -19,6 +19,7 @@ set(header-group-clingcon
     "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/linearpropagator.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/platform.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/storage.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/translator.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/types.h")
 source_group("${ide_header_group}\\clingcon" FILES ${header-group-clingcon})
 set(header
@@ -33,6 +34,8 @@ set(source-group
     "${CMAKE_CURRENT_SOURCE_DIR}/src/storage.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/domain.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/theoryparser.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/normalizer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/linearpropagator.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 source_group("${ide_source_group}" FILES ${source-group})
 set(source

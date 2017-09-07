@@ -42,8 +42,7 @@ class ClingconOrderPropagator : public Clingo::Propagator
 public:
     using DataBlob = Clasp::Literal;
 
-    ClingconOrderPropagator(Clasp::Solver &s, const VariableCreator &vc,
-                            const Config &conf,
+    ClingconOrderPropagator(Clasp::Solver &s, const VariableCreator &vc, const Config &conf,
                             const std::vector< ReifiedLinearConstraint > &constraints,
                             const EqualityProcessor::EqualityClassMap &equalities,
                             const NameList *names)

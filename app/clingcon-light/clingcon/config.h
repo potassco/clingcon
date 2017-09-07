@@ -33,16 +33,22 @@ struct Config
 public:
     Config() {} //= default;
 
-    Config(int64 minLitsPerVar, unsigned int domSize, bool dontcare)
-        : minLitsPerVar(minLitsPerVar)
+    Config(int64 translateConstraints, bool alldistinctCard, int64 minLitsPerVar,
+           unsigned int domSize, bool dontcare)
+        : translateConstraints(translateConstraints)
+        , alldistinctCard(alldistinctCard)
+        , minLitsPerVar(minLitsPerVar)
         , domSize(domSize)
         , dontcare(dontcare)
     {
     }
-    int64 minLitsPerVar; /// precreate at least this number of literals per
-                         /// variable (-1 = all)
-    int64 domSize;       /// the maximum number of chunks a domain can have when
-                         /// multiplied (if avoidable)
-    bool dontcare;       /// option for testing strict/vs fwd/back inferences only
+    int64 translateConstraints; // translate constraint if expected number of clauses is less than
+                                // this number (-1 = all)
+    bool alldistinctCard; /// translate alldistinct with cardinality constraints, default false
+    int64 minLitsPerVar;  /// precreate at least this number of literals per
+                          /// variable (-1 = all)
+    int64 domSize;        /// the maximum number of chunks a domain can have when
+                          /// multiplied (if avoidable)
+    bool dontcare;        /// option for testing strict/vs fwd/back inferences only
 };
 }

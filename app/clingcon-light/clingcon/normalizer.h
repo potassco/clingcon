@@ -202,12 +202,6 @@ public:
     bool createOrderClauses();
     /// mapping of order to direct variables
     bool createEqualClauses();
-    /// do replace equalities on variables
-    /// and introduce "views", so that they share literals
-    /// find equalities only on first run
-    /// all further calls will still replace old found equalities in new
-    /// constraints
-    bool equalityPreprocessing(bool firstRun);
 
     /// a list of all constraints
     // std::vector<ReifiedLinearConstraint> linearImplications_;  /// normalized
@@ -217,8 +211,6 @@ public:
     std::vector< ReifiedAllDistinct > allDistincts_;
     std::vector< ReifiedDomainConstraint > domainConstraints_;
     std::vector< std::pair< View, unsigned int > > minimize_; /// Views on a level to minimize
-    std::vector< uint64 > estimateLE_; // for each variable, number of estimated literals (order)
-    std::vector< uint64 > estimateEQ_; // for each variable, number of estimated literals (equal)
 
     Grounder &s_;
     VariableCreator vc_;
@@ -227,9 +219,9 @@ public:
     std::unique_ptr< LinearPropagator > propagator_;
     bool firstRun_;
     unsigned int varsBefore_;        /// the number of variables that we had before this
-                                     /// step (including splitting)
+                                     /// step
     unsigned int varsAfter_;         /// the highest problem specific variable in this step + 1
     unsigned int varsAfterFinalize_; /// the highest variable we have after this
-                                     /// step (including splitting)
+                                     /// step
 };
 }
