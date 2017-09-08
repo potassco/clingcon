@@ -69,8 +69,6 @@ public:
 
     bool propagate();
 
-    bool atFixPoint() const;
-
     bool finalize();
 
     /// returns two lists of variables that do not have lower or upper bounds
@@ -141,7 +139,7 @@ public:
         case LinearConstraint::Relation::NE:
         {
             it = (it == r.end() || *it != l.getRhs()) ? r.end() : it;
-            return ~vc_.getEqualLit(it);
+            return -vc_.getEqualLit(it);
         }
         case LinearConstraint::Relation::LE:
             return vc_.getLELiteral(it);

@@ -18,113 +18,130 @@
 
 // }}}
 
+#include <algorithm>
+#include <chrono>
 #include <clingo.hh>
+#include <cstdlib>
+#include <iomanip>
 #include <iostream>
-#include <string>
+#include <iterator>
+#include <limits>
 #include <map>
 #include <set>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
 #include <vector>
-#include <limits>
-#include <chrono>
-#include <iomanip>
-#include <cstdlib>
 
-#include "clingcon/theoryparser.h"
+#include <clingcon/theoryparser.h>
 
 //#define CROSSCHECK
 #define CHECKSOLUTION
 
 using namespace Clingo;
 
-namespace Detail {
+namespace Detail
+{
 
-template <int X>
-using int_type = std::integral_constant<int, X>;
-template <class T, class S>
-inline void nc_check(S s, int_type<0>) { // same sign
-    (void)s;
-    assert((std::is_same<T, S>::value) || (s >= std::numeric_limits<T>::min() && s <= std::numeric_limits<T>::max()));
+template < int X >
+using int_type = std::integral_constant< int, X >;
+template < class T, class S >
+inline void nc_check(S s, int_type< 0 >)
+{ // same sign
+    ( void )s;
+    assert((std::is_same< T, S >::value) ||
+           (s >= std::numeric_limits< T >::min() && s <= std::numeric_limits< T >::max()));
 }
-template <class T, class S>
-inline void nc_check(S s, int_type<-1>) { // Signed -> Unsigned
-    (void)s;
-    assert(s >= 0 && static_cast<S>(static_cast<T>(s)) == s);
+template < class T, class S >
+inline void nc_check(S s, int_type< -1 >)
+{ // Signed -> Unsigned
+    ( void )s;
+    assert(s >= 0 && static_cast< S >(static_cast< T >(s)) == s);
 }
-template <class T, class S>
-inline void nc_check(S s, int_type<1>) { // Unsigned -> Signed
-    (void)s;
-    assert(!(s > std::numeric_limits<T>::max()));
+template < class T, class S >
+inline void nc_check(S s, int_type< 1 >)
+{ // Unsigned -> Signed
+    ( void )s;
+    assert(!(s > std::numeric_limits< T >::max()));
 }
 
 } // namespace Detail
 
-template <class T, class S>
-inline T numeric_cast(S s) {
-    constexpr int sv = int(std::numeric_limits<T>::is_signed) - int(std::numeric_limits<S>::is_signed);
-    ::Detail::nc_check<T>(s, ::Detail::int_type<sv>());
-    return static_cast<T>(s);
+template < class T, class S >
+inline T numeric_cast(S s)
+{
+    constexpr int sv =
+        int(std::numeric_limits< T >::is_signed) - int(std::numeric_limits< S >::is_signed);
+    ::Detail::nc_check< T >(s, ::Detail::int_type< sv >());
+    return static_cast< T >(s);
 }
 
-template <class K, class V>
-std::ostream &operator<<(std::ostream &out, std::unordered_map<K, V> const &map);
-template <class T>
-std::ostream &operator<<(std::ostream &out, std::vector<T> const &vec);
-template <class K, class V>
-std::ostream &operator<<(std::ostream &out, std::pair<K, V> const &pair);
+template < class K, class V >
+std::ostream &operator<<(std::ostream &out, std::unordered_map< K, V > const &map);
+template < class T >
+std::ostream &operator<<(std::ostream &out, std::vector< T > const &vec);
+template < class K, class V >
+std::ostream &operator<<(std::ostream &out, std::pair< K, V > const &pair);
 
-template <class T>
-std::ostream &operator<<(std::ostream &out, std::vector<T> const &vec) {
+template < class T >
+std::ostream &operator<<(std::ostream &out, std::vector< T > const &vec)
+{
     out << "{";
-    for (auto &x : vec) {
+    for (auto &x : vec)
+    {
         out << " " << x;
     }
     out << " }";
     return out;
 }
 
-template <class K, class V>
-std::ostream &operator<<(std::ostream &out, std::unordered_map<K, V> const &map) {
-    using T = std::pair<K, V>;
-    std::vector<T> vec;
+template < class K, class V >
+std::ostream &operator<<(std::ostream &out, std::unordered_map< K, V > const &map)
+{
+    using T = std::pair< K, V >;
+    std::vector< T > vec;
     vec.assign(map.begin(), map.end());
     std::sort(vec.begin(), vec.end(), [](T const &a, T const &b) { return a.first < b.first; });
     out << vec;
     return out;
 }
 
-template <class K, class V>
-std::ostream &operator<<(std::ostream &out, std::pair<K, V> const &pair) {
+template < class K, class V >
+std::ostream &operator<<(std::ostream &out, std::pair< K, V > const &pair)
+{
     out << "( " << pair.first << " " << pair.second << " )";
     return out;
 }
 
-template <class C>
-void ensure_index(C &c, size_t index) {
-    if (index >= c.size()) {
+template < class C >
+void ensure_index(C &c, size_t index)
+{
+    if (index >= c.size())
+    {
         c.resize(index + 1);
     }
 }
 
-using Duration = std::chrono::duration<double>;
+using Duration = std::chrono::duration< double >;
 
-class Timer {
+class Timer
+{
 public:
     Timer(Duration &elapsed)
         : elapsed_(elapsed)
-        , start_(std::chrono::steady_clock::now()) {}
+        , start_(std::chrono::steady_clock::now())
+    {
+    }
     ~Timer() { elapsed_ += std::chrono::steady_clock::now() - start_; }
 
 private:
     Duration &elapsed_;
-    std::chrono::time_point<std::chrono::steady_clock> start_;
+    std::chrono::time_point< std::chrono::steady_clock > start_;
 };
 
-struct Stats {
+struct Stats
+{
     Duration time_total = Duration{0};
     Duration time_init = Duration{0};
     int64_t conflicts{0};
@@ -132,19 +149,25 @@ struct Stats {
     int64_t restarts{0};
 };
 
-template <typename T>
-T evaluate_binary(char const *op, T left, T right) {
-    if (std::strcmp(op, "+") == 0) {
+template < typename T >
+T evaluate_binary(char const *op, T left, T right)
+{
+    if (std::strcmp(op, "+") == 0)
+    {
         return left + right;
     }
-    if (std::strcmp(op, "-") == 0) {
+    if (std::strcmp(op, "-") == 0)
+    {
         return left - right;
     }
-    if (std::strcmp(op, "*") == 0) {
+    if (std::strcmp(op, "*") == 0)
+    {
         return left * right;
     }
-    if (std::strcmp(op, "/") == 0) {
-        if (std::is_integral<T>::value && right == 0) {
+    if (std::strcmp(op, "/") == 0)
+    {
+        if (std::is_integral< T >::value && right == 0)
+        {
             throw std::runtime_error("could not evaluate term: division by zero");
         }
         return left / right;
@@ -152,137 +175,194 @@ T evaluate_binary(char const *op, T left, T right) {
     throw std::runtime_error("could not evaluate term: unknown binary operator");
 }
 
-template <typename T>
+template < typename T >
 T evaluate_real(char const *);
 
 template <>
-int evaluate_real(char const *) {
+int evaluate_real(char const *)
+{
     throw std::runtime_error("could not evaluate term: integer expected");
 }
 
 template <>
-double evaluate_real(char const *name) {
+double evaluate_real(char const *name)
+{
     static const std::string chars = "\"";
     auto len = std::strlen(name);
-    if (len < 2 || name[0] != '"' || name[len - 1] != '"') {
-        throw std::runtime_error("could not evaluate term: real numbers have to be represented as strings");
+    if (len < 2 || name[0] != '"' || name[len - 1] != '"')
+    {
+        throw std::runtime_error(
+            "could not evaluate term: real numbers have to be represented as strings");
     }
     char *parsed = nullptr;
     auto ret = std::strtod(name + 1, &parsed);
-    if (parsed != name + len - 1) {
+    if (parsed != name + len - 1)
+    {
         throw std::runtime_error("could not evaluate term: not a valid real number");
     }
     return ret;
 }
 
-template <typename T>
-T evaluate(Clingo::TheoryTerm term) {
-    switch (term.type()) {
-        case Clingo::TheoryTermType::Number: {
-            return term.number();
+template < typename T >
+T evaluate(Clingo::TheoryTerm term)
+{
+    switch (term.type())
+    {
+    case Clingo::TheoryTermType::Number:
+    {
+        return term.number();
+    }
+    case Clingo::TheoryTermType::Symbol:
+    {
+        return evaluate_real< T >(term.name());
+    }
+    case Clingo::TheoryTermType::Function:
+    {
+        auto args = term.arguments();
+        if (args.size() == 2)
+        {
+            return evaluate_binary(term.name(), evaluate< T >(args[0]), evaluate< T >(args[1]));
         }
-        case Clingo::TheoryTermType::Symbol: {
-            return evaluate_real<T>(term.name());
-        }
-        case Clingo::TheoryTermType::Function: {
-            auto args = term.arguments();
-            if (args.size() == 2) {
-                return evaluate_binary(term.name(), evaluate<T>(args[0]), evaluate<T>(args[1]));
+        if (args.size() == 1)
+        {
+            if (std::strcmp(term.name(), "-") == 0)
+            {
+                return -evaluate< T >(args[0]);
             }
-            if (args.size() == 1) {
-                if (std::strcmp(term.name(), "-") == 0) {
-                    return -evaluate<T>(args[0]);
-                }
-                else {
-                    throw std::runtime_error("could not evaluate term: unknown unary operator");
-                }
+            else
+            {
+                throw std::runtime_error("could not evaluate term: unknown unary operator");
             }
         }
-        default: { throw std::runtime_error("could not evaluate term: only numeric terms with basic arithmetic operations are supported"); }
+    }
+    default:
+    {
+        throw std::runtime_error("could not evaluate term: only numeric terms with basic "
+                                 "arithmetic operations are supported");
+    }
     }
 }
 
-int require_number(Clingo::Symbol sym) { return sym.type() == Clingo::SymbolType::Number ? sym.number() : throw std::runtime_error("could not evaluate term: artithmetic on non-integer"); }
+int require_number(Clingo::Symbol sym)
+{
+    return sym.type() == Clingo::SymbolType::Number ?
+               sym.number() :
+               throw std::runtime_error("could not evaluate term: artithmetic on non-integer");
+}
 
-Clingo::Symbol evaluate_term(Clingo::TheoryTerm term) {
-    switch (term.type()) {
-        case Clingo::TheoryTermType::Number: {
-            return Clingo::Number(term.number());
+Clingo::Symbol evaluate_term(Clingo::TheoryTerm term)
+{
+    switch (term.type())
+    {
+    case Clingo::TheoryTermType::Number:
+    {
+        return Clingo::Number(term.number());
+    }
+    case Clingo::TheoryTermType::Symbol:
+    {
+        return Clingo::Id(term.name(), true);
+    }
+    case Clingo::TheoryTermType::Function:
+    {
+        auto op = term.name();
+        std::vector< Clingo::Symbol > args;
+        for (auto arg : term.arguments())
+        {
+            args.emplace_back(evaluate_term(arg));
         }
-        case Clingo::TheoryTermType::Symbol: {
-            return Clingo::Id(term.name(), true);
-        }
-        case Clingo::TheoryTermType::Function: {
-            auto op = term.name();
-            std::vector<Clingo::Symbol> args;
-            for (auto arg : term.arguments()) {
-                args.emplace_back(evaluate_term(arg));
+        if (args.size() == 2)
+        {
+            if (std::strcmp(op, "+") == 0)
+            {
+                return Clingo::Number(require_number(args[0]) + require_number(args[1]));
             }
-            if (args.size() == 2) {
-                if (std::strcmp(op, "+") == 0) {
-                    return Clingo::Number(require_number(args[0]) + require_number(args[1]));
+            else if (std::strcmp(op, "-") == 0)
+            {
+                return Clingo::Number(require_number(args[0]) - require_number(args[1]));
+            }
+            else if (std::strcmp(op, "*") == 0)
+            {
+                return Clingo::Number(require_number(args[0]) * require_number(args[1]));
+            }
+            else if (std::strcmp(op, "/") == 0)
+            {
+                if (args[1] == Clingo::Number(0))
+                {
+                    throw std::runtime_error("could not evaluate term: division by zero");
                 }
-                else if (std::strcmp(op, "-") == 0) {
-                    return Clingo::Number(require_number(args[0]) - require_number(args[1]));
+                return Clingo::Number(require_number(args[0]) / require_number(args[1]));
+            }
+        }
+        else if (args.size() == 1)
+        {
+            if (std::strcmp(op, "-") == 0)
+            {
+                switch (args[0].type())
+                {
+                case Clingo::SymbolType::Number:
+                {
+                    return Clingo::Number(-args[0].number());
                 }
-                else if (std::strcmp(op, "*") == 0) {
-                    return Clingo::Number(require_number(args[0]) * require_number(args[1]));
-                }
-                else if (std::strcmp(op, "/") == 0) {
-                    if (args[1] == Clingo::Number(0)) {
-                        throw std::runtime_error("could not evaluate term: division by zero");
+                case Clingo::SymbolType::Function:
+                {
+                    if (std::strcmp(args[0].name(), "") != 0)
+                    {
+                        return Clingo::Function(args[0].name(), args[0].arguments(),
+                                                args[0].is_negative());
                     }
-                    return Clingo::Number(require_number(args[0]) / require_number(args[1]));
+                    // [[fallthrough]]
+                }
+                default:
+                {
+                    throw std::runtime_error(
+                        "could not evaluate term: only numbers and functions can be inverted");
+                }
                 }
             }
-            else if (args.size() == 1) {
-                if (std::strcmp(op, "-") == 0) {
-                    switch (args[0].type()) {
-                        case Clingo::SymbolType::Number: {
-                            return Clingo::Number(-args[0].number());
-                        }
-                        case Clingo::SymbolType::Function: {
-                            if (std::strcmp(args[0].name(), "") != 0) {
-                                return Clingo::Function(args[0].name(), args[0].arguments(), args[0].is_negative());
-                            }
-                            // [[fallthrough]]
-                        }
-                        default: { throw std::runtime_error("could not evaluate term: only numbers and functions can be inverted"); }
-                    }
-                }
-            }
-            return Clingo::Function(op, args);
         }
-        case Clingo::TheoryTermType::Tuple: {
-            std::vector<Clingo::Symbol> args;
-            for (auto arg : term.arguments()) {
-                args.emplace_back(evaluate_term(arg));
-            }
-            return Clingo::Function("", args);
+        return Clingo::Function(op, args);
+    }
+    case Clingo::TheoryTermType::Tuple:
+    {
+        std::vector< Clingo::Symbol > args;
+        for (auto arg : term.arguments())
+        {
+            args.emplace_back(evaluate_term(arg));
         }
-        default: { throw std::runtime_error("could not evaluate term: sets and lists are not supported"); }
+        return Clingo::Function("", args);
+    }
+    default:
+    {
+        throw std::runtime_error("could not evaluate term: sets and lists are not supported");
+    }
     }
 }
-template <typename T>
+template < typename T >
 T get_weight(TheoryAtom const &atom);
 template <>
-int get_weight(TheoryAtom const &atom) {
-    return evaluate<int>(atom.guard().second);
+int get_weight(TheoryAtom const &atom)
+{
+    return evaluate< int >(atom.guard().second);
 }
 template <>
-double get_weight(TheoryAtom const &atom) {
-    return evaluate<double>(atom.guard().second);
+double get_weight(TheoryAtom const &atom)
+{
+    return evaluate< double >(atom.guard().second);
 }
 
-template <typename T>
-class ClingconPropagator : public Propagator {
+template < typename T >
+class ClingconPropagator : public Propagator
+{
 public:
     ClingconPropagator(Stats &stats, bool strict, bool propagate)
         : stats_(stats)
         , strict_(strict)
-        , propagate_(propagate) {}
+        , propagate_(propagate)
+    {
+    }
 
-    void print_assignment(int thread) const {
+    void print_assignment(int thread) const
+    {
         /*        auto &state = states_[thread];
                 T adjust = 0;
                 int idx = 0;
@@ -310,7 +390,8 @@ public:
 private:
     // initialization
 
-    void init(PropagateInit &init) override {
+    void init(PropagateInit &init) override
+    {
         Timer t{stats_.time_init};
         /*      for (auto atom : init.theory_atoms()) {
                   auto term = atom.term();
@@ -322,11 +403,13 @@ private:
         */
     }
 
-    void add_edge_atom(PropagateInit &init, TheoryAtom const &atom) {
+    void add_edge_atom(PropagateInit &init, TheoryAtom const &atom)
+    {
         /*    int lit = init.solver_literal(atom.literal());
             T weight = get_weight<T>(atom);
             auto elems = atom.elements();
-            char const *msg = "parsing difference constraint failed: only constraints of form &diff {u - v} <= b are accepted";
+            char const *msg = "parsing difference constraint failed: only constraints of form &diff
+           {u - v} <= b are accepted";
             if (elems.size() != 1) {
                 throw std::runtime_error(msg);
             }
@@ -335,7 +418,8 @@ private:
                 throw std::runtime_error(msg);
             }
             auto term = tuple[0];
-            if (term.type() != Clingo::TheoryTermType::Function || std::strcmp(term.name(), "-") != 0) {
+            if (term.type() != Clingo::TheoryTermType::Function || std::strcmp(term.name(), "-") !=
+           0) {
                 throw std::runtime_error(msg);
             }
             auto args = term.arguments();
@@ -366,7 +450,8 @@ private:
     */
     }
 
-    int map_vert(Clingo::Symbol v) {
+    int map_vert(Clingo::Symbol v)
+    {
         /*       auto ret = vert_map_inv_.emplace(v, vert_map_.size());
                if (ret.second) {
                    vert_map_.emplace_back(ret.first->first);
@@ -375,7 +460,8 @@ private:
        */
     }
 
-    void initialize_states(PropagateInit &init) {
+    void initialize_states(PropagateInit &init)
+    {
         //        stats_.dl_stats.resize(init.number_of_threads());
         //        for (int i = 0; i < init.number_of_threads(); ++i) {
         //            states_.emplace_back(stats_.dl_stats[i], edges_);
@@ -384,7 +470,8 @@ private:
 
     // propagation
 
-    void propagate(PropagateControl &ctl, LiteralSpan changes) override {
+    void propagate(PropagateControl &ctl, LiteralSpan changes) override
+    {
         /*      auto &state = states_[ctl.thread_id()];
               Timer t{state.stats.time_propagate};
               auto level = ctl.assignment().decision_level();
@@ -393,12 +480,14 @@ private:
               //       can only be triggered with propagation
               //       (will be fixed with 5.2.1)
               for (auto lit : std::vector<Clingo::literal_t>(changes.begin(), changes.end())) {
-                  for (auto it = false_lit_to_edges_.find(lit), ie = false_lit_to_edges_.end(); it != ie && it->first == lit; ++it) {
+                  for (auto it = false_lit_to_edges_.find(lit), ie = false_lit_to_edges_.end(); it
+           != ie && it->first == lit; ++it) {
                       if (state.dl_graph.edge_is_active(it->second)) {
                           state.dl_graph.remove_candidate_edge(it->second);
                       }
                   }
-                  for (auto it = lit_to_edges_.find(lit), ie = lit_to_edges_.end(); it != ie && it->first == lit; ++it) {
+                  for (auto it = lit_to_edges_.find(lit), ie = lit_to_edges_.end(); it != ie &&
+           it->first == lit; ++it) {
                       if (state.dl_graph.edge_is_active(it->second)) {
                           auto neg_cycle = state.dl_graph.add_edge(it->second);
                           if (!neg_cycle.empty()) {
@@ -424,7 +513,8 @@ private:
 
     // undo
 
-    void undo(PropagateControl const &ctl, LiteralSpan changes) override {
+    void undo(PropagateControl const &ctl, LiteralSpan changes) override
+    {
         //        static_cast<void>(changes);
         //        auto &state = states_[ctl.thread_id()];
         //        Timer t{state.stats.time_undo};
@@ -432,13 +522,15 @@ private:
     }
 
 #if defined(CHECKSOLUTION) || defined(CROSSCHECK)
-    void check(PropagateControl &ctl) override {
+    void check(PropagateControl &ctl) override
+    {
         /*        auto &state = states_[ctl.thread_id()];
                 for (auto &x : edges_) {
                     if (ctl.assignment().is_true(x.lit)) {
                         if (!state.dl_graph.node_value_defined(x.from) ||
                             !state.dl_graph.node_value_defined(x.to) ||
-                            !(state.dl_graph.node_value(x.from) - state.dl_graph.node_value(x.to) <= x.weight)) {
+                            !(state.dl_graph.node_value(x.from) - state.dl_graph.node_value(x.to) <=
+           x.weight)) {
                             throw std::logic_error("not a valid solution");
                         }
                     }
@@ -447,31 +539,64 @@ private:
 #endif
 
 private:
-    std::unordered_multimap<literal_t, int> lit_to_edges_;
-    std::unordered_multimap<literal_t, int> false_lit_to_edges_;
-    std::vector<Clingo::Symbol> vert_map_;
-    std::unordered_map<Clingo::Symbol, int> vert_map_inv_;
+    std::unordered_multimap< literal_t, int > lit_to_edges_;
+    std::unordered_multimap< literal_t, int > false_lit_to_edges_;
+    std::vector< Clingo::Symbol > vert_map_;
+    std::unordered_map< Clingo::Symbol, int > vert_map_inv_;
     Stats &stats_;
     bool strict_;
     bool propagate_;
 };
 
-template <typename T>
-void solve(Stats &stats, Control &ctl, bool strict, bool propagate) {
-    ClingconPropagator<T> p{stats, strict, propagate};
-    ctl.register_propagator(p);
+void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
+{
+    clingcon::Grounder g(ctl.backend());
+    clingcon::Normalizer n(g, c);
+
+    // ClingconPropagator< int > p{stats, false, false};
+    // ctl.register_propagator(p);
     ctl.ground({{"base", {}}});
-    for (auto m : ctl.solve()) {
-        p.print_assignment(m.thread_id());
+
+    clingcon::TheoryParser tp(n, ctl.theory_atoms(), g.trueLit());
+    if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
+    tp.postProcess();
+
+    bool conflict = false;
+    conflict = !n.prepare();
+
+    if (!conflict) conflict = !n.propagate();
+
+    if (!conflict) conflict = !n.finalize();
+
+    if (conflict) ctl.backend().rule(false, {}, {});
+
+    std::vector< clingcon::Variable > lowerBounds, upperBounds;
+    n.variablesWithoutBounds(lowerBounds, upperBounds);
+    for (auto i : lowerBounds)
+        std::cerr << "Warning: Variable " << tp.getName(i)
+                  << " has unrestricted lower bound, set to " << clingcon::Domain::min << std::endl;
+
+    for (auto i : upperBounds)
+        std::cerr << "Warning: Variable " << tp.getName(i)
+                  << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
+
+    for (auto m : ctl.solve())
+    {
+        std::cout << m << std::endl;
+        // p.print_assignment(m.thread_id());
     }
 }
 
-class ClingconApp : public Clingo::ClingoApplication {
+class ClingconApp : public Clingo::ClingoApplication
+{
 public:
     ClingconApp(Stats &stats)
-        : stats_{stats} {}
+        : stats_{stats}
+    {
+    }
     char const *program_name() const noexcept override { return "clingcon"; }
-    void main(Control &ctl, StringSpan files) override {
+    void main(Control &ctl, StringSpan files) override
+    {
         ctl.add("base", {}, R"(
 #theory csp {
     linear_term {
@@ -508,49 +633,68 @@ public:
     &minimize/0 : minimize_term, directive
 }.
 )");
-        for (auto &file : files) {
+        for (auto &file : files)
+        {
             ctl.load(file);
         }
-        if (files.empty()) {
+        if (files.empty())
+        {
             ctl.load("-");
         }
 
-        if (rdl_) {
-            solve<double>(stats_, ctl, strict_, propagate_);
-        }
-        else {
-            solve<int>(stats_, ctl, strict_, propagate_);
-        }
+        solve(stats_, ctl, conf_);
     }
 
-    void register_options(ClingoOptions &options) override {
-        //        char const *group = "Clingcon Options";
-        //        options.add_flag(group, "propagate,p", "Enable propagation.", propagate_);
+    void register_options(ClingoOptions &options) override
+    {
+        char const *group = "Clingcon Options";
+        conf_.alldistinctCard = false;
+        conf_.domSize = 10000;
+        conf_.minLitsPerVar = 1000;
+        conf_.propStrength = 4;
+        conf_.translateConstraints = 10000;
+        // auto toInt64 = [](char const* value) {
+        //};
+        // options.add_flag(group, "translate-constraints", "Translate constraints with an estimated
+        // number of nogoods less than %A (-1=all) (default: 10000).", conf_.translateConstraints);
         //        options.add_flag(group, "rdl", "Enable support for real numbers.", rdl_);
         //        options.add_flag(group, "strict", "Enable strict mode.", strict_);
+        //        int64 translateConstraints; // translate constraint if expected number of clauses
+        //        is less than
+        //                                    // this number (-1 = all)
+        //        bool alldistinctCard;      /// translate alldistinct with cardinality constraints,
+        //        default false
+        //        int64 minLitsPerVar;       /// precreate at least this number of literals per
+        //                                   /// variable (-1 = all)
+        //        int64 domSize;             /// the maximum number of chunks a domain can have when
+        //                                   /// multiplied (if avoidable)
+        //        unsigned int propStrength; /// propagation strength for lazy constraints 1..4
+        //        bool dontcare;             /// option for testing strict/vs fwd/back inferences
+        //        only
     }
 
-    void validate_options() override {
+    void validate_options() override
+    {
         //        if (rdl_ && strict_) {
         //            // NOTE: could be implemented by introducing and epsilon
-        //            throw std::runtime_error("real difference logic not available with strict semantics");
+        //            throw std::runtime_error("real difference logic not available with strict
+        //            semantics");
         //        }
     }
 
 private:
     Stats &stats_;
-    bool propagate_ = false;
-    bool strict_ = false;
-    bool rdl_ = false;
+    clingcon::Config conf_;
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     Stats stats;
     int ret;
     {
         Timer t{stats.time_total};
         ClingconApp app{stats};
-        ret = Clingo::clingo_main(app, {argv + 1, numeric_cast<size_t>(argc - 1)});
+        ret = Clingo::clingo_main(app, {argv + 1, numeric_cast< size_t >(argc - 1)});
     }
 
     return ret;

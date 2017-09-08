@@ -87,7 +87,7 @@ bool Normalizer::convertLinear(ReifiedLinearConstraint &&l,
             if (!s_.isTrue(t.v) && (impl & Direction::BACK))
             {
                 t.reverse();
-                t.v = ~t.v;
+                t.v = -t.v;
                 insert.emplace_back(std::move(t));
             }
         }
@@ -128,12 +128,12 @@ bool Normalizer::convertLinear(ReifiedLinearConstraint &&l,
             more.l.setRelation(LinearConstraint::Relation::GT);
             insert.emplace_back(std::move(more));
             if (!s_.createClause(
-                    LitVec{~x, ~orig})) /// having orig implies not x (having x implies not orig)
+                    LitVec{-x, -orig})) /// having orig implies not x (having x implies not orig)
                 return false;
             if (!s_.createClause(
-                    LitVec{~y, ~orig})) /// having orig implies not y (having y implies not orig)
+                    LitVec{-y, -orig})) /// having orig implies not y (having y implies not orig)
                 return false;
-            if (!s_.createClause(LitVec{~x, ~y})) /// cant be less and more at same time
+            if (!s_.createClause(LitVec{-x, -y})) /// cant be less and more at same time
                 return false;
             if (!s_.createClause(LitVec{x, y, orig})) /// either equal or less or more
                 return false;
@@ -150,7 +150,7 @@ bool Normalizer::convertLinear(ReifiedLinearConstraint &&l,
             Restrictor r = vc_.getRestrictor(v);
             auto it = wrap_lower_bound(r.begin(), r.end(), l.l.getRhs());
             it = (it == r.end() || *it != l.l.getRhs()) ? r.end() : it;
-            return vc_.setEqualLit(it, ~l.v);
+            return vc_.setEqualLit(it, -l.v);
         }
         Literal orig = l.v;
         ReifiedLinearConstraint u(l);
@@ -167,22 +167,22 @@ bool Normalizer::convertLinear(ReifiedLinearConstraint &&l,
             more.l.setRelation(LinearConstraint::Relation::GT);
             insert.emplace_back(std::move(more));
             if (!s_.createClause(
-                    LitVec{~x, orig})) /// having not orig implies not x (having x implies orig)
+                    LitVec{-x, orig})) /// having not orig implies not x (having x implies orig)
                 return false;
             if (!s_.createClause(
-                    LitVec{~y, orig})) /// having not orig implies not y (having y implies orig)
+                    LitVec{-y, orig})) /// having not orig implies not y (having y implies orig)
                 return false;
-            if (!s_.createClause(LitVec{~x, ~y})) /// cant be less and more at same time
+            if (!s_.createClause(LitVec{-x, -y})) /// cant be less and more at same time
                 return false;
-            if (!s_.createClause(LitVec{x, y, ~orig})) /// orig -> x or y
+            if (!s_.createClause(LitVec{x, y, -orig})) /// orig -> x or y
                 return false;
         }
         if (!s_.isTrue(orig) && (impl & Direction::BACK))
         {
-            l.v = ~l.v;
+            l.v = -l.v;
             l.l.setRelation(LinearConstraint::Relation::LE);
             insert.emplace_back(std::move(l));
-            u.v = ~u.v;
+            u.v = -u.v;
             u.l.setRelation(LinearConstraint::Relation::GE);
             insert.emplace_back(std::move(u));
         }
@@ -237,7 +237,7 @@ std::pair< bool, bool > Normalizer::deriveSimpleDomain(const ReifiedLinearConstr
                        (l.l.getRelation() == LinearConstraint::Relation::EQ && 0 != l.l.getRhs()) ||
                        (l.l.getRelation() == LinearConstraint::Relation::NE && 0 == l.l.getRhs()));
         if (failed && (l.impl & Direction::FWD))
-            return std::make_pair(true, s_.createClause(LitVec{~l.v}));
+            return std::make_pair(true, s_.createClause(LitVec{-l.v}));
         if (!failed && (l.impl & Direction::BACK))
             return std::make_pair(true, s_.createClause(LitVec{l.v}));
         else
@@ -313,7 +313,7 @@ bool Normalizer::addDistinctCardinality(ReifiedAllDistinct &&l)
 
     if (views.size() > d.size())
     {
-        if (!s_.createClause(LitVec{~l.getLiteral()})) return false;
+        if (!s_.createClause(LitVec{-l.getLiteral()})) return false;
         return true;
     }
     if (size == d.size()) // no overlap between variables
@@ -340,7 +340,7 @@ bool Normalizer::addDistinctCardinality(ReifiedAllDistinct &&l)
         conditions.emplace_back(x);
         if (!s_.createCardinality(conditions.back(), 2, std::move(lits))) return false;
         if (l.getDirection() & Direction::FWD)
-            if (!s_.createClause(LitVec{~conditions.back(), ~l.getLiteral()})) return false;
+            if (!s_.createClause(LitVec{-conditions.back(), -l.getLiteral()})) return false;
     }
 
     conditions.emplace_back(l.getLiteral());
@@ -358,7 +358,7 @@ bool Normalizer::addDistinctPairwiseUnequal(ReifiedAllDistinct &&l)
 
     if (views.size() > d.size())
     {
-        if (!s_.createClause(LitVec{~l.getLiteral()})) return false;
+        if (!s_.createClause(LitVec{-l.getLiteral()})) return false;
         return true;
     }
     if (size == d.size()) // no overlap between variables
@@ -403,8 +403,8 @@ bool Normalizer::addDistinctPairwiseUnequal(ReifiedAllDistinct &&l)
 
         if (l.getDirection() & Direction::BACK)
         {
-            lits.emplace_back(~x);
-            if (!s_.createClause(LitVec{~l.getLiteral(), x})) return false;
+            lits.emplace_back(-x);
+            if (!s_.createClause(LitVec{-l.getLiteral(), x})) return false;
         }
     }
 
@@ -441,20 +441,20 @@ bool Normalizer::addDomainConstraint(ReifiedDomainConstraint &&d)
             it = wrap_upper_bound(it, r.end(), i.u);
             Literal y = vc_.getLELiteral(it - 1);
 
-            if (!s_.createClause(LitVec{~u, x})) return false;
-            if (!s_.createClause(LitVec{~u, y})) return false;
-            if (!s_.createClause(LitVec{u, ~x, ~y})) return false;
+            if (!s_.createClause(LitVec{-u, x})) return false;
+            if (!s_.createClause(LitVec{-u, y})) return false;
+            if (!s_.createClause(LitVec{u, -x, -y})) return false;
         }
     }
     if (d.getDirection() & Direction::BACK)
     {
         for (const auto &i : longc)
-            if (!s_.createClause(LitVec{~i, d.getLiteral()})) return false;
+            if (!s_.createClause(LitVec{-i, d.getLiteral()})) return false;
     }
 
     if (d.getDirection() & Direction::FWD)
     {
-        longc.emplace_back(~d.getLiteral());
+        longc.emplace_back(-d.getLiteral());
         if (!s_.createClause(longc)) return false;
     }
 
@@ -532,6 +532,17 @@ namespace
 
 bool Normalizer::prepare()
 {
+    if (firstRun_)
+    {
+        varsBefore_ = 0;
+        varsAfter_ = vc_.numVariables();
+    }
+    else
+    {
+        varsBefore_ = varsAfterFinalize_;
+        varsAfter_ = vc_.numVariables();
+    }
+
     /// calculate very first domains for easy constraints and remove them
     if (!calculateDomains()) return false;
 
@@ -552,7 +563,7 @@ bool Normalizer::prepare()
             else if (s_.isFalse(l.v) && l.impl & Direction::BACK)
             {
                 l.reverse();
-                l.v = ~l.v;
+                l.v = -l.v;
                 p.addImp(std::move(l));
             }
         }
@@ -580,6 +591,8 @@ bool Normalizer::prepare()
         }
         /// as i only do bound propagation
     }
+
+    firstRun_ = false;
 
     return auxprepare();
 }
@@ -745,12 +758,6 @@ bool Normalizer::propagate()
 }
 
 
-bool Normalizer::atFixPoint() const
-{
-    assert(propagator_);
-    return !propagator_->propagated();
-}
-
 bool Normalizer::finalize()
 {
     linearConstraints_ = propagator_->removeConstraints();
@@ -823,10 +830,10 @@ bool Normalizer::createOrderClauses()
                         ++next;
                         if (old.isValid() && next.isValid() &&
                             old.numElement() + 1 == next.numElement())
-                            if (!s_.createClause(LitVec{~(*old), *next})) return false;
+                            if (!s_.createClause(LitVec{-(*old), *next})) return false;
                         // if (vc_.hasLELiteral(v) && vc_.hasLELiteral(v+1))
                         // if
-                        // (!s_.createClause(LitVec{~(vc_.getLELiteral(v)),vc_.getLELiteral(v+1)}))//
+                        // (!s_.createClause(LitVec{-(vc_.getLELiteral(v)),vc_.getLELiteral(v+1)}))//
                         // could use GELiteral instead
                         //    return false;
                         //++v;

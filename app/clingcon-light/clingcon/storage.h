@@ -603,7 +603,7 @@ public:
         prepareOrderLitMemory(v);
         if (isFlagged(it - 1))
             orderLitMemory_[v].setLiteral((it - 1).numElement(), s_.createNewLiteral());
-        return ~orderLitMemory_[v].getLiteral((it - 1).numElement());
+        return -orderLitMemory_[v].getLiteral((it - 1).numElement());
     }
 
     /// cant create literal
@@ -616,7 +616,7 @@ public:
         if (it.numElement() == 0)
             return s_.trueLit();
         else
-            return ~getLELiteral(it - 1);
+            return -getLELiteral(it - 1);
     }
 
     /// restrict the domain of all variables according to the literals that are
@@ -872,11 +872,11 @@ public:
         if (it.view().reversed()) return getLELiteral(ViewIterator::viewToVarIterator(it));
         assert(hasGELiteral(it));
         if (getDomainSize(it.view()) == it.numElement()) /// end element
-            return ~trueLit_;
+            return -trueLit_;
         if (it.numElement() == 0)
             return trueLit_;
         else
-            return ~getLELiteral(it - 1);
+            return -getLELiteral(it - 1);
     }
 
 private:

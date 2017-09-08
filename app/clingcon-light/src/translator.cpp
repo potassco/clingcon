@@ -41,72 +41,28 @@ namespace
     class ClauseChecker
     {
     public:
-        ClauseChecker(CreatingSolver &s, const Config &conf, VariableCreator &vc)
+        ClauseChecker(Grounder &s, const Config &conf, VariableCreator &vc)
             : s_(s)
-            , check_(conf.redundantClauseCheck)
             , vc_(vc)
         {
         }
         void emplace_back(const Literal &l) { currentClause_.emplace_back(l); }
-        void add(Restrictor::ViewIterator &i)
-        {
-            currentClause_.emplace_back(~vc_.getGELiteral(i));
-            if (check_) currentIterators_.emplace_back(i);
-        }
+        void add(Restrictor::ViewIterator &i) { currentClause_.emplace_back(-vc_.getGELiteral(i)); }
 
 
         void pop_back()
         {
             assert(currentClause_.size() > 1); /// first literal should never be popped
             currentClause_.pop_back();
-            if (check_) currentIterators_.pop_back();
         }
 
         /// always remember that comparing two clauses is only allowed if the differ in size only on
         /// the last variables
-        bool createClause()
-        {
-            if (check_)
-            {
-                assert(lastIterators_.empty() ||
-                       (currentClause_.size() == currentIterators_.size() + 1));
-                bool relaxed = false;
-                bool restrictive = false;
-                if (lastIterators_.size() < currentIterators_.size()) restrictive = true;
-                if (lastIterators_.size() > currentIterators_.size()) relaxed = true;
-                if (!relaxed)
-                    for (size_t i = 0; i < lastIterators_.size(); ++i)
-                    {
-
-                        if (lastIterators_[i] > currentIterators_[i])
-                            relaxed = true;
-                        else if (lastIterators_[i] < currentIterators_[i])
-                            restrictive = true;
-                        if (restrictive && relaxed) break;
-                    }
-                if (relaxed && !restrictive && !(lastIterators_.size() == 0))
-                {
-                    // std::cout << "BETTER THAN BEFORE" << std::endl;  // does not occur if  "if
-                    // (!relaxed)" is removed from the definition above
-                }
-                if (restrictive && !relaxed && !(lastIterators_.size() == 0))
-                {
-                    // std::cout << "Could be SAVED" << std::endl;
-                    return true; // redundant
-                }
-
-                lastIterators_ = currentIterators_;
-            }
-            return s_.createClause(currentClause_);
-        }
+        bool createClause() { return s_.createClause(currentClause_); }
 
     private:
-        CreatingSolver &s_;
+        Grounder &s_;
         LitVec currentClause_; // the clause currently building up
-        std::vector< Restrictor::ViewIterator >
-            currentIterators_; // the current iterator set representing the currentClause_
-        std::vector< Restrictor::ViewIterator > lastIterators_;
-        bool check_; // true if redundant clause check is enabled
         VariableCreator &vc_;
     };
 
@@ -170,7 +126,7 @@ namespace
 bool Translator::doTranslateImplication(VariableCreator &vc, Literal l, const LinearConstraint &c)
 {
     ClauseChecker clause(s_, conf_, vc);
-    clause.emplace_back(~l);
+    clause.emplace_back(-l);
     auto &views = c.getViews();
 
     std::pair< int64, int64 > minmax(0, 0);

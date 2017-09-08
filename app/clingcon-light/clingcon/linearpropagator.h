@@ -59,7 +59,7 @@ private:
     void addLevel() { assert(toProcess_.empty()); }
     void removeLevel();
     /// true if we are at a fixpoint
-    bool atFixPoint() { return toProcess_.empty(); }
+    bool atFixPoint() const { return toProcess_.empty(); }
     /// return false if the domain is empty
     void constrainUpperBound(const View &view, const BaseSolver &s);
     void constrainLowerBound(const View &view, const BaseSolver &s);
@@ -85,23 +85,14 @@ public:
         : storage_(conf)
         , s_(s)
         , vs_(vc, s.trueLit())
-        , propagated_(false)
     {
     }
 
     Grounder &getSolver() { return s_; }
 
-    void addImp(ReifiedLinearConstraint &&l)
-    {
-        storage_.addImp(std::move(l));
-        propagated_ = false;
-    }
+    void addImp(ReifiedLinearConstraint &&l) { storage_.addImp(std::move(l)); }
     /// add several implication constraints l.v -> l.l
-    void addImp(std::vector< ReifiedLinearConstraint > &&l)
-    {
-        storage_.addImp(std::move(l));
-        propagated_ = false;
-    }
+    void addImp(std::vector< ReifiedLinearConstraint > &&l) { storage_.addImp(std::move(l)); }
     /// remove all constraints,
     /// moves the list of all reified implications out of the object
     std::vector< ReifiedLinearConstraint > removeConstraints()

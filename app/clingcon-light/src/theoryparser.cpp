@@ -26,6 +26,18 @@ namespace clingcon
 {
 
 
+bool TheoryParser::readConstraints()
+{
+    for (auto i : td_)
+    {
+        /// TODO: i have EQ for all of them, also some could be IMP if lonely
+        assert(isClingconConstraint(i));
+        if (!readConstraint(i, Direction::EQ)) return false;
+    }
+    return true;
+}
+
+
 bool TheoryParser::getConstraintType(const Clingo::TheoryTerm &term, CType &t)
 {
     Clingo::id_t id = term.to_c();
@@ -127,27 +139,28 @@ bool TheoryParser::isNumber(const Clingo::TheoryTerm &a)
     if (a.type() == Clingo::TheoryTermType::Number) return true;
     if (a.type() == Clingo::TheoryTermType::Function)
     {
-        if (a.name() == "+" && a.arguments().size() == 1)
+        std::string fname = a.name();
+        if (fname == "+" && a.arguments().size() == 1)
         {
             // unary plus
             return isNumber(*a.arguments().begin());
         }
-        if (a.name() == "-" && a.arguments().size() == 1)
+        if (fname == "-" && a.arguments().size() == 1)
         {
             // unary minus
             return isNumber(*a.arguments().begin());
         }
-        if (a.name() == "+" && a.arguments().size() == 2)
+        if (fname == "+" && a.arguments().size() == 2)
         {
             // binary plus
             return isNumber(*a.arguments().begin()) && isNumber(*(a.arguments().begin() + 1));
         }
-        if (a.name() == "-" && a.arguments().size() == 2)
+        if (fname == "-" && a.arguments().size() == 2)
         {
             // binary minus
             return isNumber(*a.arguments().begin()) && isNumber(*(a.arguments().begin() + 1));
         }
-        if (a.name() == "*" && a.arguments().size() == 2)
+        if (fname == "*" && a.arguments().size() == 2)
         {
             // binary times
             return isNumber(*a.arguments().begin()) && isNumber(*(a.arguments().begin() + 1));
@@ -163,27 +176,28 @@ int TheoryParser::getNumber(const Clingo::TheoryTerm &a)
     if (a.type() == Clingo::TheoryTermType::Number) return a.number();
     if (a.type() == Clingo::TheoryTermType::Function)
     {
-        if (a.name() == "+" && a.arguments().size() == 1)
+        std::string fname = a.name();
+        if (fname == "+" && a.arguments().size() == 1)
         {
             // unary plus
             return getNumber(*a.arguments().begin());
         }
-        if (a.name() == "-" && a.arguments().size() == 1)
+        if (fname == "-" && a.arguments().size() == 1)
         {
             // unary minus
             return -getNumber(*a.arguments().begin());
         }
-        if (a.name() == "+" && a.arguments().size() == 2)
+        if (fname == "+" && a.arguments().size() == 2)
         {
             // binary plus
             return getNumber(*a.arguments().begin()) + getNumber(*(a.arguments().begin() + 1));
         }
-        if (a.name() == "-" && a.arguments().size() == 2)
+        if (fname == "-" && a.arguments().size() == 2)
         {
             // binary minus
             return getNumber(*a.arguments().begin()) - getNumber(*(a.arguments().begin() + 1));
         }
-        if (a.name() == "*" && a.arguments().size() == 2)
+        if (fname == "*" && a.arguments().size() == 2)
         {
             // binary times
             return getNumber(*a.arguments().begin()) * getNumber(*(a.arguments().begin() + 1));
@@ -431,16 +445,16 @@ bool TheoryParser::check(const Clingo::TheoryTerm &a)
 }
 
 
-bool TheoryParser::isClingconConstraint(Clingo::TheoryAtomIterator &i)
+bool TheoryParser::isClingconConstraint(Clingo::TheoryAtom &i)
 {
-    Clingo::TheoryTerm theoryTerm = i->term();
+    Clingo::TheoryTerm theoryTerm = i.term();
     CType ct;
     return getConstraintType(theoryTerm, ct);
 }
 
-bool TheoryParser::isUnarySum(Clingo::TheoryAtomIterator &i)
+bool TheoryParser::isUnarySum(Clingo::TheoryAtom &i)
 {
-    Clingo::TheoryTerm theoryTerm = i->term();
+    Clingo::TheoryTerm theoryTerm = i.term();
     CType ct;
     if (!getConstraintType(theoryTerm, ct)) return false;
     switch (ct)
@@ -449,7 +463,7 @@ bool TheoryParser::isUnarySum(Clingo::TheoryAtomIterator &i)
     case SUM:
     {
         LinearConstraint lc(LinearConstraint::Relation::EQ);
-        for (auto elem : i->elements())
+        for (auto elem : i.elements())
         {
             if (elem.condition().size() > 0) error("Conditions on theory terms not yet supported");
             // check condition of element
@@ -478,21 +492,21 @@ bool TheoryParser::isUnarySum(Clingo::TheoryAtomIterator &i)
             }
         }
 
-        if (!i->has_guard()) error("Guard expected");
+        if (!i.has_guard()) error("Guard expected");
         LinearConstraint::Relation rel;
-        if (!getGuard(i->guard().first, rel))
-            error("Guard expected, found " + std::string(i->guard().first));
+        if (!getGuard(i.guard().first, rel))
+            error("Guard expected, found " + std::string(i.guard().first));
         lc.setRelation(rel);
 
-        if (isNumber(i->guard().second))
+        if (isNumber(i.guard().second))
         {
-            lc.addRhs(getNumber(i->guard().second));
+            lc.addRhs(getNumber(i.guard().second));
         }
         else
         {
             View v;
-            if (!getView(i->guard().second, v))
-                error("Rhs VariableView or number expected", i->guard().second);
+            if (!getView(i.guard().second, v))
+                error("Rhs VariableView or number expected", i.guard().second);
             // if (v.reversed())
             //    lc.invert();
             v = v * -1;
@@ -509,9 +523,9 @@ bool TheoryParser::isUnarySum(Clingo::TheoryAtomIterator &i)
 }
 
 
-bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
+bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
 {
-    Clingo::TheoryTerm theoryTerm = i->term();
+    Clingo::TheoryTerm theoryTerm = i.term();
     CType ct;
     if (!getConstraintType(theoryTerm, ct)) return false;
     switch (ct)
@@ -520,12 +534,11 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
     case SUM:
     {
         LinearConstraint lc(LinearConstraint::Relation::EQ);
-        for (auto elem : i->elements())
+        for (auto elem : i.elements())
         {
             if (elem.condition().size() > 0) error("Conditions on theory terms not yet supported");
             // check condition of element
             // elem->condition;
-            assert(elem.size() >= 1);
             /// everything more than 1 element is just for set semantics and is not used in the
             /// theory
             // for (auto single_elem = elem.begin(); single_elem != elem.end(); ++single_elem)
@@ -549,28 +562,28 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
             }
         }
 
-        if (!i->has_guard()) error("Guard expected");
+        if (!i.has_guard()) error("Guard expected");
         LinearConstraint::Relation rel;
-        if (!getGuard(i->guard().first, rel))
-            error("Guard expected, found " + std::string(i->guard().first));
+        if (!getGuard(i.guard().first, rel))
+            error("Guard expected, found " + std::string(i.guard().first));
         lc.setRelation(rel);
 
-        if (isNumber(i->guard().second))
+        if (isNumber(i.guard().second))
         {
-            lc.addRhs(getNumber(i->guard().second));
+            lc.addRhs(getNumber(i.guard().second));
         }
         else
         {
             View v;
-            if (!getView(i->guard().second, v))
-                error("Rhs VariableView or number expected", i->guard().second);
+            if (!getView(i.guard().second, v))
+                error("Rhs VariableView or number expected", i.guard().second);
             // if (v.reversed())
             //    lc.invert();
             v = v * -1;
             lc.add(v);
         }
 
-        Literal lit = i->literal();
+        Literal lit = i.literal();
         n_.addConstraint(ReifiedLinearConstraint(std::move(lc), lit, dir));
         break;
     }
@@ -579,7 +592,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
     {
         // ((l..u) or x) = view
         Domain d(1, 0);
-        for (auto elem : i->elements())
+        for (auto elem : i.elements())
         {
             // check condition of element
             if (elem.condition().size() > 0) error("Conditions on theory terms not yet supported");
@@ -612,15 +625,15 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
             }
         }
 
-        if (!i->has_guard()) error("= expected");
+        if (!i.has_guard()) error("= expected");
         LinearConstraint::Relation guard;
-        if (!getGuard(i->guard().first, guard) || guard != LinearConstraint::Relation::EQ)
-            error("= expected, found " + std::string(i->guard().first));
+        if (!getGuard(i.guard().first, guard) || guard != LinearConstraint::Relation::EQ)
+            error("= expected, found " + std::string(i.guard().first));
 
         View v;
-        if (!getView(i->guard().second, v)) error("Rhs VariableView expected", i->guard().second);
+        if (!getView(i.guard().second, v)) error("Rhs VariableView expected", i.guard().second);
 
-        Literal lit = i->literal();
+        Literal lit = i.literal();
         n_.addConstraint(ReifiedDomainConstraint(v, std::move(d), lit, dir));
         break;
     }
@@ -629,7 +642,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
     {
         // ((l..u) or x) = view
         std::vector< View > views;
-        for (auto elem : i->elements())
+        for (auto elem : i.elements())
         {
             // check condition of element
             if (elem.condition().size() > 0) error("Conditions on theory terms not yet supported");
@@ -643,17 +656,17 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
             }
         }
 
-        if (i->has_guard())
-            error("Did not expect a guard in distinct, found " + std::string(i->guard().first));
+        if (i.has_guard())
+            error("Did not expect a guard in distinct, found " + std::string(i.guard().first));
 
-        Literal lit = i->literal();
+        Literal lit = i.literal();
         n_.addConstraint(ReifiedAllDistinct(std::move(views), lit, dir));
         break;
     }
 
     case SHOW:
     {
-        for (auto elem : i->elements())
+        for (auto elem : i.elements())
         {
             // check condition of element
             auto single_elem = elem.tuple().begin();
@@ -688,9 +701,9 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
             }
         }
 
-        if (i->has_guard())
-            error("Did not expect a guard in show, found " + std::string(i->guard().first),
-                  i->guard().second);
+        if (i.has_guard())
+            error("Did not expect a guard in show, found " + std::string(i.guard().first),
+                  i.guard().second);
 
         break;
     }
@@ -698,7 +711,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
 
     case MINIMIZE:
     {
-        for (auto elem : i->elements())
+        for (auto elem : i.elements())
         {
             // check condition of element
             if (elem.condition().size() > 0) error("Conditions on theory terms not yet supported");
@@ -755,9 +768,9 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtomIterator &i, Direction dir)
             minimize_[level][tup] = v;
         }
 
-        if (i->has_guard())
-            error("Did not expect a guard in minimize, found " + std::string(i->guard().first),
-                  i->guard().second);
+        if (i.has_guard())
+            error("Did not expect a guard in minimize, found " + std::string(i.guard().first),
+                  i.guard().second);
 
         break;
     }

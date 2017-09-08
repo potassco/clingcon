@@ -197,7 +197,7 @@ void ReifiedLinearConstraint::normalize()
     {
         if (impl == Direction::EQ)
         {
-            v = ~v;
+            v = -v;
             l.setRelation(LinearConstraint::Relation::EQ);
         }
         break;

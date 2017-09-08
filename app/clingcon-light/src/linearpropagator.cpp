@@ -161,10 +161,6 @@ bool LinearPropagator::propagate()
     return true;
 }
 
-
-bool LinearPropagator::propagated() const { return propagated_; }
-
-
 /// propagate, but not until a fixpoint
 /// returns a set of new clauses
 std::vector< LinearLiteralPropagator::LinearConstraintClause > &
@@ -274,7 +270,7 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl)
     {
         if (minmax.first > l.getRhs())
         {
-            propClauses_.emplace_back(std::make_pair(~rl.v, std::move(propClause_)));
+            propClauses_.emplace_back(std::make_pair(-rl.v, std::move(propClause_)));
         }
         return;
     }
@@ -345,7 +341,7 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl)
             else
                 aux = propClause_;
             aux[index] = propIt;
-            propClauses_.emplace_back(std::make_pair(~rl.v, std::move(aux)));
+            propClauses_.emplace_back(std::make_pair(-rl.v, std::move(aux)));
         }
         if (conflict) break;
     }
@@ -362,8 +358,7 @@ bool LinearPropagator::propagate_impl(ReifiedLinearConstraint &rl)
 
     if (minmax.first > l.getRhs())
     {
-        propagated_ = true;
-        return s_.createClause(LitVec{~rl.v});
+        return s_.createClause(LitVec{-rl.v});
     }
 
     return true;
@@ -418,7 +413,7 @@ void LinearLiteralPropagator::propagate_impl(ReifiedLinearConstraint &rl)
                 ++index;
             }
         }
-        propClauses_.emplace_back(~rl.v, std::move(propClause_));
+        propClauses_.emplace_back(-rl.v, std::move(propClause_));
         return;
     }
 }

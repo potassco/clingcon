@@ -67,7 +67,7 @@ public:
 class Grounder : public BaseSolver
 {
 public:
-    Grounder(Clingo::Backend &c)
+    Grounder(Clingo::Backend c)
         : c_(c)
         , trueLit_(c.add_atom())
     {
@@ -83,7 +83,7 @@ public:
     }
 
     Literal trueLit() const { return trueLit_; }
-    Literal falseLit() const { return ~trueLit(); }
+    Literal falseLit() const { return -trueLit(); }
 
     /// very limited currently
     // TODO: any chance for other facts?
@@ -108,7 +108,7 @@ public:
         {
             v.push_back(-i);
         }
-        c_.rule(false, {}, {&lvv[0], lvv.size()});
+        c_.rule(false, {}, {&v[0], v.size()});
         return !(lvv.size() == 1 && lvv[0] == -trueLit_);
     }
 
@@ -143,7 +143,7 @@ public:
     }
 
 private:
-    Clingo::Backend &c_;
+    Clingo::Backend c_;
     Literal trueLit_;
 };
 
@@ -151,32 +151,32 @@ class Solver : public BaseSolver
 {
 public:
     Solver(Literal trueLit)
-        : c_(nullptr)
+        : c_({nullptr})
         , trueLit_(trueLit)
     {
     }
     /// call these functions before any other stuff with the object
-    void beginPropagate(Clingo::PropagateControl &c)
+    void beginPropagate(Clingo::PropagateControl c)
     {
-        assert(c_ == nullptr);
-        c_ = &c;
+        assert(c.to_c() == nullptr);
+        c_ = c;
     }
 
     void endPropagate()
     {
-        assert(c_ != nullptr);
-        c_ = nullptr;
+        assert(c_.to_c() != nullptr);
+        c_ = Clingo::PropagateControl(nullptr);
     }
-    bool isTrue(Literal l) const { return c_->assignment().is_true(l); }
-    bool isFalse(Literal l) const { return c_->assignment().is_false(l); }
+    bool isTrue(Literal l) const { return c_.assignment().is_true(l); }
+    bool isFalse(Literal l) const { return c_.assignment().is_false(l); }
     bool isUnknown(Literal l) const { return !isFalse(l) && !isTrue(l); }
 
     Literal trueLit() const { return trueLit_; }
-    Literal falseLit() const { return ~trueLit_; }
-    Literal getNewLiteral() { return c_->add_literal(); }
+    Literal falseLit() const { return -trueLit_; }
+    Literal getNewLiteral() { return c_.add_literal(); }
     /// TODO: add addclause and stuff
 private:
-    Clingo::PropagateControl *c_;
+    Clingo::PropagateControl c_;
     Literal trueLit_;
 };
 

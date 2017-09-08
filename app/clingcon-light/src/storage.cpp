@@ -96,7 +96,7 @@ bool VariableCreator::setGELit(const Restrictor::ViewIterator &it, Literal l)
     if (it.numElement() == 0) return s_.setEqual(s_.trueLit(), l);
     prepareOrderLitMemory(v);
     if (isFlagged(it - 1))
-        orderLitMemory_[v].setLiteral((it - 1).numElement(), ~l);
+        orderLitMemory_[v].setLiteral((it - 1).numElement(), -l);
     else if (!s_.setEqual(l, getGELiteral(it)))
         return false;
     if (s_.isTrue(l)) return constrainLowerBound(it.view(), *it);
@@ -276,7 +276,7 @@ bool VariableCreator::createEqualClauses()
         const auto found = clingcon::wrap_lower_bound(res.begin(), res.end(), value);
         if (found == res.end() || (*found) != value) /// if out of range or in a hole
         {
-            if (!s_.createClause(LitVec{~l})) return false;
+            if (!s_.createClause(LitVec{-l})) return false;
             continue;
         }
         else
@@ -285,11 +285,11 @@ bool VariableCreator::createEqualClauses()
             a = getLELiteral(found);
         }
 
-        b = ~getGELiteral(found);
+        b = -getGELiteral(found);
 
-        if (!s_.createClause({l, ~a, b})) return false;
-        if (!s_.createClause({~l, ~b})) return false;
-        if (!s_.createClause({~l, a})) return false;
+        if (!s_.createClause({l, -a, b})) return false;
+        if (!s_.createClause({-l, -b})) return false;
+        if (!s_.createClause({-l, a})) return false;
     }
     return true;
 }
@@ -357,7 +357,7 @@ bool VariableCreator::domainChange(const Variable &var, int newLower, int newUpp
                 /// everyting before start to false
                 if (h->first < start)
                 {
-                    if (!s_.createClause(LitVec{~(h->second)})) return false;
+                    if (!s_.createClause(LitVec{-(h->second)})) return false;
                     h = m.erase(h);
                     continue;
                 }
@@ -386,7 +386,7 @@ bool VariableCreator::domainChange(const Variable &var, int newLower, int newUpp
             assert(orderLitMemory_[var].hasVector());
             for (size_t i = 0; i < start; ++i) /// everyting before start to false
                 if (!orderLitMemory_[var].hasNoLiteral(i))
-                    if (!s_.createClause(LitVec{~(orderLitMemory_[var].getLiteral(i))}))
+                    if (!s_.createClause(LitVec{-(orderLitMemory_[var].getLiteral(i))}))
                         return false;
             for (size_t i = end; i < r.size(); ++i) /// everyting after end to true
                 if (!orderLitMemory_[var].hasNoLiteral(i))
@@ -477,7 +477,7 @@ bool VariableCreator::domainChange(const Variable &var, const Domain &d)
                 {
                     Literal l = h->second;
                     h = m.erase(h);
-                    if (!s_.createClause(LitVec{~l})) return false;
+                    if (!s_.createClause(LitVec{-l})) return false;
                     continue;
                 }
                 else
@@ -535,7 +535,7 @@ bool VariableCreator::domainChange(const Variable &var, const Domain &d)
             {
                 for (size_t i = 0; i < start; ++i) /// everyting before start to false
                     if (!(orderLitMemory_[var].hasNoLiteral(i)))
-                        if (!s_.createClause(LitVec{~(orderLitMemory_[var].getLiteral(i))}))
+                        if (!s_.createClause(LitVec{-(orderLitMemory_[var].getLiteral(i))}))
                             return false;
 
                 for (size_t i = end; i < r.size(); ++i) /// everyting after end to true
@@ -663,7 +663,7 @@ bool VolatileVariableStorage::setGELit(const Restrictor::ViewIterator &it, Liter
     vs_.isValid(v);
     assert(it.numElement() > 0);
     assert(volOrderLitMemory_[v].hasNoLiteral((it - 1).numElement()));
-    volOrderLitMemory_[v].setLiteral((it - 1).numElement(), ~l);
+    volOrderLitMemory_[v].setLiteral((it - 1).numElement(), -l);
     return true;
 }
 }

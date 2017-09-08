@@ -61,13 +61,9 @@ public:
         , trueLit_(trueLit)
     {
     }
-    bool isClingconConstraint(Clingo::TheoryAtomIterator &i);
-    bool isUnarySum(Clingo::TheoryAtomIterator &i);
 
-    /// returns false, if not a constraint of this theory
-    /// throws string with error if error occurs
-    /// save constraint as strict or nonstrict
-    bool readConstraint(Clingo::TheoryAtomIterator &i, Direction dir);
+
+    bool readConstraints();
     /// turn show predicates to variables
     NameList &postProcess();
     const std::vector< tuple2View > &minimize() const;
@@ -78,6 +74,14 @@ public:
     std::string getName(Variable v);
 
 private:
+    bool isClingconConstraint(Clingo::TheoryAtom &i);
+    bool isUnarySum(Clingo::TheoryAtom &i);
+
+    /// returns false, if not a constraint of this theory
+    /// throws string with error if error occurs
+    /// save constraint as strict or nonstrict
+    bool readConstraint(Clingo::TheoryAtom &i, Direction dir);
+
     void error(const std::string &s);
     void error(const std::string &s, const Clingo::TheoryTerm &t);
 

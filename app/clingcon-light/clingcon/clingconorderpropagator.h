@@ -109,7 +109,7 @@ public:
             {
                 DataBlob blob(cindex, false);
                 s.addWatch(l, this, blob.rep());
-                // s.addWatch(~l, this, blob.asUint()); // i'm just watching
+                // s.addWatch(-l, this, blob.asUint()); // i'm just watching
                 // implications
             }
         }
@@ -166,7 +166,7 @@ public:
                 while (lr.isValid())
                 {
                     s_.removeWatch(toClaspFormat(*lr), this);
-                    s_.removeWatch(toClaspFormat(~(*lr)), this);
+                    s_.removeWatch(toClaspFormat(-(*lr)), this);
                     ++lr;
                 }
             }

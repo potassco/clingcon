@@ -16,6 +16,7 @@ What is the exact relation between grounding atoms/literals and solver literals 
 - think about linear constraints with conditions!
 - createOrderClauses, currently i can translate contraints but do not create order clauses,
   this is still done with propagator
+- replace ~l with -l, otherwise we do bitwise inverse on literals instead of negation
 
 First I need to do grounding.
 Than I can access the backend, to modify the ground program.
@@ -25,7 +26,7 @@ I have to do this outside the propagator (at least not during the init call)
 
 
 Current Call:
-cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib
+cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug
 or
 cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
 

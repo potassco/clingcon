@@ -40,7 +40,6 @@ public:
         , minLitsPerVar(minLitsPerVar)
         , domSize(domSize)
         , propStrength(propStrength)
-        , dontcare(dontcare)
     {
     }
     int64 translateConstraints; // translate constraint if expected number of clauses is less than
@@ -51,6 +50,5 @@ public:
     int64 domSize;             /// the maximum number of chunks a domain can have when
                                /// multiplied (if avoidable)
     unsigned int propStrength; /// propagation strength for lazy constraints 1..4
-    bool dontcare;             /// option for testing strict/vs fwd/back inferences only
 };
 }
