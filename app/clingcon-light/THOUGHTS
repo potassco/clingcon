@@ -25,6 +25,9 @@ Then I need to modify the program/do completion, add new theory atoms via the ba
 I have to do this outside the propagator (at least not during the init call)
 
 
+What about solver_literal from PropagateInit
+
+
 Current Call:
 cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug
 or
