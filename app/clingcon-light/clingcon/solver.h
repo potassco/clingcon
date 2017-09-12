@@ -37,6 +37,7 @@ namespace clingcon
 {
 
 using Literal = Clingo::literal_t;
+using Var = Clingo::atom_t;
 using LitVec = std::vector< Literal >;
 
 /// REWRITE
@@ -91,7 +92,7 @@ public:
     bool isFalse(Literal l) const { return l == -trueLit_; }
     bool isUnknown(Literal l) const { return !isFalse(l) && !isTrue(l); }
 
-    bool createClause(const LitVec &lvv)
+    bool createClause(Clingo::LiteralSpan lvv)
     {
         // class Negate {
         // public:
@@ -155,18 +156,20 @@ public:
         , trueLit_(trueLit)
     {
     }
+
+    void addWatch(PropagateInit &init, Literal l) { init.add_watch(l); }
+
+
     /// call these functions before any other stuff with the object
-    void beginPropagate(Clingo::PropagateControl c)
+    void beginPropagate(Clingo::PropagateControl c) { c_ = c; }
+
+    /// during runtime
+    void addWatch(Literal l)
     {
-        assert(c.to_c() == nullptr);
-        c_ = c;
+        assert(c_);
+        c_.add_watch(l);
     }
 
-    void endPropagate()
-    {
-        assert(c_.to_c() != nullptr);
-        c_ = Clingo::PropagateControl(nullptr);
-    }
     bool isTrue(Literal l) const { return c_.assignment().is_true(l); }
     bool isFalse(Literal l) const { return c_.assignment().is_false(l); }
     bool isUnknown(Literal l) const { return !isFalse(l) && !isTrue(l); }
@@ -174,6 +177,8 @@ public:
     Literal trueLit() const { return trueLit_; }
     Literal falseLit() const { return -trueLit_; }
     Literal getNewLiteral() { return c_.add_literal(); }
+
+    bool addClause(Clingo::LiteralSpan lits) { c_.add_clause(lits); }
     /// TODO: add addclause and stuff
 private:
     Clingo::PropagateControl c_;
