@@ -157,7 +157,7 @@ public:
     {
     }
 
-    void addWatch(PropagateInit &init, Literal l) { init.add_watch(l); }
+    void addWatch(Clingo::PropagateInit &init, Literal l) { init.add_watch(l); }
 
 
     /// call these functions before any other stuff with the object
@@ -166,7 +166,7 @@ public:
     /// during runtime
     void addWatch(Literal l)
     {
-        assert(c_);
+        assert(c_.to_c());
         c_.add_watch(l);
     }
 

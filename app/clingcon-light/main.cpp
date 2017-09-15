@@ -34,6 +34,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <clingcon/clingconpropagator.h>
 #include <clingcon/theoryparser.h>
 
 //#define CROSSCHECK
@@ -343,9 +344,9 @@ void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
 {
     clingcon::Grounder g(ctl.backend());
     clingcon::Normalizer n(g, c);
+    clingcon::Solver s;
 
-    // ClingconPropagator< int > p{stats, false, false};
-    // ctl.register_propagator(p);
+
     ctl.ground({{"base", {}}});
 
     clingcon::TheoryParser tp(n, ctl.theory_atoms(), g.trueLit());
@@ -370,6 +371,16 @@ void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
     for (auto i : upperBounds)
         std::cerr << "Warning: Variable " << tp.getName(i)
                   << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
+
+    std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > > propVar2cspVar;
+
+    clingcon::ClingconOrderPropagator po(s, n.getVariableCreator(), n.getConfig(), 0 /*names*/,
+                                         n.constraints(), propVar2cspVar);
+    ctl.register_propagator(po);
+    clingcon::ClingconConstraintPropagator pc(po.getBases(), s, n.getVariableCreator(),
+                                              n.getConfig());
+    ctl.register_propagator(pc);
+
 
     for (auto m : ctl.solve())
     {

@@ -52,8 +52,8 @@ public:
         p_.addImp(constraints);
     }
 
-    void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan &changes);
-    void undo(Clingo::PropagateControl &s, LiteralSpan changes);
+    void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
+    void undo(Clingo::PropagateControl &s, Clingo::LiteralSpan changes);
     LinearLiteralPropagator p_;
     Config conf_;
     std::vector< std::string > show_; /// order::Variable -> string name
@@ -81,36 +81,30 @@ public:
     ClingconOrderPropagatorThread(Solver &s, PropagatorThreadBase &base)
         : s_(s)
         , base_(base)
-        , dls_{0}
         , assertConflict_(false)
     {
     }
     virtual ~ClingconOrderPropagatorThread() {}
 
     /// propagator interface
-    virtual void init(Clingo::PropagateInit &init) override;
-    virtual void propagate(Clingo::PropagateControl &control,
-                           Clingo::LiteralSpan &changes) override;
-    virtual void check(Clingo::PropagateControl &control) override;
-    virtual void undo(Clingo::PropagateControl &s, LiteralSpan changes) override;
+    void init(Clingo::PropagateInit &init);
+    void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
+    void check(Clingo::PropagateControl &control);
+    void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes);
 
-    /// constraint interface
-    virtual PropResult propagate(Clasp::Solver &s, Clasp::Literal p, uint32 &data) override;
-    virtual void reason(Clasp::Solver &s, Clasp::Literal p, Clasp::LitVec &lits) override;
-    virtual void undoLevel(Clasp::Solver &s) override;
 
-    void addLazyShow(Variable v, const std::string &s)
-    {
-        show_.resize(std::max(( unsigned int )(show_.size()), v + 1));
-        show_[v] = s;
-    }
+    //    void addLazyShow(Variable v, const std::string &s)
+    //    {
+    //        show_.resize(std::max(( unsigned int )(show_.size()), v + 1));
+    //        show_[v] = s;
+    //    }
 
 
     //    const char* printModel(Variable v, const std::string& name);
     //    /// only to be used of a model has been found
     //    bool getValue(Variable v, int32& value);
 
-    Clasp::Solver &solver() { return s_; }
+    Solver &solver() { return s_; }
 
 
     const VolatileVariableStorage &getVVS() const { return base_.p_.getVVS(); }
@@ -118,8 +112,7 @@ public:
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
-    void addWatch(Clingo::PropagateInit &init, const Variable &var, const Clasp::Literal &cl,
-                  unsigned int step);
+    void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
     /// debug function
     bool orderLitsAreOK();
 
@@ -145,49 +138,29 @@ private:
 class ClingconConstraintPropagatorThread : public Clingo::Propagator
 {
 public:
-    ClingconConstraintPropagatorThread(Solver &s, PropagatorThreadBase &base,
-                                       const std::vector< ReifiedLinearConstraint > &constraints)
+    ClingconConstraintPropagatorThread(Solver &s, PropagatorThreadBase &base)
         : s_(s)
         , base_(base)
         , dls_{0}
         , assertConflict_(false)
     {
-        base_.p_.addImp(constraints);
+        auto constraints = base_.p_.constraints();
         for (size_t i = 0; i < constraints.size(); ++i)
         {
-            assert(var2Constraints_.find(abs(constraints[i].v) == var2Constraints_.end()));
+            assert(var2Constraints_.find(abs(constraints[i].v)) == var2Constraints_.end());
             var2Constraints_[abs(constraints[i].v)] = i;
         }
     }
-    virtual ~ClingconOrderPropagatorThread() {}
+    virtual ~ClingconConstraintPropagatorThread() {}
 
     /// propagator interface
-    virtual void init(Clingo::PropagateInit &init) override;
-    virtual void propagate(Clingo::PropagateControl &control,
-                           Clingo::LiteralSpan &changes) override;
-    virtual void check(Clingo::PropagateControl &control) override;
-    virtual void undo(Clingo::PropagateControl &s, LiteralSpan changes) override;
+    void init(Clingo::PropagateInit &init);
+    void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
+    void check(Clingo::PropagateControl &control);
+    void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes);
 
-    /// constraint interface
-    virtual PropResult propagate(Clasp::Solver &s, Clasp::Literal p, uint32 &data) override;
-    virtual void reason(Clasp::Solver &s, Clasp::Literal p, Clasp::LitVec &lits) override;
-    virtual void undoLevel(Clasp::Solver &s) override;
-
-    /// TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! DESTROY MUSS ÜBERLADEN WERDEN, und watches removed
-    ///
-    ///
-    void addLazyShow(Variable v, const std::string &s)
-    {
-        show_.resize(std::max(( unsigned int )(show_.size()), v + 1));
-        show_[v] = s;
-    }
-
-
-    //    const char* printModel(Variable v, const std::string& name);
-    //    /// only to be used of a model has been found
-    //    bool getValue(Variable v, int32& value);
-
-    Clasp::Solver &solver() { return s_; }
+    Solver &solver() { return s_; }
+    PropagatorThreadBase const &base() const { return base_; }
 
 
     const VolatileVariableStorage &getVVS() const { return base_.p_.getVVS(); }
@@ -195,7 +168,7 @@ public:
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
-    void addWatch(Clingo::PropagateInit &init, const Variable &var, const Clasp::Literal &cl,
+    void addWatch(Clingo::PropagateControl &control, const Variable &var, Literal cl,
                   unsigned int step);
     /// debug function
     bool orderLitsAreOK();
@@ -217,9 +190,6 @@ private:
 
     bool assertConflict_;
 
-    /// for every variable i store a reason if i have to give it,
-    /// can contain reasons that are no longer valid (does not shrink)
-    std::unordered_map< Var, LitVec > reasons_;
     /// only set in imediate conflict in addition to reasons,
     /// as reason can already be set for this variable (opposite sign)
     LitVec conflict_;
@@ -238,33 +208,45 @@ private:
 class ClingconOrderPropagator : public Clingo::Propagator
 {
 public:
-    ClingconOrderPropagator(std::vector< PropagatorThreadBase > &bases, Solver &s,
-                            const VariableCreator &vc, const Config &conf)
+    ClingconOrderPropagator(
+        Solver &s, const VariableCreator &vc, const Config &conf, const NameList *names,
+        const std::vector< ReifiedLinearConstraint > &constraints,
+        std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
+            &propVar2cspVar)
         : s_(s)
         , vc_(vc)
         , conf_(conf)
+        , names_(names)
         , constraints_(constraints)
         , assertConflict_(false)
-        , bases_(bases)
+        , propVar2cspVar_(propVar2cspVar)
     {
-        for (const auto &i : bases) orderProps_.emplace_back(s, i);
     }
     virtual ~ClingconOrderPropagator() {}
 
     /// propagator interface
     virtual void init(Clingo::PropagateInit &init) override;
-    virtual void propagate(Clingo::PropagateControl &control,
-                           Clingo::LiteralSpan &changes) override;
+    virtual void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) override;
     virtual void check(Clingo::PropagateControl &control) override;
-    virtual void undo(Clingo::PropagateControl &s, LiteralSpan changes) override;
+    virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
+
+    PropagatorThreadBase &getBase(size_t i)
+    {
+        assert(bases_.size() < i);
+        return bases_[i];
+    }
+
+
+    void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
 
 private:
-    void addWatch(Clingo::PropagateInit &init, const Variable &var, const Literal &cl,
-                  unsigned int step);
     Solver &s_;
     const VariableCreator &vc_;
     Config conf_;
+    const NameList *names_;
     std::vector< ReifiedLinearConstraint > constraints_;
+    std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
+        &propVar2cspVar_;
     bool assertConflict_;
     /// for each Clasp Variable there is a vector of csp Variables with bounds
     /// For each CSP Variable there is an int x
@@ -273,37 +255,37 @@ private:
     /// sign(x): positive if literal without sign means v <= y, negative if literal with sign means
     /// v <= y
     std::vector< bool > watched_; /// which variables we need to watch
-    std::vector< PropagatorThreadBase > &bases_;
+    std::vector< PropagatorThreadBase > bases_;
     std::vector< ClingconOrderPropagatorThread > orderProps_;
 };
 
 class ClingconConstraintPropagator : public Clingo::Propagator
 {
 public:
-    ClingconConstraintPropagator(std::vector< PropagatorThreadBase > &bases, Solver &s,
-                                 const VariableCreator &vc, const Config &conf)
+    ClingconConstraintPropagator(Solver &s, const VariableCreator &vc, const Config &conf,
+                                 ClingconOrderPropagator &po)
         : s_(s)
         , vc_(vc)
         , conf_(conf)
         , assertConflict_(false)
+        , po_(po)
     {
-        for (const auto &i : bases) constraintProps_.emplace_back(s, i);
     }
     virtual ~ClingconConstraintPropagator() {}
 
     /// propagator interface
     virtual void init(Clingo::PropagateInit &init) override;
-    virtual void propagate(Clingo::PropagateControl &control,
-                           Clingo::LiteralSpan &changes) override;
+    virtual void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) override;
     virtual void check(Clingo::PropagateControl &control) override;
-    virtual void undo(Clingo::PropagateControl &s, LiteralSpan changes) override;
+    virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
 
 private:
     Solver &s_;
     const VariableCreator &vc_;
     Config conf_;
     bool assertConflict_;
-    std::vector< PropagatorThreadBase > &bases_;
+    ClingconOrderPropagator &po_;
+    std::vector< PropagatorThreadBase * > bases_;
     std::vector< ClingconConstraintPropagatorThread > constraintProps_;
-}
+};
 }

@@ -180,7 +180,7 @@ public:
     {
         return storage_.removeConstraints();
     }
-    const std::vector< ReifiedLinearConstraint > &constraints()
+    const std::vector< ReifiedLinearConstraint > &constraints() const
     {
         return storage_.linearImpConstraints_;
     }

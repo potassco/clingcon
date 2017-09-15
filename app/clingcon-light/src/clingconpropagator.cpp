@@ -18,7 +18,7 @@
 
 // }}}
 
-#include <clingcon/clingconorderpropagator.h>
+#include <clingcon/clingconpropagator.h>
 #include <clingcon/variable.h>
 
 
@@ -35,16 +35,22 @@ void ClingconConstraintPropagator::init(Clingo::PropagateInit &init)
     /// 2. the constraint index                             -> data.var
     /// I just need the clasp variable to see which index has to be sheduled for propagation
     ///
+    ///
+
+    for (size_t i = 0; i < init.number_of_threads(); ++i)
+        constraintProps_.emplace_back(po_.getBase(i));
 
     /// add watches for undecided reification literals
-    for (std::size_t cindex = 0; cindex < constraints_.size(); ++cindex)
+    auto constraints = constraintProps_[0].base().p_.constraints();
+    for (std::size_t cindex = 0; cindex < constraints.size(); ++cindex)
     {
         /// just watch the nonfalse ones
-        Literal l = constraints_[cindex].v;
-        if (!s.isFalse(l)) /// permanent false otherwise, do not need to consider it
+        Literal l = constraints[cindex].v;
+        if (!s_.isFalse(l)) /// permanent false otherwise, do not need to consider it
         {
-            DataBlob blob(cindex, false);
-            s_.addWatch(init, l, this, blob.rep());
+            init.add_watch(l);
+            // for (auto const& cpthread : constraintProps_)
+            //    cpthread.addWatch(init, l);
             // s.addWatch(-l, this, blob.asUint()); // i'm just watching implications
         }
     }
@@ -74,8 +80,16 @@ void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
     /// others but we dont care)
     ///
     ///
+    ///
+    ///
+    for (size_t i = 0; i < init.number_of_threads(); ++i)
+    {
+        bases_.emplace_back(s_, vc_, conf_, names_, constraints_, propVar2cspVar_);
+    }
 
-    watched_.resize(vc_.numVariables().numVariables(), false);
+    for (const auto &i : bases_) orderProps_.emplace_back(s_, i);
+
+    watched_.resize(vc_.numVariables(), false);
     for (std::size_t cindex = 0; cindex < constraints_.size(); ++cindex)
     {
         for (auto view : constraints_[cindex].l.getConstViews())
@@ -85,14 +99,14 @@ void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
     }
 
     /// add watches for the order literals
-    for (std::size_t var = 0; var != vc.numVariables(); ++var)
+    for (std::size_t var = 0; var != vc_.numVariables(); ++var)
     {
-        if (vc.isValid(var))
+        if (vc_.isValid(var))
         {
-            if (!conf.explicitBinaryOrderClausesIfPossible)
-                watched_[var] = true;
-            else if (vc_.numOrderLits(var) < vc_.getDomain(var).size())
-                watched_[var] = true;
+            // if (!conf_.explicitBinaryOrderClausesIfPossible)
+            watched_[var] = true;
+            // slse if (vc_.numOrderLits(var) < vc_.getDomain(var).size())
+            //    watched_[var] = true;
         }
     }
 
@@ -100,7 +114,7 @@ void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
     {
         if (watched_[var])
         {
-            auto lr = pure_LELiteral_iterator(vc.getRestrictor(View(var)).begin(),
+            auto lr = pure_LELiteral_iterator(vc_.getRestrictor(View(var)).begin(),
                                               vc_.getStorage(var), true);
 
             while (lr.isValid())
@@ -114,22 +128,21 @@ void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
 }
 
 void ClingconOrderPropagator::propagate(Clingo::PropagateControl &control,
-                                        Clingo::LiteralSpan &changes)
+                                        Clingo::LiteralSpan changes)
 {
     assert(control.thread_id() < orderProps_.size());
     orderProps_[control.thread_id()].propagate(control, changes);
 }
 
 void ClingconConstraintPropagator::propagate(Clingo::PropagateControl &control,
-                                             Clingo::LiteralSpan &changes)
+                                             Clingo::LiteralSpan changes)
 {
-    assert(control.thread_id() < orderProps_.size());
+    assert(control.thread_id() < constraintProps_.size());
     constraintProps_[control.thread_id()].propagate(control, changes);
 }
 
 
-void PropagatorThreadBase::propagate(Clingo::PropagateControl &control,
-                                     Clingo::LiteralSpan &changes)
+void PropagatorThreadBase::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes)
 {
     /// only called if p is gets true (otherwise -p gets true)
     for (auto i : changes)
@@ -151,7 +164,7 @@ void PropagatorThreadBase::propagate(Clingo::PropagateControl &control,
 
 
 void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
-                                              Clingo::LiteralSpan &changes)
+                                              Clingo::LiteralSpan changes)
 {
     base_.propagate(control, changes);
     s_.beginPropagate(control);
@@ -270,7 +283,7 @@ void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
 }
 
 void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &control,
-                                                   Clingo::LiteralSpan &changes)
+                                                   Clingo::LiteralSpan changes)
 {
     base_.propagate(control, changes);
     s_.beginPropagate(control);
@@ -296,7 +309,7 @@ void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &con
                 {
                     if (!vs.getVariableStorage().hasGELiteral(its[i]))
                     {
-                        Literal l = base_.p_.getSolver().getNewLiteral();
+                        Literal l = s_.getNewLiteral();
                         auto it = its[i] - 1;
                         vs.setLELit(it, l);
                         // claspClause.push_back(toClaspFormat(l));
@@ -316,10 +329,10 @@ void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &con
                     /// now it has a literal
                     {
                         auto currentIt =
-                            p_.getVVS().getVariableStorage().getCurrentRestrictor(its[i].view());
-                        Clasp::Literal l =
-                            toClaspFormat(vs.getVariableStorage().getGELiteral(its[i]));
-                        if (!s_.isTrue(l) && !s_.isFalse(l)) /// free value
+                            base_.p_.getVVS().getVariableStorage().getCurrentRestrictor(
+                                its[i].view());
+                        Literal l = vs.getVariableStorage().getGELiteral(its[i]);
+                        if (s_.isUnknown(l))
                         {
                             auto it = its[i] - 1;
                             if (it < currentIt.begin())
@@ -368,42 +381,9 @@ void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &con
                        }) >= 1);
 
 
-                if (conf_.learnClauses)
-                {
-                    if (!Clasp::ClauseCreator::create(
-                             s_, claspClause, Clasp::ClauseCreator::clause_force_simplify,
-                             Clasp::ClauseCreator::ClauseInfo(Clasp::Constraint_t::Other))
-                             .ok())
-                        return false;
-                }
-                else
-                {
-
-                    /// TODO: what about the return value
-                    Clasp::ClauseCreator::prepare(s_, claspClause,
-                                                  Clasp::ClauseCreator::clause_force_simplify);
-
-                    if (claspClause.size() == 0) /// top level conflict
-                        claspClause.push_back(Clasp::negLit(0));
-
-                    /// in case of a conflict we do not want to override reason of the same literal
-                    if (s_.isFalse(*claspClause.begin()))
-                    {
-                        conflict_.clear();
-                        for (auto i = claspClause.begin() + 1; i != claspClause.end(); ++i)
-                            conflict_.push_back(-(*i));
-                    }
-                    else
-                    {
-                        reasons_[claspClause.begin()->var()].clear();
-                        conflict_.clear();
-                        for (auto i = claspClause.begin() + 1; i != claspClause.end(); ++i)
-                            reasons_[claspClause.begin()->var()].push_back(-(*i));
-                    }
-                    if (!s_.force(*claspClause.begin(), this)) return false;
-                }
+                if (!s_.addClause(claspClause)) return;
             }
-            if (!s_.propagateUntil(this))
+            if (!control.propagate())
             {
                 return false;
             }
@@ -419,7 +399,7 @@ void ClingconOrderPropagatorThread::check(Clingo::PropagateControl &control) {}
 void ClingconConstraintPropagator::check(Clingo::PropagateControl &control) {}
 void ClingconConstraintPropagatorThread::check(Clingo::PropagateControl &control) {}
 
-void PropagatorThreadBase::undo(Clingo::PropagateControl &control)
+void PropagatorThreadBase::undo(Clingo::PropagateControl const &control)
 {
     // std::cout << "reset on dl " << s_.decisionLevel() << std::endl;
     //        if (control.assignment().decision_level() != 0 &&
@@ -437,17 +417,19 @@ void PropagatorThreadBase::undo(Clingo::PropagateControl &control)
 }
 
 
-void ClingconOrderPropagator::undo(Clingo::PropagateControl &control)
+void ClingconOrderPropagator::undo(Clingo::PropagateControl const &control)
 {
     assert(control.thread_id() < orderProps_.size());
     orderProps_[control.thread_id()].undo(control, changes);
 }
-void ClingconOrderPropagatorThread::undo(Clingo::PropagateControl &control, LiteralSpan changes)
+void ClingconOrderPropagatorThread::undo(Clingo::PropagateControl const &control,
+                                         Clingo::LiteralSpan changes)
 {
     assertConflict_ = false;
     base_.undo(control);
 }
-void ClingconConstraintPropagator::undo(Clingo::PropagateControl &control, LiteralSpan changes)
+void ClingconConstraintPropagator::undo(Clingo::PropagateControl const &control,
+                                        Clingo::LiteralSpan changes)
 {
     assert(control.thread_id() < constraintProps_.size());
     constraintProps_[control.thread_id()].undo(control, changes);
@@ -510,28 +492,22 @@ void ClingconOrderPropagator::forceKnownLiteralLE(ViewIterator it, Clasp::Litera
 bool ClingconOrderPropagator::propagateFixpoint(Clasp::Solver &, PostPropagator *) {}
 
 
-void ClingconOrderPropagator::addWatch(Clingo::PropagateInit &init, const Variable &var,
-                                       const Literal &cl, unsigned int step)
+void ClingconOrderPropagator::addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl,
+                                       unsigned int step)
 {
     init.add_watch(cl);
     init.add_watch(-cl);
     int32 x = (cl < 0) ? int32(step + 1) * -1 : int32(step + 1);
-    ARE YOU SURE THIS WORKS ?
-        HOW / WHEN ARE THE THREADS CREATED,
-        AFTER INIT ?
-        Would make sense but then this wont work SOLUTION :
-        I create them myself in the init function of the propagator !!!DO IT for (auto &i : bases_)
-                i.propVar2cspVar_[cl.var()]
-                    .emplace_back(std::make_pair(var, x));
+    for (auto &i : bases_) i.propVar2cspVar_[cl.var()].emplace_back(std::make_pair(var, x));
 }
 
 void ClingconConstraintPropagatorThread::addWatch(Clingo::PropagateControl &control,
-                                                  const Variable &var, const Clasp::Literal &cl,
+                                                  const Variable &var, Literal cl,
                                                   unsigned int step)
 {
     DataBlob blob(0, true);
-    s_.addWatch(cl, this, blob.rep());
-    s_.addWatch(-cl, this, blob.rep());
+    control.add_watch(cl);
+    control.add_watch(-cl);
     int32 x = cl.sign() ? int32(step + 1) * -1 : int32(step + 1);
     base_.propVar2cspVar_[cl.var()].emplace_back(std::make_pair(var, x));
 }
@@ -641,7 +617,8 @@ namespace
 
 bool ClingconOrderPropagator::isModel(Clasp::Solver &)
 {
-    // std::cout << "Is probably a model ?" << " at dl " << s_.decisionLevel() << std::endl;
+    // std::cout << "Is probably a model ?" << " at dl " << s_.decisiconstraints_onLevel() <<
+    // std::endl;
     auto &vs = p_.getVVS().getVariableStorage();
 
     Variable unrestrictedVariable(InvalidVar);
