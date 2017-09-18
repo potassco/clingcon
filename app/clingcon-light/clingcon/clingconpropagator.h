@@ -53,7 +53,7 @@ public:
     }
 
     void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
-    void undo(Clingo::PropagateControl &s, Clingo::LiteralSpan changes);
+    void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes);
     LinearLiteralPropagator p_;
     Config conf_;
     std::vector< std::string > show_; /// order::Variable -> string name
@@ -75,7 +75,7 @@ public:
 
 /// sign of the literal, for order literals a positive literal is alsways a <= x, while a negative
 /// one is a > x
-class ClingconOrderPropagatorThread : public Clingo::Propagator
+class ClingconOrderPropagatorThread
 {
 public:
     ClingconOrderPropagatorThread(Solver &s, PropagatorThreadBase &base)
@@ -84,7 +84,7 @@ public:
         , assertConflict_(false)
     {
     }
-    virtual ~ClingconOrderPropagatorThread() {}
+    ~ClingconOrderPropagatorThread() {}
 
     /// propagator interface
     void init(Clingo::PropagateInit &init);
@@ -135,7 +135,7 @@ private:
     LitVec conflict_;
 };
 
-class ClingconConstraintPropagatorThread : public Clingo::Propagator
+class ClingconConstraintPropagatorThread
 {
 public:
     ClingconConstraintPropagatorThread(Solver &s, PropagatorThreadBase &base)
@@ -151,7 +151,7 @@ public:
             var2Constraints_[abs(constraints[i].v)] = i;
         }
     }
-    virtual ~ClingconConstraintPropagatorThread() {}
+    ~ClingconConstraintPropagatorThread() {}
 
     /// propagator interface
     void init(Clingo::PropagateInit &init);
@@ -169,12 +169,12 @@ private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
     void addWatch(Clingo::PropagateControl &control, const Variable &var, Literal cl,
-                  unsigned int step);
+                  unsigned int step);   
     /// debug function
     bool orderLitsAreOK();
     Solver &s_;
 
-    PropagatorThreadBase base_;
+    PropagatorThreadBase& base_;
 
 
     /// force a new literal l, associated with it to be true,
@@ -232,7 +232,7 @@ public:
 
     PropagatorThreadBase &getBase(size_t i)
     {
-        assert(bases_.size() < i);
+        assert(bases_.size() > i);
         return bases_[i];
     }
 
@@ -280,6 +280,7 @@ public:
     virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
 
 private:
+
     Solver &s_;
     const VariableCreator &vc_;
     Config conf_;

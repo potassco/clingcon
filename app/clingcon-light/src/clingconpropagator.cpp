@@ -38,7 +38,7 @@ void ClingconConstraintPropagator::init(Clingo::PropagateInit &init)
     ///
 
     for (size_t i = 0; i < init.number_of_threads(); ++i)
-        constraintProps_.emplace_back(po_.getBase(i));
+        constraintProps_.emplace_back(s_, po_.getBase(i));
 
     /// add watches for undecided reification literals
     auto constraints = constraintProps_[0].base().p_.constraints();
@@ -87,7 +87,7 @@ void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
         bases_.emplace_back(s_, vc_, conf_, names_, constraints_, propVar2cspVar_);
     }
 
-    for (const auto &i : bases_) orderProps_.emplace_back(s_, i);
+    for (auto &i : bases_) orderProps_.emplace_back(s_, i);
 
     watched_.resize(vc_.numVariables(), false);
     for (std::size_t cindex = 0; cindex < constraints_.size(); ++cindex)
@@ -147,8 +147,8 @@ void PropagatorThreadBase::propagate(Clingo::PropagateControl &control, Clingo::
     /// only called if p is gets true (otherwise -p gets true)
     for (auto i : changes)
     {
-        assert(s_.isTrue(i));
-        assert(s_.level(p.var()) == control.assignment().decision_level());
+        assert(p_.getSolver().isTrue(i));
+        assert(control.assignment().level(i) == control.assignment().decision_level());
     }
 
     if (dls_.back() != control.assignment().decision_level())
@@ -232,7 +232,7 @@ void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
                     {
                         if (s_.isFalse(*newit)) break;
                         /// TODO:s_.addClause();
-                        if (!s_.addClause(LitVec{*newit, -p})) return false;
+                        if (!s_.addClause(LitVec{*newit, -p})) return;
                         // if (!s_.force(-(*newit), Clasp::Antecedent(p)))
                         //    return PropResult(false, true);
                     }
@@ -271,7 +271,7 @@ void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
                         while ((++newit).isValid())
                         {
                             if (s_.isTrue(*newit)) break;
-                            if (!s_.addClause(LitVec{-(*newit), -p})) return false;
+                            if (!s_.addClause(LitVec{-(*newit), -p})) return;
                             // if (!s_.force(toClaspFormat(*newit), Clasp::Antecedent(p)))
                             //    return PropResult(false, true);
                         }
@@ -317,12 +317,12 @@ void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &con
                         if (it.view().reversed())
                         {
                             auto varit = ViewIterator::viewToVarIterator(it);
-                            addWatch(varit.view().v, -toClaspFormat(l), varit.numElement() - 1);
+                            addWatch(control, varit.view().v, -l, varit.numElement() - 1);
                         }
                         else
                         {
                             auto varit = ViewIterator::viewToVarIterator(it);
-                            addWatch(varit.view().v, toClaspFormat(l), varit.numElement());
+                            addWatch(control, varit.view().v, l, varit.numElement());
                         }
                     }
 
@@ -373,24 +373,21 @@ void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &con
                 //                                  s_.isTrue(i) << "  ,   ";
                 //                              std::cout << " on level " << s_.decisionLevel();
                 //                              std::cout << std::endl;
-                assert(std::count_if(claspClause.begin(), claspClause.end(), [&](Clasp::Literal i) {
+                assert(std::count_if(claspClause.begin(), claspClause.end(), [&](Literal i) {
                            return s_.isFalse(i);
                        }) >= claspClause.size() - 1);
-                assert(std::count_if(claspClause.begin(), claspClause.end(), [&](Clasp::Literal i) {
-                           return s_.isFalse(i) && (s_.level(i.var()) == s_.decisionLevel());
+                assert(std::count_if(claspClause.begin(), claspClause.end(), [&](Literal i) {
+                           return s_.isFalse(i) && (control.assignment().level(i) == control.assignment().decision_level());
                        }) >= 1);
 
 
                 if (!s_.addClause(claspClause)) return;
             }
-            if (!control.propagate())
-            {
-                return false;
-            }
+            if (!control.propagate()) return;
             assert(orderLitsAreOK());
         }
     }
-    return true;
+    return;
 }
 
 
@@ -399,7 +396,7 @@ void ClingconOrderPropagatorThread::check(Clingo::PropagateControl &control) {}
 void ClingconConstraintPropagator::check(Clingo::PropagateControl &control) {}
 void ClingconConstraintPropagatorThread::check(Clingo::PropagateControl &control) {}
 
-void PropagatorThreadBase::undo(Clingo::PropagateControl const &control)
+void PropagatorThreadBase::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan)
 {
     // std::cout << "reset on dl " << s_.decisionLevel() << std::endl;
     //        if (control.assignment().decision_level() != 0 &&
@@ -409,7 +406,7 @@ void PropagatorThreadBase::undo(Clingo::PropagateControl const &control)
     //            base_.p_.addLevel();
     //        }
     //        else
-    while (control.assignment().decision_level() <= base_.dls_.back())
+    while (control.assignment().decision_level() <= dls_.back())
     {
         p_.removeLevel();
         dls_.pop_back();
@@ -417,7 +414,7 @@ void PropagatorThreadBase::undo(Clingo::PropagateControl const &control)
 }
 
 
-void ClingconOrderPropagator::undo(Clingo::PropagateControl const &control)
+void ClingconOrderPropagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes)
 {
     assert(control.thread_id() < orderProps_.size());
     orderProps_[control.thread_id()].undo(control, changes);
@@ -426,7 +423,7 @@ void ClingconOrderPropagatorThread::undo(Clingo::PropagateControl const &control
                                          Clingo::LiteralSpan changes)
 {
     assertConflict_ = false;
-    base_.undo(control);
+    base_.undo(control, changes);
 }
 void ClingconConstraintPropagator::undo(Clingo::PropagateControl const &control,
                                         Clingo::LiteralSpan changes)
@@ -434,62 +431,50 @@ void ClingconConstraintPropagator::undo(Clingo::PropagateControl const &control,
     assert(control.thread_id() < constraintProps_.size());
     constraintProps_[control.thread_id()].undo(control, changes);
 }
-void ClingconConstraintPropagatorThread::undo(Clingo::PropagateControl &control,
-                                              LiteralSpan changes)
+void ClingconConstraintPropagatorThread::undo(Clingo::PropagateControl const &control,
+                                              Clingo::LiteralSpan changes)
 {
-    base_.undo(control);
+    base_.undo(control, changes);
 }
 
 
-void ClingconOrderPropagator::reason(Clasp::Solver &, Clasp::Literal p, Clasp::LitVec &lits)
-{
-    if (conflict_.size())
-    {
-        lits.insert(lits.end(), conflict_.begin(), conflict_.end());
-        conflict_.clear();
-    }
-    else
-        lits.insert(lits.end(), reasons_[p.var()].begin(), reasons_[p.var()].end());
-}
-
-
-void ClingconOrderPropagator::forceKnownLiteralGE(ViewIterator it, Clasp::Literal l)
+void ClingconConstraintPropagatorThread::forceKnownLiteralGE(ViewIterator it, Literal l)
 {
     // assert(iterator is variterator)
     auto varit = ViewIterator::viewToVarIterator(it);
     pure_LELiteral_iterator pit(
-        varit, p_.getVVS().getVariableStorage().getOrderStorage(varit.view().v), 1);
+        varit, base_.p_.getVVS().getVariableStorage().getOrderStorage(varit.view().v), 1);
     assert(pit.isValid());
     ++pit;
     assert(pit.isValid());
-    while (!s_.isFalse(toClaspFormat(*pit)))
+    while (!s_.isFalse(*pit))
     {
-        assert(!s_.isTrue(toClaspFormat(*pit)));
+        assert(!s_.isTrue(*pit));
         ++pit;
         assert(pit.isValid());
     }
-    s_.force(l, Clasp::Antecedent(-(toClaspFormat(*pit))));
+    s_.addClause({l,*pit});
+    //s_.force(l, Clasp::Antecedent(-(toClaspFormat(*pit))));
 }
 
-void ClingconOrderPropagator::forceKnownLiteralLE(ViewIterator it, Clasp::Literal l)
+void ClingconConstraintPropagatorThread::forceKnownLiteralLE(ViewIterator it, Literal l)
 {
     auto varit = ViewIterator::viewToVarIterator(it);
     pure_LELiteral_iterator pit(
-        varit, p_.getVVS().getVariableStorage().getOrderStorage(varit.view().v), 0);
+        varit, base_.p_.getVVS().getVariableStorage().getOrderStorage(varit.view().v), 0);
     assert(pit.isValid());
     --pit;
     assert(pit.isValid());
-    while (!s_.isTrue(toClaspFormat(*pit)))
+    while (!s_.isTrue(*pit))
     {
-        assert(!s_.isFalse(toClaspFormat(*pit)));
+        assert(!s_.isFalse(*pit));
         --pit;
         assert(pit.isValid());
     }
-    s_.force(l, Clasp::Antecedent(toClaspFormat(*pit)));
+    //s_.force(l, Clasp::Antecedent(toClaspFormat(*pit)));
+    s_.addClause({l,-(*pit)});
+    
 }
-
-
-bool ClingconOrderPropagator::propagateFixpoint(Clasp::Solver &, PostPropagator *) {}
 
 
 void ClingconOrderPropagator::addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl,
@@ -498,18 +483,17 @@ void ClingconOrderPropagator::addWatch(Clingo::PropagateInit &init, const Variab
     init.add_watch(cl);
     init.add_watch(-cl);
     int32 x = (cl < 0) ? int32(step + 1) * -1 : int32(step + 1);
-    for (auto &i : bases_) i.propVar2cspVar_[cl.var()].emplace_back(std::make_pair(var, x));
+    for (auto &i : bases_) i.propVar2cspVar_[abs(cl)].emplace_back(std::make_pair(var, x));
 }
 
 void ClingconConstraintPropagatorThread::addWatch(Clingo::PropagateControl &control,
                                                   const Variable &var, Literal cl,
                                                   unsigned int step)
 {
-    DataBlob blob(0, true);
     control.add_watch(cl);
     control.add_watch(-cl);
-    int32 x = cl.sign() ? int32(step + 1) * -1 : int32(step + 1);
-    base_.propVar2cspVar_[cl.var()].emplace_back(std::make_pair(var, x));
+    int32 x = cl < 0 ? int32(step + 1) * -1 : int32(step + 1);
+    base_.propVar2cspVar_[abs(cl)].emplace_back(std::make_pair(var, x));
 }
 
 
@@ -564,26 +548,6 @@ bool ClingconConstraintPropagatorThread::orderLitsAreOK() { /*
      }*/ return true; }
 
 
-void ClingconOrderPropagator::reset()
-{
-    // std::cout << "reset on dl " << s_.decisionLevel() << std::endl;
-    assertConflict_ = false;
-    if (s_.decisionLevel() != 0 && s_.decisionLevel() == dls_.back())
-    {
-        p_.removeLevel();
-        p_.addLevel();
-    }
-}
-
-
-void ClingconOrderPropagator::undoLevel(Clasp::Solver &)
-{
-    // std::cout << "undo dl " << s_.decisionLevel() << std::endl;
-    assertConflict_ = false;
-    p_.removeLevel();
-    dls_.pop_back();
-}
-
 
 namespace
 {
@@ -591,7 +555,7 @@ namespace
     /// finds first literal that is true
 
     template < class ForwardIt >
-    ForwardIt my_upper_bound(ForwardIt first, ForwardIt last, Clasp::Solver &s,
+    ForwardIt my_upper_bound(ForwardIt first, ForwardIt last, Solver &s,
                              const orderStorage &os)
     {
         ForwardIt it;
@@ -614,7 +578,7 @@ namespace
         return first;
     }
 }
-
+/*
 bool ClingconOrderPropagator::isModel(Clasp::Solver &)
 {
     // std::cout << "Is probably a model ?" << " at dl " << s_.decisiconstraints_onLevel() <<
@@ -730,4 +694,5 @@ bool ClingconOrderPropagator::getValue(Variable v, int32 &value)
     value = find->second;
     return true;
 }
+*/
 }
