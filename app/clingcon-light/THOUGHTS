@@ -35,5 +35,27 @@ cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLIN
 
 
 
-Functions possibly subject to remove:
-VariableCreator::constrainUpper/LowerBound
+I have a problem creating an interleaving propagator.
+This would basically mean two proapgators prop1 and prop2.
+prop2 can call control.propagate() to get the new information to the solver
+and do unit propagation on it during its propagation and then continue with the new information.
+
+First Question:
+How do i get this information back without first propagating to a fixpoint?
+So do i have to process my changes list first before i get the new information?
+If this is the case, I'm restricted in the order of propagation.
+
+First Problem:
+My prop2 may add new variables (control.add_literal()) to the solver thread, and prop1 needs to watch them.
+Currently I can't figure out how to do this, as I'm doing propagation with prop2,
+and I guess that there exists some kind of state that then maps all new watches to this propagator.
+
+Supposed Solution:
+I only have one big propagator and try to do the interleaving myself.
+The problem that arises with this approach is that control.propagate() no longer does the propagation
+that prop1 formerly did.
+After calling control.propagate() I do not know the literals that became true during this call (and that i actually watch).
+
+Did I overlooked anything? Can I use the assignment() from the control
+to get an idea of what unit propagation added? Is this the right way to do it?
+I will get called a second time with literals that I already processed if I do it this way.

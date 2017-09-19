@@ -25,8 +25,26 @@
 namespace clingcon
 {
 
-void ClingconConstraintPropagator::init(Clingo::PropagateInit &init)
+void ClingconPropagator::init(Clingo::PropagateInit &init)
 {
+    /// access the reified literals
+    /// and the order literals, and watch them using
+    /// s_.addWatch(Literal(), Constraint(this), data);
+    /// then this->propagate(Literal, data, solver s) is called whenever there is a change
+
+    /// if an orderLiteral changes, i change lower/upper bound p_.changeUpperBound(variable,
+    /// bound_iterator)
+    /// Given some Literal + datablob i need to know:
+    /// 1. it is an orderLiteral    -> data.bit 1 (sign=true)
+    /// 2. the variables with bounds-> lookup Clasp::Var ->
+    /// [Constraint::var1+abs(bound1)-1,var2+abs(bound2)-1, etc...]
+    /// 3. the sign                 -> sign of the literal * sign(bound),
+    ///
+    /// Watch out: A literal can refer to many variables + bounds
+    /// Solution: Register several of them, same literal with different vars
+    ///
+    /// Restricting a certain variable is always exactly one literal (which can be equal to
+    /// others but we dont care)
     ///
     /// if a reification literal is changed, i have to notify p_ and enable/disable a constraint
     /// I just have to shedule this constraint (it is true)
@@ -56,40 +74,13 @@ void ClingconConstraintPropagator::init(Clingo::PropagateInit &init)
             // s.addWatch(-l, this, blob.asUint()); // i'm just watching implications
         }
     }
-}
 
-void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
-{
-    /// access the reified literals
-    /// and the order literals, and watch them using
-    /// s_.addWatch(Literal(), Constraint(this), data);
-    /// then this->propagate(Literal, data, solver s) is called whenever there is a change
-
-    /// if an orderLiteral changes, i change lower/upper bound p_.changeUpperBound(variable,
-    /// bound_iterator)
-    /// Given some Literal + datablob i need to know:
-    /// 1. it is an orderLiteral    -> data.bit 1 (sign=true)
-    /// 2. the variables with bounds-> lookup Clasp::Var ->
-    /// [Constraint::var1+abs(bound1)-1,var2+abs(bound2)-1, etc...]
-    /// 3. the sign                 -> sign of the literal * sign(bound),
-
-
-    ///
-    /// Watch out: A literal can refer to many variables + bounds
-    /// Solution: Register several of them, same literal with different vars
-    ///
-    /// Restricting a certain variable is always exactly one literal (which can be equal to
-    /// others but we dont care)
-    ///
-    ///
-    ///
-    ///
     for (size_t i = 0; i < init.number_of_threads(); ++i)
     {
-        bases_.emplace_back(s_, vc_, conf_, names_, constraints_, propVar2cspVar_);
+        threads_.emplace_back(s_, vc_, conf_, names_, constraints_, propVar2cspVar_);
     }
 
-    for (auto &i : bases_) orderProps_.emplace_back(s_, i);
+    for (auto &i : threads_) orderProps_.emplace_back(s_, i);
 
     watched_.resize(vc_.numVariables(), false);
     for (std::size_t cindex = 0; cindex < constraints_.size(); ++cindex)
@@ -127,25 +118,25 @@ void ClingconOrderPropagator::init(Clingo::PropagateInit &init)
             }
         }
     }
+
+
+
 }
 
-void ClingconOrderPropagator::propagate(Clingo::PropagateControl &control,
+v
+
+void ClingconPropagator::propagate(Clingo::PropagateControl &control,
                                         Clingo::LiteralSpan changes)
 {
-    assert(control.thread_id() < orderProps_.size());
-    orderProps_[control.thread_id()].propagate(control, changes);
-}
-
-void ClingconConstraintPropagator::propagate(Clingo::PropagateControl &control,
-                                             Clingo::LiteralSpan changes)
-{
-    assert(control.thread_id() < constraintProps_.size());
-    constraintProps_[control.thread_id()].propagate(control, changes);
+    assert(control.thread_id() < threads_.size());
+    threads_[control.thread_id()].propagate(control, changes);
 }
 
 
-void PropagatorThreadBase::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes)
+
+void PropagatorThread::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes)
 {
+    s_.beginPropagate(control);
     /// only called if p is gets true (otherwise -p gets true)
     for (auto i : changes)
     {
@@ -162,18 +153,15 @@ void PropagatorThreadBase::propagate(Clingo::PropagateControl &control, Clingo::
         // std::cout << "Variable storage before getting to the next level " <<
         // p_.getVVS().getVariableStorage() << std::endl;
     }
+
+
+
 }
 
 
-void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
+void ClingconOrderPropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control,
                                               Clingo::LiteralSpan changes)
 {
-    std::cout << "OrderPropThread called with ";
-    for (auto i : changes)
-        std::cout << i << " ";
-    std::cout << std::endl;
-    s_.beginPropagate(control);
-    base_.propagate(control, changes);
 
     for (auto p : changes)
     {
@@ -288,19 +276,17 @@ void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
     control.propagate();
 }
 
-void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &control,
-                                                   Clingo::LiteralSpan changes)
+void PropagatorThread::propagateConstraints(Clingo::PropagateControl &control,
+                                 Clingo::LiteralSpan changes)
 {
-    std::cout << "OrderPropThread called with ";
-    for (auto i : changes)
-        std::cout << i << " ";
-    std::cout << std::endl;
-    s_.beginPropagate(control);
-    base_.propagate(control, changes);
+
 
     for (auto i : changes)
+    {
+        if (var2Constraints_.find(abs(i)) != var2Constraints_.end())
         for (const auto &j : var2Constraints_[abs(i)])
            base_.p_.queueConstraint(j);
+    }
 
     assert(!assertConflict_);
     assert(orderLitsAreOK());
@@ -403,12 +389,10 @@ void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &con
 }
 
 
-void ClingconOrderPropagator::check(Clingo::PropagateControl &control) {}
-void ClingconOrderPropagatorThread::check(Clingo::PropagateControl &control) {}
-void ClingconConstraintPropagator::check(Clingo::PropagateControl &control) {}
-void ClingconConstraintPropagatorThread::check(Clingo::PropagateControl &control) {}
+void ClingconPropagator::check(Clingo::PropagateControl &control) {}
 
-void PropagatorThreadBase::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan)
+
+void PropagatorThread::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan)
 {
     std::cout << "reset on dl " << control.assignment().decision_level() << std::endl;
     //        if (control.assignment().decision_level() != 0 &&
