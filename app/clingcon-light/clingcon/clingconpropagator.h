@@ -48,8 +48,11 @@ public:
         , conf_(conf)
         , names_(names)
         , propVar2cspVar_(propVar2cspVar)
+        , dls_{0}
     {
+        p_.addLevel();
         p_.addImp(constraints);
+
     }
 
     void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
@@ -125,7 +128,7 @@ private:
 
 
     Solver &s_;
-    PropagatorThreadBase base_;
+    PropagatorThreadBase& base_;
     bool assertConflict_;
     /// for every variable i store a reason if i have to give it,
     /// can contain reasons that are no longer valid (does not shrink)
@@ -147,8 +150,7 @@ public:
         auto constraints = base_.p_.constraints();
         for (size_t i = 0; i < constraints.size(); ++i)
         {
-            assert(var2Constraints_.find(abs(constraints[i].v)) == var2Constraints_.end());
-            var2Constraints_[abs(constraints[i].v)] = i;
+            var2Constraints_[abs(constraints[i].v)].emplace_back(i);
         }
     }
     ~ClingconConstraintPropagatorThread() {}
@@ -194,7 +196,7 @@ private:
     /// as reason can already be set for this variable (opposite sign)
     LitVec conflict_;
     /// Clasp Variable to Constraint ID
-    std::unordered_map< Var, size_t > var2Constraints_;
+    std::unordered_map< Var, std::vector<size_t> > var2Constraints_;
 };
 
 

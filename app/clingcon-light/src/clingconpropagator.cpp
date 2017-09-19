@@ -46,8 +46,10 @@ void ClingconConstraintPropagator::init(Clingo::PropagateInit &init)
     {
         /// just watch the nonfalse ones
         Literal l = constraints[cindex].v;
-        if (!s_.isFalse(l)) /// permanent false otherwise, do not need to consider it
+        /// cant check truth value, as solver needs control object, not init
+        //if (!s_.isFalse(l)) /// permanent false otherwise, do not need to consider it
         {
+            std::cout << "ConstraintProp watch " << l << std::endl;
             init.add_watch(l);
             // for (auto const& cpthread : constraintProps_)
             //    cpthread.addWatch(init, l);
@@ -153,7 +155,7 @@ void PropagatorThreadBase::propagate(Clingo::PropagateControl &control, Clingo::
 
     if (dls_.back() != control.assignment().decision_level())
     {
-        // std::cout << "new level " << s.decisionLevel() << std::endl;
+        std::cout << "new level " << control.assignment().decision_level() << std::endl;
         dls_.emplace_back(control.assignment().decision_level());
         p_.addLevel();
         // s_.addUndoWatch(control.assignment().decision_level(), this);
@@ -166,8 +168,12 @@ void PropagatorThreadBase::propagate(Clingo::PropagateControl &control, Clingo::
 void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
                                               Clingo::LiteralSpan changes)
 {
-    base_.propagate(control, changes);
+    std::cout << "OrderPropThread called with ";
+    for (auto i : changes)
+        std::cout << i << " ";
+    std::cout << std::endl;
     s_.beginPropagate(control);
+    base_.propagate(control, changes);
 
     for (auto p : changes)
     {
@@ -285,10 +291,16 @@ void ClingconOrderPropagatorThread::propagate(Clingo::PropagateControl &control,
 void ClingconConstraintPropagatorThread::propagate(Clingo::PropagateControl &control,
                                                    Clingo::LiteralSpan changes)
 {
-    base_.propagate(control, changes);
+    std::cout << "OrderPropThread called with ";
+    for (auto i : changes)
+        std::cout << i << " ";
+    std::cout << std::endl;
     s_.beginPropagate(control);
+    base_.propagate(control, changes);
 
-    for (auto i : changes) base_.p_.queueConstraint(var2Constraints_[abs(i)]);
+    for (auto i : changes)
+        for (const auto &j : var2Constraints_[abs(i)])
+           base_.p_.queueConstraint(j);
 
     assert(!assertConflict_);
     assert(orderLitsAreOK());
@@ -398,7 +410,7 @@ void ClingconConstraintPropagatorThread::check(Clingo::PropagateControl &control
 
 void PropagatorThreadBase::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan)
 {
-    // std::cout << "reset on dl " << s_.decisionLevel() << std::endl;
+    std::cout << "reset on dl " << control.assignment().decision_level() << std::endl;
     //        if (control.assignment().decision_level() != 0 &&
     //        control.assignment().decision_level() == base_.dls_.back())
     //        {
@@ -406,7 +418,7 @@ void PropagatorThreadBase::undo(Clingo::PropagateControl const &control, Clingo:
     //            base_.p_.addLevel();
     //        }
     //        else
-    while (control.assignment().decision_level() <= dls_.back())
+    while (control.assignment().decision_level() <= dls_.back() && dls_.size()>1)
     {
         p_.removeLevel();
         dls_.pop_back();
@@ -480,6 +492,7 @@ void ClingconConstraintPropagatorThread::forceKnownLiteralLE(ViewIterator it, Li
 void ClingconOrderPropagator::addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl,
                                        unsigned int step)
 {
+    std::cout << "OrderProp watch " << cl << " and " << -cl << std::endl;
     init.add_watch(cl);
     init.add_watch(-cl);
     int32 x = (cl < 0) ? int32(step + 1) * -1 : int32(step + 1);
