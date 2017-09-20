@@ -44,7 +44,7 @@ public:
         Solver &s, const VariableCreator &vc, const Config &conf, const NameList *names,
         const std::vector< ReifiedLinearConstraint > &constraints,
         std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
-            propVar2cspVar)
+            propVar2cspVar, const std::vector< bool > & watched)
         : s_(s)
         , p_(s, vc, conf)
         , conf_(conf)
@@ -52,6 +52,7 @@ public:
         , propVar2cspVar_(propVar2cspVar)
         , dls_{0}
         , assertConflict_(false)
+        , watched_(watched)
     {
         p_.addLevel();
         p_.addImp(constraints);
@@ -59,7 +60,6 @@ public:
         {
             var2Constraints_[abs(constraints[i].v)].emplace_back(i);
         }
-
     }
 
     /// propagator interface
@@ -73,10 +73,14 @@ public:
 
 
 private:
+    void propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
+    bool propagateConstraintVariables(Clingo::PropagateControl &control);
+    bool isModel(Clingo::PropagateControl &control);
 
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
-    void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
+    void addWatch(Clingo::PropagateControl &init, const Variable &var, Literal cl,
+                  unsigned int step);
     /// debug function
     bool orderLitsAreOK();
 
@@ -85,7 +89,6 @@ private:
     /// where eps is the next valid literal
     void forceKnownLiteralLE(ViewIterator it, Literal l);
     void forceKnownLiteralGE(ViewIterator it, Literal l);
-
 
 
     Solver &s_;
@@ -109,7 +112,8 @@ private:
     bool assertConflict_;
 
     /// Clasp Variable to Constraint ID
-    std::unordered_map< Var, std::vector<size_t> > var2Constraints_;
+    std::unordered_map< Var, std::vector< size_t > > var2Constraints_;
+    const std::vector< bool >& watched_;
 };
 
 
@@ -123,18 +127,14 @@ private:
 class ClingconPropagator : public Clingo::Propagator
 {
 public:
-    ClingconPropagator(
-        Solver &s, const VariableCreator &vc, const Config &conf, const NameList *names,
-        const std::vector< ReifiedLinearConstraint > &constraints,
-        std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
-            &propVar2cspVar)
+    ClingconPropagator(Solver &s, const VariableCreator &vc, const Config &conf,
+                       const NameList *names,
+                       const std::vector< ReifiedLinearConstraint > &constraints)
         : s_(s)
         , vc_(vc)
         , conf_(conf)
         , names_(names)
         , constraints_(constraints)
-        , assertConflict_(false)
-        , propVar2cspVar_(propVar2cspVar)
     {
     }
     virtual ~ClingconPropagator() {}
@@ -146,7 +146,6 @@ public:
     virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
 
 private:
-
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
     void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
@@ -156,7 +155,7 @@ private:
     const NameList *names_;
     std::vector< ReifiedLinearConstraint > constraints_;
     std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
-        &propVar2cspVar_;
+        propVar2cspVar_;
 
     /// for each Clasp Variable there is a vector of csp Variables with bounds
     /// For each CSP Variable there is an int x
@@ -165,8 +164,6 @@ private:
     /// sign(x): positive if literal without sign means v <= y, negative if literal with sign means
     /// v <= y
     std::vector< bool > watched_; /// which variables we need to watch
-    std::vector<PropagatorThread> threads_;
+    std::vector< PropagatorThread > threads_;
 };
-
-
 }

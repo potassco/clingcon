@@ -372,15 +372,10 @@ void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
         std::cerr << "Warning: Variable " << tp.getName(i)
                   << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
 
-    std::unordered_map< clingcon::Var, std::vector< std::pair< clingcon::Variable, int32 > > > propVar2cspVar;
 
-    clingcon::ClingconOrderPropagator po(s, n.getVariableCreator(), n.getConfig(), 0 /*names*/,
-                                         n.constraints(), propVar2cspVar);
-    ctl.register_propagator(po);
-    clingcon::ClingconConstraintPropagator pc(s, n.getVariableCreator(),
-                                              n.getConfig(), po);
-    ctl.register_propagator(pc);
-
+    clingcon::ClingconPropagator p(s, n.getVariableCreator(), n.getConfig(), 0 /*names*/,
+                                   n.constraints());
+    ctl.register_propagator(p);
 
     for (auto m : ctl.solve())
     {

@@ -170,15 +170,35 @@ public:
         c_.add_watch(l);
     }
 
-    bool isTrue(Literal l) const { assert(c_.to_c()); return c_.assignment().is_true(l); }
-    bool isFalse(Literal l) const { assert(c_.to_c()); return c_.assignment().is_false(l); }
-    bool isUnknown(Literal l) const { assert(c_.to_c()); return !isFalse(l) && !isTrue(l); }
+    bool isTrue(Literal l) const
+    {
+        assert(c_.to_c());
+        return c_.assignment().is_true(l);
+    }
+    bool isFalse(Literal l) const
+    {
+        assert(c_.to_c());
+        return c_.assignment().is_false(l);
+    }
+    bool isUnknown(Literal l) const
+    {
+        assert(c_.to_c());
+        return !isFalse(l) && !isTrue(l);
+    }
 
     Literal trueLit() const { return trueLit_; }
     Literal falseLit() const { return -trueLit_; }
-    Literal getNewLiteral() { assert(c_.to_c()); return c_.add_literal(); }
+    Literal getNewLiteral()
+    {
+        assert(c_.to_c());
+        return c_.add_literal();
+    }
 
-    bool addClause(Clingo::LiteralSpan lits) { assert(c_.to_c()); c_.add_clause(lits); }
+    bool addClause(Clingo::LiteralSpan lits)
+    {
+        assert(c_.to_c());
+        return c_.add_clause(lits);
+    }
     /// TODO: add addclause and stuff
 private:
     Clingo::PropagateControl c_;
