@@ -81,7 +81,8 @@ private:
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
     void addWatch(Clingo::PropagateControl &init, const Variable &var, Literal cl,
                   unsigned int step);
-    /// debug function
+    /// debug functions
+    void printPartialState();
     bool orderLitsAreOK();
 
     /// force a new literal l, associated with it to be true,
