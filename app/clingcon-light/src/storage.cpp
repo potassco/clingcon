@@ -24,6 +24,21 @@
 namespace clingcon
 {
 
+
+void orderStorage::convertLiterals(Clingo::PropagateInit &init)
+{
+    if (hasMap())
+        for (auto &i : map_) i.second = init.solver_literal(i.second);
+    if (hasVector())
+        for (auto &i : vector_) i = init.solver_literal(i);
+}
+
+void VariableCreator::convertLiterals(Clingo::PropagateInit &init) const
+{
+    for (auto &i : orderLitMemory_) i.convertLiterals(init);
+    for (auto &i : equalLits_) i.second = init.solver_literal(i.second);
+}
+
 bool VariableCreator::constrainDomain(const Variable &v, int32 times, int32 c, int32 div)
 {
     assert(isValid(v));

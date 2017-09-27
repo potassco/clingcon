@@ -133,6 +133,12 @@ public:
         return true;
     }
 
+    bool createChoice(Clingo::AtomSpan atoms)
+    {
+        c_.rule(true, atoms, {});
+        return true;
+    }
+
     void intermediateVariableOutOfRange() const
     {
         throw std::runtime_error("Intermediate Variable out of bounds (32bit integer)");
@@ -151,11 +157,12 @@ private:
 class Solver : public BaseSolver
 {
 public:
-    Solver(Literal trueLit)
+    Solver()
         : c_({nullptr})
-        , trueLit_(trueLit)
     {
     }
+
+    void init(Literal trueLit) { trueLit_ = trueLit; }
 
     void addWatch(Clingo::PropagateInit &init, Literal l) { init.add_watch(l); }
 

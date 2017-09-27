@@ -142,216 +142,16 @@ struct Stats
 };
 
 
-template < typename T >
-class ClingconPropagator : public Propagator
-{
-public:
-    ClingconPropagator(Stats &stats, bool strict, bool propagate)
-        : stats_(stats)
-        , strict_(strict)
-        , propagate_(propagate)
-    {
-    }
-
-    void print_assignment(int thread) const
-    {
-        /*        auto &state = states_[thread];
-                T adjust = 0;
-                int idx = 0;
-                auto null = Clingo::Number(0);
-                for (auto &name : vert_map_) {
-                    if (name == null) {
-                        adjust = state.dl_graph.node_value(idx);
-                        break;
-                    }
-                    ++idx;
-                }
-
-                std::cout << "with assignment:\n";
-                idx = 0;
-                for (auto &name : vert_map_) {
-                    if (state.dl_graph.node_value_defined(idx) && name != null) {
-                        std::cout << name << ":" << adjust + state.dl_graph.node_value(idx) << " ";
-                    }
-                    ++idx;
-                }
-                std::cout << "\n";
-        */
-    }
-
-private:
-    // initialization
-
-    void init(PropagateInit &init) override
-    {
-        Timer t{stats_.time_init};
-        /*      for (auto atom : init.theory_atoms()) {
-                  auto term = atom.term();
-                  if (term.to_string() == "diff") {
-                      add_edge_atom(init, atom);
-                  }
-              }
-              initialize_states(init);
-        */
-    }
-
-    void add_edge_atom(PropagateInit &init, TheoryAtom const &atom)
-    {
-        /*    int lit = init.solver_literal(atom.literal());
-            T weight = get_weight<T>(atom);
-            auto elems = atom.elements();
-            char const *msg = "parsing difference constraint failed: only constraints of form &diff
-           {u - v} <= b are accepted";
-            if (elems.size() != 1) {
-                throw std::runtime_error(msg);
-            }
-            auto tuple = elems[0].tuple();
-            if (tuple.size() != 1) {
-                throw std::runtime_error(msg);
-            }
-            auto term = tuple[0];
-            if (term.type() != Clingo::TheoryTermType::Function || std::strcmp(term.name(), "-") !=
-           0) {
-                throw std::runtime_error(msg);
-            }
-            auto args = term.arguments();
-            if (args.size() != 2) {
-                throw std::runtime_error(msg);
-            }
-            auto u_id = map_vert(evaluate_term(args[0]));
-            auto v_id = map_vert(evaluate_term(args[1]));
-            auto id = numeric_cast<int>(edges_.size());
-            edges_.push_back({u_id, v_id, weight, lit});
-            lit_to_edges_.emplace(lit, id);
-            init.add_watch(lit);
-            if (propagate_) {
-                false_lit_to_edges_.emplace(-lit, id);
-                init.add_watch(-lit);
-            }
-            if (strict_) {
-                auto id = numeric_cast<int>(edges_.size());
-                edges_.push_back({v_id, u_id, -weight - 1, -lit});
-                lit_to_edges_.emplace(-lit, id);
-                if (propagate_) {
-                    false_lit_to_edges_.emplace(lit, id);
-                }
-                else {
-                    init.add_watch(-lit);
-                }
-            }
-    */
-    }
-
-    int map_vert(Clingo::Symbol v)
-    {
-        /*       auto ret = vert_map_inv_.emplace(v, vert_map_.size());
-               if (ret.second) {
-                   vert_map_.emplace_back(ret.first->first);
-               }
-               return ret.first->second;
-       */
-    }
-
-    void initialize_states(PropagateInit &init)
-    {
-        //        stats_.dl_stats.resize(init.number_of_threads());
-        //        for (int i = 0; i < init.number_of_threads(); ++i) {
-        //            states_.emplace_back(stats_.dl_stats[i], edges_);
-        //        }
-    }
-
-    // propagation
-
-    void propagate(PropagateControl &ctl, LiteralSpan changes) override
-    {
-        /*      auto &state = states_[ctl.thread_id()];
-              Timer t{state.stats.time_propagate};
-              auto level = ctl.assignment().decision_level();
-              state.dl_graph.ensure_decision_level(level);
-              // NOTE: vector copy only because clasp bug
-              //       can only be triggered with propagation
-              //       (will be fixed with 5.2.1)
-              for (auto lit : std::vector<Clingo::literal_t>(changes.begin(), changes.end())) {
-                  for (auto it = false_lit_to_edges_.find(lit), ie = false_lit_to_edges_.end(); it
-           != ie && it->first == lit; ++it) {
-                      if (state.dl_graph.edge_is_active(it->second)) {
-                          state.dl_graph.remove_candidate_edge(it->second);
-                      }
-                  }
-                  for (auto it = lit_to_edges_.find(lit), ie = lit_to_edges_.end(); it != ie &&
-           it->first == lit; ++it) {
-                      if (state.dl_graph.edge_is_active(it->second)) {
-                          auto neg_cycle = state.dl_graph.add_edge(it->second);
-                          if (!neg_cycle.empty()) {
-                              std::vector<literal_t> clause;
-                              for (auto eid : neg_cycle) {
-                                  clause.emplace_back(-edges_[eid].lit);
-                              }
-                              if (!ctl.add_clause(clause) || !ctl.propagate()) {
-                                  return;
-                              }
-                              assert(false && "must not happen");
-                          }
-                          else if (propagate_) {
-                              if (!state.dl_graph.propagate(it->second, ctl)) {
-                                  return;
-                              }
-                          }
-                      }
-                  }
-              }
-      */
-    }
-
-    // undo
-
-    void undo(PropagateControl const &ctl, LiteralSpan changes) override
-    {
-        //        static_cast<void>(changes);
-        //        auto &state = states_[ctl.thread_id()];
-        //        Timer t{state.stats.time_undo};
-        //        state.dl_graph.backtrack();
-    }
-
-#if defined(CHECKSOLUTION) || defined(CROSSCHECK)
-    void check(PropagateControl &ctl) override
-    {
-        /*        auto &state = states_[ctl.thread_id()];
-                for (auto &x : edges_) {
-                    if (ctl.assignment().is_true(x.lit)) {
-                        if (!state.dl_graph.node_value_defined(x.from) ||
-                            !state.dl_graph.node_value_defined(x.to) ||
-                            !(state.dl_graph.node_value(x.from) - state.dl_graph.node_value(x.to) <=
-           x.weight)) {
-                            throw std::logic_error("not a valid solution");
-                        }
-                    }
-                }*/
-    }
-#endif
-
-private:
-    std::unordered_multimap< literal_t, int > lit_to_edges_;
-    std::unordered_multimap< literal_t, int > false_lit_to_edges_;
-    std::vector< Clingo::Symbol > vert_map_;
-    std::unordered_map< Clingo::Symbol, int > vert_map_inv_;
-    Stats &stats_;
-    bool strict_;
-    bool propagate_;
-};
-
 void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
 {
     clingcon::Grounder g(ctl.backend());
     clingcon::Normalizer n(g, c);
-    clingcon::Solver s(g.trueLit());
-
 
     ctl.ground({{"base", {}}});
 
-    clingcon::TheoryParser tp(n, ctl.theory_atoms(), g.trueLit());
+    clingcon::TheoryParser tp(g, n, ctl.theory_atoms());
     if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
-    tp.postProcess();
+    auto &names = tp.postProcess();
 
     bool conflict = false;
     conflict = !n.prepare();
@@ -373,14 +173,14 @@ void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
                   << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
 
 
-    clingcon::ClingconPropagator p(s, n.getVariableCreator(), n.getConfig(), 0 /*names*/,
+    clingcon::ClingconPropagator p(g.trueLit(), n.getVariableCreator(), n.getConfig(), &names,
                                    n.constraints());
     ctl.register_propagator(p);
 
     for (auto m : ctl.solve())
     {
-        std::cout << m << std::endl;
-        // p.print_assignment(m.thread_id());
+        // std::cout << m << std::endl;
+        p.printAssignment(m.thread_id());
     }
 }
 
@@ -450,24 +250,50 @@ public:
         conf_.minLitsPerVar = 1000;
         conf_.propStrength = 4;
         conf_.translateConstraints = 10000;
-        // auto toInt64 = [](char const* value) {
-        //};
-        // options.add_flag(group, "translate-constraints", "Translate constraints with an estimated
-        // number of nogoods less than %A (-1=all) (default: 10000).", conf_.translateConstraints);
-        //        options.add_flag(group, "rdl", "Enable support for real numbers.", rdl_);
-        //        options.add_flag(group, "strict", "Enable strict mode.", strict_);
-        //        int64 translateConstraints; // translate constraint if expected number of clauses
-        //        is less than
-        //                                    // this number (-1 = all)
-        //        bool alldistinctCard;      /// translate alldistinct with cardinality constraints,
-        //        default false
-        //        int64 minLitsPerVar;       /// precreate at least this number of literals per
-        //                                   /// variable (-1 = all)
-        //        int64 domSize;             /// the maximum number of chunks a domain can have when
-        //                                   /// multiplied (if avoidable)
-        //        unsigned int propStrength; /// propagation strength for lazy constraints 1..4
-        //        bool dontcare;             /// option for testing strict/vs fwd/back inferences
-        //        only
+        options.add(group, "translate-constraints",
+                    "Translate constraints with an estimated "
+                    "number of nogoods less than %A (-1=all) (default: 10000).",
+                    [this](char const *value) {
+                        char *end = nullptr;
+                        errno = 0;
+                        conf_.translateConstraints =
+                            numeric_cast< int64 >(std::strtoul(value, &end, 10));
+                        return errno == 0 && *end == '\0';
+                    });
+        options.add(
+            group, "prop-strength", "Propagation strength %A {1=weak .. 4=strong} (default: 4)",
+            [this](char const *value) {
+                char *end = nullptr;
+                errno = 0;
+                conf_.propStrength = numeric_cast< unsigned int >(std::strtoul(value, &end, 10));
+                return errno == 0 && *end == '\0';
+            });
+        options.add(group, "min-lits-per-var",
+                    "Creates at least %A literals per variable (-1=all) (default: 1000)",
+                    [this](char const *value) {
+                        char *end = nullptr;
+                        errno = 0;
+                        conf_.minLitsPerVar = numeric_cast< int64 >(std::strtoul(value, &end, 10));
+                        return errno == 0 && *end == '\0';
+                    });
+        options.add(group, "domain-propagation", "Restrict the exponential runtime behaviour of "
+                                                 "domain propagation (-1=full propagation) "
+                                                 "(default: 10000)",
+                    [this](char const *value) {
+                        char *end = nullptr;
+                        errno = 0;
+                        conf_.domSize = numeric_cast< int64 >(std::strtoul(value, &end, 10));
+                        return errno == 0 && *end == '\0';
+                    });
+        options.add(group, "distinct-to-card",
+                    "Translate distinct constraint using cardinality constraints (default: false)",
+                    [this](char const *value) {
+                        char *end = nullptr;
+                        errno = 0;
+                        conf_.alldistinctCard =
+                            numeric_cast< int64 >(std::strtoul(value, &end, 10));
+                        return errno == 0 && *end == '\0';
+                    });
     }
 
     void validate_options() override

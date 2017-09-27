@@ -584,6 +584,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
         }
 
         Literal lit = i.literal();
+        s_.createChoice({static_cast< unsigned int >(abs(lit))});
         n_.addConstraint(ReifiedLinearConstraint(std::move(lc), lit, dir));
         break;
     }
@@ -634,6 +635,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
         if (!getView(i.guard().second, v)) error("Rhs VariableView expected", i.guard().second);
 
         Literal lit = i.literal();
+        s_.createChoice({static_cast< unsigned int >(abs(lit))});
         n_.addConstraint(ReifiedDomainConstraint(v, std::move(d), lit, dir));
         break;
     }
@@ -660,6 +662,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
             error("Did not expect a guard in distinct, found " + std::string(i.guard().first));
 
         Literal lit = i.literal();
+        s_.createChoice({static_cast< unsigned int >(abs(lit))});
         n_.addConstraint(ReifiedAllDistinct(std::move(views), lit, dir));
         break;
     }
@@ -791,7 +794,7 @@ void TheoryParser::add2Shown(Variable v, uint32 tid, Literal l)
         LinearConstraint lc(LinearConstraint::Relation::EQ);
         lc.add(newV * -1);
         lc.add(v);
-        n_.addConstraint(ReifiedLinearConstraint(std::move(lc), trueLit_, Direction::FWD));
+        n_.addConstraint(ReifiedLinearConstraint(std::move(lc), s_.trueLit(), Direction::FWD));
         shown_.resize(std::max(( unsigned int )(newV.v) + 1, ( unsigned int )(shown_.size())),
                       std::make_pair(MAXID, Literal(0)));
         shown_[newV.v] = std::make_pair(tid, l);

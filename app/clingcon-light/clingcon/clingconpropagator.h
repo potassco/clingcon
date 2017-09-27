@@ -44,7 +44,8 @@ public:
         Solver &s, const VariableCreator &vc, const Config &conf, const NameList *names,
         const std::vector< ReifiedLinearConstraint > &constraints,
         std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
-            propVar2cspVar, const std::vector< bool > & watched)
+            propVar2cspVar,
+        const std::vector< bool > &watched)
         : s_(s)
         , p_(s, vc, conf)
         , conf_(conf)
@@ -71,6 +72,7 @@ public:
     Solver &solver() { return s_; }
     const VolatileVariableStorage &getVVS() const { return p_.getVVS(); }
 
+    void printAssignment() const;
 
 private:
     void propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
@@ -88,8 +90,8 @@ private:
     /// force a new literal l, associated with it to be true,
     /// where l==x>it because x>it+eps
     /// where eps is the next valid literal
-    void forceKnownLiteralLE(ViewIterator it, Literal l);
-    void forceKnownLiteralGE(ViewIterator it, Literal l);
+    bool forceKnownLiteralLE(ViewIterator it, Literal l);
+    bool forceKnownLiteralGE(ViewIterator it, Literal l);
 
 
     Solver &s_;
@@ -114,7 +116,7 @@ private:
 
     /// Clasp Variable to Constraint ID
     std::unordered_map< Var, std::vector< size_t > > var2Constraints_;
-    const std::vector< bool >& watched_;
+    const std::vector< bool > &watched_;
 };
 
 
@@ -128,10 +130,9 @@ private:
 class ClingconPropagator : public Clingo::Propagator
 {
 public:
-    ClingconPropagator(Solver &s, const VariableCreator &vc, const Config &conf,
-                       const NameList *names,
-                       const std::vector< ReifiedLinearConstraint > &constraints)
-        : s_(s)
+    ClingconPropagator(Literal trueLit, const VariableCreator &vc, const Config &conf,
+                       NameList *names, const std::vector< ReifiedLinearConstraint > &constraints)
+        : trueLit_(trueLit)
         , vc_(vc)
         , conf_(conf)
         , names_(names)
@@ -146,14 +147,21 @@ public:
     virtual void check(Clingo::PropagateControl &control) override;
     virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
 
+    void printAssignment(size_t threadID)
+    {
+        assert(threads_.size() > threadID);
+        threads_[threadID].printAssignment();
+    }
+
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
     void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
-    Solver &s_;
+    Literal trueLit_;
+    Solver s_;
     const VariableCreator &vc_;
     Config conf_;
-    const NameList *names_;
+    NameList *names_;
     std::vector< ReifiedLinearConstraint > constraints_;
     std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
         propVar2cspVar_;

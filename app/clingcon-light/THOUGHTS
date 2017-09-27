@@ -26,6 +26,13 @@ I have to do this outside the propagator (at least not during the init call)
 
 
 What about solver_literal from PropagateInit
+All datastructures are created using aspif literals,
+    on init I have to convert all of them to solver_literals
+
+
+    Printing:
+    Currently outside of propagator on solve() method,
+    no functionality like json
 
 
 Current Call:

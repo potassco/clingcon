@@ -72,6 +72,8 @@ public:
     {
     }
 
+    void convertLiterals(Clingo::PropagateInit &init);
+
     void useVector() { store_ = store_ | hasvector; }
     void useMap() { store_ = store_ | hasmap; }
 
@@ -425,6 +427,10 @@ public:
         , conf_(conf)
     {
     }
+
+    /// convert aspif literals to solver literals
+    void convertLiterals(Clingo::PropagateInit &init) const;
+
     std::size_t numVariables() const { return domains_.size(); }
 
     ViewDomain getViewDomain(const View &v) const
@@ -734,7 +740,7 @@ private:
     // given a variable and a number,
     //  may contain a literal
     //  (var = int) == lit
-    std::map< std::pair< Variable, int >, Literal > equalLits_;
+    mutable std::map< std::pair< Variable, int >, Literal > equalLits_;
 
     Config conf_;
 };

@@ -55,10 +55,10 @@ public:
     using mytuple = std::vector< Clingo::id_t >;  /// a tuple identifier
     using tuple2View = std::map< mytuple, View >; // could be unordered
 
-    TheoryParser(Normalizer &n, Clingo::TheoryAtoms td, Literal trueLit)
-        : n_(n)
+    TheoryParser(Grounder &g, Normalizer &n, Clingo::TheoryAtoms td)
+        : s_(g)
+        , n_(n)
         , td_(td)
-        , trueLit_(trueLit)
     {
     }
 
@@ -128,6 +128,8 @@ private:
     bool check(const Clingo::TheoryTerm &id);
     bool isVariable(const Clingo::TheoryTerm &id);
 
+    Grounder &s_;
+
     std::unordered_map< Clingo::id_t, CType > termId2constraint_;
     std::vector< std::pair< Clingo::id_t, Literal > >
         shown_; /// Variable to TermId + condition literal
@@ -138,7 +140,6 @@ private:
     std::vector< View > termId2View_;
     Normalizer &n_;
     Clingo::TheoryAtoms td_;
-    Literal trueLit_;
     const Clingo::id_t MAXID = std::numeric_limits< Clingo::id_t >::max();
     std::unordered_map< std::string, View > string2view_;
     using Predicate = std::pair< std::string, unsigned int >;
