@@ -78,11 +78,8 @@ if (CLINGCON_BUILD_TESTS)
     set(testorder_src_group_name "TestOrder Source Files")
     set(testorder_src_group
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/constrainttest.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/difflogictest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/domaintest.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/equalitytest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/linearpropagatortest.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/storagetest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/translatortest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/unitmain.cpp")
     source_group("${testorder_src_group_name}" FILES ${testorder_src_group_name})
@@ -91,7 +88,7 @@ if (CLINGCON_BUILD_TESTS)
     
     set(testorder_header_group_name "TestOrder Header Files")
     set(testorder_header_group
-        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/test/mysolver.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/test/testapp.h"
         "${CMAKE_CURRENT_SOURCE_DIR}//test/testliborder/catch.hpp")
     source_group("${testorder_header_group_name}" FILES ${testorder_header_group})
     set(testorder_header

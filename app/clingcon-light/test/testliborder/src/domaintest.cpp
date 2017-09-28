@@ -19,13 +19,14 @@
 // }}}
 
 #include "catch.hpp"
-#include "order/domain.h"
-#include "order/config.h"
+#include "clingcon/domain.h"
+#include "clingcon/config.h"
+#include "test/testapp.h"
 #include <iostream>
 
-using namespace order;
+using namespace clingcon;
 
-    TEST_CASE("Domain addition", "[addition]")
+    void domaintest1(Clingo::Control&)
     {
         Domain d(0,100);
         d.unify(200,300);
@@ -115,7 +116,15 @@ using namespace order;
         REQUIRE(j.getRanges().back()==Range(1,8));
     }
 
-    TEST_CASE("Domain sets", "[sets]")
+
+    TEST_CASE("Domain addition", "[addition]")
+    {
+            TestApp app(domaintest1);
+            char *argv[] =  {};
+            Clingo::clingo_main(app, {argv, 0});
+    }
+
+    void domaintest2(Clingo::Control& )
     {
         unsigned int domSize=10000;
         Domain d(0,100);
@@ -185,7 +194,14 @@ using namespace order;
 
     }
 
-    TEST_CASE("Domain lower_bound", "[lower_bound]")
+    TEST_CASE("Domain sets", "[sets]")
+    {
+            TestApp app(domaintest2);
+            char *argv[] =  {};
+            Clingo::clingo_main(app, {argv, 0});
+    }
+
+    void domaintest3(Clingo::Control&)
     {
         {
         Domain d(1,100);
@@ -203,57 +219,64 @@ using namespace order;
         {
         Restrictor r(View(0,1,0),d);
 
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 50))==50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 0))==0);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -1))==0);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -101))==-100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -500))==-100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -50))==-50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 300))==300);
-        REQUIRE(order::wrap_lower_bound(r.begin(), r.end(), 301)==r.end());
-        REQUIRE(order::wrap_lower_bound(r.begin(), r.end(), 12030)==r.end());
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 50))==50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 0))==0);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -1))==0);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -101))==-100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -500))==-100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -50))==-50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 300))==300);
+        REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 301)==r.end());
+        REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 12030)==r.end());
         }
 
         {
         Restrictor r(View(0,1,1000),d);
 
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ 50))  ==1000+ 50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ 0))   ==1000+ 0);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ -1))  ==1000+ 0);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ -101))==1000+ -100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ -500))==1000+ -100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ -50)) ==1000+ -50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1000+ 300)) ==1000+ 300);
-        REQUIRE(order::wrap_lower_bound(r.begin(), r.end(), 1000+ 301)==r.end());
-        REQUIRE(order::wrap_lower_bound(r.begin(), r.end(), 1000+ 12030)==r.end());
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ 50))  ==1000+ 50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ 0))   ==1000+ 0);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ -1))  ==1000+ 0);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ -101))==1000+ -100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ -500))==1000+ -100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ -50)) ==1000+ -50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ 300)) ==1000+ 300);
+        REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ 301)==r.end());
+        REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 1000+ 12030)==r.end());
         }
 
         {
         Restrictor r(View(0,-1,0),d);
 
 
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -300))==-300);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -200))==-200);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -199))==-100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -201))==-201);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -100))==-100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -101))==-100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -99))==-99);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -1))==-1);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 0))==0);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1))==50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 25))==50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 50))==50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 0))==0);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -1))==-1);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 1))==50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -101))==-100);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -500))==-300);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), -50))==-50);
-        REQUIRE(*(order::wrap_lower_bound(r.begin(), r.end(), 100))==100);
-        REQUIRE(order::wrap_lower_bound(r.begin(), r.end(), 101)==r.end());
-        REQUIRE(order::wrap_lower_bound(r.begin(), r.end(), 12030)==r.end());
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -300))==-300);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -200))==-200);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -199))==-100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -201))==-201);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -100))==-100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -101))==-100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -99))==-99);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -1))==-1);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 0))==0);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1))==50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 25))==50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 50))==50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 0))==0);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -1))==-1);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 1))==50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -101))==-100);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -500))==-300);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), -50))==-50);
+        REQUIRE(*(clingcon::wrap_lower_bound(r.begin(), r.end(), 100))==100);
+        REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 101)==r.end());
+        REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 12030)==r.end());
         }
 
+    }
+
+    TEST_CASE("Domain lower_bound", "[lower_bound]")
+    {
+            TestApp app(domaintest3);
+            char *argv[] =  {};
+            Clingo::clingo_main(app, {argv, 0});
     }
 

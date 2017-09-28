@@ -23,32 +23,22 @@
 // }}}
 
 #pragma once
-#include <clingcon/types.h>
+
+#include <clingcon/config.h>
+
 
 namespace clingcon
 {
 
-struct Config
-{
-public:
-    Config() {} //= default;
+//for testing
+static Config lazySolveConfigProp1 = Config(1000,false,1000, 10000, 1);
+static Config lazySolveConfigProp2 = Config(1000,false,1000, 10000, 2);
+static Config lazySolveConfigProp3 = Config(1000,false,1000, 10000, 3);
+static Config lazySolveConfigProp4 = Config(1000,false,1000, 10000, 4);
+// actually not non lazy, just creates all literals, but no constraints are translated
+static Config nonlazySolveConfig = Config(0,false,-1,10000,4);
+static Config lazyDiffSolveConfig = Config(0,false,1000,10000,4);
+static Config translateConfig = Config(-1,false,1000,10000,4);
 
-    Config(int64 translateConstraints, bool alldistinctCard, int64 minLitsPerVar,
-           unsigned int domSize, unsigned int propStrength)
-        : translateConstraints(translateConstraints)
-        , alldistinctCard(alldistinctCard)
-        , minLitsPerVar(minLitsPerVar)
-        , domSize(domSize)
-        , propStrength(propStrength)
-    {
-    }
-    int64 translateConstraints; // translate constraint if expected number of clauses is less than
-                                // this number (-1 = all)
-    bool alldistinctCard;      /// translate alldistinct with cardinality constraints, default false
-    int64 minLitsPerVar;       /// precreate at least this number of literals per
-                               /// variable (-1 = all)
-    int64 domSize;             /// the maximum number of chunks a domain can have when
-                               /// multiplied (if avoidable)
-    unsigned int propStrength; /// propagation strength for lazy constraints 1..4
-};
+static std::vector<Config> conf1({lazySolveConfigProp1,lazySolveConfigProp2,lazySolveConfigProp3,lazySolveConfigProp4,nonlazySolveConfig});
 }

@@ -23,32 +23,65 @@
 // }}}
 
 #pragma once
-#include <clingcon/types.h>
+
+#include <clingo.hh>
 
 namespace clingcon
 {
 
-struct Config
+typedef void (*TestCall)(Clingo::Control &ctl);
+
+class TestApp : public Clingo::ClingoApplication
 {
 public:
-    Config() {} //= default;
-
-    Config(int64 translateConstraints, bool alldistinctCard, int64 minLitsPerVar,
-           unsigned int domSize, unsigned int propStrength)
-        : translateConstraints(translateConstraints)
-        , alldistinctCard(alldistinctCard)
-        , minLitsPerVar(minLitsPerVar)
-        , domSize(domSize)
-        , propStrength(propStrength)
+    TestApp(const TestCall& testcall) : call(testcall)
+    {}
+    char const *program_name() const noexcept override { return "clingcon"; }
+    void main(Clingo::Control &ctl, Clingo::StringSpan) override
     {
+        ctl.add("base", {}, R"(
+#theory csp {
+    linear_term {
+    + : 5, unary;
+    - : 5, unary;
+    * : 4, binary, left;
+    + : 3, binary, left;
+    - : 3, binary, left
+    };
+    dom_term {
+    + : 5, unary;
+    - : 5, unary;
+    .. : 1, binary, left;
+    * : 4, binary, left;
+    + : 3, binary, left;
+    - : 3, binary, left
+    };
+    show_term {
+    / : 1, binary, left
+    };
+    minimize_term {
+    + : 5, unary;
+    - : 5, unary;
+    * : 4, binary, left;
+    + : 3, binary, left;
+    - : 3, binary, left;
+    @ : 0, binary, left
+    };
+
+    &dom/0 : dom_term, {=}, linear_term, any;
+    &sum/0 : linear_term, {<=,=,>=,<,>,!=}, linear_term, any;
+    &show/0 : show_term, directive;
+    &distinct/0 : linear_term, any;
+    &minimize/0 : minimize_term, directive
+}.
+)");
+
+        call(ctl);
     }
-    int64 translateConstraints; // translate constraint if expected number of clauses is less than
-                                // this number (-1 = all)
-    bool alldistinctCard;      /// translate alldistinct with cardinality constraints, default false
-    int64 minLitsPerVar;       /// precreate at least this number of literals per
-                               /// variable (-1 = all)
-    int64 domSize;             /// the maximum number of chunks a domain can have when
-                               /// multiplied (if avoidable)
-    unsigned int propStrength; /// propagation strength for lazy constraints 1..4
+
+private:
+    const TestCall& call;
 };
+
+
 }

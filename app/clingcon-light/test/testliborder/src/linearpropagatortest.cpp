@@ -19,19 +19,19 @@
 // }}}
 
 #include "catch.hpp"
-#include "order/linearpropagator.h"
-#include "test/mysolver.h"
-#include "order/normalizer.h"
-#include "order/configs.h"
+#include "clingcon/linearpropagator.h"
+#include "clingcon/solver.h"
+#include "clingcon/normalizer.h"
+#include "clingcon/configs.h"
 #include <iostream>
 
-using namespace order;
+using namespace clingcon;
 
 
 
     TEST_CASE("TestUnique", "[linearPropagator]")
     {
-        MySolver s;
+        Grounder s(Clingo::Backend(nullptr));
         Normalizer n(s, translateConfig);
 
 
@@ -50,7 +50,7 @@ using namespace order;
 
             //REQUIRE(p.propagate_reified(p,l)==Propagator::value::UNKNOWN);
             //p.propagate_true(p,l);
-            auto x= s.getNewLiteral(true);
+            auto x= s.createNewLiteral();
             n.addConstraint(ReifiedLinearConstraint(std::move(l),x,Direction::FWD));
             LinearConstraint l2(LinearConstraint::Relation::LE);
             l2.add(v1);
@@ -69,7 +69,7 @@ using namespace order;
     TEST_CASE("TestPropagation1", "[linearPropagator]")
     {
 
-        MySolver s;
+        Grounder s(Clingo::Backend(nullptr));
         Normalizer n(s, translateConfig);
         Normalizer n2(s, translateConfig);
 
@@ -356,7 +356,7 @@ using namespace order;
     TEST_CASE("TestPropagation2", "[linearPropagator]")
     {
 
-        MySolver s;
+        Grounder s(Clingo::Backend(nullptr));
         Normalizer n(s, translateConfig);
 
 
@@ -390,7 +390,7 @@ using namespace order;
     TEST_CASE("TestPropagation3", "[linearPropagator]")
     {
 
-        MySolver s;
+        Grounder s(Clingo::Backend(nullptr));
         Normalizer n(s, translateConfig);
 
 

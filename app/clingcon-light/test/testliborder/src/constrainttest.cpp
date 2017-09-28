@@ -19,70 +19,18 @@
 // }}}
 
 #include <catch.hpp>
-#include <order/constraint.h>
-#include <test/mysolver.h>
-#include <order/configs.h>
+#include <clingcon/constraint.h>
+#include <clingcon/solver.h>
+#include <clingcon/configs.h>
+#include <test/testapp.h>
 #include <iostream>
 
-using namespace order;
+using namespace clingcon;
 
 
-    TEST_CASE("TestAddition", "[split]")
+    void constrainttest1(Clingo::Control &ctl)
     {
-        Config conf = lazySolveConfigProp4;
-        MySolver s;
-        VariableCreator vc(s, translateConfig);
-        Variable v0 = vc.createVariable(Domain(1,1));
-        v0 += 0;
-        Variable v1 = vc.createVariable(Domain(1,100));
-        Variable v2 = vc.createVariable(Domain(1,200));
-        Variable v3 = vc.createVariable(Domain(-100,100));
-        Variable v4 = vc.createVariable(Domain(1,1));
-        Variable v5 = vc.createVariable(Domain(-1,50));
-        Variable v6 = vc.createVariable(Domain(1,10));
-
-        LinearConstraint l(LinearConstraint::Relation::LE);
-        l.add(View(v1,1));
-        l.add(View(v2,5));
-        l.add(View(v3,-1));
-        l.add(View(v4,17));
-        l.add(View(v1,-4));
-        l.add(View(v3,1));
-        l.add(View(v5,1));
-        l.add(View(v6,1000));
-        l.addRhs(-45);
-        //std::cout << std::endl << l << std::endl;
-        l.normalize();
-        //std::cout << l << std::endl;
-        std::stringstream ss;
-        ss << l;
-        REQUIRE(ss.str()=="v1 * -3	+	v2 * 5	+	v4 * 17	+	v5 * 1	+	v6 * 1000	<= -45");
-
-        l.sort(vc,conf);
-        ss.str("");
-        ss << l;
-        //std::cout << ss.str() << std::endl;
-        REQUIRE(ss.str()=="v4 * 17	+	v6 * 1000	+	v5 * 1	+	v1 * -3	+	v2 * 5	<= -45");
-        //conf.break_symmetries
-        Config c2 = translateConfig;
-        c2.break_symmetries=false;
-        auto v = l.split(s, vc,c2, TruthValue::TRUE);
-        std::vector<std::string> results;
-        results.push_back("v5 * 1	+	v7 * 5	+	v8 * 1	<= -45");
-        results.push_back("v4 * 17	+	v1 * -3	+	v8 * -1	== 0");
-        results.push_back("v6 * 200	+	v2 * 1	+	v7 * -1	== 0");
-        for (std::size_t i = 0; i < v.size(); ++i)
-        {
-            ss.str("");
-            ss << v[i];
-            //std::cout << v[i] << std::endl;
-            REQUIRE(ss.str()==results[i]);
-        }
-    }
-
-    TEST_CASE("Linear Constraint normalize", "[lc]")
-    {
-        MySolver s;
+        Grounder s(ctl.backend());
         VariableCreator vc(s, translateConfig);
         Variable v0 = vc.createVariable(Domain(1,10));
         Variable v1 = vc.createVariable(Domain(1,10));
@@ -114,6 +62,13 @@ using namespace order;
         //l.getViews()[0].a=0
         REQUIRE(l.getViews().size()==2);
 
+    }
+
+    TEST_CASE("Linear Constraint normalize", "[lc]")
+    {
+            TestApp app(constrainttest1);
+            char *argv[] =  {};
+            Clingo::clingo_main(app, {argv, 0});
     }
 
 

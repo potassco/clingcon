@@ -17,15 +17,15 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // }}}
-
+/*
 #include "catch.hpp"
-#include "test/mysolver.h"
-#include "order/normalizer.h"
+#include "clingcon/solver.h"
+#include "clingcon/normalizer.h"
 #include "clasp/clasp_facade.h"
-#include "order/configs.h"
+#include "clingcon/configs.h"
 #include <iostream>
 
-using namespace order;
+using namespace clingcon;
 
 namespace
 {
@@ -106,16 +106,16 @@ bool compareClauses(const LitVec& l1, const LitVec& l2)
 }
 
 
-order::Config test1 = order::Config(false,10000,false,{3,1024},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
-order::Config test2 = order::Config(true,100,false,{0,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
-order::Config test3 = order::Config(true,100,false,{1000,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
-order::Config test4 = order::Config(true,100,false,{3,1024},false,false,false,false,false,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
-std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
+clingcon::Config test1 = clingcon::Config(false,10000,false,{3,1024},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
+clingcon::Config test2 = clingcon::Config(true,100,false,{0,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
+clingcon::Config test3 = clingcon::Config(true,100,false,{1000,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
+clingcon::Config test4 = clingcon::Config(true,100,false,{3,1024},false,false,false,false,false,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
+std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 ///break symm
 
-//Clasp::Literal toClaspFormat(order::Literal l) { return Clasp::Literal::fromRep(l.asUint()); }
-//order::Literal toOrderFormat(Clasp::Literal l) { return order::Literal::fromRep(l.asUint()); }
+//Clasp::Literal toClaspFormat(clingcon::Literal l) { return Clasp::Literal::fromRep(l.asUint()); }
+//clingcon::Literal toOrderFormat(Clasp::Literal l) { return clingcon::Literal::fromRep(l.asUint()); }
 
 
     std::size_t expectedModels(MySolver& s)
@@ -150,7 +150,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
     {
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
@@ -184,7 +184,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
@@ -223,7 +223,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
     {
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
@@ -266,7 +266,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -316,7 +316,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -361,7 +361,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -400,7 +400,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -452,7 +452,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -518,7 +518,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -579,7 +579,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -631,7 +631,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -682,7 +682,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -745,7 +745,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -806,7 +806,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -876,7 +876,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -969,7 +969,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -1000,7 +1000,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -1031,7 +1031,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
 
         {
-            MySolver s;
+            Grounder s(Clingo::Backend(nullptr));
             Normalizer norm(s, translateConfig);
 
 
@@ -1129,7 +1129,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         MySolver solver;
         Normalizer norm(solver, translateConfig);
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -1177,7 +1177,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -1233,7 +1233,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
             View s = norm.createView(Domain(0,9));
@@ -1317,7 +1317,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -1598,7 +1598,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -1688,7 +1688,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
             View q[10];
@@ -1700,8 +1700,8 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
             for (unsigned int i = 0; i < 10; ++i)
             {
-                std::vector<std::vector<order::Literal>> l;
-                l.push_back(std::vector<order::Literal>());
+                std::vector<std::vector<clingcon::Literal>> l;
+                l.push_back(std::vector<clingcon::Literal>());
 
                 std::vector<std::pair<View,ReifiedDNF>> one;
                 one.push_back(std::make_pair(q[i],ReifiedDNF(std::move(l))));
@@ -1716,12 +1716,12 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
             for (unsigned int i = 0; i < 10; ++i)
             {
-                std::vector<std::vector<order::Literal>> l;
-                l.push_back(std::vector<order::Literal>());
+                std::vector<std::vector<clingcon::Literal>> l;
+                l.push_back(std::vector<clingcon::Literal>());
 
                 std::vector<std::pair<View,ReifiedDNF>> one;
 
-                order::LinearConstraint lin(order::LinearConstraint::Relation::EQ);
+                clingcon::LinearConstraint lin(clingcon::LinearConstraint::Relation::EQ);
                 lin.addRhs(-i-1);
                 lin.add(q[i]*1);
                 View b = norm.createView();
@@ -1740,12 +1740,12 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             std::vector<std::vector<std::pair<View,ReifiedDNF>>> views;
             for (unsigned int i = 0; i < 10; ++i)
             {
-                std::vector<std::vector<order::Literal>> l;
-                l.push_back(std::vector<order::Literal>());
+                std::vector<std::vector<clingcon::Literal>> l;
+                l.push_back(std::vector<clingcon::Literal>());
 
                 std::vector<std::pair<View,ReifiedDNF>> one;
 
-                order::LinearConstraint lin(order::LinearConstraint::Relation::EQ);
+                clingcon::LinearConstraint lin(clingcon::LinearConstraint::Relation::EQ);
                 lin.addRhs(i+1);
                 lin.add(q[i]*1);
                 View b = norm.createView();
@@ -1792,7 +1792,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
             View q[10];
@@ -1804,8 +1804,8 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
             for (unsigned int i = 0; i < 10; ++i)
             {
-                std::vector<std::vector<order::Literal>> l;
-                l.push_back(std::vector<order::Literal>());
+                std::vector<std::vector<clingcon::Literal>> l;
+                l.push_back(std::vector<clingcon::Literal>());
 
                 std::vector<std::pair<View,ReifiedDNF>> one;
                 one.push_back(std::make_pair(q[i],ReifiedDNF(std::move(l))));
@@ -1820,8 +1820,8 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
 
             for (unsigned int i = 0; i < 10; ++i)
             {
-                std::vector<std::vector<order::Literal>> l;
-                l.push_back(std::vector<order::Literal>());
+                std::vector<std::vector<clingcon::Literal>> l;
+                l.push_back(std::vector<clingcon::Literal>());
 
                 std::vector<std::pair<View,ReifiedDNF>> one;
 
@@ -1837,8 +1837,8 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             std::vector<std::vector<std::pair<View,ReifiedDNF>>> vars;
             for (unsigned int i = 0; i < 10; ++i)
             {
-                std::vector<std::vector<order::Literal>> l;
-                l.push_back(std::vector<order::Literal>());
+                std::vector<std::vector<clingcon::Literal>> l;
+                l.push_back(std::vector<clingcon::Literal>());
 
                 std::vector<std::pair<View,ReifiedDNF>> one;
 
@@ -1874,13 +1874,13 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         REQUIRE(expectedModels(solver)==724);
     }
 
-    void crypt112_aux(order::Config conf)
+    void crypt112_aux(clingcon::Config conf)
     {
         MySolver solver;
         Normalizer norm(solver, conf);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -1950,7 +1950,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         Normalizer norm(solver, translateConfig);
 
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -2018,7 +2018,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         MySolver solver;
         Normalizer norm(solver, translateConfig);
 
-        std::vector<order::ReifiedLinearConstraint> linearConstraints;
+        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
 
@@ -2099,7 +2099,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             MySolver solver;
             Normalizer norm(solver, translateConfig);
 
-            std::vector<order::ReifiedLinearConstraint> linearConstraints;
+            std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
             View e = norm.createView(Domain(0,0));
             View i = norm.createView(Domain(1,1));
@@ -2189,55 +2189,14 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
         }
     }
 
-/*
-    void alldiff5()
-    {
-        {
 
-            //test this what the unequal a != b is translated to and if we could speed up using a=5 (direct) atoms
-            MySolver solver;
-            Normalizer norm(solver, translateConfig);
-
-            std::vector<order::ReifiedLinearConstraint> linearConstraints;
-
-            View s = norm.createView(Domain(0,9));
-            View e = norm.createView(Domain(0,9));
-            View n = norm.createView(Domain(0,9));
-            View d = norm.createView(Domain(0,9));
-            View m = norm.createView(Domain(0,9));
-            View o = norm.createView(Domain(0,9));
-            View r = norm.createView(Domain(0,9));
-            View y = norm.createView(Domain(0,9));
-
-
-            norm.addConstraint(ReifiedAllDistinct({s,e,n,d,m,o,r,y},solver.trueLit(),false));
-
-
-
-            REQUIRE(norm.prepare());
-            //solver.createNewLiterals(norm.estimateVariables());
-
-            REQUIRE(norm.finalize());
-
-
-            LitVec clauses = cnfToLits({});
-            //assert(compareClauses(s.clauses(),clauses));
-
-            //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==1814400);
-        }
-
-    }
-
-*/
     TEST_CASE("domainC1", "translatortest")
     {
         {
             MySolver solver;
             Normalizer norm(solver, translateConfig);
 
-            std::vector<order::ReifiedLinearConstraint> linearConstraints;
+            std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
             View e = norm.createView(Domain(0,9));
 
@@ -2264,7 +2223,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             MySolver solver;
             Normalizer norm(solver, translateConfig);
 
-            std::vector<order::ReifiedLinearConstraint> linearConstraints;
+            std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
             View e = norm.createView(Domain(0,9));
 
@@ -2327,7 +2286,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             MySolver solver;
             Normalizer norm(solver, translateConfig);
 
-            std::vector<order::ReifiedLinearConstraint> linearConstraints;
+            std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
             View e = norm.createView(Domain(0,9));
 
@@ -2371,7 +2330,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             MySolver solver;
             Normalizer norm(solver, translateConfig);
 
-            std::vector<order::ReifiedLinearConstraint> linearConstraints;
+            std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
             View e = norm.createView(Domain(0,99));
 
@@ -2398,96 +2357,13 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
     }
     void testLiteralReuse()
     {
-        /*MySolver s;
-                    Normalizer norm(s);
 
-                    Domain dom(1,100);
-
-                    dom.remove(30,39);
-
-
-                    Variable a = norm.createVariable(dom);
-                    //norm.getVariableCreator().createOrderLiterals();
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::LE);
-                    l.add(a,5);
-                    l.addRhs(25);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==5+1);
-                    assert(l1.sign()==false);
-                    }
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::LT);
-                    l.add(a,5);
-                    l.addRhs(30);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==5+1);
-                    assert(l1.sign()==false);
-                    }
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::LE);
-                    l.add(a,1);
-                    l.addRhs(36);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==29+1);
-                    assert(l1.sign()==false);
-                    }
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::LE);
-                    l.add(a,10);
-                    l.addRhs(358);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==29+1);
-                    assert(l1.sign()==false);
-                    }
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::LE);
-                    l.add(a,-10);
-                    l.addRhs(-358);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==29+1);
-                    assert(l1.sign()==true);
-                    }
-
-
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::GE);
-                    l.add(a,1);
-                    l.addRhs(5);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==4+1);
-                    assert(l1.sign()==true);
-                    }
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::GT);
-                    l.add(a,1);
-                    l.addRhs(4);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==4+1);
-                    assert(l1.sign()==true);
-                    }
-
-
-                    {
-                    LinearConstraint l(LinearConstraint::Relation::GE);
-                    l.add(a,-10);
-                    l.addRhs(-358);
-                    Literal l1 = norm.addReifiedLinearConstraint(std::move(l));
-                    assert(l1.var()==30+1);
-                    assert(l1.sign()==false);
-                    }*/
     }
 
     TEST_CASE("testAllDiffSplitting", "translatortest")
     {
 
-        MySolver s;
+        Grounder s(Clingo::Backend(nullptr));
         Normalizer norm(s, translateConfig);
 
 
@@ -2579,16 +2455,7 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.prepare());
             //solver.createNewLiterals(norm.estimateVariables());
             /// I can not create cardinality constraints for sat solver
-            /*
-            REQUIRE(norm.createClauses());
 
-            translate(solver, norm.getVariableCreator(), norm.removeConstraints(), norm.getConfig());
-            LitVec clauses = cnfToLits({});
-            //assert(compareClauses(s.clauses(),clauses));
-
-            //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==724);*/
         }
 
     }
@@ -2656,20 +2523,11 @@ std::vector<order::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.prepare());
             //solver.createNewLiterals(norm.estimateVariables());
             /// I can not create cardinality constraints for sat solver
-            /*
-            REQUIRE(norm.createClauses());
 
-            translate(solver, norm.getVariableCreator(), norm.removeConstraints(), norm.getConfig());
-            LitVec clauses = cnfToLits({});
-            //assert(compareClauses(s.clauses(),clauses));
-
-            //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==724);*/
         }
 
     }
-
+*/
 
 
 
