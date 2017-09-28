@@ -113,7 +113,7 @@ std::stringstream &TheoryParser::toString(std::stringstream &ss, const Clingo::T
 
         for (auto i = t.arguments().begin(); i != t.arguments().end(); ++i)
         {
-            toString(*i);
+            toString(ss,*i);
             if (i != t.arguments().end() - 1) ss << ",";
         }
 
@@ -608,7 +608,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
                 const auto &op = *single_elem;
 
                 if (op.type() != Clingo::TheoryTermType::Function) error("l..u expected");
-                if (op.name() == ".." && op.arguments().size() == 2)
+                if (std::string(op.name()) == ".." && op.arguments().size() == 2)
                 {
                     if (isNumber(*op.arguments().begin()))
                     {
@@ -678,7 +678,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
 
                 if (op.type() == Clingo::TheoryTermType::Function)
                 {
-                    if (op.name() == "/")
+                    if (std::string(op.name()) == "/")
                     {
                         if (op.arguments().size() == 2 && isVariable(*op.arguments().begin()) &&
                             (op.arguments().begin() + 1)->type() == Clingo::TheoryTermType::Number)
@@ -726,7 +726,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
 
             if (op.type() == Clingo::TheoryTermType::Function)
             {
-                if (op.name() == "@")
+                if (std::string(op.name()) == "@")
                 {
                     if (op.arguments().size() == 2)
                     {
@@ -819,7 +819,7 @@ NameList &TheoryParser::postProcess()
             {
                 const auto &term = Clingo::TheoryTerm(td_.to_c(), tid);
                 if ((term.type() == Clingo::TheoryTermType::Function &&
-                     term.arguments().size() == arity && term.name() == function.name()) ||
+                     term.arguments().size() == arity && std::string(term.name()) == std::string(function.name())) ||
                     (arity == 0 && term.type() == Clingo::TheoryTermType::Symbol &&
                      tid == function.to_c()))
                 {
