@@ -165,19 +165,37 @@ void PropagatorThread::propagate(Clingo::PropagateControl &control, Clingo::Lite
 
 void PropagatorThread::check(Clingo::PropagateControl &control)
 {
+    s_.beginPropagate(control);
+    assert(orderLitsAreOK());
+    printPartialState();
     if (!propagateConstraintVariables(control)) return;
-
+    printPartialState();
     if (control.assignment().is_total()) isModel(control);
 }
 
 
 void PropagatorThread::printPartialState()
 {
-    for (Variable i = 0; i < p_.getVVS().getVariableStorage().numVariables(); ++i)
+    auto& vs = p_.getVVS().getVariableStorage();
+    for (Variable i = 0; i < vs.numVariables(); ++i)
     {
-        auto r = p_.getVVS().getVariableStorage().getCurrentRestrictor(i);
+        auto r = vs.getCurrentRestrictor(i);
         std::cout << "var" << i << "\t= " << r.lower() << "\t.. " << r.upper() << std::endl;
+        if (!vs.hasLELiteral(r.end()-1))
+            std::cout << "upper bound has no LE literal" << std::endl;
+        else
+            if (!s_.isTrue(vs.getLELiteral(r.end()-1)))
+                std::cout << "upper bound literal is not true" << std::endl;
+        if (!vs.hasGELiteral(r.begin()))
+            std::cout << "lower bound has no GE literal" << std::endl;
+        else
+            if (!s_.isTrue(vs.getGELiteral(r.begin())))
+                std::cout << "lower bound GE literal is not true" << std::endl;
     }
+
+    auto it = vs.getRestrictor(0).begin()+1073741827;
+    if (vs.hasGELiteral(it))
+        std::cout << "value of v0>="<< *it << " with literal " << vs.getGELiteral(it)  << " being " << s_.isTrue(vs.getGELiteral(it)) << "/" << s_.isFalse(vs.getGELiteral(it)) << std::endl;
 }
 
 
@@ -187,7 +205,9 @@ void PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
 
     for (auto p : changes)
     {
-        if (var2Constraints_.find(abs(p)) != var2Constraints_.end()) p_.queueConstraint(p);
+        auto constraints = var2Constraints_.find(abs(p));
+        if (constraints != var2Constraints_.end())
+            for (auto c : constraints->second) p_.queueConstraint(c);
         /// order literal
         auto found = propVar2cspVar_.find(abs(p));
         if (found == propVar2cspVar_.end()) continue;
@@ -302,12 +322,14 @@ void PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
 
 bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &control)
 {
-    // std::cout << "propagateConstraintVariables" << std::endl;
+     std::cout << "propagateConstraintVariables" << std::endl;
     assert(!assertConflict_);
     assert(orderLitsAreOK());
+    printPartialState();
     while (!p_.atFixPoint())
     {
         const auto &clauses = p_.propagateSingleStep();
+        printPartialState();
         auto &vs = p_.getVVS();
         if (clauses.size())
         {
@@ -396,13 +418,16 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                        }) >= 1);
 
 
+                printPartialState();
                 if (!s_.addClause(claspClause)) return false;
+                printPartialState();
             }
-            size_t oldsize = control.assignment().size();
-            if (!control.propagate()) return false;
-            assert(orderLitsAreOK());
-            if (oldsize < control.assignment().size()) return true; /// do other propagation first
         }
+        size_t oldsize = control.assignment().size();
+        if (!control.propagate()) return false;
+        printPartialState();
+        if (oldsize < control.assignment().size())
+            return true; /// do other propagation first
     }
     return control.propagate();
 }
@@ -485,6 +510,8 @@ void ClingconPropagator::addWatch(Clingo::PropagateInit &init, const Variable &v
 void PropagatorThread::addWatch(Clingo::PropagateControl &control, const Variable &var, Literal cl,
                                 unsigned int step)
 {
+    if (cl==5053)
+        int a = 7;
     control.add_watch(cl);
     control.add_watch(-cl);
     int32 x = cl < 0 ? int32(step + 1) * -1 : int32(step + 1);
@@ -497,18 +524,18 @@ void PropagatorThread::addWatch(Clingo::PropagateControl &control, const Variabl
 /// furthermore check if current bound has literals (upper and lower must have lits)
 /// THIS CONDITION IS NO LONGER TRUE,
 /// I CAN HAVE UNDECIDED VARIABLES OUTSIDE OT THE BOUNDS
-/// THEY WILL BE SET IF NEEDED
-bool PropagatorThread::orderLitsAreOK() { /*
+/// THEY WILL BE SET IF NEEDED --- really? how
+bool PropagatorThread::orderLitsAreOK() {
      for (Variable var = 0; var < p_.getVVS().getVariableStorage().numVariables(); ++var)
      {
          if (watched_[var] && p_.getVVS().getVariableStorage().isValid(var))
          {
-             //std::cout << "check var " << var << std::endl;
+             std::cout << "check var " << var << std::endl;
              auto currentlr = p_.getVVS().getVariableStorage().getCurrentRestrictor(var);
              auto baselr = p_.getVVS().getVariableStorage().getRestrictor(var);
 
-             //std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << " is "
-             //          << currentlr.lower() << ".." << currentlr.upper() << std::endl;
+             std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << " is "
+                       << currentlr.lower() << ".." << currentlr.upper() << std::endl;
 
              pure_LELiteral_iterator
  it(baselr.begin(),p_.getVVS().getVariableStorage().getOrderStorage(var),true);
@@ -518,29 +545,28 @@ bool PropagatorThread::orderLitsAreOK() { /*
              while(it.isValid())
              {
                  //std::cout << "checking element " << it.numElement() << std::endl;
-                 if (s_.isFalse(toClaspFormat(*it)) && it.numElement() >=
+                 if (s_.isFalse(*it) && it.numElement() >=
  currentlr.begin().numElement())
                      assert(false);
-                 if (s_.isTrue(toClaspFormat(*it)) && it.numElement() <
+                 if (s_.isTrue(*it) && it.numElement() <
  currentlr.end().numElement()-1)
                      assert(false);
-                 if (!s_.isFalse(toClaspFormat(*it)) && !s_.isTrue(toClaspFormat(*it)) &&
+                 if (!s_.isFalse(*it) && !s_.isTrue(*it) &&
  (it.numElement() < currentlr.begin().numElement() || it.numElement() >=
  currentlr.end().numElement()))
                  {
- //                    std::cout << "checking literal " << (*it).asUint() << " mit elementindex " <<
- it.numElement() << std::endl;
- //                    std::cout << "this is v" << var << "<=" << *(baselr.begin()+it.numElement())
- << std::endl;
- //                    std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << "
- is "
- //                              << currentlr.lower() << ".." << currentlr.upper() << std::endl;
+                     std::cout << "checking literal " << (*it) << " mit elementindex " <<
+                     it.numElement() << std::endl;
+                     std::cout << "this is v" << var << "<=" << *(baselr.begin()+it.numElement())
+                     << std::endl;
+                     std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() <<
+                                  "is " << currentlr.lower() << ".." << currentlr.upper() << std::endl;
                      assert(false);
                  }
                  ++it;
              }
          }
-     }*/ return true; }
+     } return true; }
 
 
 namespace
@@ -571,11 +597,16 @@ namespace
     }
 }
 
+
 bool PropagatorThread::isModel(Clingo::PropagateControl &control)
 {
+    auto &vs = p_.getVVS().getVariableStorage();
+
+    printPartialState();
+    assert(orderLitsAreOK());
     //    std::cout << "Is probably a model ?"
     //              << " at dl " << control.assignment().decision_level() << std::endl;
-    auto &vs = p_.getVVS().getVariableStorage();
+
 
     Variable unrestrictedVariable(InvalidVar);
     unsigned int maxSize = 1;
@@ -605,6 +636,12 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
     }
     else
     {
+        static int c=1;
+        std::cout << "FOUND MODEL " << c << std::endl; // this can actually be called twice per model
+        // if check is recalled with total assignment
+        if (c==19)
+            int a = 0;
+        ++c;
         /// store the model to be printed later
         if (names_)
             for (auto it = names_->begin(); it != names_->end(); ++it)

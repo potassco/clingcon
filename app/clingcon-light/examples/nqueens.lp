@@ -1,4 +1,4 @@
-#const n = 10.
+#const n = 5.
 
 pos(1..n).
 
@@ -6,9 +6,9 @@ pos(1..n).
 
 &distinct {q(X) : pos(X)}.
 %diagonals
-&distinct {q(X)+X-1 : pos(X)}.
-&distinct {q(X)-X+1 : pos(X)}.
+%&distinct {q(X)+X-1 : pos(X)}.
+%&distinct {q(X)-X+1 : pos(X)}.
 
 &show {q(X) : pos(X)}.
 
-&show {q/1}.
+%&show {q/1}.

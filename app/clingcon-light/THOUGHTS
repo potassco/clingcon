@@ -34,6 +34,9 @@ All datastructures are created using aspif literals,
     Currently outside of propagator on solve() method,
     no functionality like json
 
+Facts: Simple facts like domain predicates can not be detected as true,
+  as the grounder does not have any feature like this. So &dom{0..1} = x. can not be detected
+  and an unbounded variable is created.
 
 Current Call:
 cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug
