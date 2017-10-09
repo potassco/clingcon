@@ -1,4 +1,4 @@
-#const n = 5.
+#const n = 10.
 
 pos(1..n).
 

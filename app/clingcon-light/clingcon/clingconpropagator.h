@@ -48,6 +48,7 @@ public:
         const std::vector< bool > &watched)
         : s_(s)
         , p_(s, vc, conf)
+        , pendingProp_(false)
         , conf_(conf)
         , names_(names)
         , propVar2cspVar_(propVar2cspVar)
@@ -75,7 +76,7 @@ public:
     void printAssignment() const;
 
 private:
-    void propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
+    bool propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
     bool propagateConstraintVariables(Clingo::PropagateControl &control);
     bool isModel(Clingo::PropagateControl &control);
 
@@ -90,12 +91,13 @@ private:
     /// force a new literal l, associated with it to be true,
     /// where l==x>it because x>it+eps
     /// where eps is the next valid literal
-    bool forceKnownLiteralLE(ViewIterator it, Literal l);
+    bool forceKnownLiteralLE(ViewIterator it, Literal l, Clingo::PropagateControl &control);
     bool forceKnownLiteralGE(ViewIterator it, Literal l);
 
 
     Solver &s_;
     LinearLiteralPropagator p_;
+    bool pendingProp_;  // if there is still unit or other propagation pending and no conflict
     Config conf_;
     std::vector< std::string > show_; /// order::Variable -> string name
     std::string outputbuf_;
