@@ -214,7 +214,7 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
 
         for (const auto &cspVar : cspVars)
         {
-            printPartialState();
+            //printPartialState();
             uint64 bound = abs(cspVar.second) - 1;
             bool sign = cspVar.second < 0;
 //                        std::cout << "Propagate order Literal" << std::endl;
@@ -335,6 +335,7 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
     while (!p_.atFixPoint())
     {
         const auto &clauses = p_.propagateSingleStep();
+        //printPartialState();
         //std::cout << "one prop end" << std::endl;
         auto &vs = p_.getVVS();
         if (clauses.size())
@@ -349,8 +350,8 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
 
                 for (unsigned int i = 0; i < its.size(); ++i)
                 {
-                    std::cout << " and " << its[i].view().a << "*v" << its[i].view().v << ">=" << *(its[i])  << " order literal  ";
-                    //if (!vs.getVariableStorage().hasGELiteral(its[i]))
+                    //std::cout << " and " << its[i].view().a << "*v" << its[i].view().v << ">=" << *(its[i])  << " order literal  ";
+                    if (!vs.getVariableStorage().hasGELiteral(its[i]))
                     {
                         //std::cout << " does not have one, ";
                         Literal l = s_.getNewLiteral();
@@ -539,48 +540,53 @@ void PropagatorThread::addWatch(Clingo::PropagateControl &control, const Variabl
 /// I CAN HAVE UNDECIDED VARIABLES OUTSIDE OT THE BOUNDS
 /// THEY WILL BE SET IF NEEDED --- really? how
 bool PropagatorThread::orderLitsAreOK() {
-     for (Variable var = 0; var < p_.getVVS().getVariableStorage().numVariables(); ++var)
-     {
-         if (watched_[var] && p_.getVVS().getVariableStorage().isValid(var))
-         {
-//             std::cout << "check var " << var << std::endl;
-             auto currentlr = p_.getVVS().getVariableStorage().getCurrentRestrictor(var);
-             auto baselr = p_.getVVS().getVariableStorage().getRestrictor(var);
-             assert(!currentlr.isEmpty());
+#ifndef NDEBUG
+//     for (Variable var = 0; var < p_.getVVS().getVariableStorage().numVariables(); ++var)
+//     {
+//         if (watched_[var] && p_.getVVS().getVariableStorage().isValid(var))
+//         {
+////             std::cout << "check var " << var << std::endl;
+//             auto currentlr = p_.getVVS().getVariableStorage().getCurrentRestrictor(var);
+//             auto baselr = p_.getVVS().getVariableStorage().getRestrictor(var);
+//             assert(!currentlr.isEmpty());
 
-//             std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << " is "
-//                       << currentlr.lower() << ".." << currentlr.upper() << std::endl;
+////             std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << " is "
+////                       << currentlr.lower() << ".." << currentlr.upper() << std::endl;
 
-             pure_LELiteral_iterator
- it(baselr.begin(),p_.getVVS().getVariableStorage().getOrderStorage(var),true);
+//             pure_LELiteral_iterator
+// it(baselr.begin(),p_.getVVS().getVariableStorage().getOrderStorage(var),true);
 
-             if (!it.isValid())
-                 assert(false);
-             while(it.isValid())
-             {
-                 //std::cout << "checking element " << it.numElement() << std::endl;
-                 if (s_.isFalse(*it) && it.numElement() >=
- currentlr.begin().numElement())
-                     assert(false);
-                 if (s_.isTrue(*it) && it.numElement() <
- currentlr.end().numElement()-1)
-                     assert(false);
-                 if (!s_.isFalse(*it) && !s_.isTrue(*it) &&
- (it.numElement() < currentlr.begin().numElement() || it.numElement() >=
- currentlr.end().numElement()))
-                 {
-//                     std::cout << "checking literal " << (*it) << " mit elementindex " <<
-//                     it.numElement() << std::endl;
-//                     std::cout << "this is v" << var << "<=" << *(baselr.begin()+it.numElement())
-//                     << std::endl;
-//                     std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() <<
-//                                  "is " << currentlr.lower() << ".." << currentlr.upper() << std::endl;
-                     assert(false);
-                 }
-                 ++it;
-             }
-         }
-     } return true; }
+//             if (!it.isValid())
+//                 assert(false);
+//             while(it.isValid())
+//             {
+//                 //std::cout << "checking element " << it.numElement() << std::endl;
+//                 if (s_.isFalse(*it) && it.numElement() >=
+// currentlr.begin().numElement())
+//                     assert(false);
+//                 if (s_.isTrue(*it) && it.numElement() <
+// currentlr.end().numElement()-1)
+//                     assert(false);
+//                 if (!s_.isFalse(*it) && !s_.isTrue(*it) &&
+// (it.numElement() < currentlr.begin().numElement() || it.numElement() >=
+// currentlr.end().numElement()))
+//                 {
+////                     std::cout << "checking literal " << (*it) << " mit elementindex " <<
+////                     it.numElement() << std::endl;
+////                     std::cout << "this is v" << var << "<=" << *(baselr.begin()+it.numElement())
+////                     << std::endl;
+////                     std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() <<
+////                                  "is " << currentlr.lower() << ".." << currentlr.upper() << std::endl;
+//                     assert(false);
+//                 }
+//                 ++it;
+//             }
+//         }
+//     }
+
+#endif
+     return true;
+}
 
 
 namespace
@@ -643,7 +649,7 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
         auto it = lr.begin() + ((maxSize - 1) / 2);
         Literal l = p_.getSolver().getNewLiteral();
         p_.getVVS().setLELit(it, l);
-        // std::cout << "Added V" << unrestrictedVariable << "<=" << *it << std::endl;
+        //std::cout << "Added V" << unrestrictedVariable << "<=" << *it << std::endl;
         addWatch(control, unrestrictedVariable, l, it.numElement());
         return false;
     }
