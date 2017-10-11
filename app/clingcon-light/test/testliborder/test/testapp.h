@@ -29,13 +29,52 @@
 namespace clingcon
 {
 
-typedef void (*TestCall)(Clingo::Control &ctl);
+
+#define REQUIRE(x) {if (!(x)) {return false;}}
+#define REGISTER(x) Foo test_##x(x)
+
+typedef bool (*TestCall)(Clingo::Control &ctl);
+
+class Adder
+{
+private:
+    Adder () {}
+    std::vector<TestCall> calls;
+public:
+    void add(TestCall c)
+    {
+        calls.push_back(c);
+    }
+
+    TestCall get(size_t i)
+    {
+        assert(calls.size()>i);
+        return calls[i];
+    }
+
+    size_t size() { return calls.size(); }
+
+public:
+    static Adder& singleton()
+    {
+        static Adder foo;
+        return foo;
+    }
+};
+
+class Foo
+{
+public:
+    Foo(TestCall c) { clingcon::Adder::singleton().add(c); }
+};
 
 class TestApp : public Clingo::ClingoApplication
 {
 public:
-    TestApp(const TestCall& testcall) : call(testcall)
+
+    TestApp(size_t num) : call(Adder::singleton().get(num)), ret_(false)
     {}
+    bool retValue() const { return ret_; }
     char const *program_name() const noexcept override { return "clingcon"; }
     void main(Clingo::Control &ctl, Clingo::StringSpan) override
     {
@@ -76,12 +115,15 @@ public:
 }.
 )");
 
-        call(ctl);
+        ret_ = call(ctl);
     }
 
 private:
-    const TestCall& call;
+    TestCall call;
+    bool ret_;
 };
+
+
 
 
 }

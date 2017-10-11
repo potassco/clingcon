@@ -17,100 +17,21 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // }}}
-/*
-#include "catch.hpp"
+
+#include "test/testapp.h"
 #include "clingcon/solver.h"
 #include "clingcon/normalizer.h"
-#include "clasp/clasp_facade.h"
 #include "clingcon/configs.h"
+#include "clingcon/clingconpropagator.h"
 #include <iostream>
 
 using namespace clingcon;
 
-namespace
-{
-
-
-LitVec cnfToLits(const std::vector<int>& cnf)
-{
-    LitVec ret;
-    ret.reserve(cnf.size());
-    for (auto i : cnf)
-        ret.emplace_back(Literal(abs(i), i < 0));
-    return ret;
-}
-
-bool clausesEqual(const LitVec& l1, const LitVec& l2)
-{
-    if (l1.size()!=l2.size())
-        return false;
-    for (auto i : l1)
-        if (l2.end()==std::find(l2.begin(), l2.end(), i))
-            return false;
-    return true;
-}
-
-bool compareClauses(const LitVec& l1, const LitVec& l2)
-{
-    if (l1.size()!=l2.size())
-    {
-        return false;
-    }
-//    auto it1 = l1.begin();
-//    auto it2 = l1.begin();
-      std::vector<LitVec> s1;
-      s1.emplace_back();
-      for (auto i : l1)
-      {
-          if (i!=Literal::fromRep(0))
-            s1.back().emplace_back(i);
-          else
-          {
-               std::sort(s1.back().begin(), s1.back().end());
-               s1.emplace_back();
-          }
-      }
-      std::vector<LitVec> s2;
-      s2.emplace_back();
-      for (auto i : l2)
-      {
-          if (i!=Literal::fromRep(0))
-            s2.back().emplace_back(i);
-          else
-          {
-              std::sort(s2.back().begin(), s2.back().end());
-              s2.emplace_back();
-          }
-      }
-
-      if (s1.size()!=s2.size())
-      {
-          return false;
-      }
-      std::sort(s1.begin(),s1.end());
-      std::sort(s2.begin(),s2.end());
-      auto it1 = s1.begin();
-      auto it2 = s2.begin();
-
-      while (it1!=s1.end())
-      {
-          if (!clausesEqual(*it1,*it2))
-          {
-              return false;
-          }
-          ++it1; ++it2;
-      }
-
-      return true;
-}
-}
-
-
-clingcon::Config test1 = clingcon::Config(false,10000,false,{3,1024},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
-clingcon::Config test2 = clingcon::Config(true,100,false,{0,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
-clingcon::Config test3 = clingcon::Config(true,100,false,{1000,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
-clingcon::Config test4 = clingcon::Config(true,100,false,{3,1024},false,false,false,false,false,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
-std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
+//clingcon::Config test1 = clingcon::Config(false,10000,false,{3,1024},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
+//clingcon::Config test2 = clingcon::Config(true,100,false,{0,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
+//clingcon::Config test3 = clingcon::Config(true,100,false,{1000,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
+//clingcon::Config test4 = clingcon::Config(true,100,false,{3,1024},false,false,false,false,false,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
+//std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 ///break symm
 
@@ -118,39 +39,21 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 //clingcon::Literal toOrderFormat(Clasp::Literal l) { return clingcon::Literal::fromRep(l.asUint()); }
 
 
-    std::size_t expectedModels(MySolver& s)
+    std::size_t expectedModels(Clingo::Control& ctl)
     {
-        Clasp::ClaspFacade f;
-        Clasp::ClaspConfig conf;
-        conf.solve.numModels = 0;
-        Clasp::SatBuilder& b = f.startSat(conf);
-        b.prepareProblem(s.numVars());
-
-        Clasp::LitVec clause;
-        for (auto i : s.clauses())
+        size_t counter = 0;
+        for (auto m : ctl.solve())
         {
-            if (i==Literal::fromRep(0))
-            {
-                b.addClause(clause);
-                clause.clear();
-            }
-            else
-                clause.push_back(Clasp::Literal::fromRep(i.asUint()));
+            ++counter;
+            // std::cout << m << std::endl;
+//          // p.printAssignment(m.thread_id());
         }
-        assert(clause.size()==0);
-        clause.push_back(Clasp::Literal(1,false));
-        b.addClause(clause);
-        b.endProgram();
-        f.prepare();
-        f.solve();
-        return f.summary().numEnum;
+        return counter;
     }
 
-    TEST_CASE("testOutOfRange", "translatortest")
+    bool testOutOfRange1(Clingo::Control& ctl)
     {
-
-        {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
@@ -175,16 +78,24 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
             REQUIRE(norm.finalize());
 
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
             //Now every iterator on end can give back a literal (true for LE, false for GE,EQ)
             //s.printDimacs(std::cout); std::cout << std::endl; // expected 10 solutions
-            //std::cout << "NumModels:"  << expectedModels(s) << std::endl;
-            REQUIRE(expectedModels(s)==27);
-        }
+            //std::cout << "NumModels:"  << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==27);
+        return true;
+    }
+
+    REGISTER(testOutOfRange1);
+
+    bool testOutOfRange2(Clingo::Control& ctl)
 
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
@@ -213,17 +124,18 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             catch(std::runtime_error)
             {
 
-                return;
+                return true;
             }
-            REQUIRE(false);
+            return false;
         }
-    }
 
-    TEST_CASE("testTranslation1", "translatortest")
+    REGISTER(testOutOfRange2);
+
+    bool testTranslation1(Clingo::Control& ctl)
     {
 
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
@@ -246,27 +158,33 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({        -2, 3, 0,
-                                                -4, 5, 0,
-                                                -6, 7, 0,
-                                                4, 7, 0,
-                                                5, 6, 0,
-                                                2, 7, 0,
-                                                2, 4, 6,  0,
-                                                2, 5,     0,
-                                                3, 6, 0,
-                                                3, 4, 0});
+//            LitVec clauses = cnfToLits({        -2, 3, 0,
+//                                                -4, 5, 0,
+//                                                -6, 7, 0,
+//                                                4, 7, 0,
+//                                                5, 6, 0,
+//                                                2, 7, 0,
+//                                                2, 4, 6,  0,
+//                                                2, 5,     0,
+//                                                3, 6, 0,
+//                                                3, 4, 0});
 
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //std::cout << s.clauses() << std::endl;
             //s.printDimacs(std::cout); std::cout << std::endl; // expected 10 solutions
-            //std::cout << "NumModels:"  << expectedModels(s) << std::endl;
-            REQUIRE(expectedModels(s)==10);
+            //std::cout << "NumModels:"  << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==10);
 
         }
+        return true;
+    }
 
+    REGISTER(testTranslation1);
+
+
+    bool testTranslation2(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -284,7 +202,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             //l.normalize();
             //l.sort(t);
 
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.createNewLiteral(),Direction::EQ));
 
             norm.prepare();
             //s.createNewLiterals(norm.estimateVariables());
@@ -293,30 +211,34 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({-3, 4, 0,
-                                        -5, 6, 0,
-                                        -7, 8, 0,
-                                        -2, 5, 8, 0,
-                                        -2, 6, 7, 0,
-                                        -2, 3, 8, 0,
-                                        -2, 3, 5, 7, 0,
-                                        -2, 3, 6, 0,
-                                        -2, 4, 7, 0,
-                                        -2, 4, 5, 0,
-                                        2, -5, -7, 0,
-                                        2, -4, -6, -7, 0,
-                                        2, -4, -5, -8, 0,
-                                        2, -3, -7, 0,
-                                        2, -3, -6, -8, 0,
-                                        2, -3, -5, 0
+//            LitVec clauses = cnfToLits({-3, 4, 0,
+//                                        -5, 6, 0,
+//                                        -7, 8, 0,
+//                                        -2, 5, 8, 0,
+//                                        -2, 6, 7, 0,
+//                                        -2, 3, 8, 0,
+//                                        -2, 3, 5, 7, 0,
+//                                        -2, 3, 6, 0,
+//                                        -2, 4, 7, 0,
+//                                        -2, 4, 5, 0,
+//                                        2, -5, -7, 0,
+//                                        2, -4, -6, -7, 0,
+//                                        2, -4, -5, -8, 0,
+//                                        2, -3, -7, 0,
+//                                        2, -3, -6, -8, 0,
+//                                        2, -3, -5, 0
 
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
 
-        }
+    return true;
+    }
 
+    REGISTER(testTranslation2);
+
+    bool testTranslation3(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -344,24 +266,28 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({
-                                           -2, 3, 0,
-                                           -4, 5, 0,
-                                           -6, 7, 0,
-                                           4, 7, 0,
-                                           5, 6, 0,
-                                           2, 7, 0,
-                                           2, 4, 6,  0,
-                                           2, 5,     0,
-                                           3, 6, 0,
-                                           3, 4, 0});
-            REQUIRE(compareClauses(s.clauses(),clauses));
-            REQUIRE(expectedModels(s)==10);
+//            LitVec clauses = cnfToLits({
+//                                           -2, 3, 0,
+//                                           -4, 5, 0,
+//                                           -6, 7, 0,
+//                                           4, 7, 0,
+//                                           5, 6, 0,
+//                                           2, 7, 0,
+//                                           2, 4, 6,  0,
+//                                           2, 5,     0,
+//                                           3, 6, 0,
+//                                           3, 4, 0});
+//            REQUIRE(compareClauses(s.clauses(),clauses));
+            REQUIRE(expectedModels(ctl)==10);
 
+            return true;
         }
 
+    REGISTER(testTranslation3);
+
+    bool testTranslation4(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -387,20 +313,24 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({-2, 3, 0,
-                                        -3, 4, 0,
-                                        -4, 5, 0,
-                                        -6, 7, 0,
-                                        3, 7, 0,
-                                        5, 6, 0});
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-2, 3, 0,
+//                                        -3, 4, 0,
+//                                        -4, 5, 0,
+//                                        -6, 7, 0,
+//                                        3, 7, 0,
+//                                        5, 6, 0});
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //s.printDimacs(std::cout); // 11 solutions
-            REQUIRE(expectedModels(s)==11);
+            REQUIRE(expectedModels(ctl)==11);
 
+            return true;
         }
 
+    REGISTER(testTranslation4);
+
+    bool testTranslation5(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -426,33 +356,37 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({-2, 3, 0,
-                                        -3, 4, 0,
-                                        -4, 5, 0,
-                                        -5, 6, 0,
-                                        -7, 8, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        -10, 11, 0,
-                                        -12, 13, 0,
-                                        -13, 14, 0,
-                                        -14, 15, 0,
-                                        -15, 16, 0,
-                                        4, 11, -12, 0,
-                                        5, 10, -12, 0,
-                                        5, 11, -13, 0,
-                                        6, 9, -12, 0,
-                                        6, 10, -13, 0,
-                                        6, 11, -14, 0});
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-2, 3, 0,
+//                                        -3, 4, 0,
+//                                        -4, 5, 0,
+//                                        -5, 6, 0,
+//                                        -7, 8, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        -10, 11, 0,
+//                                        -12, 13, 0,
+//                                        -13, 14, 0,
+//                                        -14, 15, 0,
+//                                        -15, 16, 0,
+//                                        4, 11, -12, 0,
+//                                        5, 10, -12, 0,
+//                                        5, 11, -13, 0,
+//                                        6, 9, -12, 0,
+//                                        6, 10, -13, 0,
+//                                        6, 11, -14, 0});
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //s.printDimacs(std::cout); // 206 solutions
-            REQUIRE(expectedModels(s)==206);
+            REQUIRE(expectedModels(ctl)==206);
 
+            return true;
         }
 
+    REGISTER(testTranslation5);
 
+
+    bool testTranslation6(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -470,7 +404,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             //l.normalize();
             //l.sort(t);
 
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.createNewLiteral(),Direction::EQ));
 
             norm.prepare();
             //s.createNewLiterals(norm.estimateVariables());
@@ -479,46 +413,49 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({-3, 4, 0,
-                                        -4, 5, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        -10, 11, 0,
-                                        -11, 12, 0,
-                                        -13, 14, 0,
-                                        -14, 15, 0,
-                                        -15, 16, 0,
-                                        -16, 17, 0,
-                                        -2, 15, 0,
-                                        -2, -12, 14, 0,
-                                        -2, -11, 13, 0,
-                                        -2, -10, 0,
-                                        -2, -7, 14, 0,
-                                        -2, -7, -12, 13, 0,
-                                        -2, -7, -11, 0,
-                                        -2, -6, 13, 0,
-                                        -2, -6, -12, 0,
-                                        -2, -5, 0,
-                                        2, 5, 12, -13, 0,
-                                        2, 6, 11, -13, 0,
-                                        2, 6, 12, -14, 0,
-                                        2, 7, 10, -13, 0,
-                                        2, 7, 11, -14, 0,
-                                        2, 7, 12, -15, 0
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-3, 4, 0,
+//                                        -4, 5, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        -10, 11, 0,
+//                                        -11, 12, 0,
+//                                        -13, 14, 0,
+//                                        -14, 15, 0,
+//                                        -15, 16, 0,
+//                                        -16, 17, 0,
+//                                        -2, 15, 0,
+//                                        -2, -12, 14, 0,
+//                                        -2, -11, 13, 0,
+//                                        -2, -10, 0,
+//                                        -2, -7, 14, 0,
+//                                        -2, -7, -12, 13, 0,
+//                                        -2, -7, -11, 0,
+//                                        -2, -6, 13, 0,
+//                                        -2, -6, -12, 0,
+//                                        -2, -5, 0,
+//                                        2, 5, 12, -13, 0,
+//                                        2, 6, 11, -13, 0,
+//                                        2, 6, 12, -14, 0,
+//                                        2, 7, 10, -13, 0,
+//                                        2, 7, 11, -14, 0,
+//                                        2, 7, 12, -15, 0
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
 
 
             //s.printDimacs(std::cout); // 216 solutions
-            REQUIRE(expectedModels(s)==216);
+            REQUIRE(expectedModels(ctl)==216);
 
+            return true;
         }
 
+    REGISTER(testTranslation6);
 
+    bool testTranslation7(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -546,40 +483,43 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({-2, 3, 0,
-                                        -3, 4, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        2, 7, -8, 0,
-                                        3, 6, -8, 0,
-                                        3, 7, -9, 0,
-                                        4, 5, -8, 0,
-                                        4, 6, -9, 0,
-                                        4, 7, -10, 0,
-                                        -7, 10, 0,
-                                        -6, 9, 0,
-                                        -5, 8, 0,
-                                        -4, 10, 0,
-                                        -4, -7, 9, 0,
-                                        -4, -6, 8, 0,
-                                        -4, -5, 0,
-                                        -3, 9, 0,
-                                        -3, -7, 8, 0,
-                                        -3, -6, 0,
-                                        -2, 8, 0,
-                                        -2, -7, 0
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-2, 3, 0,
+//                                        -3, 4, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        2, 7, -8, 0,
+//                                        3, 6, -8, 0,
+//                                        3, 7, -9, 0,
+//                                        4, 5, -8, 0,
+//                                        4, 6, -9, 0,
+//                                        4, 7, -10, 0,
+//                                        -7, 10, 0,
+//                                        -6, 9, 0,
+//                                        -5, 8, 0,
+//                                        -4, 10, 0,
+//                                        -4, -7, 9, 0,
+//                                        -4, -6, 8, 0,
+//                                        -4, -5, 0,
+//                                        -3, 9, 0,
+//                                        -3, -7, 8, 0,
+//                                        -3, -6, 0,
+//                                        -2, 8, 0,
+//                                        -2, -7, 0
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
 
-            REQUIRE(expectedModels(s)==10);
+            REQUIRE(expectedModels(ctl)==10);
 
+            return true;
         }
+    REGISTER(testTranslation7);
 
 
+    bool testTranslation8(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -605,33 +545,37 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({-2, 3, 0,
-                                        -3, 4, 0,
-                                        -4, 5, 0,
-                                        -5, 6, 0,
-                                        -7, 8, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        -10, 11, 0,
-                                        -12, 13, 0,
-                                        -13, 14, 0,
-                                        -14, 15, 0,
-                                        -15, 16, 0,
-                                        4, 11, -12, 0,
-                                        5, 10, -12, 0,
-                                        5, 11, -13, 0,
-                                        6, 9, -12, 0,
-                                        6, 10, -13, 0,
-                                        6, 11, -14, 0
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-2, 3, 0,
+//                                        -3, 4, 0,
+//                                        -4, 5, 0,
+//                                        -5, 6, 0,
+//                                        -7, 8, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        -10, 11, 0,
+//                                        -12, 13, 0,
+//                                        -13, 14, 0,
+//                                        -14, 15, 0,
+//                                        -15, 16, 0,
+//                                        4, 11, -12, 0,
+//                                        5, 10, -12, 0,
+//                                        5, 11, -13, 0,
+//                                        6, 9, -12, 0,
+//                                        6, 10, -13, 0,
+//                                        6, 11, -14, 0
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //s.printDimacs(std::cout); // 206
-            REQUIRE(expectedModels(s)==206);
+            REQUIRE(expectedModels(ctl)==206);
 
+            return true;
         }
 
+    REGISTER(testTranslation8);
+
+    bool testTranslation9(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -657,32 +601,36 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({-2, 3, 0,
-                                        -3, 4, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        -7, 10, 0,
-                                        -6, 9, 0,
-                                        -5, 8, 0,
-                                        -4, 10, 0,
-                                        -4, -7, 9, 0,
-                                        -4, -6, 8, 0,
-                                        -4, -5, 0,
-                                        -3, 9, 0,
-                                        -3, -7, 8, 0,
-                                        -3, -6, 0,
-                                        -2, 8, 0,
-                                        -2, -7, 0
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-2, 3, 0,
+//                                        -3, 4, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        -7, 10, 0,
+//                                        -6, 9, 0,
+//                                        -5, 8, 0,
+//                                        -4, 10, 0,
+//                                        -4, -7, 9, 0,
+//                                        -4, -6, 8, 0,
+//                                        -4, -5, 0,
+//                                        -3, 9, 0,
+//                                        -3, -7, 8, 0,
+//                                        -3, -6, 0,
+//                                        -2, 8, 0,
+//                                        -2, -7, 0
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //s.printDimacs(std::cout);//20
-            REQUIRE(expectedModels(s)==20);
+            REQUIRE(expectedModels(ctl)==20);
+            return true;
         }
 
+    REGISTER(testTranslation9);
+
+    bool testTranslation10(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -708,44 +656,48 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({-2, 3, 0,
-                                        -3, 4, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        2, 7, -8, 0,
-                                        3, 6, -8, 0,
-                                        3, 7, -9, 0,
-                                        4, 5, -8, 0,
-                                        4, 6, -9, 0,
-                                        4, 7, -10, 0,
-                                        -7, 10, 0,
-                                        -6, 9, 0,
-                                        -5, 8, 0,
-                                        -4, 10, 0,
-                                        -4, -7, 9, 0,
-                                        -4, -6, 8, 0,
-                                        -4, -5, 0,
-                                        -3, 9, 0,
-                                        -3, -7, 8, 0,
-                                        -3, -6, 0,
-                                        -2, 8, 0,
-                                        -2, -7, 0
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-2, 3, 0,
+//                                        -3, 4, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        2, 7, -8, 0,
+//                                        3, 6, -8, 0,
+//                                        3, 7, -9, 0,
+//                                        4, 5, -8, 0,
+//                                        4, 6, -9, 0,
+//                                        4, 7, -10, 0,
+//                                        -7, 10, 0,
+//                                        -6, 9, 0,
+//                                        -5, 8, 0,
+//                                        -4, 10, 0,
+//                                        -4, -7, 9, 0,
+//                                        -4, -6, 8, 0,
+//                                        -4, -5, 0,
+//                                        -3, 9, 0,
+//                                        -3, -7, 8, 0,
+//                                        -3, -6, 0,
+//                                        -2, 8, 0,
+//                                        -2, -7, 0
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout);//10
-            REQUIRE(expectedModels(s)==10);
+            REQUIRE(expectedModels(ctl)==10);
+            return true;
         }
 
 
+    REGISTER(testTranslation10);
 
 
 
 
+
+    bool testTranslation11(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -763,7 +715,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             //l.normalize();
             //l.sort(t);
 
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.createNewLiteral(),Direction::EQ));
 
             norm.prepare();
             //s.createNewLiterals(norm.estimateVariables());
@@ -771,42 +723,46 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({-3, 4, 0,
-                                        -4, 5, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        -10, 11, 0,
-                                        -11, 12, 0,
-                                        -13, 14, 0,
-                                        -14, 15, 0,
-                                        -15, 16, 0,
-                                        -16, 17, 0,
-                                        -2, 5, 12, -13, 0,
-                                        -2, 6, 11, -13, 0,
-                                        -2, 6, 12, -14, 0,
-                                        -2, 7, 10, -13, 0,
-                                        -2, 7, 11, -14, 0,
-                                        -2, 7, 12, -15, 0,
-                                        2, 15, 0,
-                                        2, -12, 14, 0,
-                                        2, -11, 13, 0,
-                                        2, -10, 0,
-                                        2, -7, 14, 0,
-                                        2, -7, -12, 13, 0,
-                                        2, -7, -11, 0,
-                                        2, -6, 13, 0,
-                                        2, -6, -12, 0,
-                                        2, -5, 0,
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-3, 4, 0,
+//                                        -4, 5, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        -10, 11, 0,
+//                                        -11, 12, 0,
+//                                        -13, 14, 0,
+//                                        -14, 15, 0,
+//                                        -15, 16, 0,
+//                                        -16, 17, 0,
+//                                        -2, 5, 12, -13, 0,
+//                                        -2, 6, 11, -13, 0,
+//                                        -2, 6, 12, -14, 0,
+//                                        -2, 7, 10, -13, 0,
+//                                        -2, 7, 11, -14, 0,
+//                                        -2, 7, 12, -15, 0,
+//                                        2, 15, 0,
+//                                        2, -12, 14, 0,
+//                                        2, -11, 13, 0,
+//                                        2, -10, 0,
+//                                        2, -7, 14, 0,
+//                                        2, -7, -12, 13, 0,
+//                                        2, -7, -11, 0,
+//                                        2, -6, 13, 0,
+//                                        2, -6, -12, 0,
+//                                        2, -5, 0,
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //s.printDimacs(std::cout); // 216, 206, 10
-            REQUIRE(expectedModels(s)==216);
+            REQUIRE(expectedModels(ctl)==216);
+            return true;
         }
 
+    REGISTER(testTranslation11);
+
+    bool testTranslation12(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -824,7 +780,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             //l.normalize();
             //l.sort(t);
 
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.createNewLiteral(),Direction::EQ));
 
             norm.prepare();
             //s.createNewLiterals(norm.estimateVariables());
@@ -832,51 +788,55 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             REQUIRE(norm.finalize());
 
 
-            LitVec clauses = cnfToLits({-3, 4, 0,
-                                        -4, 5, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -8, 9, 0,
-                                        -9, 10, 0,
-                                        -10, 11, 0,
-                                        -11, 12, 0,
-                                        -13, 14, 0,
-                                        -14, 15, 0,
-                                        -15, 16, 0,
-                                        -16, 17, 0,
-                                        -2, 16, 0,
-                                        -2, -12, 15, 0,
-                                        -2, -11, 14, 0,
-                                        -2, -10, 13, 0,
-                                        -2, -9, 0,
-                                        -2, -7, 15, 0,
-                                        -2, -7, -12, 14, 0,
-                                        -2, -7, -11, 13, 0,
-                                        -2, -7, -10, 0,
-                                        -2, -6, 14, 0,
-                                        -2, -6, -12, 13, 0,
-                                        -2, -6, -11, 0,
-                                        -2, -5, 13, 0,
-                                        -2, -5, -12, 0,
-                                        -2, -4, 0,
-                                        2, 4, 12, -13, 0,
-                                        2, 5, 11, -13, 0,
-                                        2, 5, 12, -14, 0,
-                                        2, 6, 10, -13, 0,
-                                        2, 6, 11, -14, 0,
-                                        2, 6, 12, -15, 0,
-                                        2, 7, 9, -13, 0,
-                                        2, 7, 10, -14, 0,
-                                        2, 7, 11, -15, 0,
-                                        2, 7, 12, -16, 0
-                                       });
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-3, 4, 0,
+//                                        -4, 5, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -8, 9, 0,
+//                                        -9, 10, 0,
+//                                        -10, 11, 0,
+//                                        -11, 12, 0,
+//                                        -13, 14, 0,
+//                                        -14, 15, 0,
+//                                        -15, 16, 0,
+//                                        -16, 17, 0,
+//                                        -2, 16, 0,
+//                                        -2, -12, 15, 0,
+//                                        -2, -11, 14, 0,
+//                                        -2, -10, 13, 0,
+//                                        -2, -9, 0,
+//                                        -2, -7, 15, 0,
+//                                        -2, -7, -12, 14, 0,
+//                                        -2, -7, -11, 13, 0,
+//                                        -2, -7, -10, 0,
+//                                        -2, -6, 14, 0,
+//                                        -2, -6, -12, 13, 0,
+//                                        -2, -6, -11, 0,
+//                                        -2, -5, 13, 0,
+//                                        -2, -5, -12, 0,
+//                                        -2, -4, 0,
+//                                        2, 4, 12, -13, 0,
+//                                        2, 5, 11, -13, 0,
+//                                        2, 5, 12, -14, 0,
+//                                        2, 6, 10, -13, 0,
+//                                        2, 6, 11, -14, 0,
+//                                        2, 6, 12, -15, 0,
+//                                        2, 7, 9, -13, 0,
+//                                        2, 7, 10, -14, 0,
+//                                        2, 7, 11, -15, 0,
+//                                        2, 7, 12, -16, 0
+//                                       });
+//            REQUIRE(compareClauses(s.clauses(),clauses));
             //s.printDimacs(std::cout);//216, 20, 196
-            REQUIRE(expectedModels(s)==216);
+            REQUIRE(expectedModels(ctl)==216);
+            return true;
         }
 
+    REGISTER(testTranslation12);
+
+    bool testTranslation13(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -894,7 +854,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             //l.normalize();
             //l.sort(t);
 
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.createNewLiteral(),Direction::EQ));
 
             norm.prepare();
             //s.createNewLiterals(norm.estimateVariables());
@@ -903,73 +863,77 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({-3, -2, 0,
-                                        -4, -2, 0,
-                                        -3, -4, 0,
-                                        3, 4, 2, 0,
-                                        -5, 6, 0,
-                                        -6, 7, 0,
-                                        -7, 8, 0,
-                                        -8, 9, 0,
-                                        -10, 11, 0,
-                                        -11, 12, 0,
-                                        -12, 13, 0,
-                                        -13, 14, 0,
-                                        -15, 16, 0,
-                                        -16, 17, 0,
-                                        -17, 18, 0,
-                                        -18, 19, 0,
-                                        -2, 7, 14, -15, 0,
-                                        -2, 8, 13, -15, 0,
-                                        -2, 8, 14, -16, 0,
-                                        -2, 9, 12, -15, 0,
-                                        -2, 9, 13, -16, 0,
-                                        -2, 9, 14, -17, 0,
-                                        -2, 18, 0,
-                                        -2, -14, 17, 0,
-                                        -2, -13, 16, 0,
-                                        -2, -12, 15, 0,
-                                        -2, -11, 0,
-                                        -2, -9, 17, 0,
-                                        -2, -9, -14, 16, 0,
-                                        -2, -9, -13, 15, 0,
-                                        -2, -9, -12, 0,
-                                        -2, -8, 16, 0,
-                                        -2, -8, -14, 15, 0,
-                                        -2, -8, -13, 0,
-                                        -2, -7, 15, 0,
-                                        -2, -7, -14, 0,
-                                        -2, -6, 0,
-                                        -3, 6, 14, -15, 0,
-                                        -3, 7, 13, -15, 0,
-                                        -3, 7, 14, -16, 0,
-                                        -3, 8, 12, -15, 0,
-                                        -3, 8, 13, -16, 0,
-                                        -3, 8, 14, -17, 0,
-                                        -3, 9, 11, -15, 0,
-                                        -3, 9, 12, -16, 0,
-                                        -3, 9, 13, -17, 0,
-                                        -3, 9, 14, -18, 0,
-                                        -4, 17, 0,
-                                        -4, -14, 16, 0,
-                                        -4, -13, 15, 0,
-                                        -4, -12, 0,
-                                        -4, -9, 16, 0,
-                                        -4, -9, -14, 15, 0,
-                                        -4, -9, -13, 0,
-                                        -4, -8, 15, 0,
-                                        -4, -8, -14, 0,
-                                        -4, -7, 0});
-            REQUIRE(compareClauses(s.clauses(),clauses));
+//            LitVec clauses = cnfToLits({-3, -2, 0,
+//                                        -4, -2, 0,
+//                                        -3, -4, 0,
+//                                        3, 4, 2, 0,
+//                                        -5, 6, 0,
+//                                        -6, 7, 0,
+//                                        -7, 8, 0,
+//                                        -8, 9, 0,
+//                                        -10, 11, 0,
+//                                        -11, 12, 0,
+//                                        -12, 13, 0,
+//                                        -13, 14, 0,
+//                                        -15, 16, 0,
+//                                        -16, 17, 0,
+//                                        -17, 18, 0,
+//                                        -18, 19, 0,
+//                                        -2, 7, 14, -15, 0,
+//                                        -2, 8, 13, -15, 0,
+//                                        -2, 8, 14, -16, 0,
+//                                        -2, 9, 12, -15, 0,
+//                                        -2, 9, 13, -16, 0,
+//                                        -2, 9, 14, -17, 0,
+//                                        -2, 18, 0,
+//                                        -2, -14, 17, 0,
+//                                        -2, -13, 16, 0,
+//                                        -2, -12, 15, 0,
+//                                        -2, -11, 0,
+//                                        -2, -9, 17, 0,
+//                                        -2, -9, -14, 16, 0,
+//                                        -2, -9, -13, 15, 0,
+//                                        -2, -9, -12, 0,
+//                                        -2, -8, 16, 0,
+//                                        -2, -8, -14, 15, 0,
+//                                        -2, -8, -13, 0,
+//                                        -2, -7, 15, 0,
+//                                        -2, -7, -14, 0,
+//                                        -2, -6, 0,
+//                                        -3, 6, 14, -15, 0,
+//                                        -3, 7, 13, -15, 0,
+//                                        -3, 7, 14, -16, 0,
+//                                        -3, 8, 12, -15, 0,
+//                                        -3, 8, 13, -16, 0,
+//                                        -3, 8, 14, -17, 0,
+//                                        -3, 9, 11, -15, 0,
+//                                        -3, 9, 12, -16, 0,
+//                                        -3, 9, 13, -17, 0,
+//                                        -3, 9, 14, -18, 0,
+//                                        -4, 17, 0,
+//                                        -4, -14, 16, 0,
+//                                        -4, -13, 15, 0,
+//                                        -4, -12, 0,
+//                                        -4, -9, 16, 0,
+//                                        -4, -9, -14, 15, 0,
+//                                        -4, -9, -13, 0,
+//                                        -4, -8, 15, 0,
+//                                        -4, -8, -14, 0,
+//                                        -4, -7, 0});
+//            REQUIRE(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout); // 216 solutions, 10, 206
             //std::cout << std::endl;
-            REQUIRE(expectedModels(s)==216);
+            REQUIRE(expectedModels(ctl)==216);
 
+            return true;
         }
 
+    REGISTER(testTranslation13);
+
+    bool testTranslation14(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -991,16 +955,20 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout); std::cout << std::endl;//24 solutions (low=0, high=3)
-            //std::cout << "NumModels: " << expectedModels(s) << std::endl;
-            REQUIRE(expectedModels(s)==24);
+            //std::cout << "NumModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==24);
+            return true;
         }
 
+    REGISTER(testTranslation14);
+
+    bool testTranslation145(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -1022,16 +990,20 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout); //21 solutions
-            //std::cout << expectedModels(s) << std::endl;
-            REQUIRE(expectedModels(s)==21);
+            //std::cout << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==21);
+            return true;
         }
 
+            REGISTER(testTranslation145);
+
+            bool testTranslation15(Clingo::Control& ctl)
         {
-            Grounder s(Clingo::Backend(nullptr));
+            Grounder s(ctl.backend());
             Normalizer norm(s, translateConfig);
 
 
@@ -1041,7 +1013,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
             const int high=2;
             for (int i = low; i <= high; ++i)
                 vars.emplace_back(norm.createView(Domain(low,high)));
-            ReifiedAllDistinct alldiff(std::move(vars),s.getNewLiteral(true),Direction::EQ);
+            ReifiedAllDistinct alldiff(std::move(vars),s.createNewLiteral(),Direction::EQ);
 
 
             norm.addConstraint(std::move(alldiff));
@@ -1053,14 +1025,15 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout);  // 27 (6+21)
-            REQUIRE(expectedModels(s)==27);
+            REQUIRE(expectedModels(ctl)==27);
+            return true;
         }
-    }
-
+    REGISTER(testTranslation15);
+/*
     TEST_CASE("testEqual1", "translatortest")
     {
         {
@@ -2363,7 +2336,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
     TEST_CASE("testAllDiffSplitting", "translatortest")
     {
 
-        Grounder s(Clingo::Backend(nullptr));
+        Grounder s(ctl.backend());
         Normalizer norm(s, translateConfig);
 
 
@@ -2388,7 +2361,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
         //assert(compareClauses(s.clauses(),clauses));
 
         //s.printDimacs(std::cout); //21 solutions
-        //assert(expectedModels(s)==21);
+        //assert(expectedModels(ctl)==21);
 
     }
 

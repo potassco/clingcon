@@ -18,7 +18,6 @@
 
 // }}}
 
-#include "catch.hpp"
 #include "clingcon/domain.h"
 #include "clingcon/config.h"
 #include "test/testapp.h"
@@ -26,7 +25,7 @@
 
 using namespace clingcon;
 
-    void domaintest1(Clingo::Control&)
+    bool domaintest1(Clingo::Control&)
     {
         Domain d(0,100);
         d.unify(200,300);
@@ -114,17 +113,12 @@ using namespace clingcon;
 
         REQUIRE(j.getRanges().size()==1);
         REQUIRE(j.getRanges().back()==Range(1,8));
+        return true;
     }
 
+    REGISTER(domaintest1);
 
-    TEST_CASE("Domain addition", "[addition]")
-    {
-            TestApp app(domaintest1);
-            char *argv[] =  {};
-            Clingo::clingo_main(app, {argv, 0});
-    }
-
-    void domaintest2(Clingo::Control& )
+    bool domaintest2(Clingo::Control& )
     {
         unsigned int domSize=10000;
         Domain d(0,100);
@@ -192,16 +186,12 @@ using namespace clingcon;
         k.intersect(j);
         REQUIRE(k.size()==28);
 
+        return true;
     }
 
-    TEST_CASE("Domain sets", "[sets]")
-    {
-            TestApp app(domaintest2);
-            char *argv[] =  {};
-            Clingo::clingo_main(app, {argv, 0});
-    }
+    REGISTER(domaintest2);
 
-    void domaintest3(Clingo::Control&)
+    bool domaintest3(Clingo::Control&)
     {
         {
         Domain d(1,100);
@@ -271,12 +261,10 @@ using namespace clingcon;
         REQUIRE(clingcon::wrap_lower_bound(r.begin(), r.end(), 12030)==r.end());
         }
 
+        return true;
     }
 
-    TEST_CASE("Domain lower_bound", "[lower_bound]")
-    {
-            TestApp app(domaintest3);
-            char *argv[] =  {};
-            Clingo::clingo_main(app, {argv, 0});
-    }
+    REGISTER(domaintest3);
+
+
 

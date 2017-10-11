@@ -18,7 +18,7 @@
 
 // }}}
 
-#include <catch.hpp>
+#include "test/testapp.h"
 #include <clingcon/constraint.h>
 #include <clingcon/solver.h>
 #include <clingcon/configs.h>
@@ -28,7 +28,8 @@
 using namespace clingcon;
 
 
-    void constrainttest1(Clingo::Control &ctl)
+
+    bool constrainttest1(Clingo::Control &ctl)
     {
         Grounder s(ctl.backend());
         VariableCreator vc(s, translateConfig);
@@ -61,14 +62,8 @@ using namespace clingcon;
         REQUIRE(l.getViews()[1].a==14);
         //l.getViews()[0].a=0
         REQUIRE(l.getViews().size()==2);
-
+        return true;
     }
 
-    TEST_CASE("Linear Constraint normalize", "[lc]")
-    {
-            TestApp app(constrainttest1);
-            char *argv[] =  {};
-            Clingo::clingo_main(app, {argv, 0});
-    }
-
+    REGISTER(constrainttest1);
 

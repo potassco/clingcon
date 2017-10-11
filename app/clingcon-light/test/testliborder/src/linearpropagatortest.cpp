@@ -18,7 +18,7 @@
 
 // }}}
 
-#include "catch.hpp"
+#include "test/testapp.h"
 #include "clingcon/linearpropagator.h"
 #include "clingcon/solver.h"
 #include "clingcon/normalizer.h"
@@ -29,9 +29,9 @@ using namespace clingcon;
 
 
 
-    TEST_CASE("TestUnique", "[linearPropagator]")
+    bool testUnique(Clingo::Control& ctl)
     {
-        Grounder s(Clingo::Backend(nullptr));
+        Grounder s(ctl.backend());
         Normalizer n(s, translateConfig);
 
 
@@ -64,12 +64,15 @@ using namespace clingcon;
 
 
         }
+        return true;
     }
 
-    TEST_CASE("TestPropagation1", "[linearPropagator]")
+    REGISTER(testUnique);
+
+    bool testPropagation1(Clingo::Control& ctl)
     {
 
-        Grounder s(Clingo::Backend(nullptr));
+        Grounder s(ctl.backend());
         Normalizer n(s, translateConfig);
         Normalizer n2(s, translateConfig);
 
@@ -349,14 +352,17 @@ using namespace clingcon;
         newn.addConstraint(ReifiedLinearConstraint(std::move(l6),s.falseLit()));
         REQUIRE(newn.createClauses());*/
         }
+        return true;
 
     }
 
+    REGISTER(testPropagation1);
 
-    TEST_CASE("TestPropagation2", "[linearPropagator]")
+
+    bool testPropagation2(Clingo::Control& ctl)
     {
 
-        Grounder s(Clingo::Backend(nullptr));
+        Grounder s(ctl.backend());
         Normalizer n(s, translateConfig);
 
 
@@ -385,12 +391,15 @@ using namespace clingcon;
         REQUIRE(n.getVariableCreator().getViewDomain(v1).lower()==3);
         REQUIRE(n.getVariableCreator().getViewDomain(v2).lower()==3);
         REQUIRE(n.getVariableCreator().getViewDomain(v3).lower()==3);
+        return true;
     }
 
-    TEST_CASE("TestPropagation3", "[linearPropagator]")
+    REGISTER(testPropagation2);
+
+    bool testPropagation3(Clingo::Control& ctl)
     {
 
-        Grounder s(Clingo::Backend(nullptr));
+        Grounder s(ctl.backend());
         Normalizer n(s, translateConfig);
 
 
@@ -419,5 +428,8 @@ using namespace clingcon;
         REQUIRE(n.getVariableCreator().getViewDomain(v1).upper()==-3);
         REQUIRE(n.getVariableCreator().getViewDomain(v2).upper()==-3);
         REQUIRE(n.getVariableCreator().getViewDomain(v3).upper()==-3);
+        return true;
     }
+
+    REGISTER(testPropagation3);
 
