@@ -61,6 +61,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     s_.init(trueLit_);
     vc_.convertLiterals(init);
     for (auto &i : constraints_) i.v = init.solver_literal(i.v);
+    if (names_)
     for (auto &i : (*names_))
         for (auto &j : i.second.second) j = init.solver_literal(j);
 
@@ -259,10 +260,24 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                 // if (conf_.minLitsPerVar >= 0 || !conf_.explicitBinaryOrderClausesIfPossible) ///
                 // if i precreate all variables and do have explicitBinaryorderClauses, then i do
                 // not need to do this
-                if (/*!base_.conf_.explicitBinaryOrderClausesIfPossible ||*/
-                    (conf_.minLitsPerVar >= 0 &&
-                     (uint64)(conf_.minLitsPerVar) <
-                         p_.getVVS().getVariableStorage().getDomain(cspVar.first).size()))
+//                if (/*!base_.conf_.explicitBinaryOrderClausesIfPossible ||*/
+//                        true ||
+//                    (conf_.minLitsPerVar >= 0 &&
+//                     (uint64)(conf_.minLitsPerVar) <
+//                         p_.getVVS().getVariableStorage().getDomain(cspVar.first).size()))
+//                we do not need to do this if
+//                        we create explicit
+//                        and
+//                        either
+//                        minLits = -1
+//                        or
+//                        minLits > domainsize
+
+                if (!(
+                        (false) &&
+                        (conf_.minLitsPerVar==-1 || (uint64)(conf_.minLitsPerVar) < p_.getVVS().getVariableStorage().getDomain(cspVar.first).size())
+                     )
+                   )
                 {
                     pure_LELiteral_iterator newit(
                         lr.begin() + bound,
@@ -297,12 +312,11 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                 /// if range was restricted from 5...100 to 5..95, we make 96,97,98,99 true with
                 /// reason x<95
 
-                if (conf_.minLitsPerVar >=
-                    0 /*|| !base_.conf_.explicitBinaryOrderClausesIfPossible*/)
-                    if (/*!conf_.explicitBinaryOrderClausesIfPossible ||*/
-                        (conf_.minLitsPerVar >= 0 &&
-                         (uint64)(conf_.minLitsPerVar) <
-                             p_.getVVS().getVariableStorage().getDomain(cspVar.first).size()))
+                if (!(
+                        (false) &&
+                        (conf_.minLitsPerVar==-1 || (uint64)(conf_.minLitsPerVar) < p_.getVVS().getVariableStorage().getDomain(cspVar.first).size())
+                     )
+                    )
                     {
                         pure_LELiteral_iterator newit(
                             lr.begin() + bound,
@@ -323,7 +337,10 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
     if (!control.propagate())
         return false;
     else
+    {
+        assert(!assertConflict_);
         return true;
+    }
 }
 
 bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &control)
@@ -541,48 +558,48 @@ void PropagatorThread::addWatch(Clingo::PropagateControl &control, const Variabl
 /// THEY WILL BE SET IF NEEDED --- really? how
 bool PropagatorThread::orderLitsAreOK() {
 #ifndef NDEBUG
-//     for (Variable var = 0; var < p_.getVVS().getVariableStorage().numVariables(); ++var)
-//     {
-//         if (watched_[var] && p_.getVVS().getVariableStorage().isValid(var))
-//         {
-////             std::cout << "check var " << var << std::endl;
-//             auto currentlr = p_.getVVS().getVariableStorage().getCurrentRestrictor(var);
-//             auto baselr = p_.getVVS().getVariableStorage().getRestrictor(var);
-//             assert(!currentlr.isEmpty());
+     for (Variable var = 0; var < p_.getVVS().getVariableStorage().numVariables(); ++var)
+     {
+         if (watched_[var] && p_.getVVS().getVariableStorage().isValid(var))
+         {
+//             std::cout << "check var " << var << std::endl;
+             auto currentlr = p_.getVVS().getVariableStorage().getCurrentRestrictor(var);
+             auto baselr = p_.getVVS().getVariableStorage().getRestrictor(var);
+             assert(!currentlr.isEmpty());
 
-////             std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << " is "
-////                       << currentlr.lower() << ".." << currentlr.upper() << std::endl;
+//             std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() << " is "
+//                       << currentlr.lower() << ".." << currentlr.upper() << std::endl;
 
-//             pure_LELiteral_iterator
-// it(baselr.begin(),p_.getVVS().getVariableStorage().getOrderStorage(var),true);
+             pure_LELiteral_iterator
+ it(baselr.begin(),p_.getVVS().getVariableStorage().getOrderStorage(var),true);
 
-//             if (!it.isValid())
-//                 assert(false);
-//             while(it.isValid())
-//             {
-//                 //std::cout << "checking element " << it.numElement() << std::endl;
-//                 if (s_.isFalse(*it) && it.numElement() >=
-// currentlr.begin().numElement())
-//                     assert(false);
-//                 if (s_.isTrue(*it) && it.numElement() <
-// currentlr.end().numElement()-1)
-//                     assert(false);
-//                 if (!s_.isFalse(*it) && !s_.isTrue(*it) &&
-// (it.numElement() < currentlr.begin().numElement() || it.numElement() >=
-// currentlr.end().numElement()))
-//                 {
-////                     std::cout << "checking literal " << (*it) << " mit elementindex " <<
-////                     it.numElement() << std::endl;
-////                     std::cout << "this is v" << var << "<=" << *(baselr.begin()+it.numElement())
-////                     << std::endl;
-////                     std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() <<
-////                                  "is " << currentlr.lower() << ".." << currentlr.upper() << std::endl;
-//                     assert(false);
-//                 }
-//                 ++it;
-//             }
-//         }
-//     }
+             if (!it.isValid())
+                 assert(false);
+             while(it.isValid())
+             {
+                 //std::cout << "checking element " << it.numElement() << std::endl;
+                 if (s_.isFalse(*it) && it.numElement() >=
+ currentlr.begin().numElement())
+                     assert(false);
+                 if (s_.isTrue(*it) && it.numElement() <
+ currentlr.end().numElement()-1)
+                     assert(false);
+                 if (!s_.isFalse(*it) && !s_.isTrue(*it) &&
+ (it.numElement() < currentlr.begin().numElement() || it.numElement() >=
+ currentlr.end().numElement()))
+                 {
+//                     std::cout << "checking literal " << (*it) << " mit elementindex " <<
+//                     it.numElement() << std::endl;
+//                     std::cout << "this is v" << var << "<=" << *(baselr.begin()+it.numElement())
+//                     << std::endl;
+//                     std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() <<
+//                                  "is " << currentlr.lower() << ".." << currentlr.upper() << std::endl;
+                     assert(false);
+                 }
+                 ++it;
+             }
+         }
+     }
 
 #endif
      return true;
@@ -655,6 +672,7 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
     }
     else
     {
+        //printPartialState();
         /// store the model to be printed later
         if (names_)
             for (auto it = names_->begin(); it != names_->end(); ++it)

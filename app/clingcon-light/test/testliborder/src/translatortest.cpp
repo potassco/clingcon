@@ -27,11 +27,11 @@
 
 using namespace clingcon;
 
-//clingcon::Config test1 = clingcon::Config(false,10000,false,{3,1024},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
-//clingcon::Config test2 = clingcon::Config(true,100,false,{0,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
-//clingcon::Config test3 = clingcon::Config(true,100,false,{1000,10000},false,false,false,false,true,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),false);
-//clingcon::Config test4 = clingcon::Config(true,100,false,{3,1024},false,false,false,false,false,true,0,-1,-1,true,true, false,true,false, 4,true,std::make_pair(64,true),true);
-//std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
+clingcon::Config test1 = clingcon::Config(10000,false,1000,-1,4);
+clingcon::Config test2 = clingcon::Config(100,true,1000,10000,4);
+clingcon::Config test3 = clingcon::Config(100,false,0,10000,4);
+clingcon::Config test4 = clingcon::Config(100,false,1,10000,4);
+std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 
 ///break symm
 
@@ -50,6 +50,39 @@ using namespace clingcon;
         }
         return counter;
     }
+
+    bool testOutOfRange0(Clingo::Control& ctl)
+    {
+            Grounder s(ctl.backend());
+            Normalizer norm(s,translateConfig);
+            //Propagator t(s);
+
+
+            Domain d1;
+            d1.remove(Domain::min, Domain::max-3);
+            norm.createView(d1);
+            norm.createView(d1);
+            norm.createView(d1);
+
+
+            norm.prepare();
+            //s.createNewLiterals(norm.estimateVariables());
+
+            REQUIRE(norm.finalize());
+
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
+
+
+            //Now every iterator on end can give back a literal (true for LE, false for GE,EQ)
+            //s.printDimacs(std::cout); std::cout << std::endl; // expected 10 solutions
+            //std::cout << "NumModels:"  << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==27);
+        return true;
+    }
+
+    REGISTER(testOutOfRange0);
 
     bool testOutOfRange1(Clingo::Control& ctl)
     {
@@ -92,44 +125,51 @@ using namespace clingcon;
 
     REGISTER(testOutOfRange1);
 
-    bool testOutOfRange2(Clingo::Control& ctl)
+
+    bool testTranslation0(Clingo::Control& ctl)
+    {
 
         {
             Grounder s(ctl.backend());
             Normalizer norm(s,translateConfig);
             //Propagator t(s);
 
+            norm.createView(Domain(5,10));
+            norm.createView(Domain(5,10));
+            norm.createView(Domain(5,10));
 
-            Domain d1;
-            d1.remove(Domain::min, Domain::max-12);
-            View v1 = norm.createView(d1);
-            View v2 = norm.createView(d1);
-            View v3 = norm.createView(d1);
-            View v4 = norm.createView(d1);
+                       norm.prepare();
+            //s.createNewLiterals(norm.estimateVariables());
 
-            LinearConstraint l(LinearConstraint::Relation::GE);
-            l.add(v1*1);
-            l.add(v2*1);
-            l.add(v3*1);
-            l.add(v4*1);
-            l.addRhs(0);
-            //std::cout << std::endl << l << std::endl;
+            REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.trueLit(),Direction::EQ));
+//            LitVec clauses = cnfToLits({        -2, 3, 0,
+//                                                -4, 5, 0,
+//                                                -6, 7, 0,
+//                                                4, 7, 0,
+//                                                5, 6, 0,
+//                                                2, 7, 0,
+//                                                2, 4, 6,  0,
+//                                                2, 5,     0,
+//                                                3, 6, 0,
+//                                                3, 4, 0});
 
-            try{
-            norm.prepare();
-            }
-            catch(std::runtime_error)
-            {
+//            REQUIRE(compareClauses(s.clauses(),clauses));
+            //std::cout << s.clauses() << std::endl;
+            //s.printDimacs(std::cout); std::cout << std::endl; // expected 10 solutions
+            //std::cout << "NumModels:"  << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==216);
 
-                return true;
-            }
-            return false;
         }
+        return true;
+    }
 
-    REGISTER(testOutOfRange2);
+    REGISTER(testTranslation0);
+
 
     bool testTranslation1(Clingo::Control& ctl)
     {
@@ -156,6 +196,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({        -2, 3, 0,
@@ -180,6 +223,60 @@ using namespace clingcon;
     }
 
     REGISTER(testTranslation1);
+
+
+    bool testNonLazy1(Clingo::Control& ctl)
+    {
+
+        {
+            Grounder s(ctl.backend());
+            Normalizer norm(s,nonlazySolveConfig);
+            //Propagator t(s);
+
+            View v1 = norm.createView(Domain(5,10));
+            View v2 = norm.createView(Domain(5,10));
+            View v3 = norm.createView(Domain(5,10));
+
+            LinearConstraint l(LinearConstraint::Relation::LE);
+            l.add(v1*1);
+            l.add(v2*1);
+            l.add(v3*1);
+            l.addRhs(17);
+            //std::cout << std::endl << l << std::endl;
+
+
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l),s.trueLit(),Direction::EQ));
+            norm.prepare();
+            //s.createNewLiterals(norm.estimateVariables());
+
+            REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
+
+
+//            LitVec clauses = cnfToLits({        -2, 3, 0,
+//                                                -4, 5, 0,
+//                                                -6, 7, 0,
+//                                                4, 7, 0,
+//                                                5, 6, 0,
+//                                                2, 7, 0,
+//                                                2, 4, 6,  0,
+//                                                2, 5,     0,
+//                                                3, 6, 0,
+//                                                3, 4, 0});
+
+//            REQUIRE(compareClauses(s.clauses(),clauses));
+            //std::cout << s.clauses() << std::endl;
+            //s.printDimacs(std::cout); std::cout << std::endl; // expected 10 solutions
+            //std::cout << "NumModels:"  << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==10);
+
+        }
+        return true;
+    }
+
+    REGISTER(testNonLazy1);
 
 
     bool testTranslation2(Clingo::Control& ctl)
@@ -262,6 +359,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
@@ -309,6 +409,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
@@ -354,6 +457,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-2, 3, 0,
@@ -410,6 +516,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
@@ -480,6 +589,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
@@ -543,6 +655,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-2, 3, 0,
@@ -599,6 +714,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-2, 3, 0,
@@ -654,6 +772,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-2, 3, 0,
@@ -721,6 +842,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-3, 4, 0,
@@ -786,6 +910,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-3, 4, 0,
@@ -860,6 +987,9 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
@@ -952,10 +1082,13 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
-            //LitVec clauses = cnfToLits({});
+            ////LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout); std::cout << std::endl;//24 solutions (low=0, high=3)
@@ -987,10 +1120,13 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
-            //LitVec clauses = cnfToLits({});
+            ////LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout); //21 solutions
@@ -1022,10 +1158,13 @@ using namespace clingcon;
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
 
-            //LitVec clauses = cnfToLits({});
+            ////LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //s.printDimacs(std::cout);  // 27 (6+21)
@@ -1033,11 +1172,11 @@ using namespace clingcon;
             return true;
         }
     REGISTER(testTranslation15);
-/*
-    TEST_CASE("testEqual1", "translatortest")
-    {
+
+    bool testEqual1(Clingo::Control& ctl)
+
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             ///V0 +9 = V1
@@ -1053,22 +1192,27 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==10);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==10);
+            return true;
         }
 
-    }
+    REGISTER(testEqual1);
 
-    TEST_CASE("testLess12", "translatortest")
+
+    bool testLess12(Clingo::Control& ctl)
     {
-        {
-            MySolver solver;
+
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
 
@@ -1083,23 +1227,29 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+            clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                           norm.constraints());
+            ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==79);
-        }
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==79);
+            return true;
+
 
     }
 
+    REGISTER(testLess12);
 
 
-    TEST_CASE("SendMoreTest1", "translatortest")
+
+    bool sendMoreTest1(Clingo::Control& ctl)
     {
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
         std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
@@ -1133,20 +1283,27 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==2);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==2);
+        return true;
     }
 
-    TEST_CASE("SendMoreTest2", "translatortest")
+    REGISTER(sendMoreTest1);
+
+
+    bool sendMoreTest2(Clingo::Control& ctl)
     {
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
 
@@ -1188,21 +1345,27 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==3);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==3);
+        return true;
     }
 
+    REGISTER(sendMoreTest2);
 
-    TEST_CASE("SendMoreTest3", "translatortest")
+
+    bool sendMoreTest3(Clingo::Control& ctl)
     {
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
 
@@ -1272,21 +1435,27 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==5040);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==5040);
+        return true;
     }
 
-    TEST_CASE("SendMoreMoneyTranslate", "translatortest")
+    REGISTER(sendMoreTest3);
+
+    bool sendMoreMoneyTranslate(Clingo::Control& ctl)
     {
         //std::cout << "sendMoreMoney1" << std::endl;
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
 
@@ -1552,22 +1721,28 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
         //std::cout << std::count(solver.clauses().begin(), solver.clauses().end(),Literal::fromRep(0)) << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==1);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==1);
+        return true;
     }
 
-    TEST_CASE("SendMoreMoneyTranslate2", "translatortest")
+    REGISTER(sendMoreMoneyTranslate);
+
+    bool sendMoreMoneyTranslate2(Clingo::Control& ctl)
     {
         //std::cout << "sendMoreMoney2" << std::endl;
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
 
@@ -1639,99 +1814,41 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
         //solver.printDimacs(std::cout);std::cout << std::endl;
 
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==1);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==1);
+        return true;
     }
 
+    REGISTER(sendMoreMoneyTranslate2);
 
-    TEST_CASE("nQueensTranslate", "translatortest")
+
+    bool distinctCard(Clingo::Control& ctl)
     {
-        //std::cout << "sendMoreMoney2" << std::endl;
-        MySolver solver;
-        //conf.disjoint2distinct = false;
-        Normalizer norm(solver, translateConfig);
+        Grounder solver(ctl.backend());
+        Normalizer norm(solver, test2);
 
 
         std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
         {
-            View q[10];
-            for (unsigned int i = 0; i < 10; ++i)
-                q[i] = norm.createView(Domain(1,10));
 
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> views;
-
-            for (unsigned int i = 0; i < 10; ++i)
-            {
-                std::vector<std::vector<clingcon::Literal>> l;
-                l.push_back(std::vector<clingcon::Literal>());
-
-                std::vector<std::pair<View,ReifiedDNF>> one;
-                one.push_back(std::make_pair(q[i],ReifiedDNF(std::move(l))));
-                views.emplace_back(one);
-
-            }
-            norm.addConstraint(ReifiedDisjoint(std::move(views),solver.trueLit(),Direction::EQ));
-            }
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> views;
-
-            for (unsigned int i = 0; i < 10; ++i)
-            {
-                std::vector<std::vector<clingcon::Literal>> l;
-                l.push_back(std::vector<clingcon::Literal>());
-
-                std::vector<std::pair<View,ReifiedDNF>> one;
-
-                clingcon::LinearConstraint lin(clingcon::LinearConstraint::Relation::EQ);
-                lin.addRhs(-i-1);
-                lin.add(q[i]*1);
-                View b = norm.createView();
-                lin.add(b*-1);
-                linearConstraints.emplace_back(ReifiedLinearConstraint(std::move(lin),solver.trueLit(),Direction::EQ));
+            View e = norm.createView(Domain(0,9));
+            View i = norm.createView(Domain(0,9));
 
 
-                one.push_back(std::make_pair(b,ReifiedDNF(std::move(l))));
-                views.emplace_back(one);
-            }
-            norm.addConstraint(ReifiedDisjoint(std::move(views),solver.trueLit(),Direction::EQ));
-            }
-
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> views;
-            for (unsigned int i = 0; i < 10; ++i)
-            {
-                std::vector<std::vector<clingcon::Literal>> l;
-                l.push_back(std::vector<clingcon::Literal>());
-
-                std::vector<std::pair<View,ReifiedDNF>> one;
-
-                clingcon::LinearConstraint lin(clingcon::LinearConstraint::Relation::EQ);
-                lin.addRhs(i+1);
-                lin.add(q[i]*1);
-                View b = norm.createView();
-                lin.add(b*-1);
-                linearConstraints.emplace_back(ReifiedLinearConstraint(std::move(lin),solver.trueLit(),Direction::EQ));
-
-
-                one.push_back(std::make_pair(b,ReifiedDNF(std::move(l))));
-                views.emplace_back(one);
-            }
-            norm.addConstraint(ReifiedDisjoint(std::move(views),solver.trueLit(),Direction::EQ));
-            }
-            //norm.addConstraint(ReifiedDisjoint({s,e,n,d,m,o,r,e,m,o,n,e,y},solver.trueLit(),false));
+            norm.addConstraint(ReifiedAllDistinct({e,i},solver.trueLit(),Direction::EQ));
 
         }
 
@@ -1744,112 +1861,28 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        //solver.printDimacs(std::cout);std::cout << std::endl;
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==724);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==90);
+        return true;
     }
 
-    TEST_CASE("nQueensDirectTranslate", "translatortest")
+    REGISTER(distinctCard);
+
+
+
+    bool crypt112_aux(Clingo::Control& ctl, clingcon::Config conf)
     {
-        //std::cout << "sendMoreMoney2" << std::endl;
-        MySolver solver;
-        //conf.disjoint2distinct = false;
-        Normalizer norm(solver, translateConfig);
-
-
-        std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
-
-        {
-            View q[10];
-            for (unsigned int i = 0; i < 10; ++i)
-                q[i] = norm.createView(Domain(1,10));
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> vars;
-
-            for (unsigned int i = 0; i < 10; ++i)
-            {
-                std::vector<std::vector<clingcon::Literal>> l;
-                l.push_back(std::vector<clingcon::Literal>());
-
-                std::vector<std::pair<View,ReifiedDNF>> one;
-                one.push_back(std::make_pair(q[i],ReifiedDNF(std::move(l))));
-                vars.emplace_back(one);
-
-            }
-            norm.addConstraint(ReifiedDisjoint(std::move(vars),solver.trueLit(),Direction::EQ));
-            }
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> vars;
-
-            for (unsigned int i = 0; i < 10; ++i)
-            {
-                std::vector<std::vector<clingcon::Literal>> l;
-                l.push_back(std::vector<clingcon::Literal>());
-
-                std::vector<std::pair<View,ReifiedDNF>> one;
-
-                q[i].c = i+1;
-                one.push_back(std::make_pair(q[i],ReifiedDNF(std::move(l))));
-                vars.emplace_back(one);
-            }
-            norm.addConstraint(ReifiedDisjoint(std::move(vars),solver.trueLit(),Direction::EQ));
-            }
-
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> vars;
-            for (unsigned int i = 0; i < 10; ++i)
-            {
-                std::vector<std::vector<clingcon::Literal>> l;
-                l.push_back(std::vector<clingcon::Literal>());
-
-                std::vector<std::pair<View,ReifiedDNF>> one;
-
-                q[i].c= -i-1;
-                one.push_back(std::make_pair(q[i],ReifiedDNF(std::move(l))));
-                vars.emplace_back(one);
-            }
-            norm.addConstraint(ReifiedDisjoint(std::move(vars),solver.trueLit(),Direction::EQ));
-            }
-            //norm.addConstraint(ReifiedDisjoint({s,e,n,d,m,o,r,e,m,o,n,e,y},solver.trueLit(),false));
-
-        }
-
-        for (auto &i : linearConstraints)
-            norm.addConstraint(std::move(i));
-
-
-
-        REQUIRE(norm.prepare());
-        //solver.createNewLiterals(norm.estimateVariables());
-
-        REQUIRE(norm.finalize());
-        //solver.printDimacs(std::cout);std::cout << std::endl;
-
-
-
-
-        LitVec clauses = cnfToLits({});
-        //assert(compareClauses(s.clauses(),clauses));
-
-        //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==724);
-    }
-
-    void crypt112_aux(clingcon::Config conf)
-    {
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, conf);
 
 
@@ -1898,28 +1931,52 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==12);
-    }
-
-    TEST_CASE("Crypt112Translate", "translatortest")
-    {
-        for (auto i : stdconfs)
-            crypt112_aux(i);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==12);
+        return true;
     }
 
 
-
-    TEST_CASE("Crypt224Translate", "translatortest")
+    bool crypt112Translate1(Clingo::Control& ctl)
     {
-        MySolver solver;
+        return crypt112_aux(ctl, test1);
+    }
+
+    bool crypt112Translate2(Clingo::Control& ctl)
+    {
+        return crypt112_aux(ctl, test2);
+    }
+
+    bool crypt112Translate3(Clingo::Control& ctl)
+    {
+        return crypt112_aux(ctl, test3);
+    }
+
+    bool crypt112Translate4(Clingo::Control& ctl)
+    {
+        return crypt112_aux(ctl, test4);
+    }
+
+    REGISTER(crypt112Translate1);
+    REGISTER(crypt112Translate2);
+    REGISTER(crypt112Translate3);
+    REGISTER(crypt112Translate4);
+
+
+
+    bool crypt224Translate(Clingo::Control& ctl)
+    {
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
 
@@ -1974,21 +2031,26 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-        REQUIRE(expectedModels(solver)==12);
-        //REQUIRE(false);
+        //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+        REQUIRE(expectedModels(ctl)==12);
+        return true;
     }
 
-    TEST_CASE("crypt145Translate", "translatortest")
+    REGISTER(crypt224Translate);
+
+    bool crypt145Translate(Clingo::Control& ctl)
     {
-        MySolver solver;
+        Grounder solver(ctl.backend());
         Normalizer norm(solver, translateConfig);
 
         std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
@@ -2042,7 +2104,7 @@ using namespace clingcon;
                 l.add(e*1);
                 l.addRhs(4);
                 //std::cout << std::endl << l << std::endl;
-                linearConstraints.emplace_back(ReifiedLinearConstraint(std::move(l),solver.getNewLiteral(false),Direction::EQ));
+                linearConstraints.emplace_back(ReifiedLinearConstraint(std::move(l),solver.createNewLiteral(),Direction::EQ));
             }
 
         }
@@ -2057,19 +2119,24 @@ using namespace clingcon;
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
-        LitVec clauses = cnfToLits({});
+        //LitVec clauses = cnfToLits({});
         //assert(compareClauses(s.clauses(),clauses));
 
         //solver.printDimacs(std::cout);std::cout << std::endl;
-        REQUIRE(expectedModels(solver)==24);
+        REQUIRE(expectedModels(ctl)==24);
+        return true;
     }
+    REGISTER(crypt145Translate);
 
-    TEST_CASE("allDiffTranslate1", "translatortest")
-    {
+    bool allDiffTranslate1(Clingo::Control& ctl)
+
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
@@ -2094,18 +2161,26 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==1);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==1);
+            return true;
         }
 
+    REGISTER(allDiffTranslate1);
+
+
+bool allDiffTranslate2(Clingo::Control& ctl)
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             View e = norm.createView(Domain(0,1));
@@ -2117,18 +2192,25 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==3);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==3);
+            return true;
         }
 
+    REGISTER(allDiffTranslate2);
+
+    bool allDiffTranslate3(Clingo::Control& ctl)
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             View e = norm.createView(Domain(0,3));
@@ -2151,22 +2233,25 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==2227);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==2227);
+            return true;
         }
-    }
+    REGISTER(allDiffTranslate3);
 
 
-    TEST_CASE("domainC1", "translatortest")
-    {
+    bool domainC1(Clingo::Control& ctl)
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
@@ -2174,7 +2259,7 @@ using namespace clingcon;
             View e = norm.createView(Domain(0,9));
 
             Domain d(5,5);
-            norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),solver.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),solver.createNewLiteral(),Direction::EQ));
 
 
 
@@ -2182,18 +2267,25 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==10);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==10);
+            return true;
         }
 
+    REGISTER(domainC1);
+
+    bool domainC2(Clingo::Control& ctl)
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
@@ -2202,24 +2294,24 @@ using namespace clingcon;
 
             Domain d(5,7);
             d.remove(6,6);
-            norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),solver.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),solver.createNewLiteral(),Direction::EQ));
 
             {
             LinearConstraint l1(LinearConstraint::Relation::EQ);
             l1.add(e);
             l1.addRhs(7);
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),solver.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),solver.createNewLiteral(),Direction::EQ));
             }
             {
             LinearConstraint l1(LinearConstraint::Relation::NE);
             l1.add(e);
             l1.addRhs(5);
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),solver.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),solver.createNewLiteral(),Direction::EQ));
             }
             LinearConstraint l1(LinearConstraint::Relation::NE);
             l1.add(e);
             l1.addRhs(7);
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),solver.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),solver.createNewLiteral(),Direction::EQ));
 
 
 
@@ -2227,6 +2319,9 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 //            LitVec clauses = cnfToLits({-5,-3,0,
@@ -2251,56 +2346,59 @@ using namespace clingcon;
 //            REQUIRE(solver.clauses()==clauses);
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==10);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==10);
+            return true;
         }
 
+    REGISTER(domainC2);
+    bool domainC3(Clingo::Control& ctl)
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
-
-            std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
 
             View e = norm.createView(Domain(0,9));
 
             Domain d(5,7);
             d.remove(6,6);
-            auto lit = solver.getNewLiteral(true);
+            auto lit = solver.createNewLiteral();
             norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),lit,Direction::EQ));
 
             {
             LinearConstraint l1(LinearConstraint::Relation::EQ);
             l1.add(e);
             l1.addRhs(7);
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),~lit,Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),-lit,Direction::EQ));
             }
 
             {
             LinearConstraint l1(LinearConstraint::Relation::EQ);
             l1.add(e);
             l1.addRhs(5);
-            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),~lit,Direction::EQ));
+            norm.addConstraint(ReifiedLinearConstraint(std::move(l1),-lit,Direction::EQ));
             }
-
-
-
-
 
             REQUIRE(norm.prepare());
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==0);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==0);
+            return true;
         }
 
+    REGISTER(domainC3);
 
+bool domainC4(Clingo::Control& ctl)
         {
-            MySolver solver;
+            Grounder solver(ctl.backend());
             Normalizer norm(solver, translateConfig);
 
             std::vector<clingcon::ReifiedLinearConstraint> linearConstraints;
@@ -2310,7 +2408,7 @@ using namespace clingcon;
             Domain d(5,10);
             d.unify(20,30);
             d.unify(40,50);
-            norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),solver.getNewLiteral(true),Direction::EQ));
+            norm.addConstraint(ReifiedDomainConstraint(e,std::move(d),solver.createNewLiteral(),Direction::EQ));
 
 
 
@@ -2318,189 +2416,22 @@ using namespace clingcon;
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
+        clingcon::ClingconPropagator p(solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+                                       norm.constraints());
+        ctl.register_propagator(p);
 
 
-            LitVec clauses = cnfToLits({});
+            //LitVec clauses = cnfToLits({});
             //assert(compareClauses(s.clauses(),clauses));
 
             //solver.printDimacs(std::cout);std::cout << std::endl;
-            //std::cout << "numModels: " << expectedModels(solver) << std::endl;
-            REQUIRE(expectedModels(solver)==100);
+            //std::cout << "numModels: " << expectedModels(ctl) << std::endl;
+            REQUIRE(expectedModels(ctl)==100);
+            return true;
         }
-    }
-    void testLiteralReuse()
-    {
-
-    }
-
-    TEST_CASE("testAllDiffSplitting", "translatortest")
-    {
-
-        Grounder s(ctl.backend());
-        Normalizer norm(s, translateConfig);
+REGISTER(domainC4);
 
 
-
-        std::vector<View> views;
-        const int low=0;
-        const int high=49;
-        for (int i = low; i <= high; ++i)
-            views.emplace_back(norm.createView(Domain(low,high)));
-        ReifiedAllDistinct alldiff(std::move(views),s.falseLit(),Direction::EQ);
-
-        norm.addConstraint(std::move(alldiff));
-
-        norm.prepare();
-        //s.createNewLiterals(norm.estimateVariables());
-
-        REQUIRE(norm.finalize());
-
-
-
-        //LitVec clauses = cnfToLits({});
-        //assert(compareClauses(s.clauses(),clauses));
-
-        //s.printDimacs(std::cout); //21 solutions
-        //assert(expectedModels(ctl)==21);
-
-    }
-
-
-    TEST_CASE("disjoint1Translate", "translatortest")
-    {
-        {
-            MySolver solver;
-            Normalizer norm(solver, translateConfig);
-
-            const int n = 10;
-
-
-            std::vector<View> views;
-            for (int i = 1; i < 10; ++i)
-                views.emplace_back(norm.createView(Domain(1,n)));
-
-            std::vector<View> ldiag;
-            for (int i = 1; i < 10; ++i)
-            {
-                LinearConstraint l(LinearConstraint::Relation::EQ);
-                l.add(views[i-1]*1);
-                l.addRhs(-i);
-                ldiag.emplace_back(norm.createView());
-                l.add(ldiag.back()*-1);
-                norm.addConstraint(ReifiedLinearConstraint(std::move(l),solver.trueLit(),Direction::EQ));
-            }
-
-            ///WTF, this is the same as ldiag, where is the difference!
-            std::vector<View> rdiag;
-            for (int i = 1; i < 10; ++i)
-            {
-                LinearConstraint l(LinearConstraint::Relation::EQ);
-                l.add(views[i-1]*1);
-                l.addRhs(-i);
-                rdiag.emplace_back(norm.createView());
-                l.add(rdiag.back()*-1);
-                norm.addConstraint(ReifiedLinearConstraint(std::move(l),solver.trueLit(),Direction::EQ));
-            }
-
-
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> disj;
-            for (auto i : views)
-                disj.emplace_back(std::vector<std::pair<View,ReifiedDNF>>{std::make_pair(i,ReifiedDNF(std::vector<std::vector<Literal>>{std::vector<Literal>()}))});
-            norm.addConstraint(ReifiedDisjoint(std::move(disj),solver.trueLit(),Direction::EQ));
-            }
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> disj;
-            for (auto i : ldiag)
-                disj.emplace_back(std::vector<std::pair<View,ReifiedDNF>>{std::make_pair(i,ReifiedDNF(std::vector<std::vector<Literal>>{std::vector<Literal>()}))});
-            norm.addConstraint(ReifiedDisjoint(std::move(disj),solver.trueLit(),Direction::EQ));
-            }
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> disj;
-            for (auto i : rdiag)
-                disj.emplace_back(std::vector<std::pair<View,ReifiedDNF>>{std::make_pair(i,ReifiedDNF(std::vector<std::vector<Literal>>{std::vector<Literal>()}))});
-            norm.addConstraint(ReifiedDisjoint(std::move(disj),solver.trueLit(),Direction::EQ));
-            }
-
-
-
-            REQUIRE(norm.prepare());
-            //solver.createNewLiterals(norm.estimateVariables());
-            /// I can not create cardinality constraints for sat solver
-
-        }
-
-    }
-
-    TEST_CASE("disjoint1DirectTranslate", "translatortest")
-    {
-        {
-            MySolver solver;
-            Normalizer norm(solver, translateConfig);
-
-            const int n = 10;
-
-
-            std::vector<View> views;
-            for (int i = 1; i < 10; ++i)
-                views.emplace_back(norm.createView(Domain(1,n)));
-
-            std::vector<View> ldiag;
-            for (int i = 1; i < 10; ++i)
-            {
-                ldiag.emplace_back(views[i-1].v,1,i);
-//                LinearConstraint l(LinearConstraint::Relation::EQ);
-//                l.add(views[i-1],1);
-//                l.addRhs(-i);
-//                ldiag.emplace_back(norm.createView());
-//                l.add(ldiag.back(),-1);
-//                norm.addConstraint(ReifiedLinearConstraint(std::move(l),solver.trueLit(),false));
-            }
-
-            std::vector<View> rdiag;
-            for (int i = 1; i < 10; ++i)
-            {
-                rdiag.emplace_back(views[i-1].v,1,i);
-//                LinearConstraint l(LinearConstraint::Relation::EQ);
-//                l.add(views[i-1],1);
-//                l.addRhs(-i);
-//                rdiag.emplace_back(norm.createView());
-//                l.add(rdiag.back(),-1);
-//                norm.addConstraint(ReifiedLinearConstraint(std::move(l),solver.trueLit(),false));
-            }
-
-
-
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> disj;
-            for (auto i : views)
-                disj.emplace_back(std::vector<std::pair<View,ReifiedDNF>>{std::make_pair(i,ReifiedDNF(std::vector<std::vector<Literal>>{std::vector<Literal>()}))});
-            norm.addConstraint(ReifiedDisjoint(std::move(disj),solver.trueLit(),Direction::EQ));
-            }
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> disj;
-            for (auto i : ldiag)
-                disj.emplace_back(std::vector<std::pair<View,ReifiedDNF>>{std::make_pair(i,ReifiedDNF(std::vector<std::vector<Literal>>{std::vector<Literal>()}))});
-            norm.addConstraint(ReifiedDisjoint(std::move(disj),solver.trueLit(),Direction::EQ));
-            }
-            {
-            std::vector<std::vector<std::pair<View,ReifiedDNF>>> disj;
-            for (auto i : rdiag)
-                disj.emplace_back(std::vector<std::pair<View,ReifiedDNF>>{std::make_pair(i,ReifiedDNF(std::vector<std::vector<Literal>>{std::vector<Literal>()}))});
-            norm.addConstraint(ReifiedDisjoint(std::move(disj),solver.trueLit(),Direction::EQ));
-            }
-
-
-
-            REQUIRE(norm.prepare());
-            //solver.createNewLiterals(norm.estimateVariables());
-            /// I can not create cardinality constraints for sat solver
-
-        }
-
-    }
-*/
 
 
 

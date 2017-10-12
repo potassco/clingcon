@@ -3750,58 +3750,58 @@ using namespace order;
             }
 
             // exclude sol 1
-            LitVec v = {~conf.n_.getEqualLit(q1,2),
-                        ~conf.n_.getEqualLit(q2,4),
-                        ~conf.n_.getEqualLit(q3,6),
-                        ~conf.n_.getEqualLit(q4,1),
-                        ~conf.n_.getEqualLit(q5,3),
-                        ~conf.n_.getEqualLit(q6,5)};
+            LitVec v = {-conf.n_.getEqualLit(q1,2),
+                        -conf.n_.getEqualLit(q2,4),
+                        -conf.n_.getEqualLit(q3,6),
+                        -conf.n_.getEqualLit(q4,1),
+                        -conf.n_.getEqualLit(q5,3),
+                        -conf.n_.getEqualLit(q6,5)};
             // exclude sol 3
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q1,5),
-                 ~conf.n_.getEqualLit(q2,3),
-                 ~conf.n_.getEqualLit(q3,1),
-                 ~conf.n_.getEqualLit(q4,6),
-                 ~conf.n_.getEqualLit(q5,4),
-                 ~conf.n_.getEqualLit(q6,2)};
+            v = {-conf.n_.getEqualLit(q1,5),
+                 -conf.n_.getEqualLit(q2,3),
+                 -conf.n_.getEqualLit(q3,1),
+                 -conf.n_.getEqualLit(q4,6),
+                 -conf.n_.getEqualLit(q5,4),
+                 -conf.n_.getEqualLit(q6,2)};
             REQUIRE(conf.creator_.createClause(v));
 
             // enforce sol 2
             v = {conf.n_.getEqualLit(q2,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q1,5)};
+            v = {-conf.n_.getEqualLit(q1,5)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q1,6)};
-            REQUIRE(conf.creator_.createClause(v));
-
-            v = {~conf.n_.getEqualLit(q3,4)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q3,5)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q3,6)};
+            v = {-conf.n_.getEqualLit(q1,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q4,4)};
+            v = {-conf.n_.getEqualLit(q3,4)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q4,6)};
+            v = {-conf.n_.getEqualLit(q3,5)};
             REQUIRE(conf.creator_.createClause(v));
-
-            v = {~conf.n_.getEqualLit(q5,2)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q5,3)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q5,4)};
+            v = {-conf.n_.getEqualLit(q3,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q5,6)};
+            v = {-conf.n_.getEqualLit(q4,4)};
+            REQUIRE(conf.creator_.createClause(v));
+            v = {-conf.n_.getEqualLit(q4,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q6,2)};
+            v = {-conf.n_.getEqualLit(q5,2)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q6,3)};
+            v = {-conf.n_.getEqualLit(q5,3)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q6,6)};
+            v = {-conf.n_.getEqualLit(q5,4)};
+            REQUIRE(conf.creator_.createClause(v));
+
+            v = {-conf.n_.getEqualLit(q5,6)};
+            REQUIRE(conf.creator_.createClause(v));
+
+            v = {-conf.n_.getEqualLit(q6,2)};
+            REQUIRE(conf.creator_.createClause(v));
+            v = {-conf.n_.getEqualLit(q6,3)};
+            REQUIRE(conf.creator_.createClause(v));
+            v = {-conf.n_.getEqualLit(q6,6)};
             REQUIRE(conf.creator_.createClause(v));
 
 
@@ -3992,58 +3992,58 @@ using namespace order;
             View q5 = views[4];
             View q6 = views[5];
             // exclude sol 1
-            LitVec v = {~conf.n_.getEqualLit(q1,2),
-                        ~conf.n_.getEqualLit(q2,4),
-                        ~conf.n_.getEqualLit(q3,6),
-                        ~conf.n_.getEqualLit(q4,1),
-                        ~conf.n_.getEqualLit(q5,3),
-                        ~conf.n_.getEqualLit(q6,5)};
+            LitVec v = {-conf.n_.getEqualLit(q1,2),
+                        -conf.n_.getEqualLit(q2,4),
+                        -conf.n_.getEqualLit(q3,6),
+                        -conf.n_.getEqualLit(q4,1),
+                        -conf.n_.getEqualLit(q5,3),
+                        -conf.n_.getEqualLit(q6,5)};
             // exclude sol 3
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q1,5),
-                 ~conf.n_.getEqualLit(q2,3),
-                 ~conf.n_.getEqualLit(q3,1),
-                 ~conf.n_.getEqualLit(q4,6),
-                 ~conf.n_.getEqualLit(q5,4),
-                 ~conf.n_.getEqualLit(q6,2)};
+            v = {-conf.n_.getEqualLit(q1,5),
+                 -conf.n_.getEqualLit(q2,3),
+                 -conf.n_.getEqualLit(q3,1),
+                 -conf.n_.getEqualLit(q4,6),
+                 -conf.n_.getEqualLit(q5,4),
+                 -conf.n_.getEqualLit(q6,2)};
             REQUIRE(conf.creator_.createClause(v));
 
             // enforce sol 2
             v = {conf.n_.getEqualLit(q2,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q1,5)};
+            v = {-conf.n_.getEqualLit(q1,5)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q1,6)};
-            REQUIRE(conf.creator_.createClause(v));
-
-            v = {~conf.n_.getEqualLit(q3,4)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q3,5)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q3,6)};
+            v = {-conf.n_.getEqualLit(q1,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q4,4)};
+            v = {-conf.n_.getEqualLit(q3,4)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q4,6)};
+            v = {-conf.n_.getEqualLit(q3,5)};
             REQUIRE(conf.creator_.createClause(v));
-
-            v = {~conf.n_.getEqualLit(q5,2)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q5,3)};
-            REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q5,4)};
+            v = {-conf.n_.getEqualLit(q3,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q5,6)};
+            v = {-conf.n_.getEqualLit(q4,4)};
+            REQUIRE(conf.creator_.createClause(v));
+            v = {-conf.n_.getEqualLit(q4,6)};
             REQUIRE(conf.creator_.createClause(v));
 
-            v = {~conf.n_.getEqualLit(q6,2)};
+            v = {-conf.n_.getEqualLit(q5,2)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q6,3)};
+            v = {-conf.n_.getEqualLit(q5,3)};
             REQUIRE(conf.creator_.createClause(v));
-            v = {~conf.n_.getEqualLit(q6,6)};
+            v = {-conf.n_.getEqualLit(q5,4)};
+            REQUIRE(conf.creator_.createClause(v));
+
+            v = {-conf.n_.getEqualLit(q5,6)};
+            REQUIRE(conf.creator_.createClause(v));
+
+            v = {-conf.n_.getEqualLit(q6,2)};
+            REQUIRE(conf.creator_.createClause(v));
+            v = {-conf.n_.getEqualLit(q6,3)};
+            REQUIRE(conf.creator_.createClause(v));
+            v = {-conf.n_.getEqualLit(q6,6)};
             REQUIRE(conf.creator_.createClause(v));
 
             solver.makeRestFalse();

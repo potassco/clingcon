@@ -120,6 +120,7 @@ public:
         return a != -b;
     }
 
+    /// let v equal the cardinality constraint
     bool createCardinality(Literal v, int lb, LitVec &&lits)
     {
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
@@ -129,8 +130,9 @@ public:
         {
             wlv.emplace_back(i, 1);
         }
-        c_.weight_rule(false, {Clingo::atom_t(std::abs(v))}, lb, {&wlv[0], wlv.size()});
-        return true;
+        auto aux = c_.add_atom();
+        c_.weight_rule(false, {aux}, lb, {&wlv[0], wlv.size()});
+        return setEqual(aux,v);
     }
 
     bool createChoice(Clingo::AtomSpan atoms)
