@@ -38,6 +38,7 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
 //Clasp::Literal toClaspFormat(clingcon::Literal l) { return Clasp::Literal::fromRep(l.asUint()); }
 //clingcon::Literal toOrderFormat(Clasp::Literal l) { return clingcon::Literal::fromRep(l.asUint()); }
 
+namespace {
 
     std::size_t expectedModels(Clingo::Control& ctl)
     {
@@ -50,6 +51,8 @@ std::vector<clingcon::Config> stdconfs = {translateConfig,test1,test2};
         }
         return counter;
     }
+
+}
 
     bool testOutOfRange0(Clingo::Control& ctl)
     {

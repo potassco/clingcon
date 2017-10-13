@@ -81,7 +81,7 @@ if (CLINGCON_BUILD_TESTS)
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/domaintest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/linearpropagatortest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/translatortest.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/testapp.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/clingcontest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/test/testliborder/src/main.cpp")
     source_group("${testorder_src_group_name}" FILES ${testorder_src_group_name})
     set(testorder_src
