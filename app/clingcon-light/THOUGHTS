@@ -39,7 +39,7 @@ Facts: Simple facts like domain predicates can not be detected as true,
   and an unbounded variable is created.
 
 Current Call:
-cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug
+cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True
 or
 cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
 

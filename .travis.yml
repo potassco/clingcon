@@ -46,3 +46,19 @@ script:
     make -j3 &&
     ./bin/test_liborder &&
     ./bin/test_libclingcon
+
+# test clingcon-light
+  cd .. &&
+  cd app/clingcon-light &&
+  git clone https://github.com/potassco/clingo.git clingo &&
+  cd clingo &&
+  git submodule update --init --recursive &&
+  git checkout wip &&
+  cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Release &&
+  cmake --build build -- -j3 &&
+  cd .. &&
+  cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=$PWD/clingo/libclingo -DCLINGO_LIBRARY_DIR=$PWD/clingo/build/bin -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True &&
+  cmake --build build/debug -- -j3 &&
+  ./runtests.sh &&
+  cmake -H. -Bbuild/release -DCLINGO_INCLUDE_DIR=$PWD/clingo/libclingo -DCLINGO_LIBRARY_DIR=$PWD/clingo/build/bin -DCMAKE_BUILD_TYPE=Release &&
+  cmake --build build/release -- -j3
