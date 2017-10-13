@@ -45,9 +45,7 @@ script:
       .. &&
     make -j3 &&
     ./bin/test_liborder &&
-    ./bin/test_libclingcon
-
-# test clingcon-light
+    ./bin/test_libclingcon &&
   cd .. &&
   cd app/clingcon-light &&
   git clone https://github.com/potassco/clingo.git clingo &&
