@@ -10,14 +10,14 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - g++-5
+            - g++-6
             - re2c
             - liblua5.1-0-dev
             - zsh
             - libcppunit-dev
       env:
-        - MY_CC=gcc-5
-        - MY_CXX=g++-5
+        - MY_CC=gcc-6
+        - MY_CXX=g++-6
     - os: osx
       osx_image: xcode8.3
       env:
