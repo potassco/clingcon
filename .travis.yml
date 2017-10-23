@@ -10,14 +10,14 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - g++-6
+            - g++-5
             - re2c
             - liblua5.1-0-dev
             - zsh
             - libcppunit-dev
       env:
-        - MY_CC=gcc-6
-        - MY_CXX=g++-6
+        - MY_CC=gcc-5
+        - MY_CXX=g++-5
     - os: osx
       osx_image: xcode8.3
       env:
@@ -51,7 +51,7 @@ script:
     cd clingo &&
     git submodule update --init --recursive &&
     git checkout wip &&
-    cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Release &&
+    cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${MY_CC} -DCMAKE_CXX_COMPILER=${MY_CXX} &&
     cmake --build build -- -j3 &&
     cd .. &&
     cmake -H. -Bbuild/debug -DCMAKE_CXX_COMPILER=${MY_CXX} -DCLINGO_INCLUDE_DIR=$PWD/clingo/libclingo -DCLINGO_LIBRARY_DIR=$PWD/clingo/build/bin -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True &&
