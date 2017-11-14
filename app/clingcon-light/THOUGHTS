@@ -38,6 +38,17 @@ Facts: Simple facts like domain predicates can not be detected as true,
   as the grounder does not have any feature like this. So &dom{0..1} = x. can not be detected
   and an unbounded variable is created.
 
+
+Flaws with combining propagators. Can not create variables that may be necessary for another propagator.
+
+
+TODO:
+ - optimization (minimization/maximization)
+ - make #include <csp> optional, only add if not already loaded if possible 
+ - MIT license
+
+How to use python interface with C++ propagator. General design problem.
+
 Current Call:
 cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True
 or
