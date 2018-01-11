@@ -37,15 +37,25 @@ All datastructures are created using aspif literals,
 Facts: Simple facts like domain predicates can not be detected as true,
   as the grounder does not have any feature like this. So &dom{0..1} = x. can not be detected
   and an unbounded variable is created.
+  is_fact is only an approximation and only available for symbolic atoms, theory atoms excluded.
 
 
 Flaws with combining propagators. Can not create variables that may be necessary for another propagator.
 
 
+Missing isTrue etc... in PropagateInit function
+
+Einfache Trennung zwischen Propagator und MultiShot Fähigkeiten.
+Also clingcon/clingoDL über python API steuern als wäre es clingo,
+nur das intern schon ein Propagator registriert wurde
+
+Output Bahviour Intern machen, so das extra ausgaben vom python script extra requested werden können,
+bzw. das die Ausgabe nicht über check erfolgt, sondern in onModel
+
 TODO:
  - optimization (minimization/maximization)
  - make #include <csp> optional, only add if not already loaded if possible 
- - MIT license
+ - make strict/non-strict available via &sum(non-strict){} constructs
 
 How to use python interface with C++ propagator. General design problem.
 
