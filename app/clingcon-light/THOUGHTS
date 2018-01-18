@@ -65,3 +65,20 @@ or
 cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
 
 
+Feature Requests:
+
+  * Printing
+    - be able to use json output etc...
+    - be able to access additional information (e.g. variable/value pairs) in the on_model function
+
+    - having a print model function
+
+
+  * Combining fixed propagators with reactive solving with the python interface
+    - be able to include clingoDL/clingcon python library instead of clingo
+    - be able to write an encoding with a python main method and use clingoDL/clingcon (C++) binaries to run it
+      - the respective propagators have to be already registered within clingoDL/clingcon
+      - we may need a method to execute the python main() function inside the ClingoApplication::main()
+  * Preprocessor
+
+  * Facts of theory atoms
