@@ -65,20 +65,41 @@ or
 cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
 
 
+Use Cases:
+  In all use cases clingcon should be replaceable with clingoDL/clingoLP/clingo or any other cpp written derivate.
+  Python should be replaceable with Lua.
+  1. clingcon as binary for logic programs
+  2. clingcon as binary for logic programs with python main function.
+  3. Python program that includes clingcon library that has the clingcon propagator (and initialization of it) already added.
+
 Feature Requests:
 
   * Printing
-    - be able to use json output etc...
+    - be able to use json output
+      - add additional information (e.g. variable/value pairs) for each model
+      - having an interface-function to print a model (with the additional information) in the predefinied (clasp,json,aspcomp) way
     - be able to access additional information (e.g. variable/value pairs) in the on_model function
-
-    - having a print model function
-
+    - be able to correctly add statistics to the clingo statistics output
 
   * Combining fixed propagators with reactive solving with the python interface
-    - be able to include clingoDL/clingcon python library instead of clingo
-    - be able to write an encoding with a python main method and use clingoDL/clingcon (C++) binaries to run it
-      - the respective propagators have to be already registered within clingoDL/clingcon
+    - be able to include clingcon python library instead of clingo
+    - be able to write an encoding with a python main method and use clingcon binaries to run it
+      - the respective propagators have to be already registered within clingcon
+      - the propagators need an interface method pre/postGround() to be able to add static rules, minimize statements, etc.. to the grounder
       - we may need a method to execute the python main() function inside the ClingoApplication::main()
-  * Preprocessor
+        - this method should not be called from within the python main() function, as it wiill result in an endless loop
 
-  * Facts of theory atoms
+  * Preprocessor
+    - ability to run the clasp preprocessing system manually in the init(), postGround() function of a propagator
+    - access the current truth value (true, false, unknown) at every accessible step (preGround, postGround, init, propagate, check, undo)
+
+  * Interface changes
+    - init call for all threads at once or once for all threads
+      - what happens in the multi-shot context, is init only called once ?
+        Do we need a reInit() function with all new information that is called for every additional solve call ?
+    - maybe merge PropagateInit and PropagateControl,
+      - assignment(), add_literal(), has_watch(), add_watch(), remove_watch(), add_clause(), propagate(), thread_id()
+        could work for both transparently, on init adding static knowledge, on propagate/check adding dynamic knowledge
+      - adding literals and watches to the solver:
+        - should be available during the init call
+        - should be possible to add from any solver thread for any solver thread
