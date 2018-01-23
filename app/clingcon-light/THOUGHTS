@@ -74,13 +74,55 @@ Use Cases:
 
 Feature Requests:
 
-  * Printing
-    - be able to use json output
-      - add additional information (e.g. variable/value pairs) for each model
-      - having an interface-function to print a model (with the additional information) in the predefinied (clasp,json,aspcomp) way
+  *** Printing Theory Models
+  **  UseCases
+    - be able to use json output with theory output information
+    - a propagagor adds additional information (e.g. variable/value pairs) for each model
+    - having an interface-function to print a model (with the additional information) in the predefinied (clasp,json,aspcomp) way
     - be able to access additional information (e.g. variable/value pairs) in the on_model function
-    - be able to correctly add statistics to the clingo statistics output
+  **  Propositions
+    - There already exists a Clasp::OutputTable::Theory class.
+      Also Clingo::Control has a virtual void addToModel(const Clasp::Model& m, bool complement, Gringo::SymVec& ret) function.
+      So add a virtual addToModel function to the Clasp::Propagator class
+      class Propagator {
+      public:
+            ...
+            virtual void addToModel(const Clasp::Model& m, bool complement, Gringo::SymVec& ret) {}
+            ...
+      };
+      This function should be called for every propagator in the ClingoModel::atoms function (instead for the ClingoControl object).
+      In this way, each propagator (for each thread) can add additional information ( (newly created) gringo symbols) to each model.
+      This output should automatically be correctly displayed in any output format (json, etc...).
+      In the on_model() function, this information can be accessed and/or printed.
 
+  *** Printing Statistics
+  **  UseCases
+    - add additional statistics of the propagator in a well formatted way to the normal statistic information.
+
+  *** Dynamically loading C/C++ propagators in python code
+  **  UseCases
+    - having libraries for different propagators like csp, dl[int], dl[real], etc..
+    - dynamically load these libraries and automatically add their propagators (including additional initialization)
+  **  Propositions
+      Dynamically load a propagator in python.
+      Registering the propagator and initialization is completely handled in the library.
+
+      #script (python)
+
+      import ctypes
+      import clingo
+      
+      def main(prg):
+              %clingcon = ctypes.windll.clingcon
+              clingcon = ctypes.cdll.LoadLibrary('clingcon.so')
+              clingcon.load(prg)
+              prg.ground([("base", [])])
+              prg.solve()
+      #end.
+
+      TODO: Add a load function to clingo[DL].
+      
+      
   * Combining fixed propagators with reactive solving with the python interface
     - be able to include clingcon python library instead of clingo
     - be able to write an encoding with a python main method and use clingcon binaries to run it
