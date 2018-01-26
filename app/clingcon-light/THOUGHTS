@@ -94,6 +94,7 @@ Feature Requests:
       In this way, each propagator (for each thread) can add additional information ( (newly created) gringo symbols) to each model.
       This output should automatically be correctly displayed in any output format (json, etc...).
       In the on_model() function, this information can be accessed and/or printed.
+      The bool complement asks for negative literals, for clingcon there does not exist such a thing.
 
   *** Printing Statistics
   **  UseCases
@@ -106,21 +107,8 @@ Feature Requests:
   **  Propositions
       Dynamically load a propagator in python.
       Registering the propagator and initialization is completely handled in the library.
+      Done in https://github.com/MaxOstrowski/clingo.git and https://github.com/MaxOstrowski/clingoDL.git
 
-      #script (python)
-
-      import ctypes
-      import clingo
-      
-      def main(prg):
-              %clingcon = ctypes.windll.clingcon
-              clingcon = ctypes.cdll.LoadLibrary('clingcon.so')
-              clingcon.load(prg)
-              prg.ground([("base", [])])
-              prg.solve()
-      #end.
-
-      TODO: Add a load function to clingo[DL].
       
       
   * Combining fixed propagators with reactive solving with the python interface
