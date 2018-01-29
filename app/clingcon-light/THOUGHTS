@@ -82,7 +82,16 @@ Feature Requests:
     - be able to access additional information (e.g. variable/value pairs) in the on_model function
   **  Propositions
     - There already exists a Clasp::OutputTable::Theory class.
+      Derive from this class and set a pointer to a global instance (for all threads and propagators) to SharedContect::output::theory.
+
+      1. Setting a pointer only affects clasp output
+      2. To add Gringo Symbols for inspection Clingo::Control::addToModel should be changed to call all propagators to add their
+      Symbols so they can be inspected.
+
+
+
       Also Clingo::Control has a virtual void addToModel(const Clasp::Model& m, bool complement, Gringo::SymVec& ret) function.
+      The bool complement asks for negative literals, for clingcon there does not exist such a thing.
       So add a virtual addToModel function to the Clasp::Propagator class
       class Propagator {
       public:
@@ -90,11 +99,8 @@ Feature Requests:
             virtual void addToModel(const Clasp::Model& m, bool complement, Gringo::SymVec& ret) {}
             ...
       };
-      This function should be called for every propagator in the ClingoModel::atoms function (instead for the ClingoControl object).
+      This function should be called for every propagator in the Clingo::Control::addToModel function.
       In this way, each propagator (for each thread) can add additional information ( (newly created) gringo symbols) to each model.
-      This output should automatically be correctly displayed in any output format (json, etc...).
-      In the on_model() function, this information can be accessed and/or printed.
-      The bool complement asks for negative literals, for clingcon there does not exist such a thing.
 
   *** Printing Statistics
   **  UseCases
