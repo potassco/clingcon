@@ -190,14 +190,14 @@ void solve(Stats &stats, Control &ctl, const clingcon::Config &c)
                                    n.constraints());
     ctl.register_propagator(p);
 
-    for (auto m : ctl.solve())
+    for (auto& m : ctl.solve())
     {
         // std::cout << m << std::endl;
         p.printAssignment(m.thread_id());
     }
 }
 
-class ClingconApp : public Clingo::ClingoApplication
+class ClingconApp : public Clingo::Application
 {
 public:
     ClingconApp(Stats &stats)

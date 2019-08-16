@@ -68,7 +68,7 @@ public:
     Foo(TestCall c) { clingcon::Adder::singleton().add(c); }
 };
 
-class TestApp : public Clingo::ClingoApplication
+class TestApp : public Clingo::Application
 {
 public:
 

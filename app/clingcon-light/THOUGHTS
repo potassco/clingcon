@@ -63,7 +63,10 @@ Current Call:
 cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/git/clingofiles/include -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/git/clingofiles/lib -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True
 or
 cmake -H. -Bbuild -DCLINGO_INCLUDE_DIR=/home/wv/opt/clingo-banane/include -DCLINGO_LIBRARY_DIR=/home/wv/opt/clingo-banane/lib
-
+or
+build clingo in in the subfolder manually and call
+cmake -H. -Bbuild/debug -DCLINGO_INCLUDE_DIR=/home/ostrowsk/work/krbiz/gitpotassco/clingcon/clingo/libclingo -DCLINGO_LIBRARY_DIR=/home/ostrowsk/work/krbiz/gitpotassco/clingcon/clingo/build/bin -DCLINGOLIB=/home/ostrowsk/work/krbiz/gitpotassco/clingcon/clingo/build/bin/libclingo.so -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True
+in the clingcon-light folder directly
 
 Use Cases:
   In all use cases clingcon should be replaceable with clingoDL/clingoLP/clingo or any other cpp written derivate.

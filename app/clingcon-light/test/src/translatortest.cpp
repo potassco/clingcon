@@ -47,7 +47,7 @@ namespace {
     std::size_t expectedModels(Clingo::Control& ctl)
     {
         size_t counter = 0;
-        for (auto m : ctl.solve())
+        for (auto& m : ctl.solve())
         {
             ++counter;
             // std::cout << m << std::endl;

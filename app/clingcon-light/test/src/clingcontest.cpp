@@ -71,7 +71,7 @@ namespace
     std::size_t expectedModels(Clingo::Control& ctl)
     {
         size_t counter = 0;
-        for (auto m : ctl.solve())
+        for (auto& m : ctl.solve())
         {
             ++counter;
             // std::cout << m << std::endl;
@@ -83,7 +83,7 @@ namespace
     bool expectedModelsMin(Clingo::Control& ctl, size_t num)
     {
         size_t counter = 0;
-        for (auto m : ctl.solve())
+        for (auto& m : ctl.solve())
         {
             ++counter;
             if (counter==num)
