@@ -35,7 +35,6 @@ using namespace clingcon;
 
 #define CLINGO_CALL(x) Clingo::Detail::handle_error(x)
 
-template <typename T>
 bool init(clingo_propagate_init_t* i, void* data)
 {
     CLINGCON_TRY {
@@ -45,7 +44,6 @@ bool init(clingo_propagate_init_t* i, void* data)
     CLINGCON_CATCH;
 }
 
-template <typename T>
 bool propagate(clingo_propagate_control_t* i, const clingo_literal_t *changes, size_t size, void* data)
 {
     CLINGCON_TRY {
@@ -55,7 +53,6 @@ bool propagate(clingo_propagate_control_t* i, const clingo_literal_t *changes, s
     CLINGCON_CATCH;
 }
 
-template <typename T>
 bool undo(clingo_propagate_control_t const* i, const clingo_literal_t *changes, size_t size, void* data)
 {
     CLINGCON_TRY {
@@ -65,7 +62,6 @@ bool undo(clingo_propagate_control_t const* i, const clingo_literal_t *changes, 
     CLINGCON_CATCH;
 }
 
-template <typename T>
 bool check(clingo_propagate_control_t* i, void* data)
 {
     CLINGCON_TRY {
@@ -86,6 +82,8 @@ struct Stats {
 struct PropagatorFacade {
 public:
     virtual ~PropagatorFacade() {};
+    virtual bool pre_ground(clingo_control_t *ctl) = 0;
+    virtual bool post_ground(clingo_control_t *ctl) = 0;
     virtual bool lookup_symbol(clingo_symbol_t name, size_t *index) = 0;
     virtual clingo_symbol_t get_symbol(size_t index) = 0;
     virtual bool has_value(uint32_t thread_id, size_t index) = 0;
@@ -113,11 +111,10 @@ void set_value<double>(clingcon_value_t *variant, double value) {
 class CSPPropagatorFacade : public PropagatorFacade {
 public:
     CSPPropagatorFacade(clingo_control_t *ctl, PropagatorConfig const &conf)
-    // here i need a backend, but maybe I'm not allowed to get one but only the back_end_t via the clingo function clingo_control_backend
-    : grounder_(ctl->backend()),
-      normalizer_(grounder_,nullptr)
+    : control_(ctl),
+      grounder_(control_.backend()),
+      normalizer_(grounder_,config_)
     {
-
         CLINGO_CALL(clingo_control_add(ctl,"base", nullptr, 0, R"(#theory csp {
     linear_term {
     + : 5, unary;
@@ -160,13 +157,13 @@ public:
     bool post_ground(clingo_control_t *ctl) {
         tp_ = std::make_unique<clingcon::TheoryParser>(grounder_,
                                                        normalizer_,
-                                                       ctl->theory_atoms());
-        if (!tp->readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
-        names_ = tp->postProcess();
+                                                       control_.theory_atoms());
+        if (!tp_->readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
+        names_ = tp_->postProcess();
 
 
-        for (unsigned int level = 0; level < tp->minimize().size(); ++level)
-            for (auto i : tp->minimize()[level])
+        for (unsigned int level = 0; level < tp_->minimize().size(); ++level)
+            for (auto i : tp_->minimize()[level])
             {
                 std::vector<clingcon::View> mini;
                 mini.emplace_back(i.second);
@@ -181,16 +178,16 @@ public:
     
         if (!conflict) conflict = !normalizer_.finalize();
     
-        if (conflict) ctl.backend().rule(false, {}, {});
+        if (conflict) control_.backend().rule(false, {}, {});
     
         std::vector< clingcon::Variable > lowerBounds, upperBounds;
         normalizer_.variablesWithoutBounds(lowerBounds, upperBounds);
         for (auto i : lowerBounds)
-            std::cerr << "Warning: Variable " << tp->getName(i)
+            std::cerr << "Warning: Variable " << tp_->getName(i)
                       << " has unrestricted lower bound, set to " << clingcon::Domain::min << std::endl;
     
         for (auto i : upperBounds)
-            std::cerr << "Warning: Variable " << tp->getName(i)
+            std::cerr << "Warning: Variable " << tp_->getName(i)
                       << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
     
 
@@ -212,38 +209,38 @@ public:
     }
 
     bool lookup_symbol(clingo_symbol_t name, size_t *index) override {
-        *index = prop_.lookup(name) + 1;
-        return *index <= prop_.num_vertices();
+//        *index = prop_->lookup(name) + 1;
+//        return *index <= prop_.num_vertices();
     }
 
     clingo_symbol_t get_symbol(size_t index) override {
-        return prop_.symbol(index - 1).to_c();
+//        return prop_->symbol(index - 1).to_c();
     }
 
     bool has_value(uint32_t thread_id, size_t index) override {
-        return prop_.has_lower_bound(thread_id, index - 1);
+//        return prop_->has_lower_bound(thread_id, index - 1);
     }
     void get_value(uint32_t thread_id, size_t index, clingcon_value_t *value) override {
-        assert(index > 0 && index <= prop_.num_vertices());
-        set_value(value, prop_.lower_bound(thread_id, index - 1));
+//        assert(index > 0 && index <= prop_.num_vertices());
+//        set_value(value, prop_.lower_bound(thread_id, index - 1));
     }
 
     bool next(uint32_t thread_id, size_t *current) override {
-        for (++*current; *current <= prop_.num_vertices(); ++*current) {
-            if (prop_.has_lower_bound(thread_id, *current - 1)) {
-                return true;
-            }
-        }
-        return false;
+//        for (++*current; *current <= prop_.num_vertices(); ++*current) {
+//            if (prop_.has_lower_bound(thread_id, *current - 1)) {
+//                return true;
+//            }
+//        }
+//        return false;
     }
     void extend_model(Model &m) override {
-        prop_.extend_model(m);
+//        prop_->extend_model(m);
     }
     void on_statistics(UserStatistics& step, UserStatistics &accu) override {
-        accu_.accu(step_);
-        add_statistics(step, step_);
-        add_statistics(accu, accu_);
-        step_.reset();
+//        accu_.accu(step_);
+//        add_statistics(step, step_);
+//        add_statistics(accu, accu_);
+//        step_.reset();
     }
 
     void add_statistics(UserStatistics& root, Stats const &stats) {
@@ -276,6 +273,8 @@ private:
     Stats step_;
     Stats accu_;
     std::unique_ptr<ClingconPropagator> prop_{nullptr};
+    Clingo::Control control_;
+    clingcon::Config config_;
     clingcon::Grounder grounder_;
     clingcon::Normalizer normalizer_;
     std::unique_ptr<clingcon::TheoryParser> tp_;
@@ -295,12 +294,7 @@ extern "C" bool clingcon_create_propagator(clingcon_propagator_t **prop) {
 
 extern "C" bool clingcon_register_propagator(clingcon_propagator_t *prop, clingo_control_t* ctl) {
     CLINGCON_TRY {
-        if (!prop->rdl) {
-            prop->clingcon = std::make_unique<CSPPropagatorFacade<int>>(ctl, prop->config);
-        }
-        else {
-            prop->clingcon = std::make_unique<CSPPropagatorFacade<double>>(ctl, prop->config);
-        }
+        prop->clingcon = std::make_unique<CSPPropagatorFacade>(ctl, prop->config);
     }
     CLINGCON_CATCH;
 }
@@ -311,12 +305,12 @@ extern "C" bool clingcon_destroy_propagator(clingcon_propagator_t *prop) {
 }
 
 extern "C" bool clingcon_pre_ground(clingcon_propagator_t *prop, clingo_control_t* ctl) {
-    CLINGCON_TRY { return prop->pre_ground(ctl); }
+    CLINGCON_TRY { return prop->clingcon->pre_ground(ctl); }
     CLINGCON_CATCH;
 }
 
 extern "C" bool clingcon_post_ground(clingcon_propagator_t *prop, clingo_control_t* ctl) {
-    CLINGCON_TRY { return prop->post_ground(ctl); }
+    CLINGCON_TRY { return prop->clingcon->post_ground(ctl); }
     CLINGCON_CATCH;
 }
 
@@ -362,7 +356,8 @@ bool set_config(char const *value, void *data, F f, G g) {
             return true;
         }
         else if (*value == ',' && parse_uint64(value + 1, &id) && id < 64) {
-            g(config.ensure(id));
+            //TODO: just removed it, dont know what it does, check again
+            //g(config.ensure(id));
             return true;
         }
     }
@@ -519,7 +514,7 @@ extern "C" bool clingcon_validate_options(clingcon_propagator_t *prop) {
 extern "C" bool clingcon_on_model(clingcon_propagator_t *prop, clingo_model_t* model) {
     CLINGCON_TRY {
         Model m(model);
-        prop->clingcon->extend_model(m);
+//        prop->clingcon->extend_model(m);
     }
     CLINGCON_CATCH;
 }
