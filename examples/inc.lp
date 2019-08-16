@@ -42,7 +42,6 @@ def main(prg):
 
 
 #program base.
-#include <csp>.
 &sum{x}>=0.
 &show {x}.
 

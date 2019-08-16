@@ -1,4 +1,3 @@
-#include <csp>.
 #const end=20.
 #const stepsize=7.
 step(0..end).

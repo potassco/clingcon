@@ -1,4 +1,3 @@
-#include <csp>.
 #const n = 10.
 
 pos(1..n).
@@ -11,3 +10,5 @@ pos(1..n).
 &distinct {q(X)-X+1 : pos(X)}.
 
 &show {q(X) : pos(X)}.
+
+%&show {q/1}.

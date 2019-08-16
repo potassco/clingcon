@@ -1,6 +1,5 @@
 #const istop = "UNKNOWN".
 #include <incmode>.
-#include <csp>.
 
 #const max=300.
 #program step(n).

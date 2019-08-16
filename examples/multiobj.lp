@@ -1,4 +1,3 @@
-#include <csp>.
 
 &sum {a; b; c} >= 113.
 

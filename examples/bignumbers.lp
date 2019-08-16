@@ -1,4 +1,3 @@
-#include <csp>.
 
 %%% This example uses unrestricted variables, which will give them the domain (-2^30 + 2 .. 2^30 -2)
 %%% which is -1073741822 .. 1073741822

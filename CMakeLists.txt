@@ -1,33 +1,69 @@
 cmake_minimum_required(VERSION 3.1)
 
-file(READ "app/clingcon/src/version.h" clingconh)
-string(REGEX MATCH "#define CLINGCON_VERSION \"([^\"]*)\"" clingconv ${clingconh})
+file(READ "libclingcon/clingcon.h" main)
+string(REGEX MATCH "#define CLINGCON_VERSION \"([^\"]*)\"" clingov ${main})
 
-project(CLINGCON VERSION "${CMAKE_MATCH_1}" LANGUAGES C CXX)
+project(CLINGCON VERSION "${CMAKE_MATCH_1}" LANGUAGES CXX)
 if (POLICY CMP0063)
     cmake_policy(SET CMP0063 NEW)
 endif()
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-	message(STATUS "No build type selected - using 'Release'")
-	set(CMAKE_BUILD_TYPE "Release")
+    message(STATUS "No build type selected - using 'Release'")
+    set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-include(CMakeDependentOption)
-#list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/clingo/cmake")
+set(clingo_header_group_name "Clingo Header Files")
+set(clingo_header_group
+    "${CLINGO_INCLUDE_DIR}/clingo.hh")
+source_group("${clingo_header_group_name}" FILES ${clingo_header_group})
 
 # Enable folders in IDEs like Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-
-
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_EXTENSIONS ON)
 
+include(GNUInstallDirs)
+include(CMakeDependentOption)
 
-option(CLINGCON_BUILD_TESTS       "build tests"                   OFF)
+option(CLINGCON_BUILD_WITH_SYSTEM_CLINGO "if true the local clingo copy will not be used" OFF)
+option(CLINGCON_BUILD_STATIC "do not build shared libraries" OFF)
+option(CLINGCON_MANAGE_RPATH "set rpath if not installed into system directory" ON)
+option(CLINGCON_BUILD_TESTS "build tests" OFF)
 
-option(CLINGCON_BUILD_APPS        "build applications"             ON)
+CMAKE_DEPENDENT_OPTION(CLINGCON_BUILD_SHARED "build clingo-dl library shared" ON "NOT CLINGCON_BUILD_STATIC" OFF)
+
+mark_as_advanced(CLINGCON_BUILD_STATIC)
+mark_as_advanced(CLINGCON_BUILD_SHARED)
+
+if (MSVC)
+    set(VC_RELEASE_LINK_OPTIONS /LTCG)
+    SET(CMAKE_EXE_LINKER_FLAGS_RELEASE    "${CMAKE_EXE_LINKER_FLAGS_RELEASE}    ${VC_RELEASE_LINK_OPTIONS}")
+    SET(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} ${VC_RELEASE_LINK_OPTIONS}")
+    SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${VC_RELEASE_LINK_OPTIONS}")
+    SET(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS_RELEASE} ${VC_RELEASE_LINK_OPTIONS}")
+    if (CLINGCON_BUILD_STATIC)
+        # force static runtime
+        string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    endif()
+endif()
+
+if (POLICY CMP0063 AND CLINGCON_BUILD_SHARED)
+    set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+    set(CMAKE_C_VISIBILITY_PRESET hidden)
+endif()
+
+enable_testing()
+
+if (CLINGCON_MANAGE_RPATH)
+    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+    list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_FULL_LIBDIR}" isSystemDir)
+    if ("${isSystemDir}" STREQUAL "-1")
+        set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
+    endif()
+endif()
 
 if (NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -42,31 +78,64 @@ if (NOT CMAKE_IMPORT_LIBRARY_PREFIX)
     set(CMAKE_IMPORT_LIBRARY_PREFIX import_)
 endif()
 
-if (POLICY CMP0063 AND (CLINGO_BUILD_SHARED OR PYTHONLIBS_FOUND OR LUA_FOUND))
-    set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-    set(CMAKE_C_VISIBILITY_PRESET hidden)
+if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/clingo/CMakeLists.txt OR CLINGCON_BUILD_WITH_SYSTEM_CLINGO)
+    find_package(Clingo REQUIRED)
+    message(STATUS "Using clingo's system installation")
+else()
+    message(STATUS "Using local copy of clingo")
+    set(CLINGO_MANAGE_RPATH OFF CACHE INTERNAL "" FORCE)
+    set(CLINGO_BUILD_APPS OFF CACHE INTERNAL "" FORCE)
+    set(CLINGO_BUILD_TESTS OFF CACHE INTERNAL "" FORCE)
+    set(CLINGO_BUILD_EXAMPLES OFF CACHE INTERNAL "" FORCE)
+    set(CLINGO_BUILD_STATIC ${CLINGCON_BUILD_STATIC} CACHE BOOL "")
+    set(CLINGO_BUILD_SHARED ${CLINGCON_BUILD_SHARED} CACHE BOOL "")
+    add_subdirectory(clingo)
 endif()
 
-enable_testing()
+add_subdirectory(libclingcon)
+add_subdirectory(app)
 
-# NOTE: assumes that submodule has been initialized
-set(clingcon_library_targets libclingo libgringo libpotassco libclasp libreify libopts liblp liborder libclingcon)
 
-set(CLINGO_BUILD_STATIC ON CACHE BOOL "need to build static")
-set(CLINGO_BUILD_APPS OFF CACHE BOOL "no other apps")
-set(CLASP_BUILD_TEST OFF CACHE BOOL "no clasp tests")
-set(CLINGO_BUILD_WITH_PYTHON OFF CACHE BOOL "no python support - use version 3.2.1")
-set(CLINGO_BUILD_WITH_LUA OFF CACHE BOOL "no lua support - use version 3.2.1")
-add_subdirectory(clingo)
-add_subdirectory(libcsp)
 
-if (CLINGCON_BUILD_APPS)
-    add_subdirectory(app/clingcon)
-endif()
 
-#if (NOT CLINGO_BUILD_STATIC AND (CLINGO_BUILD_SHARED OR PYTHONLIBS_FOUND OR LUA_FOUND))
-#    foreach(target ${clingo_library_targets})
-#        set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-#    endforeach()
+
+
+
+#
+#
+#if (CLINGCON_BUILD_TESTS)
+#    set(test_src_group_name "Test Source Files")
+#    set(test_src_group
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/src/constrainttest.cpp"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/src/domaintest.cpp"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/src/linearpropagatortest.cpp"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/src/translatortest.cpp"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/src/clingcontest.cpp"
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/src/main.cpp")
+#    source_group("${test_src_group_name}" FILES ${test_src_group_name})
+#    set(test_src
+#        ${test_src_group})
+#    
+#    set(test_header_group_name "Test Header Files")
+#    set(test_header_group
+#        "${CMAKE_CURRENT_SOURCE_DIR}/test/test/testapp.h")
+#    source_group("${test_header_group_name}" FILES ${test_header_group})
+#    set(test_header
+#        ${test_header_group})
+#
+#    add_executable(testclingcon ${clingo_header} ${clingcon_header} ${clingcon_src_group} ${test_src} ${test_header})
+#        
+#    target_include_directories(testclingcon
+#        PUBLIC
+#        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+#        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/test>" 
+#        PRIVATE
+#        "$<BUILD_INTERFACE:${CLINGO_INCLUDE_DIR}>")
+#    
+#    target_link_libraries(testclingcon PUBLIC ${CLINGOLIB})
+#    set_target_properties(testclingcon PROPERTIES FOLDER exe)
+#    
+#    install(TARGETS testclingcon RUNTIME DESTINATION bin)
+#
 #endif()
-
+#

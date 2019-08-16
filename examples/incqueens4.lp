@@ -1,7 +1,6 @@
 %%% use --distinct-to-card=false
 #const istop = "UNKNOWN".
 #include <incmode>.
-#include <csp>.
 
 
 #program step(n).

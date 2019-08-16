@@ -1,3 +1,27 @@
+New Questions:
+ - Why do I register dl propagator before file loading, grounding. Maybe a more general naming scheme for theory interface like init/preground/postground/presolve/postsolve/deinit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 What is the exact relation between grounding atoms/literals and solver literals (n to 1 I assume)
 
 - shouldn't I always use solver literals ?

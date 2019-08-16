@@ -11,7 +11,6 @@ def main(prg):
   prg.solve(on_model=on_model)
 #end.
 
-#include <csp>.
 &dom{1..10} = x.
 
 {a}.

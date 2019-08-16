@@ -23,7 +23,6 @@ function main(prg)
 end
 
 #end.
-#include <csp>.
 
 
 {a}.
