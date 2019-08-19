@@ -111,9 +111,8 @@ void set_value<double>(clingcon_value_t *variant, double value) {
 class CSPPropagatorFacade : public PropagatorFacade {
 public:
     CSPPropagatorFacade(clingo_control_t *ctl, PropagatorConfig const &conf)
-    : control_(ctl),
-      grounder_(control_.backend()),
-      normalizer_(grounder_,config_)
+    : config_(10000, false, 1000, 10000, 4),
+      control_(ctl, false)
     {
         CLINGO_CALL(clingo_control_add(ctl,"base", nullptr, 0, R"(#theory csp {
     linear_term {
@@ -155,49 +154,55 @@ public:
     };
 
     bool post_ground(clingo_control_t *ctl) {
-        tp_ = std::make_unique<clingcon::TheoryParser>(grounder_,
-                                                       normalizer_,
-                                                       control_.theory_atoms());
-        if (!tp_->readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
-        names_ = tp_->postProcess();
+
+        Grounder grounder(control_.backend());
+        Normalizer normalizer(grounder,config_);
+        clingcon::TheoryParser tp(grounder,
+                                  normalizer,
+                                  control_.theory_atoms());
+        if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
+        names_ = tp.postProcess();
 
 
-        for (unsigned int level = 0; level < tp_->minimize().size(); ++level)
-            for (auto i : tp_->minimize()[level])
+        for (unsigned int level = 0; level < tp.minimize().size(); ++level)
+            for (auto i : tp.minimize()[level])
             {
                 std::vector<clingcon::View> mini;
                 mini.emplace_back(i.second);
                 for (auto& j : mini)
-                   normalizer_.addMinimize(j,level);
+                   normalizer.addMinimize(j,level);
 
             }
         bool conflict = false;
-        conflict = !normalizer_.prepare();
+        conflict = !normalizer.prepare();
     
-        if (!conflict) conflict = !normalizer_.propagate();
+        if (!conflict) conflict = !normalizer.propagate();
     
-        if (!conflict) conflict = !normalizer_.finalize();
+        if (!conflict) conflict = !normalizer.finalize();
     
-        if (conflict) control_.backend().rule(false, {}, {});
+        if (conflict) grounder.createClause({grounder.falseLit()});
+        //control_.backend().rule(false, {}, {});
     
         std::vector< clingcon::Variable > lowerBounds, upperBounds;
-        normalizer_.variablesWithoutBounds(lowerBounds, upperBounds);
+        normalizer.variablesWithoutBounds(lowerBounds, upperBounds);
         for (auto i : lowerBounds)
-            std::cerr << "Warning: Variable " << tp_->getName(i)
+            std::cerr << "Warning: Variable " << tp.getName(i)
                       << " has unrestricted lower bound, set to " << clingcon::Domain::min << std::endl;
     
         for (auto i : upperBounds)
-            std::cerr << "Warning: Variable " << tp_->getName(i)
+            std::cerr << "Warning: Variable " << tp.getName(i)
                       << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
     
 
 
 
-        prop_ = std::make_unique<ClingconPropagator>(grounder_.trueLit(),
-                                                     normalizer_.getVariableCreator(),
-                                                     normalizer_.getConfig(),
+        //TODO error, variable creator will get lost as normalizer is deleted,
+        // need to move ownership, deeply think about multi-solve, what needs to be reused
+        prop_ = std::make_unique<ClingconPropagator>(grounder.trueLit(),
+                                                     normalizer.getVariableCreator(),
+                                                     normalizer.getConfig(),
                                                      &names_,
-                                                     normalizer_.constraints());
+                                                     normalizer.constraints());
         static clingo_propagator_t prop = {
             init,
             propagate,
@@ -272,12 +277,9 @@ public:
 private:
     Stats step_;
     Stats accu_;
+    clingcon::Config config_;
     std::unique_ptr<ClingconPropagator> prop_{nullptr};
     Clingo::Control control_;
-    clingcon::Config config_;
-    clingcon::Grounder grounder_;
-    clingcon::Normalizer normalizer_;
-    std::unique_ptr<clingcon::TheoryParser> tp_;
     clingcon::NameList names_;
 };
 
