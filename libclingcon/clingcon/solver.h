@@ -68,18 +68,35 @@ public:
 class Grounder : public BaseSolver
 {
 public:
-    Grounder(Clingo::Backend c)
+    Grounder(Clingo::Control& c)
         : c_(c)
-        , trueLit_(c.add_atom())
     {
-        c_.rule(false, {Clingo::atom_t(std::abs(trueLit_))}, {}); // add a fact for trueLit_
+        activate();
+        trueLit_ = backend_->add_atom();
+        backend_->rule(false, {Clingo::atom_t(std::abs(trueLit_))}, {}); // add a fact for trueLit_
     }
+    
+    void activate() {
+        auto c_ptr = c_.backend().to_c();  /// dirty, should begin/end an backend
+        backend_ = std::make_unique<Clingo::Backend>(c_ptr);
+        
+    }
+    
+    void deactivate() {
+        backend_.reset(nullptr);
+    }
+    
+    bool isActivated() const {
+        return bool(backend_);
+    }
+    
 
     /// creates a new literal, makes a choice rule for it
     Literal createNewLiteral()
     {
-        Literal l = c_.add_atom();
-        c_.rule(true, {Clingo::atom_t(std::abs(l))}, {});
+        assert(isActivated());
+        Literal l = backend_->add_atom();
+        backend_->rule(true, {Clingo::atom_t(std::abs(l))}, {});
         return l;
     }
 
@@ -94,6 +111,7 @@ public:
 
     bool createClause(Clingo::LiteralSpan lvv)
     {
+        assert(isActivated());
         // class Negate {
         // public:
         //    Literal operator ()(Literal const *id) const {
@@ -109,12 +127,13 @@ public:
         {
             v.push_back(-i);
         }
-        c_.rule(false, {}, {&v[0], v.size()});
+        backend_->rule(false, {}, {&v[0], v.size()});
         return !(lvv.size() == 1 && lvv[0] == -trueLit_);
     }
 
     bool setEqual(const Literal &a, const Literal &b)
     {
+        assert(isActivated());
         createClause({a, -b});
         createClause({-a, b});
         return a != -b;
@@ -123,21 +142,23 @@ public:
     /// let v equal the cardinality constraint
     bool createCardinality(Literal v, int lb, LitVec &&lits)
     {
+        assert(isActivated());
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
-        // c_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
+        // backend_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
         std::vector< Clingo::WeightedLiteral > wlv;
         for (auto i : lits)
         {
             wlv.emplace_back(i, 1);
         }
-        auto aux = c_.add_atom();
-        c_.weight_rule(false, {aux}, lb, {&wlv[0], wlv.size()});
+        auto aux = backend_->add_atom();
+        backend_->weight_rule(false, {aux}, lb, {&wlv[0], wlv.size()});
         return setEqual(aux,v);
     }
 
     bool createChoice(Clingo::AtomSpan atoms)
     {
-        c_.rule(true, atoms, {});
+        assert(isActivated());
+        backend_->rule(true, atoms, {});
         return true;
     }
 
@@ -148,11 +169,13 @@ public:
 
     void addMinimize(Literal v, int32 weight, unsigned int level)
     {
-        c_.minimize(level, {Clingo::WeightedLiteral(v, weight)});
+        assert(isActivated());
+        backend_->minimize(level, {Clingo::WeightedLiteral(v, weight)});
     }
 
 private:
-    Clingo::Backend c_;
+    Clingo::Control& c_;
+    std::unique_ptr<Clingo::Backend> backend_;// must be activated/deactivated
     Literal trueLit_;
 };
 

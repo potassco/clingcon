@@ -81,7 +81,7 @@ struct Stats {
 
 struct PropagatorFacade {
 public:
-    virtual ~PropagatorFacade() {};
+    virtual ~PropagatorFacade() {}
     virtual bool pre_ground(clingo_control_t *ctl) = 0;
     virtual bool post_ground(clingo_control_t *ctl) = 0;
     virtual bool lookup_symbol(clingo_symbol_t name, size_t *index) = 0;
@@ -112,8 +112,11 @@ class CSPPropagatorFacade : public PropagatorFacade {
 public:
     CSPPropagatorFacade(clingo_control_t *ctl, PropagatorConfig const &conf)
     : config_(10000, false, 1000, 10000, 4),
-      control_(ctl, false)
+      control_(ctl, false),
+      grounder_(control_),
+      normalizer_(grounder_,config_)
     {
+        grounder_.deactivate();
         CLINGO_CALL(clingo_control_add(ctl,"base", nullptr, 0, R"(#theory csp {
     linear_term {
     + : 5, unary;
@@ -155,10 +158,9 @@ public:
 
     bool post_ground(clingo_control_t *ctl) {
 
-        Grounder grounder(control_.backend());
-        Normalizer normalizer(grounder,config_);
-        clingcon::TheoryParser tp(grounder,
-                                  normalizer,
+        grounder_.activate();
+        clingcon::TheoryParser tp(grounder_,
+                                  normalizer_,
                                   control_.theory_atoms());
         if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
         names_ = tp.postProcess();
@@ -170,21 +172,21 @@ public:
                 std::vector<clingcon::View> mini;
                 mini.emplace_back(i.second);
                 for (auto& j : mini)
-                   normalizer.addMinimize(j,level);
+                   normalizer_.addMinimize(j,level);
 
             }
         bool conflict = false;
-        conflict = !normalizer.prepare();
+        conflict = !normalizer_.prepare();
     
-        if (!conflict) conflict = !normalizer.propagate();
+        if (!conflict) conflict = !normalizer_.propagate();
     
-        if (!conflict) conflict = !normalizer.finalize();
+        if (!conflict) conflict = !normalizer_.finalize();
     
-        if (conflict) grounder.createClause({grounder.falseLit()});
+        if (conflict) grounder_.createClause({grounder_.falseLit()});
         //control_.backend().rule(false, {}, {});
     
         std::vector< clingcon::Variable > lowerBounds, upperBounds;
-        normalizer.variablesWithoutBounds(lowerBounds, upperBounds);
+        normalizer_.variablesWithoutBounds(lowerBounds, upperBounds);
         for (auto i : lowerBounds)
             std::cerr << "Warning: Variable " << tp.getName(i)
                       << " has unrestricted lower bound, set to " << clingcon::Domain::min << std::endl;
@@ -198,11 +200,11 @@ public:
 
         //TODO error, variable creator will get lost as normalizer is deleted,
         // need to move ownership, deeply think about multi-solve, what needs to be reused
-        prop_ = std::make_unique<ClingconPropagator>(grounder.trueLit(),
-                                                     normalizer.getVariableCreator(),
-                                                     normalizer.getConfig(),
+        prop_ = std::make_unique<ClingconPropagator>(grounder_.trueLit(),
+                                                     normalizer_.getVariableCreator(),
+                                                     normalizer_.getConfig(),
                                                      &names_,
-                                                     normalizer.constraints());
+                                                     normalizer_.constraints());
         static clingo_propagator_t prop = {
             init,
             propagate,
@@ -210,7 +212,9 @@ public:
             check,
             nullptr
         };
-        CLINGO_CALL(clingo_control_register_propagator(ctl, &prop, &prop_, false));
+        grounder_.deactivate();
+        CLINGO_CALL(clingo_control_register_propagator(ctl, &prop, prop_.get(), false));
+        return true;
     }
 
     bool lookup_symbol(clingo_symbol_t name, size_t *index) override {
@@ -280,6 +284,8 @@ private:
     clingcon::Config config_;
     std::unique_ptr<ClingconPropagator> prop_{nullptr};
     Clingo::Control control_;
+    clingcon::Grounder grounder_;
+    clingcon::Normalizer normalizer_;
     clingcon::NameList names_;
 };
 
