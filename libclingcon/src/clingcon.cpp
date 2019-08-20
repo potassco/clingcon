@@ -243,7 +243,7 @@ public:
 //        return false;
     }
     void extend_model(Model &m) override {
-//        prop_->extend_model(m);
+        prop_->extend_model(m);
     }
     void on_statistics(UserStatistics& step, UserStatistics &accu) override {
 //        accu_.accu(step_);
@@ -522,7 +522,7 @@ extern "C" bool clingcon_validate_options(clingcon_propagator_t *prop) {
 extern "C" bool clingcon_on_model(clingcon_propagator_t *prop, clingo_model_t* model) {
     CLINGCON_TRY {
         Model m(model);
-//        prop->clingcon->extend_model(m);
+        prop->clingcon->extend_model(m);
     }
     CLINGCON_CATCH;
 }

@@ -73,6 +73,7 @@ public:
     Solver &solver() { return s_; }
     const VolatileVariableStorage &getVVS() const { return p_.getVVS(); }
 
+    void extend_model(Clingo::Model& m) const;
     void printAssignment() const;
 
 private:
@@ -149,10 +150,11 @@ public:
     virtual void check(Clingo::PropagateControl &control) override;
     virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
 
-    void printAssignment(size_t threadID)
-    {
+    void extend_model(Clingo::Model &m) {
+        auto threadID = m.thread_id();
         assert(threads_.size() > threadID);
-        threads_[threadID].printAssignment();
+        threads_[threadID].extend_model(m);
+        
     }
 
 private:
