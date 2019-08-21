@@ -71,10 +71,6 @@ bool check(clingo_propagate_control_t* i, void* data)
     CLINGCON_CATCH;
 }
 
-struct PropagatorConfig {
-// TODO: fill with option flags etc...
-};
-
 struct Stats {
 // TODO: fill with stats information
 };
@@ -110,8 +106,8 @@ void set_value<double>(clingcon_value_t *variant, double value) {
 
 class CSPPropagatorFacade : public PropagatorFacade {
 public:
-    CSPPropagatorFacade(clingo_control_t *ctl, PropagatorConfig const &conf)
-    : config_(10000, false, 1000, 10000, 4),
+    CSPPropagatorFacade(clingo_control_t *ctl, Config const &conf)
+    : config_(conf),
       control_(ctl, false),
       grounder_(control_),
       normalizer_(grounder_,config_)
@@ -281,7 +277,7 @@ public:
 private:
     Stats step_;
     Stats accu_;
-    clingcon::Config config_;
+    const clingcon::Config& config_;
     std::unique_ptr<ClingconPropagator> prop_{nullptr};
     Clingo::Control control_;
     clingcon::Grounder grounder_;
@@ -292,7 +288,7 @@ private:
 struct clingcon_propagator {
     std::unique_ptr<PropagatorFacade> clingcon{nullptr};
     bool rdl;
-    PropagatorConfig config;
+    clingcon::Config config;
 };
 
 extern "C" bool clingcon_create_propagator(clingcon_propagator_t **prop) {
@@ -349,92 +345,91 @@ static char const *parse_uint64_pre(const char *value, void *data) {
 
     return value != it ? it : nullptr;
 }
+
+static char const *parse_int64_pre(const char *value, void *data) {
+    auto &res = *static_cast<int64_t*>(data);
+    std::size_t pos = 0;
+    try {
+        res = std::stoll(value,&pos);
+    } catch (const std::logic_error&) {
+        return value;
+    }
+    return value+pos;
+}
+
 static bool parse_uint64(const char *value, void *data) {
     value = parse_uint64_pre(value, data);
     return value && !*value;
 }
 
+static bool parse_int64(const char *value, void *data) {
+    value = parse_int64_pre(value, data);
+    return value && !*value;
+}
+
+
+
 template <typename F, typename G>
 bool set_config(char const *value, void *data, F f, G g) {
     try {
-        auto &config = *static_cast<PropagatorConfig*>(data);
+        auto &config = *static_cast<clingcon::Config*>(data);
         uint64_t id = 0;
         if (*value == '\0') {
             f(config);
             return true;
         }
-        else if (*value == ',' && parse_uint64(value + 1, &id) && id < 64) {
-            //TODO: just removed it, dont know what it does, check again
-            //g(config.ensure(id));
-            return true;
-        }
+        //else if (*value == ',' && parse_uint64(value + 1, &id) && id < 64) {
+        //    can be used for per thread options
+        //    //g(config.ensure(id));
+        //    return true;
+        //}
     }
     catch (...) { }
     return false;
 }
 
-//static bool parse_root(const char *value, void *data) {
-//    uint64_t x = 0;
-//    return (value = parse_uint64_pre(value, &x)) && set_config(value, data,
-//        [x](PropagatorConfig &config) { config.propagate_root = x; },
+static bool parse_translate_constraints(const char* value, void* data) {
+    int64 x = 0;
+    return (value = parse_int64_pre(value,&x)) && x >= -1 && set_config(value, data,
+        [x](clingcon::Config &config) { config.translateConstraints = x; },
 //        [x](ThreadConfig &config) { config.propagate_root = {true, x}; });
-//}
-//static bool parse_budget(const char *value, void *data) {
-//    uint64_t x = 0;
-//    return (value = parse_uint64_pre(value, &x)) && set_config(value, data,
-//        [x](PropagatorConfig &config) { config.propagate_budget = x; },
-//        [x](ThreadConfig &config) { config.propagate_budget = {true, x}; });
-//}
-//static bool parse_mutex(const char *value, void *data) {
-//    auto &pc = *static_cast<PropagatorConfig*>(data);
-//    uint64_t x = 0;
-//    if (!(value = parse_uint64_pre(value, &x))) { return false; }
-//    pc.mutex_size = x;
-//    if (*value == '\0') {
-//        pc.mutex_cutoff = 10 * x;
-//        return true;
-//    }
-//    if (*value == ',') {
-//        if (!parse_uint64(value+1, &x)) { return false; }
-//        pc.mutex_cutoff = x;
-//    }
-//    return true;
-//}
-//static bool parse_mode(const char *value, void *data) {
-//    PropagationMode mode = PropagationMode::Check;
-//    char const *rem = nullptr;
-//    if ((rem = iequals_pre(value, "no"))) {
-//        mode = PropagationMode::Check;
-//    }
-//    else if ((rem = iequals_pre(value, "inverse"))) {
-//        mode = PropagationMode::Trivial;
-//    }
-//    else if ((rem = iequals_pre(value, "partial+"))) {
-//        mode = PropagationMode::WeakPlus;
-//    }
-//    else if ((rem = iequals_pre(value, "partial"))) {
-//        mode = PropagationMode::Weak;
-//    }
-//    else if ((rem = iequals_pre(value, "full"))) {
-//        mode = PropagationMode::Strong;
-//    }
-//    return rem && set_config(rem, data,
-//        [mode](PropagatorConfig &config) { config.mode = mode; },
-//        [mode](ThreadConfig &config) { config.mode = {true, mode}; });
-//}
-//static bool parse_bool(const char *value, void *data) {
-//    auto &result = *static_cast<bool*>(data);
-//    if (iequals(value, "no") || iequals(value, "off") || iequals(value, "0")) {
-//        result = false;
-//        return true;
-//    }
-//    if (iequals(value, "yes") || iequals(value, "on") || iequals(value, "1")) {
-//        result = true;
-//        return true;
-//    }
-//    return false;
-//}
-//
+        [x](int a) { });
+}
+
+static bool parse_prop_strength(const char* value, void* data) {
+    uint64 x = 0;
+    return (value = parse_uint64_pre(value,&x)) && 1 <= x && x <= 4 && set_config(value, data,
+        [x](clingcon::Config &config) { config.propStrength = x; },
+        [x](int a) { });
+}
+
+static bool parse_min_lits_per_var(const char* value, void* data) {
+    int64 x = 0;
+    return (value = parse_int64_pre(value,&x)) && x >= -1 && set_config(value, data,
+        [x](clingcon::Config &config) { config.minLitsPerVar = x; },
+        [x](int a) { });
+}
+
+static bool parse_domain_propagation(const char* value, void* data) {
+    int64 x = 0;
+    return (value = parse_int64_pre(value,&x)) && x >= -1 && set_config(value, data,
+        [x](clingcon::Config &config) { config.domSize = x; },
+        [x](int a) { });
+}
+
+static bool parse_bool(const char *value, void *data) {
+    auto &result = *static_cast<bool*>(data);
+    if (iequals(value, "no") || iequals(value, "off") || iequals(value, "0")) {
+        result = false;
+        return true;
+    }
+    if (iequals(value, "yes") || iequals(value, "on") || iequals(value, "1")) {
+        result = true;
+        return true;
+    }
+    return false;
+}
+
 static bool check_parse(char const *key, bool ret) {
     if (!ret) {
         std::ostringstream msg;
@@ -446,24 +441,21 @@ static bool check_parse(char const *key, bool ret) {
 
 extern "C" bool clingcon_configure_propagator(clingcon_propagator_t *prop, char const *key, char const *value) {
     CLINGCON_TRY {
-//        if (strcmp(key, "propagate") == 0) {
-//            return check_parse("propagate", parse_mode(value, &prop->config));
-//        }
-//        if (strcmp(key, "propagate-root") == 0) {
-//            return check_parse("propagate-root", parse_root(value, &prop->config));
-//        }
-//        if (strcmp(key, "propagate-budget") == 0) {
-//            return check_parse("propgate-budget", parse_budget(value, &prop->config));
-//        }
-//        if (strcmp(key, "add-mutexes") == 0) {
-//            return check_parse("add-mutexes", parse_mutex(value, &prop->config));
-//        }
-//        if (strcmp(key, "rdl") == 0) {
-//            return check_parse("rdl", parse_bool(value, &prop->rdl));
-//        }
-//        if (strcmp(key, "strict") == 0) {
-//            return check_parse("strict", parse_bool(value, &prop->config));
-//        }
+        if (strcmp(key, "translate-constraints") == 0) {
+            return check_parse("translate-constraints", parse_translate_constraints(value, &prop->config));
+        }
+        if (strcmp(key, "prop-strength") == 0) {
+            return check_parse("prop-strength", parse_prop_strength(value, &prop->config));
+        }
+        if (strcmp(key, "min-lits-per-var") == 0) {
+            return check_parse("min-lits-per-var", parse_min_lits_per_var(value, &prop->config));
+        }
+        if (strcmp(key, "domain-propagation") == 0) {
+            return check_parse("domain-propagation", parse_domain_propagation(value, &prop->config));
+        }
+        if (strcmp(key, "distinct-to-card") == 0) {
+            return check_parse("distinct-to-card", parse_bool(value, &prop->config.alldistinctCard));
+        }
         std::ostringstream msg;
         msg << "invalid configuration key '" << key << "'";
         clingo_set_error(clingo_error_runtime, msg.str().c_str());
@@ -474,38 +466,29 @@ extern "C" bool clingcon_configure_propagator(clingcon_propagator_t *prop, char 
 
 extern "C" bool clingcon_register_options(clingcon_propagator_t *prop, clingo_options_t* options) {
     CLINGCON_TRY {
-//        char const * group = "Clingo.DL Options";
-//        CLINGO_CALL(clingo_options_add(options, group, "propagate",
-//            "Set propagation mode [no]\n"
-//            "      <mode>  : {no,inverse,partial,partial+,full}[,<thread>]\n"
-//            "        no      : No propagation; only detect conflicts\n"
-//            "        inverse : Check inverse constraints\n"
-//            "        partial : Detect some conflicting constraints\n"
-//            "        partial+: Detect some more conflicting constraints\n"
-//            "        full    : Detect all conflicting constraints\n"
-//            "      <thread>: Restrict to thread",
-//            &parse_mode, &prop->config, true, "<mode>"));
-//        CLINGO_CALL(clingo_options_add(options, group, "propagate-root",
-//            "Enable full propagation below decision level [0]\n"
-//            "      <arg>   : <n>[,<thread>]\n"
-//            "      <n>     : Upper bound for decision level\n"
-//            "      <thread>: Restrict to thread",
-//            &parse_root, &prop->config, true, "<arg>"));
-//        CLINGO_CALL(clingo_options_add(options, group, "propagate-budget",
-//            "Enable full propagation limiting to budget [0]\n"
-//            "      <arg>   : <n>[,<thread>]\n"
-//            "      <n>     : Budget roughly corresponding to cost of consistency checks\n"
-//            "                (if possible use with --propagate-root greater 0)\n"
-//            "      <thread>: Restrict to thread",
-//            &parse_budget, &prop->config, true, "<arg>"));
-//        CLINGO_CALL(clingo_options_add(options, group, "add-mutexes",
-//            "Add mutexes in a preprocessing step [0]\n"
-//            "      <arg>   : <max>[,<cut>]\n"
-//            "      <max>   : Maximum size of mutexes to add\n"
-//            "      <cut>   : Limit costs to calculate mutexes\n",
-//            &parse_mutex, &prop->config, true, "<arg>"));
-//        CLINGO_CALL(clingo_options_add_flag(options, group, "rdl", "Enable support for real numbers", &prop->rdl));
-//        CLINGO_CALL(clingo_options_add_flag(options, group, "strict", "Enable strict mode", &prop->config.strict));
+        char const *group = "Clingcon Options";
+        prop->config.alldistinctCard = false;
+        prop->config.domSize = 10000;
+        prop->config.minLitsPerVar = 1000;
+        prop->config.propStrength = 4;
+        prop->config.translateConstraints = 10000;
+        CLINGO_CALL(clingo_options_add(options, group, "translate-constraints",
+                    "Translate constraints with an estimated "
+                    "number of nogoods less than <n> (-1=all) (default: 10000).",
+                    &parse_translate_constraints, &(prop->config), false, "<n>"));
+        CLINGO_CALL(clingo_options_add(options, group, "prop-strength",
+                    "Propagation strength <n> {1=weak .. 4=strong} (default: 4) ",
+                    &parse_prop_strength, &(prop->config), false, "<n>"));
+        CLINGO_CALL(clingo_options_add(options, group, "min-lits-per-var",
+                    "Creates at least <n> literals per variable (-1=all) (default: 1000)",
+                    &parse_min_lits_per_var, &(prop->config), false, "<n>"));
+        CLINGO_CALL(clingo_options_add(options, group, "domain-propagation",
+                    "Restrict the exponential runtime behaviour of "
+                    "domain propagation (-1=full propagation) "
+                    "(default: 10000)",
+                    &parse_domain_propagation, &(prop->config), false, "<n>"));
+        CLINGO_CALL(clingo_options_add_flag(options, group, "distinct-to-card",
+                    "Translate distinct constraint using cardinality constraints (default: false)", &prop->config.alldistinctCard));
     }
     CLINGCON_CATCH;
 }
