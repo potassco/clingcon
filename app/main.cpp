@@ -33,31 +33,27 @@ using namespace Clingo;
 class ClingconApp : public Clingo::Application, private SolveEventHandler {
 public:
     ClingconApp() {
-        CLINGO_CALL(clingcon_create_propagator(&prop_));
+        CLINGO_CALL(clingcon_create(&theory_));
     }
-    ~ClingconApp() { clingcon_destroy_propagator(prop_); }
+    ~ClingconApp() { clingcon_destroy(theory_); }
     char const *program_name() const noexcept override { return "clingcon"; }
     char const *version() const noexcept override { return CLINGCON_VERSION; }
     bool on_model(Model &model) override {
-        CLINGO_CALL(clingcon_on_model(prop_, model.to_c()));
+        CLINGO_CALL(clingcon_on_model(theory_, model.to_c()));
         return true;
     }
 
     void add_stats(UserStatistics root) {
- //       if (found_bound_) {
-//            UserStatistics diff = root.add_subkey("DifferenceLogic", StatisticsType::Map);
-//            diff.add_subkey("Optimization", StatisticsType::Value).set_value(bound_value_);
-//        }
     }
 
     void on_statistics(UserStatistics step, UserStatistics accu) override {
-//        add_stats(step);
-//        add_stats(accu);
-//        CLINGO_CALL(clingcon_on_statistics(prop_, step.to_c(), accu.to_c()));
+        add_stats(step);
+        add_stats(accu);
+        CLINGO_CALL(clingcon_on_statistics(theory_, step.to_c(), accu.to_c()));
     }
 
     void main(Control &ctl, StringSpan files) override {
-        CLINGO_CALL(clingcon_register_propagator(prop_, ctl.to_c()));
+        CLINGO_CALL(clingcon_register(theory_, ctl.to_c()));
         for (auto &file : files) {
             ctl.load(file);
         }
@@ -65,22 +61,21 @@ public:
             ctl.load("-");
         }
 
-        CLINGO_CALL(clingcon_pre_ground(prop_, ctl.to_c()));
         ctl.ground({{"base", {}}});
-        CLINGO_CALL(clingcon_post_ground(prop_, ctl.to_c()));
+        CLINGO_CALL(clingcon_prepare(theory_, ctl.to_c()));
 
         ctl.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
     }
 
     void register_options(ClingoOptions &options) override {
-        CLINGO_CALL(clingcon_register_options(prop_, options.to_c()));
+        CLINGO_CALL(clingcon_register_options(theory_, options.to_c()));
    }
 
     void validate_options() override {
-        CLINGO_CALL(clingcon_validate_options(prop_));
+        CLINGO_CALL(clingcon_validate_options(theory_));
     }
 private:
-    clingcon_propagator_t *prop_;
+    clingcon_theory_t *theory_;
 };
 
 int main(int argc, char *argv[]) {

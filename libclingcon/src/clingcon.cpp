@@ -78,8 +78,7 @@ struct Stats {
 struct PropagatorFacade {
 public:
     virtual ~PropagatorFacade() {}
-    virtual bool pre_ground(clingo_control_t *ctl) = 0;
-    virtual bool post_ground(clingo_control_t *ctl) = 0;
+    virtual bool prepare(clingo_control_t *ctl) = 0;
     virtual bool lookup_symbol(clingo_symbol_t name, size_t *index) = 0;
     virtual clingo_symbol_t get_symbol(size_t index) = 0;
     virtual bool has_value(uint32_t thread_id, size_t index) = 0;
@@ -148,11 +147,7 @@ public:
 }.)"));
     }
 
-    bool pre_ground(clingo_control_t *ctl) {
-        return true;
-    };
-
-    bool post_ground(clingo_control_t *ctl) {
+    bool prepare(clingo_control_t *ctl) {
 
         grounder_.activate();
         clingcon::TheoryParser tp(grounder_,
@@ -285,36 +280,31 @@ private:
     clingcon::NameList names_;
 };
 
-struct clingcon_propagator {
+struct clingcon_theory {
     std::unique_ptr<PropagatorFacade> clingcon{nullptr};
     bool rdl;
     clingcon::Config config;
 };
 
-extern "C" bool clingcon_create_propagator(clingcon_propagator_t **prop) {
-    CLINGCON_TRY { *prop = new clingcon_propagator{}; }
+extern "C" bool clingcon_create(clingcon_theory_t **prop) {
+    CLINGCON_TRY { *prop = new clingcon_theory{}; }
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_register_propagator(clingcon_propagator_t *prop, clingo_control_t* ctl) {
+extern "C" bool clingcon_register(clingcon_theory_t *prop, clingo_control_t* ctl) {
     CLINGCON_TRY {
         prop->clingcon = std::make_unique<CSPPropagatorFacade>(ctl, prop->config);
     }
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_destroy_propagator(clingcon_propagator_t *prop) {
+extern "C" bool clingcon_destroy(clingcon_theory_t *prop) {
     CLINGCON_TRY { delete prop; }
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_pre_ground(clingcon_propagator_t *prop, clingo_control_t* ctl) {
-    CLINGCON_TRY { return prop->clingcon->pre_ground(ctl); }
-    CLINGCON_CATCH;
-}
-
-extern "C" bool clingcon_post_ground(clingcon_propagator_t *prop, clingo_control_t* ctl) {
-    CLINGCON_TRY { return prop->clingcon->post_ground(ctl); }
+extern "C" bool clingcon_prepare(clingcon_theory_t *prop, clingo_control_t* ctl) {
+    CLINGCON_TRY { return prop->clingcon->prepare(ctl); }
     CLINGCON_CATCH;
 }
 
@@ -439,7 +429,7 @@ static bool check_parse(char const *key, bool ret) {
     return ret;
 }
 
-extern "C" bool clingcon_configure_propagator(clingcon_propagator_t *prop, char const *key, char const *value) {
+extern "C" bool clingcon_configure_theory(clingcon_theory_t *prop, char const *key, char const *value) {
     CLINGCON_TRY {
         if (strcmp(key, "translate-constraints") == 0) {
             return check_parse("translate-constraints", parse_translate_constraints(value, &prop->config));
@@ -464,7 +454,7 @@ extern "C" bool clingcon_configure_propagator(clingcon_propagator_t *prop, char 
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_register_options(clingcon_propagator_t *prop, clingo_options_t* options) {
+extern "C" bool clingcon_register_options(clingcon_theory_t *prop, clingo_options_t* options) {
     CLINGCON_TRY {
         char const *group = "Clingcon Options";
         prop->config.alldistinctCard = false;
@@ -493,7 +483,7 @@ extern "C" bool clingcon_register_options(clingcon_propagator_t *prop, clingo_op
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_validate_options(clingcon_propagator_t *prop) {
+extern "C" bool clingcon_validate_options(clingcon_theory_t *prop) {
     CLINGCON_TRY {
 //        if (prop->config.strict && prop->rdl) {
 //            throw std::runtime_error("real difference logic not available with strict semantics");
@@ -502,7 +492,7 @@ extern "C" bool clingcon_validate_options(clingcon_propagator_t *prop) {
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_on_model(clingcon_propagator_t *prop, clingo_model_t* model) {
+extern "C" bool clingcon_on_model(clingcon_theory_t *prop, clingo_model_t* model) {
     CLINGCON_TRY {
         Model m(model);
         prop->clingcon->extend_model(m);
@@ -510,31 +500,31 @@ extern "C" bool clingcon_on_model(clingcon_propagator_t *prop, clingo_model_t* m
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_lookup_symbol(clingcon_propagator_t *prop_, clingo_symbol_t symbol, size_t *index) {
+extern "C" bool clingcon_lookup_symbol(clingcon_theory_t *prop_, clingo_symbol_t symbol, size_t *index) {
     return prop_->clingcon->lookup_symbol(symbol, index);
 }
 
-extern "C" clingo_symbol_t clingcon_get_symbol(clingcon_propagator_t *prop, size_t index) {
+extern "C" clingo_symbol_t clingcon_get_symbol(clingcon_theory_t *prop, size_t index) {
     return prop->clingcon->get_symbol(index);
 }
 
-extern "C" void clingcon_assignment_begin(clingcon_propagator_t *, uint32_t, size_t *current) {
+extern "C" void clingcon_assignment_begin(clingcon_theory_t *, uint32_t, size_t *current) {
     *current = 0;
 }
 
-extern "C" bool clingcon_assignment_next(clingcon_propagator_t *prop, uint32_t thread_id, size_t *index) {
+extern "C" bool clingcon_assignment_next(clingcon_theory_t *prop, uint32_t thread_id, size_t *index) {
     return prop->clingcon->next(thread_id, index);
 }
 
-extern "C" bool clingcon_assignment_has_value(clingcon_propagator_t *prop, uint32_t thread_id, size_t index) {
+extern "C" bool clingcon_assignment_has_value(clingcon_theory_t *prop, uint32_t thread_id, size_t index) {
     return prop->clingcon->has_value(thread_id, index);
 }
 
-extern "C" void clingcon_assignment_get_value(clingcon_propagator_t *prop, uint32_t thread_id, size_t index, clingcon_value_t *value) {
+extern "C" void clingcon_assignment_get_value(clingcon_theory_t *prop, uint32_t thread_id, size_t index, clingcon_value_t *value) {
     prop->clingcon->get_value(thread_id, index, value);
 }
 
-extern "C" bool clingcon_on_statistics(clingcon_propagator_t *prop, clingo_statistics_t* step, clingo_statistics_t* accu) {
+extern "C" bool clingcon_on_statistics(clingcon_theory_t *prop, clingo_statistics_t* step, clingo_statistics_t* accu) {
     CLINGCON_TRY {
 //        uint64_t root_s, root_a;
 //        CLINGO_CALL(clingo_statistics_root(step, &root_s));
