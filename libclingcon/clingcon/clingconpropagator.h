@@ -33,20 +33,19 @@
 
 namespace clingcon
 {
-
-
 /// sign of the literal, for order literals a positive literal is alsways a <= x, while a negative
 /// one is a > x
 class PropagatorThread
 {
 public:
     PropagatorThread(
-        Solver &s, const VariableCreator &vc, const Config &conf, const NameList *names,
+        Solver &s, ClingconStats& stats, const VariableCreator &vc, const Config &conf, const NameList *names,
         const std::vector< ReifiedLinearConstraint > &constraints,
         std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
             propVar2cspVar,
         const std::vector< bool > &watched)
         : s_(s)
+        , stats_(stats)
         , p_(s, vc, conf)
         , pendingProp_(false)
         , conf_(conf)
@@ -97,6 +96,7 @@ private:
 
 
     Solver &s_;
+    ClingconStats& stats_;
     LinearLiteralPropagator p_;
     bool pendingProp_;  // if there is still unit or other propagation pending and no conflict
     Config conf_;
@@ -133,9 +133,11 @@ private:
 class ClingconPropagator : public Clingo::Propagator
 {
 public:
-    ClingconPropagator(Literal trueLit, const VariableCreator &vc, const Config &conf,
+    ClingconPropagator(Stats& stats, Literal trueLit, const VariableCreator &vc, const Config &conf,
                        NameList *names, const std::vector< ReifiedLinearConstraint > &constraints)
-        : trueLit_(trueLit)
+        : stats_(stats)
+        , trueLit_(trueLit)
+        , s_(stats_)
         , vc_(vc)
         , conf_(conf)
         , names_(names)
@@ -161,6 +163,7 @@ private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
     void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
+    Stats& stats_;
     Literal trueLit_;
     Solver s_;
     const VariableCreator &vc_;

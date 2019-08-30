@@ -71,10 +71,6 @@ bool check(clingo_propagate_control_t* i, void* data)
     CLINGCON_CATCH;
 }
 
-struct Stats {
-// TODO: fill with stats information
-};
-
 struct PropagatorFacade {
 public:
     virtual ~PropagatorFacade() {}
@@ -153,28 +149,35 @@ public:
         clingcon::TheoryParser tp(grounder_,
                                   normalizer_,
                                   control_.theory_atoms());
-        if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
-        names_ = tp.postProcess();
+        {
+            Timer tinit(step_.time_init);
+            if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
+            names_ = tp.postProcess();
 
 
-        for (unsigned int level = 0; level < tp.minimize().size(); ++level)
-            for (auto i : tp.minimize()[level])
-            {
-                std::vector<clingcon::View> mini;
-                mini.emplace_back(i.second);
-                for (auto& j : mini)
-                   normalizer_.addMinimize(j,level);
-
+            for (unsigned int level = 0; level < tp.minimize().size(); ++level)
+                for (auto i : tp.minimize()[level])
+                {
+                    std::vector<clingcon::View> mini;
+                    mini.emplace_back(i.second);
+                    for (auto& j : mini)
+                       normalizer_.addMinimize(j,level);
+                }
+            bool conflict = false;
+            conflict = !normalizer_.prepare();
+    
+            if (!conflict) conflict = !normalizer_.propagate();
+    
+            if (!conflict) conflict = !normalizer_.finalize();
+    
+            if (conflict) grounder_.createClause({grounder_.falseLit()});
+            uint64_t numlits = normalizer_.getVariableCreator().numEqualLits();
+            for (size_t i =0; i < normalizer_.getVariableCreator().numVariables(); ++i) {
+                numlits += normalizer_.getVariableCreator().numOrderLits(i);
             }
-        bool conflict = false;
-        conflict = !normalizer_.prepare();
-    
-        if (!conflict) conflict = !normalizer_.propagate();
-    
-        if (!conflict) conflict = !normalizer_.finalize();
-    
-        if (conflict) grounder_.createClause({grounder_.falseLit()});
-        //control_.backend().rule(false, {}, {});
+            step_.num_lits = numlits;
+
+        }
     
         std::vector< clingcon::Variable > lowerBounds, upperBounds;
         normalizer_.variablesWithoutBounds(lowerBounds, upperBounds);
@@ -191,7 +194,8 @@ public:
 
         //TODO error, variable creator will get lost as normalizer is deleted,
         // need to move ownership, deeply think about multi-solve, what needs to be reused
-        prop_ = std::make_unique<ClingconPropagator>(grounder_.trueLit(),
+        prop_ = std::make_unique<ClingconPropagator>(step_,
+                                                     grounder_.trueLit(),
                                                      normalizer_.getVariableCreator(),
                                                      normalizer_.getConfig(),
                                                      &names_,
@@ -237,25 +241,26 @@ public:
         prop_->extend_model(m);
     }
     void on_statistics(UserStatistics& step, UserStatistics &accu) override {
-//        accu_.accu(step_);
-//        add_statistics(step, step_);
-//        add_statistics(accu, accu_);
-//        step_.reset();
+        accu_.accu(step_);
+        add_statistics(step, step_);
+        add_statistics(accu, accu_);
+        step_.reset();
     }
 
     void add_statistics(UserStatistics& root, Stats const &stats) {
-        //UserStatistics diff = root.add_subkey("DifferenceLogic", StatisticsType::Map);
-        //diff.add_subkey("Time init(s)", StatisticsType::Value).set_value(stats.time_init.count());
-//        diff.add_subkey("Mutexes", StatisticsType::Value).set_value(stats.mutexes);
-//        UserStatistics threads = diff.add_subkey("Thread", StatisticsType::Array);
-//        threads.ensure_size(stats.dl_stats.size(), StatisticsType::Map);
-//        auto it = threads.begin();
-//        for (DLStats const& stat : stats.dl_stats) {
-//            auto thread = *it++;
-//            thread.add_subkey("Propagation(s)", StatisticsType::Value).set_value(stat.time_propagate.count());
-//            thread.add_subkey("Dijkstra(s)", StatisticsType::Value).set_value(stat.time_dijkstra.count());
-//            thread.add_subkey("Undo(s)", StatisticsType::Value).set_value(stat.time_undo.count());
-//            thread.add_subkey("True edges", StatisticsType::Value).set_value(stat.true_edges);
+        UserStatistics clingcon = root.add_subkey("Clingcon", StatisticsType::Map);
+        clingcon.add_subkey("Time init(s)", StatisticsType::Value).set_value(stats.time_init.count());
+        clingcon.add_subkey("Constraints", StatisticsType::Value).set_value(stats.num_constraints);
+        clingcon.add_subkey("Integer Variables", StatisticsType::Value).set_value(stats.num_int_variables);
+        clingcon.add_subkey("Preadded Literals", StatisticsType::Value).set_value(stats.num_lits);
+        UserStatistics threads = clingcon.add_subkey("Thread", StatisticsType::Array);
+        threads.ensure_size(stats.clingcon_stats.size(), StatisticsType::Map);
+        auto it = threads.begin();
+        for (ClingconStats const& stat : stats.clingcon_stats) {
+            auto thread = *it++;
+            thread.add_subkey("Propagation(s)", StatisticsType::Value).set_value(stat.time_propagate.count());
+            thread.add_subkey("Undo(s)", StatisticsType::Value).set_value(stat.time_undo.count());
+            thread.add_subkey("Order Literals", StatisticsType::Value).set_value(stat.num_lits);
 //            thread.add_subkey("False edges", StatisticsType::Value).set_value(stat.false_edges);
 //            thread.add_subkey("False edges (inverse)", StatisticsType::Value).set_value(stat.false_edges_trivial);
 //            thread.add_subkey("False edges (partial)", StatisticsType::Value).set_value(stat.false_edges_weak);
@@ -266,7 +271,7 @@ public:
 //            thread.add_subkey("Cost consistency", StatisticsType::Value).set_value(stat.propagate_cost_add);
 //            thread.add_subkey("Cost forward", StatisticsType::Value).set_value(stat.propagate_cost_from);
 //            thread.add_subkey("Cost backward", StatisticsType::Value).set_value(stat.propagate_cost_to);
-//        }
+        }
     }
 
 private:
@@ -526,12 +531,12 @@ extern "C" void clingcon_assignment_get_value(clingcon_theory_t *prop, uint32_t 
 
 extern "C" bool clingcon_on_statistics(clingcon_theory_t *prop, clingo_statistics_t* step, clingo_statistics_t* accu) {
     CLINGCON_TRY {
-//        uint64_t root_s, root_a;
-//        CLINGO_CALL(clingo_statistics_root(step, &root_s));
-//        CLINGO_CALL(clingo_statistics_root(accu, &root_a));
-//        UserStatistics s(step, root_s);
-//        UserStatistics a(accu, root_a);
-//        prop->clingcon->on_statistics(s, a);
+        uint64_t root_s, root_a;
+        CLINGO_CALL(clingo_statistics_root(step, &root_s));
+        CLINGO_CALL(clingo_statistics_root(accu, &root_a));
+        UserStatistics s(step, root_s);
+        UserStatistics a(accu, root_a);
+        prop->clingcon->on_statistics(s, a);
     }
     CLINGCON_CATCH;
 }

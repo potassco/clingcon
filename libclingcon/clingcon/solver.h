@@ -25,6 +25,7 @@
 #pragma once
 #include "clingcon/platform.h"
 #include "clingcon/variable.h"
+#include "clingcon/stats.h"
 #include <cassert>
 #include <clingo.hh>
 #include <cstdlib>
@@ -182,8 +183,9 @@ private:
 class Solver : public BaseSolver
 {
 public:
-    Solver()
+    Solver(Stats& stats)
         : c_({nullptr})
+        , stats_(stats)
     {
     }
 
@@ -223,6 +225,7 @@ public:
     Literal getNewLiteral()
     {
         assert(c_.to_c());
+        ++(stats_.clingcon_stats[c_.thread_id()].num_lits);
         return c_.add_literal();
     }
 
@@ -231,9 +234,9 @@ public:
         assert(c_.to_c());
         return c_.add_clause(lits);
     }
-    /// TODO: add addclause and stuff
 private:
     Clingo::PropagateControl c_;
+    Stats& stats_;
     Literal trueLit_;
 };
 

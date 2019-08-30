@@ -58,6 +58,8 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     /// I just need the clasp variable to see which index has to be sheduled for propagation
     ///
     ///
+    stats_.clingcon_stats.resize(init.number_of_threads());
+    Timer tinit(stats_.time_init);
     init.set_check_mode(Clingo::PropagatorCheckMode::Partial);
 
     /// convert aspif literals to solver literals
@@ -65,6 +67,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     s_.init(trueLit_);
     vc_.convertLiterals(init);
     for (auto &i : constraints_) i.v = init.solver_literal(i.v);
+    stats_.num_constraints = constraints_.size();
     if (names_)
     for (auto &i : (*names_))
         for (auto &j : i.second.second) j = init.solver_literal(j);
@@ -106,6 +109,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
             //    watched_[var] = true;
         }
     }
+    stats_.num_int_variables = vc_.numVariables();
 
     for (std::size_t var = 0; var != watched_.size(); ++var)
     {
@@ -124,7 +128,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     }
 
     for (size_t i = 0; i < init.number_of_threads(); ++i)
-        threads_.emplace_back(s_, vc_, conf_, names_, constraints_, propVar2cspVar_, watched_);
+        threads_.emplace_back(s_, stats_.clingcon_stats[i], vc_, conf_, names_, constraints_, propVar2cspVar_, watched_);
 
     propVar2cspVar_.clear();
     constraints_.clear();
@@ -134,12 +138,14 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
 void ClingconPropagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes)
 {
     assert(control.thread_id() < threads_.size());
+    Timer tprop(stats_.clingcon_stats[control.thread_id()].time_propagate);
     threads_[control.thread_id()].propagate(control, changes);
 }
 
 void ClingconPropagator::check(Clingo::PropagateControl &control)
 {
     assert(control.thread_id() < threads_.size());
+    Timer tprop(stats_.clingcon_stats[control.thread_id()].time_propagate);
     threads_[control.thread_id()].check(control);
 }
 
@@ -471,6 +477,7 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
 void ClingconPropagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes)
 {
     assert(control.thread_id() < threads_.size());
+    Timer tundo(stats_.clingcon_stats[control.thread_id()].time_undo);
     threads_[control.thread_id()].undo(control, changes);
 }
 
