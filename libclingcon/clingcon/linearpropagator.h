@@ -45,6 +45,15 @@ private:
         : conf_(conf)
     {
     }
+
+    ConstraintStorage(const ConstraintStorage&) = delete;
+    ConstraintStorage(ConstraintStorage&& other)
+        : linearImpConstraints_(std::move(other.linearImpConstraints_))
+        , toProcess_(std::move(other.toProcess_))
+        , lbChanges_(std::move(other.lbChanges_))
+        , ubChanges_(std::move(other.ubChanges_))
+        , conf_(std::move(other.conf_))
+    {}
     friend LinearPropagator;
     friend LinearLiteralPropagator;
     /// add an implication constraint l.v -> l.l
@@ -87,6 +96,8 @@ public:
         , vs_(vc, s.trueLit())
     {
     }
+
+    LinearPropagator(const LinearPropagator&) = delete;
 
     Grounder &getSolver() { return s_; }
 
@@ -166,6 +177,16 @@ public:
         , conf_(conf)
     {
     }
+
+    LinearLiteralPropagator(const LinearLiteralPropagator&) = delete;
+    LinearLiteralPropagator(LinearLiteralPropagator&& other)
+        : storage_(std::move(other.storage_))
+        , s_(other.s_)
+        , vs_(std::move(other.vs_))
+        , propClause_(std::move(other.propClause_))
+        , propClauses_(std::move(other.propClauses_))
+        , conf_(std::move(other.conf_))
+    {}
 
     Solver &getSolver() { return s_; }
     VolatileVariableStorage &getVVS() { return vs_; }

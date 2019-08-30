@@ -63,6 +63,24 @@ public:
         }
     }
 
+    PropagatorThread(const PropagatorThread&) = delete;
+    PropagatorThread(PropagatorThread&& other)
+        : s_(other.s_)
+        , stats_(other.stats_)
+        , p_(std::move(other.p_))
+        , pendingProp_(other.pendingProp_)
+        , conf_(std::move(other.conf_))
+        , show_(std::move(other.show_))
+        , outputbuf_(std::move(other.outputbuf_))
+        , lastModel_(std::move(other.lastModel_))
+        , names_(other.names_)
+        , propVar2cspVar_(std::move(other.propVar2cspVar_))
+        , dls_(std::move(other.dls_))
+        , assertConflict_(other.assertConflict_)
+        , var2Constraints_(std::move(other.var2Constraints_))
+        , watched_(other.watched_)
+    {}
+
     /// propagator interface
     void init(Clingo::PropagateInit &init);
     void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
