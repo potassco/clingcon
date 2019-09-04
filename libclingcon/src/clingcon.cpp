@@ -152,8 +152,15 @@ public:
         {
             Timer tinit(step_.time_init);
             if (!tp.readConstraints()) throw std::runtime_error(std::string("Something went wrong"));
-            names_ = tp.postProcess();
-
+            // merge names shown in logic program
+            auto names = tp.postProcess();
+            for (auto i : names) {
+                auto it = names_.find(i.first);
+                if (it != names_.end())
+                    it->second.second.insert(it->second.second.begin(), i.second.second.begin(), i.second.second.end());
+                else
+                    names_[i.first] = i.second;
+            }
 
             for (unsigned int level = 0; level < tp.minimize().size(); ++level)
                 for (auto i : tp.minimize()[level])
