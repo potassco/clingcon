@@ -46,7 +46,7 @@ public:
         const std::vector< bool > &watched)
         : s_(s)
         , stats_(stats)
-        , p_(s, vc, conf)
+        , p_(std::make_unique<LinearLiteralPropagator>(s, vc, conf))
         , pendingProp_(false)
         , conf_(conf)
         , names_(names)
@@ -55,8 +55,8 @@ public:
         , assertConflict_(false)
         , watched_(watched)
     {
-        p_.addLevel();
-        p_.addImp(constraints);
+        p_->addLevel();
+        p_->addImp(constraints);
         for (size_t i = 0; i < constraints.size(); ++i)
         {
             var2Constraints_[abs(constraints[i].v)].emplace_back(i);
@@ -88,7 +88,7 @@ public:
     void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes);
 
     Solver &solver() { return s_; }
-    const VolatileVariableStorage &getVVS() const { return p_.getVVS(); }
+    const VolatileVariableStorage &getVVS() const { return p_->getVVS(); }
 
     void extend_model(Clingo::Model& m) const;
     void printAssignment() const;
@@ -115,7 +115,7 @@ private:
 
     Solver &s_;
     ClingconStats& stats_;
-    LinearLiteralPropagator p_;
+    std::unique_ptr<LinearLiteralPropagator> p_;
     bool pendingProp_;  // if there is still unit or other propagation pending and no conflict
     Config conf_;
     std::vector< std::string > show_; /// order::Variable -> string name

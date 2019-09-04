@@ -46,15 +46,18 @@ struct ClingconStats {
         time_propagate = std::chrono::steady_clock::duration::zero();
         time_undo      = std::chrono::steady_clock::duration::zero();
         num_lits       = 0;
+        num_clauses    = 0;
     }
     void accu(ClingconStats const &x) {
         time_propagate+= x.time_propagate;
         time_undo     += x.time_undo;
         num_lits      += x.num_lits;
+        num_clauses   += x.num_clauses;
     }
     Duration time_propagate = Duration{0};
     Duration time_undo = Duration{0};
     uint64_t num_lits{0};
+    uint64_t num_clauses{0};
 };
 
 struct Stats {
@@ -63,6 +66,7 @@ struct Stats {
         num_constraints = 0;
         num_int_variables = 0;
         num_lits = 0;
+        num_clauses = 0;
         for (auto& i : clingcon_stats) {
             i.reset();
         } 
@@ -72,6 +76,7 @@ struct Stats {
         num_constraints = x.num_constraints;
         num_int_variables = x.num_int_variables;
         num_lits = x.num_lits;
+        num_clauses = x.num_clauses;
         if (clingcon_stats.size() < x.clingcon_stats.size()) {
             clingcon_stats.resize(x.clingcon_stats.size()); 
         } 
@@ -84,6 +89,7 @@ struct Stats {
     uint64_t num_constraints{0};
     uint64_t num_int_variables{0};
     uint64_t num_lits{0};
+    uint64_t num_clauses{0};
     std::vector<ClingconStats> clingcon_stats;
 };
 

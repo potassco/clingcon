@@ -47,13 +47,7 @@ private:
     }
 
     ConstraintStorage(const ConstraintStorage&) = delete;
-    ConstraintStorage(ConstraintStorage&& other)
-        : linearImpConstraints_(std::move(other.linearImpConstraints_))
-        , toProcess_(std::move(other.toProcess_))
-        , lbChanges_(std::move(other.lbChanges_))
-        , ubChanges_(std::move(other.ubChanges_))
-        , conf_(std::move(other.conf_))
-    {}
+    ConstraintStorage(ConstraintStorage&& other) = delete;
     friend LinearPropagator;
     friend LinearLiteralPropagator;
     /// add an implication constraint l.v -> l.l
@@ -179,14 +173,7 @@ public:
     }
 
     LinearLiteralPropagator(const LinearLiteralPropagator&) = delete;
-    LinearLiteralPropagator(LinearLiteralPropagator&& other)
-        : storage_(std::move(other.storage_))
-        , s_(other.s_)
-        , vs_(std::move(other.vs_))
-        , propClause_(std::move(other.propClause_))
-        , propClauses_(std::move(other.propClauses_))
-        , conf_(std::move(other.conf_))
-    {}
+    LinearLiteralPropagator(LinearLiteralPropagator&& other) = delete;
 
     Solver &getSolver() { return s_; }
     VolatileVariableStorage &getVVS() { return vs_; }

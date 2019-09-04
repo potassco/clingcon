@@ -104,7 +104,7 @@ public:
     CSPPropagatorFacade(clingo_control_t *ctl, Config const &conf)
     : config_(conf),
       control_(ctl, false),
-      grounder_(control_),
+      grounder_(control_, step_),
       normalizer_(grounder_,config_)
     {
         grounder_.deactivate();
@@ -165,11 +165,11 @@ public:
                 }
             bool conflict = false;
             conflict = !normalizer_.prepare();
-    
+
             if (!conflict) conflict = !normalizer_.propagate();
-    
+
             if (!conflict) conflict = !normalizer_.finalize();
-    
+
             if (conflict) grounder_.createClause({grounder_.falseLit()});
             uint64_t numlits = normalizer_.getVariableCreator().numEqualLits();
             for (size_t i =0; i < normalizer_.getVariableCreator().numVariables(); ++i) {
@@ -177,6 +177,7 @@ public:
             }
             step_.num_lits = numlits;
 
+            grounder_.deactivate();
         }
     
         std::vector< clingcon::Variable > lowerBounds, upperBounds;
@@ -207,7 +208,6 @@ public:
             check,
             nullptr
         };
-        grounder_.deactivate();
         CLINGO_CALL(clingo_control_register_propagator(ctl, &prop, prop_.get(), false));
         return true;
     }
@@ -253,6 +253,7 @@ public:
         clingcon.add_subkey("Constraints", StatisticsType::Value).set_value(stats.num_constraints);
         clingcon.add_subkey("Integer Variables", StatisticsType::Value).set_value(stats.num_int_variables);
         clingcon.add_subkey("Preadded Literals", StatisticsType::Value).set_value(stats.num_lits);
+        clingcon.add_subkey("Preadded Clauses",  StatisticsType::Value).set_value(stats.num_clauses);
         UserStatistics threads = clingcon.add_subkey("Thread", StatisticsType::Array);
         threads.ensure_size(stats.clingcon_stats.size(), StatisticsType::Map);
         auto it = threads.begin();
@@ -261,16 +262,7 @@ public:
             thread.add_subkey("Propagation(s)", StatisticsType::Value).set_value(stat.time_propagate.count());
             thread.add_subkey("Undo(s)", StatisticsType::Value).set_value(stat.time_undo.count());
             thread.add_subkey("Order Literals", StatisticsType::Value).set_value(stat.num_lits);
-//            thread.add_subkey("False edges", StatisticsType::Value).set_value(stat.false_edges);
-//            thread.add_subkey("False edges (inverse)", StatisticsType::Value).set_value(stat.false_edges_trivial);
-//            thread.add_subkey("False edges (partial)", StatisticsType::Value).set_value(stat.false_edges_weak);
-//            thread.add_subkey("False edges (partial+)", StatisticsType::Value).set_value(stat.false_edges_weak_plus);
-//            thread.add_subkey("Edges added", StatisticsType::Value).set_value(stat.edges_added);
-//            thread.add_subkey("Edges skipped", StatisticsType::Value).set_value(stat.edges_skipped);
-//            thread.add_subkey("Edges propagated", StatisticsType::Value).set_value(stat.edges_propagated);
-//            thread.add_subkey("Cost consistency", StatisticsType::Value).set_value(stat.propagate_cost_add);
-//            thread.add_subkey("Cost forward", StatisticsType::Value).set_value(stat.propagate_cost_from);
-//            thread.add_subkey("Cost backward", StatisticsType::Value).set_value(stat.propagate_cost_to);
+            thread.add_subkey("Added Clauses",  StatisticsType::Value).set_value(stat.num_clauses);
         }
     }
 

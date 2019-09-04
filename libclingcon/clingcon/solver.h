@@ -69,8 +69,9 @@ public:
 class Grounder : public BaseSolver
 {
 public:
-    Grounder(Clingo::Control& c)
+    Grounder(Clingo::Control& c, Stats& stats)
         : c_(c)
+        , stats_(stats)
     {
         activate();
         trueLit_ = backend_->add_atom();
@@ -112,6 +113,7 @@ public:
 
     bool createClause(Clingo::LiteralSpan lvv)
     {
+        ++(stats_.num_clauses);
         assert(isActivated());
         // class Negate {
         // public:
@@ -144,6 +146,7 @@ public:
     bool createCardinality(Literal v, int lb, LitVec &&lits)
     {
         assert(isActivated());
+        ++(stats_.num_clauses);
         /// TODO: use an Iterator to convert to Weight Literals with weight 1
         // backend_.weight_rule(false,{Clingo::atom_t(std::abs(v))},lb,lits);
         std::vector< Clingo::WeightedLiteral > wlv;
@@ -176,6 +179,7 @@ public:
 
 private:
     Clingo::Control& c_;
+    Stats& stats_;
     std::unique_ptr<Clingo::Backend> backend_;// must be activated/deactivated
     Literal trueLit_;
 };
@@ -232,6 +236,7 @@ public:
     bool addClause(Clingo::LiteralSpan lits)
     {
         assert(c_.to_c());
+        ++(stats_.clingcon_stats[c_.thread_id()].num_clauses);
         return c_.add_clause(lits);
     }
 private:

@@ -759,13 +759,7 @@ public:
                     Literal trueLit);
 
     VariableStorage(const VariableStorage& ) =  delete;
-    VariableStorage(VariableStorage&& other)
-        : trueLit_(std::move(other.trueLit_))
-        , rs_(std::move(other.rs_))
-        , levelSets_(std::move(other.levelSets_))
-        , domains_(std::move(other.domains_))
-        , orderLitMemory_(other.orderLitMemory_)
-    {}
+    VariableStorage(VariableStorage&& other) = delete;
 
     /// interface for variableCreator
     std::size_t numVariables() const { return domains_.size(); }
@@ -943,10 +937,7 @@ public:
     }
 
     VolatileVariableStorage(const VolatileVariableStorage& ) = delete;
-    VolatileVariableStorage(VolatileVariableStorage&& other)
-        : volOrderLitMemory_(std::move(other.volOrderLitMemory_))
-        , vs_(std::move(other.vs_))
-    {}
+    VolatileVariableStorage(VolatileVariableStorage&& other) = delete;
 
     VariableStorage &getVariableStorage() { return vs_; }
     const VariableStorage &getVariableStorage() const { return vs_; }
