@@ -22,6 +22,10 @@ source_group("${ide_header_group}\\clingcon" FILES ${header-group-clingcon})
 set(header
     ${header-group}
     ${header-group-clingcon})
+set(header-group-test
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/test/testapp.h")
+set(header-test
+    ${header-grouptest})
 # ]]]
 # [[[source: src
 set(ide_source_group "Source Files")
@@ -38,7 +42,17 @@ set(source-group
 source_group("${ide_source_group}" FILES ${source-group})
 set(source
     ${source-group})
+set(source-group-test
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/src/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/src/constrainttest.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/src/domaintest.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/src/linearpropagatortest.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/src/translatortest.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/src/clingcontest.cpp")
+set(source-test
+    ${source-group-test})
 # ]]]
+
 
 if (CLINGCON_BUILD_SHARED)
     set(clingcon_lib_type SHARED)
@@ -85,6 +99,14 @@ set_target_properties(libclingcon PROPERTIES
     LIBRARY_OUTPUT_NAME clingcon
     FOLDER lib)
 
-#if (CLINGCON_BUILD_TESTS)
-#    add_subdirectory(tests)
-#endif()
+if (CLINGCON_BUILD_TESTS)
+    add_executable(testclingcon ${source} ${header} ${source-test}
+    ${header-test})
+    target_include_directories(testclingcon PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+    target_include_directories(testclingcon PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/test>")
+    target_link_libraries(testclingcon PRIVATE libclingo)
+    set_target_properties(testclingcon PROPERTIES
+        OUTPUT_NAME testclingcon
+        FOLDER exe)
+    install(TARGETS testclingcon RUNTIME DESTINATION bin)
+endif()

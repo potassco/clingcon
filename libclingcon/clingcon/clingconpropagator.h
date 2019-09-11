@@ -109,7 +109,7 @@ private:
     /// force a new literal l, associated with it to be true,
     /// where l==x>it because x>it+eps
     /// where eps is the next valid literal
-    bool forceKnownLiteralLE(ViewIterator it, Literal l, Clingo::PropagateControl &control);
+    bool forceKnownLiteralLE(ViewIterator it, Literal l);
     bool forceKnownLiteralGE(ViewIterator it, Literal l);
 
 
