@@ -164,10 +164,10 @@ public:
     using LinearConstraintClause = std::pair< Literal, itervec >;
 
 public:
-    LinearLiteralPropagator(Solver &s, const VariableCreator &vs, const Config &conf)
+    LinearLiteralPropagator(Literal trueLit, const VariableCreator &vs, const Config &conf)
         : storage_(conf)
-        , s_(s)
-        , vs_(vs, s.trueLit())
+        , trueLit_(trueLit)
+        , vs_(vs, trueLit_)
         , conf_(conf)
     {
     }
@@ -175,7 +175,6 @@ public:
     LinearLiteralPropagator(const LinearLiteralPropagator&) = delete;
     LinearLiteralPropagator(LinearLiteralPropagator&& other) = delete;
 
-    Solver &getSolver() { return s_; }
     VolatileVariableStorage &getVVS() { return vs_; }
     const VolatileVariableStorage &getVVS() const { return vs_; }
 
@@ -208,16 +207,16 @@ public:
     bool atFixPoint() { return storage_.atFixPoint(); }
     /// the same but generates a set of reasons
     /// reference is valid until the next call of propagateSingleStep
-    std::vector< LinearConstraintClause > &propagateSingleStep();
+    std::vector< LinearConstraintClause > &propagateSingleStep(Solver &s);
     /// propagate all added constraints to a fixpoint
     /// return false if a domain gets empty
     bool propagate();
 
     /// return false if the domain is empty
     /// iterator points to element after the bound
-    bool constrainUpperBound(const ViewIterator &u);
+    bool constrainUpperBound(const ViewIterator &u, const BaseSolver& s);
     /// return false if the domain is empty
-    bool constrainLowerBound(const ViewIterator &l);
+    bool constrainLowerBound(const ViewIterator &l, const BaseSolver& s);
 
     /// add a constraint (identified by id) to the propagation queue
     void queueConstraint(std::size_t id) { storage_.queueConstraint(id); }
@@ -234,7 +233,7 @@ private:
     /// can only handle LE constraints
     /// DOES NOT GUARANTEE A FIXPOINT (just not sure)(but reshedules if not)
     /// Remarks: uses double for floor/ceil -> to compatible with 64bit integers
-    void propagate_true(const ReifiedLinearConstraint &l);
+    void propagate_true(const ReifiedLinearConstraint &l, const Solver &s);
 
     /// propagates the truthvalue of the constraint if it can be directly
     /// inferred
@@ -243,7 +242,7 @@ private:
 
 private:
     ConstraintStorage storage_;
-    Solver &s_;
+    Literal trueLit_;
     VolatileVariableStorage vs_;
     itervec propClause_;
     std::vector< LinearLiteralPropagator::LinearConstraintClause >

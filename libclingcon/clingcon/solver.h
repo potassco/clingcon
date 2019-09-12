@@ -187,21 +187,19 @@ private:
 class Solver : public BaseSolver
 {
 public:
-    Solver(Stats& stats)
-        : c_({nullptr})
+    Solver(Stats& stats, Literal trueLit, Clingo::PropagateControl c)
+        : c_(c)
         , stats_(stats)
-    {
-    }
+        , trueLit_(trueLit) {}
 
-    void init(Literal trueLit) { trueLit_ = trueLit; }
+    Solver(const Solver& ) = delete;
+    Solver(Solver&& other) = delete;
+
 
     void addWatch(Clingo::PropagateInit &init, Literal l) { init.add_watch(l); }
 
 
-    /// call these functions before any other stuff with the object
-    void beginPropagate(Clingo::PropagateControl c) { c_ = c; }
-
-    /// during runtime
+     /// during runtime
     void addWatch(Literal l)
     {
         assert(c_.to_c());
@@ -230,7 +228,8 @@ public:
     {
         assert(c_.to_c());
         ++(stats_.clingcon_stats[c_.thread_id()].num_lits);
-        return c_.add_literal();
+        auto x= c_.add_literal();
+        return x;
     }
 
     bool addClause(Clingo::LiteralSpan lits)

@@ -64,7 +64,6 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
 
     /// convert aspif literals to solver literals
     trueLit_ = init.solver_literal(trueLit_);
-    s_.init(trueLit_);
     vc_.convertLiterals(init);
     for (auto &i : constraints_) i.v = init.solver_literal(i.v);
     stats_.num_constraints = constraints_.size();
@@ -128,7 +127,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     }
 
     for (size_t i = 0; i < init.number_of_threads(); ++i)
-        threads_.emplace_back(s_, stats_.clingcon_stats[i], vc_, conf_, names_, constraints_, propVar2cspVar_, watched_);
+        threads_.emplace_back(trueLit_, stats_, stats_.clingcon_stats[i], vc_, conf_, names_, constraints_, propVar2cspVar_, watched_);
 
     propVar2cspVar_.clear();
     constraints_.clear();
@@ -152,11 +151,11 @@ void ClingconPropagator::check(Clingo::PropagateControl &control)
 
 void PropagatorThread::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes)
 {
-    s_.beginPropagate(control);
+    Solver s(stats_, trueLit_, control);
     /// only called if p is gets true (otherwise -p gets true)
     for (auto i : changes)
     {
-        assert(p_->getSolver().isTrue(i));
+        assert(s.isTrue(i));
         assert(control.assignment().level(i) == control.assignment().decision_level());
     }
 
@@ -177,16 +176,15 @@ void PropagatorThread::propagate(Clingo::PropagateControl &control, Clingo::Lite
 
 void PropagatorThread::check(Clingo::PropagateControl &control)
 {
-    //std::cout << "check on dl " << control.assignment().decision_level() << std::endl;
-    s_.beginPropagate(control);
-    assert(orderLitsAreOK());
-    if (!propagateConstraintVariables(control)) 
+    Solver s(stats_, trueLit_, control);
+    assert(orderLitsAreOK(s));
+    if (!propagateConstraintVariables(control))
         return;
     if (!pendingProp_ && control.assignment().is_total()) isModel(control);
 }
 
 
-void PropagatorThread::printPartialState()
+void PropagatorThread::printPartialState(const Solver& s)
 {
     auto& vs = p_->getVVS().getVariableStorage();
     for (Variable i = 0; i < vs.numVariables(); ++i)
@@ -196,12 +194,12 @@ void PropagatorThread::printPartialState()
         if (!vs.hasLELiteral(r.end()-1))
             std::cout << "upper bound has no LE literal" << std::endl;
         else
-            if (!s_.isTrue(vs.getLELiteral(r.end()-1)))
+            if (!s.isTrue(vs.getLELiteral(r.end()-1)))
                 std::cout << "upper bound literal is not true" << std::endl;
         if (!vs.hasGELiteral(r.begin()))
             std::cout << "lower bound has no GE literal" << std::endl;
         else
-            if (!s_.isTrue(vs.getGELiteral(r.begin())))
+            if (!s.isTrue(vs.getGELiteral(r.begin())))
                 std::cout << "lower bound GE literal is not true" << std::endl;
     }
 }
@@ -210,8 +208,7 @@ void PropagatorThread::printPartialState()
 bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control,
                                                Clingo::LiteralSpan changes)
 {
-   //std::cout << "enter propagate Order Variables" << std::endl;
-
+    Solver s(stats_, trueLit_, control);
     for (auto p : changes)
     {
         //std::cout << " one change" << std::endl;
@@ -253,7 +250,7 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                     (lr.begin() + bound + 1))
                 {
                     bool nonempty = p_->constrainLowerBound(
-                        lr.begin() + bound + 1); /// we got not (a<=x) ->the new lower bound is x+1
+                        lr.begin() + bound + 1,s); /// we got not (a<=x) ->the new lower bound is x+1
 //                    printPartialState();
                     // assert(nonempty); // can happen that variables are propagated in a way that
                     // clasp is not yet aware of the conflict, but should find it during this unit
@@ -294,10 +291,12 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                         p_->getVVS().getVariableStorage().getOrderStorage(cspVar.first), false);
                     while ((--newit).isValid())
                     {
-                        if (s_.isFalse(*newit)) break;
+                        if (s.isFalse(*newit)) break;
                         /// TODO:s_.addClause();
-                        if (!s_.addClause(LitVec{-(*newit), -p})) 
+                        if (!s.addClause(LitVec{-(*newit), -p}))
+                        {
                             return false;
+                        }
                         // if (!s_.force(-(*newit), Clasp::Antecedent(p)))
                         //    return PropResult(false, true);
                     }
@@ -310,7 +309,7 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                     (lr.begin() + bound))
                 {
                     bool nonempty = p_->constrainUpperBound(
-                        lr.begin() + bound + 1); /// we got a <= x, the new end restrictor is at x+1
+                        lr.begin() + bound + 1,s); /// we got a <= x, the new end restrictor is at x+1
                     //printPartialState();
                     // assert(nonempty);
                     if (!nonempty)
@@ -333,9 +332,11 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                             p_->getVVS().getVariableStorage().getOrderStorage(cspVar.first), true);
                         while ((++newit).isValid())
                         {
-                            if (s_.isTrue(*newit)) break;
-                            if (!s_.addClause(LitVec{*newit, -p}))
+                            if (s.isTrue(*newit)) break;
+                            if (!s.addClause(LitVec{*newit, -p}))
+                            {
                                 return false;
+                            }
                             // if (!s_.force(toClaspFormat(*newit), Clasp::Antecedent(p)))
                             //    return PropResult(false, true);
                         }
@@ -345,7 +346,9 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
     }
     
     if (!control.propagate())
+    {
         return false;
+    }
     else
     {
         assert(!assertConflict_);
@@ -356,11 +359,12 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
 bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &control)
 {
     assert(!assertConflict_);
-    assert(orderLitsAreOK());
+    Solver s(stats_, trueLit_, control);
+    assert(orderLitsAreOK(s));
     pendingProp_=false;
     while (!p_->atFixPoint())
     {
-        const auto &clauses = p_->propagateSingleStep();
+        const auto &clauses = p_->propagateSingleStep(s);
 //        printPartialState();
 //        std::cout << "one prop end" << std::endl;
         auto &vs = p_->getVVS();
@@ -380,7 +384,7 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                     if (!vs.getVariableStorage().hasGELiteral(its[i]))
                     {
 //                        std::cout << " does not have one, ";
-                        Literal l = s_.getNewLiteral();
+                        Literal l = s.getNewLiteral();
 //                        std::cout << l << std::endl;
                         auto it = its[i] - 1;
 //                        std::cout << " but " << it.view().a << "*v" << it.view().v << "<=" << *it << " gets " << l << std::endl;
@@ -405,7 +409,7 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                             p_->getVVS().getVariableStorage().getCurrentRestrictor(its[i].view());
                         Literal l = vs.getVariableStorage().getGELiteral(its[i]);
 //                        std::cout << l << std::endl;
-                        if (s_.isUnknown(l))
+                        if (s.isUnknown(l))
                         {
                             auto it = its[i] - 1;
                             if (it < currentIt.begin())
@@ -414,22 +418,22 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                                 {
                                     //std::cout << "assignment size " << control.assignment().size() << "/" <<
                                     //          control.assignment().max_size() << " is fixed=" << control.assignment().is_total() << std::endl;
-                                    if (!forceKnownLiteralLE(it, l)) return false;
+                                    if (!forceKnownLiteralLE(it, l,s)) return false;
                                 }
                                 else
                                 {
-                                    if (!forceKnownLiteralGE(it, l)) return false;
+                                    if (!forceKnownLiteralGE(it, l,s)) return false;
                                 }
                             }
                             else if (currentIt.end() <= it)
                             {
                                 if (it.view().reversed())
                                 {
-                                    if (!forceKnownLiteralGE(it, l)) return false;
+                                    if (!forceKnownLiteralGE(it, l,s)) return false;
                                 }
                                 else
                                 {
-                                    if (!forceKnownLiteralLE(it, l)) return false;
+                                    if (!forceKnownLiteralLE(it, l,s)) return false;
                                 }
                             }
                             /// else it simply free and unit asserting
@@ -457,7 +461,10 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
 //                                                    control.assignment().decision_level());
 //                       }) >= 1);
 
-                if (!s_.addClause(claspClause)) return false;
+                if (!s.addClause(claspClause))
+                {
+                    return false;
+                }
             }
         }
         size_t oldsize = control.assignment().size();
@@ -498,7 +505,7 @@ void PropagatorThread::undo(Clingo::PropagateControl const &control, Clingo::Lit
 }
 
 
-bool PropagatorThread::forceKnownLiteralGE(ViewIterator it, Literal l)
+bool PropagatorThread::forceKnownLiteralGE(ViewIterator it, Literal l, Solver& s)
 {
     // assert(iterator is variterator)
     auto varit = ViewIterator::viewToVarIterator(it);
@@ -515,10 +522,10 @@ bool PropagatorThread::forceKnownLiteralGE(ViewIterator it, Literal l)
     }*/
     // s_.force(l, Clasp::Antecedent(-(toClaspFormat(*pit))));
     // std::cout << s_.isTrue(l) << " " << s_.isFalse(l) << std::endl;
-    return s_.addClause({l, *pit}); /// can fail if *pit was assigned on a former level
+    return s.addClause({l, *pit}); /// can fail if *pit was assigned on a former level
 }
 
-bool PropagatorThread::forceKnownLiteralLE(ViewIterator it, Literal l)
+bool PropagatorThread::forceKnownLiteralLE(ViewIterator it, Literal l, Solver& s)
 {
     //std::cout << "force Known Literal LE" << std::endl;
     auto varit = ViewIterator::viewToVarIterator(it);
@@ -535,7 +542,7 @@ bool PropagatorThread::forceKnownLiteralLE(ViewIterator it, Literal l)
     }*/
     //std::cout << "clause {" << l << "=" << s_.isTrue(l) << "/" << s_.isFalse(l) << " , " << -(*pit) << "=" << s_.isTrue(-(*pit))<< "/" << s_.isFalse(-(*pit)) << "@" << control.assignment().level(-(*pit)) <<  "}" << std::endl;
     // s_.force(l, Clasp::Antecedent(toClaspFormat(*pit)));
-    return s_.addClause({l, -(*pit)}); /// can fail if *pit was assigned on a former level
+    return s.addClause({l, -(*pit)}); /// can fail if *pit was assigned on a former level
 }
 
 
@@ -565,7 +572,7 @@ void PropagatorThread::addWatch(Clingo::PropagateControl &control, const Variabl
 /// THIS CONDITION IS NO LONGER TRUE,
 /// I CAN HAVE UNDECIDED VARIABLES OUTSIDE OT THE BOUNDS
 /// THEY WILL BE SET IF NEEDED --- really? how
-bool PropagatorThread::orderLitsAreOK() {
+bool PropagatorThread::orderLitsAreOK(const Solver &s) {
 #ifndef NDEBUG
 //     printPartialState();
      for (Variable var = 0; var < p_->getVVS().getVariableStorage().numVariables(); ++var)
@@ -589,13 +596,13 @@ bool PropagatorThread::orderLitsAreOK() {
              {
                  //std::cout << "checking element " << it.numElement() << " True/False:" << s_.isTrue(*it) << "/" << s_.isFalse(*it) << std::endl;
                  //std::cout << "This is value: " << baselr.lower() + it.numElement() << std::endl;
-                 if (s_.isFalse(*it) && it.numElement() >=
+                 if (s.isFalse(*it) && it.numElement() >=
  currentlr.begin().numElement())
                      assert(false);
-                 if (s_.isTrue(*it) && it.numElement() <
+                 if (s.isTrue(*it) && it.numElement() <
  currentlr.end().numElement()-1)
                      assert(false);
-                 if (!s_.isFalse(*it) && !s_.isTrue(*it) &&
+                 if (!s.isFalse(*it) && !s.isTrue(*it) &&
  (it.numElement() < currentlr.begin().numElement() || it.numElement() >=
  currentlr.end().numElement()))
                  {
@@ -650,7 +657,8 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
 {
     auto &vs = p_->getVVS().getVariableStorage();
 
-    assert(orderLitsAreOK());
+    Solver s(stats_, trueLit_, control);
+    assert(orderLitsAreOK(s));
     //    std::cout << "Is probably a model ?"
     //              << " at dl " << control.assignment().decision_level() << std::endl;
 
@@ -675,7 +683,7 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
     {
         auto lr = vs.getCurrentRestrictor(View(unrestrictedVariable));
         auto it = lr.begin() + ((maxSize - 1) / 2);
-        Literal l = p_->getSolver().getNewLiteral();
+        Literal l = s.getNewLiteral();
         p_->getVVS().setLELit(it, l);
         //std::cout << "Added V" << unrestrictedVariable << "<=" << *it << std::endl;
         addWatch(control, unrestrictedVariable, l, it.numElement());
@@ -693,7 +701,7 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
                 bool fulfilled = false;
                 /// or none of the lits is true
                 for (auto lit : it->second.second)
-                    if (s_.isTrue(lit))
+                    if (s.isTrue(lit))
                     {
                         fulfilled = true;
                         break;
@@ -721,7 +729,7 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
                 else /// not watched, need to search for value
                 {
                     auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(var));
-                    vit = my_upper_bound(rs.begin(), rs.end(), s_,
+                    vit = my_upper_bound(rs.begin(), rs.end(), s,
                                          p_->getVVS().getVariableStorage().getOrderStorage(var));
                 }
                 int32 value = *vit;

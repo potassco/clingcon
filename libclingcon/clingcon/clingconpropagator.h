@@ -39,14 +39,15 @@ class PropagatorThread
 {
 public:
     PropagatorThread(
-        Solver &s, ClingconStats& stats, const VariableCreator &vc, const Config &conf, const NameList *names,
+        Literal trueLit, Stats& s, ClingconStats& clingcon_stats, const VariableCreator &vc, const Config &conf, const NameList *names,
         const std::vector< ReifiedLinearConstraint > &constraints,
         std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
             propVar2cspVar,
         const std::vector< bool > &watched)
-        : s_(s)
-        , stats_(stats)
-        , p_(std::make_unique<LinearLiteralPropagator>(s, vc, conf))
+        : trueLit_(trueLit)
+        , stats_(s)
+        , clingcon_stats_(clingcon_stats)
+        , p_(std::make_unique<LinearLiteralPropagator>(trueLit_, vc, conf))
         , pendingProp_(false)
         , conf_(conf)
         , names_(names)
@@ -64,22 +65,8 @@ public:
     }
 
     PropagatorThread(const PropagatorThread&) = delete;
-    PropagatorThread(PropagatorThread&& other)
-        : s_(other.s_)
-        , stats_(other.stats_)
-        , p_(std::move(other.p_))
-        , pendingProp_(other.pendingProp_)
-        , conf_(std::move(other.conf_))
-        , show_(std::move(other.show_))
-        , outputbuf_(std::move(other.outputbuf_))
-        , lastModel_(std::move(other.lastModel_))
-        , names_(other.names_)
-        , propVar2cspVar_(std::move(other.propVar2cspVar_))
-        , dls_(std::move(other.dls_))
-        , assertConflict_(other.assertConflict_)
-        , var2Constraints_(std::move(other.var2Constraints_))
-        , watched_(other.watched_)
-    {}
+    PropagatorThread(PropagatorThread&& other) = default;
+
 
     /// propagator interface
     void init(Clingo::PropagateInit &init);
@@ -87,7 +74,7 @@ public:
     void check(Clingo::PropagateControl &control);
     void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes);
 
-    Solver &solver() { return s_; }
+    //Solver &solver() { return s_; }
     const VolatileVariableStorage &getVVS() const { return p_->getVVS(); }
 
     void extend_model(Clingo::Model& m) const;
@@ -103,18 +90,18 @@ private:
     void addWatch(Clingo::PropagateControl &init, const Variable &var, Literal cl,
                   unsigned int step);
     /// debug functions
-    void printPartialState();
-    bool orderLitsAreOK();
+    void printPartialState(const Solver &s);
+    bool orderLitsAreOK(const Solver& s);
 
     /// force a new literal l, associated with it to be true,
     /// where l==x>it because x>it+eps
     /// where eps is the next valid literal
-    bool forceKnownLiteralLE(ViewIterator it, Literal l);
-    bool forceKnownLiteralGE(ViewIterator it, Literal l);
+    bool forceKnownLiteralLE(ViewIterator it, Literal l, Solver& s);
+    bool forceKnownLiteralGE(ViewIterator it, Literal l, Solver& s);
 
-
-    Solver &s_;
-    ClingconStats& stats_;
+    Literal trueLit_;
+    Stats& stats_;
+    ClingconStats& clingcon_stats_;
     std::unique_ptr<LinearLiteralPropagator> p_;
     bool pendingProp_;  // if there is still unit or other propagation pending and no conflict
     Config conf_;
@@ -155,7 +142,6 @@ public:
                        NameList *names, const std::vector< ReifiedLinearConstraint > &constraints)
         : stats_(stats)
         , trueLit_(trueLit)
-        , s_(stats_)
         , vc_(vc)
         , conf_(conf)
         , names_(names)
@@ -183,7 +169,6 @@ private:
     void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
     Stats& stats_;
     Literal trueLit_;
-    Solver s_;
     const VariableCreator &vc_;
     Config conf_;
     NameList *names_;

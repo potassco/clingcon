@@ -168,15 +168,15 @@ bool LinearPropagator::propagate()
 /// propagate, but not until a fixpoint
 /// returns a set of new clauses
 std::vector< LinearLiteralPropagator::LinearConstraintClause > &
-LinearLiteralPropagator::propagateSingleStep()
+LinearLiteralPropagator::propagateSingleStep(Solver& s)
 {
     propClauses_.clear();
     while (!storage_.atFixPoint() && propClauses_.empty())
     {
         auto &lc = storage_.linearImpConstraints_[storage_.popConstraint()];
-        if (s_.isTrue(lc.v))
-            propagate_true(lc);
-        else if (conf_.propStrength >= 2 && s_.isUnknown(lc.v))
+        if (s.isTrue(lc.v))
+            propagate_true(lc,s);
+        else if (conf_.propStrength >= 2 && s.isUnknown(lc.v))
             propagate_impl(lc);
     }
     return propClauses_;
@@ -261,7 +261,7 @@ bool LinearPropagator::propagate_true(const LinearConstraint &l)
     return true;
 }
 
-void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl)
+void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, const Solver& s)
 {
     const LinearConstraint &l = rl.l;
     assert(l.getRelation() == LinearConstraint::Relation::LE);
@@ -328,7 +328,7 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl)
                 // std::cout << "the upper bound not included for this view will be " <<
                 // *(newUpper+1) << std::endl;
                 conflict = !constrainUpperBound((
-                    newUpper + 1)); // +1 is needed, as it is an iterator pointing after the element
+                    newUpper + 1),s); // +1 is needed, as it is an iterator pointing after the element
                 // minmax.first = mm.first + r.lower();
                 minmax.second = mm.second + *newUpper;
                 // minmax = mm +
@@ -431,16 +431,16 @@ bool LinearPropagator::constrainUpperBound(const ViewIterator &u)
 
 
 /// return false if the domain is empty
-bool LinearLiteralPropagator::constrainUpperBound(const ViewIterator &u)
+bool LinearLiteralPropagator::constrainUpperBound(const ViewIterator &u, const BaseSolver& s)
 {
-    storage_.constrainUpperBound(u.view(), s_);
+    storage_.constrainUpperBound(u.view(), s);
     return vs_.getVariableStorage().constrainUpperBound(u);
 }
 
 /// return false if the domain is empty
-bool LinearLiteralPropagator::constrainLowerBound(const ViewIterator &l)
+bool LinearLiteralPropagator::constrainLowerBound(const ViewIterator &l, const BaseSolver& s)
 {
-    storage_.constrainLowerBound(l.view(), s_);
+    storage_.constrainLowerBound(l.view(), s);
     return vs_.getVariableStorage().constrainLowerBound(l);
 }
 }
