@@ -14,7 +14,6 @@ matrix:
             - re2c
             - liblua5.1-0-dev
             - zsh
-            - libcppunit-dev
       env:
         - MY_CC=gcc-5
         - MY_CXX=g++-5
@@ -25,7 +24,7 @@ matrix:
         - MY_CXX=clang++
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install lua bison re2c cppunit; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install lua bison re2c; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
 
 script:
@@ -34,28 +33,25 @@ script:
       mkdir cmake-bin && wget --quiet --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake-bin;
       export PATH=${PWD}/cmake-bin/bin:${PATH};
     fi
-  - mkdir build &&
-    cd build &&
+  - git submodule update --init --recursive &&
     cmake
+      -H.
+      -Bbuild
       -DCMAKE_VERBOSE_MAKEFILE=True
       -DCLINGCON_BUILD_TESTS=True
       -DCMAKE_C_COMPILER=${MY_CC}
       -DCMAKE_CXX_COMPILER=${MY_CXX}
       .. &&
-    make -j3 &&
-    ./bin/test_liborder &&
-    ./bin/test_libclingcon
-  - cd .. &&
-    cd app/clingcon-light &&
-    git clone https://github.com/potassco/clingo.git clingo &&
-    cd clingo &&
-    git submodule update --init --recursive &&
-    git checkout wip &&
-    cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${MY_CC} -DCMAKE_CXX_COMPILER=${MY_CXX} &&
     cmake --build build -- -j3 &&
-    cd .. &&
-    cmake -H. -Bbuild/debug -DCMAKE_CXX_COMPILER=${MY_CXX} -DCLINGO_INCLUDE_DIR=$PWD/clingo/libclingo -DCLINGO_LIBRARY_DIR=$PWD/clingo/build/bin -DCMAKE_BUILD_TYPE=Debug  -DCLINGCON_BUILD_TESTS=True &&
-    cmake --build build/debug -- -j3 &&
-    ./runtests.sh &&
-    cmake -H. -Bbuild/release -DCMAKE_CXX_COMPILER=${MY_CXX} -DCLINGO_INCLUDE_DIR=$PWD/clingo/libclingo -DCLINGO_LIBRARY_DIR=$PWD/clingo/build/bin -DCMAKE_BUILD_TYPE=Release &&
-    cmake --build build/release -- -j3
+    ./libclingcon/test/test.sh ./build/bin/testclingcon &&
+    cmake
+      -H.
+      -Bdebug
+      -DCMAKE_BUILD_TYPE=Debug
+      -DCMAKE_VERBOSE_MAKEFILE=True
+      -DCLINGCON_BUILD_TESTS=True
+      -DCMAKE_C_COMPILER=${MY_CC}
+      -DCMAKE_CXX_COMPILER=${MY_CXX}
+      .. &&
+    cmake --build debug -- -j3 &&
+    ./libclingcon/test/test.sh ./debug/bin/testclingcon
