@@ -40,8 +40,7 @@ script:
       -DCMAKE_VERBOSE_MAKEFILE=True
       -DCLINGCON_BUILD_TESTS=True
       -DCMAKE_C_COMPILER=${MY_CC}
-      -DCMAKE_CXX_COMPILER=${MY_CXX}
-      .. &&
+      -DCMAKE_CXX_COMPILER=${MY_CXX} &&
     cmake --build build -- -j3 &&
     ./libclingcon/test/test.sh ./build/bin/testclingcon &&
     cmake
@@ -51,7 +50,6 @@ script:
       -DCMAKE_VERBOSE_MAKEFILE=True
       -DCLINGCON_BUILD_TESTS=True
       -DCMAKE_C_COMPILER=${MY_CC}
-      -DCMAKE_CXX_COMPILER=${MY_CXX}
-      .. &&
+      -DCMAKE_CXX_COMPILER=${MY_CXX} &&
     cmake --build debug -- -j3 &&
     ./libclingcon/test/test.sh ./debug/bin/testclingcon
