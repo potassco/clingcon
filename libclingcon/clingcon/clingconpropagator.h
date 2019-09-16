@@ -163,6 +163,11 @@ public:
         
     }
 
+    size_t lookup(clingo_symbol_t name) {
+        auto s = Clingo::Symbol(name).to_string();
+
+    }
+
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()

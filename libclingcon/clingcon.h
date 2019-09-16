@@ -130,7 +130,7 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_assignment_has_value(clingcon_theory_t
 
 //! get the symbol and it's value at the given index
 //! does not throw
-CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index, clingcon_value_t *value);
+CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index, int64_t *value);
 
 //! callback on statistic updates
 /// please add a subkey with the name of your theory

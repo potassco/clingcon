@@ -78,7 +78,7 @@ public:
     virtual bool lookup_symbol(clingo_symbol_t name, size_t *index) = 0;
     virtual clingo_symbol_t get_symbol(size_t index) = 0;
     virtual bool has_value(uint32_t thread_id, size_t index) = 0;
-    virtual void get_value(uint32_t thread_id, size_t index, clingcon_value_t *value) = 0;
+    virtual void get_value(uint32_t thread_id, size_t index, int64_t *value) = 0;
     virtual bool next(uint32_t thread_id, size_t *current) = 0;
     virtual void extend_model(Model &m) = 0;
     virtual void on_statistics(UserStatistics& step, UserStatistics &accu) = 0;
@@ -143,7 +143,7 @@ public:
 }.)"));
     }
 
-    bool prepare(clingo_control_t *ctl) {
+    bool prepare(clingo_control_t *ctl) override {
 
         grounder_.activate();
         clingcon::TheoryParser tp(grounder_,
@@ -196,12 +196,7 @@ public:
         for (auto i : upperBounds)
             std::cerr << "Warning: Variable " << tp.getName(i)
                       << " has unrestricted upper bound, set to " << clingcon::Domain::max << std::endl;
-    
 
-
-
-        //TODO error, variable creator will get lost as normalizer is deleted,
-        // need to move ownership, deeply think about multi-solve, what needs to be reused
         prop_ = std::make_unique<ClingconPropagator>(step_,
                                                      grounder_.trueLit(),
                                                      normalizer_.getVariableCreator(),
@@ -220,25 +215,25 @@ public:
     }
 
     bool lookup_symbol(clingo_symbol_t name, size_t *index) override {
-//        *index = prop_->lookup(name) + 1;
-//        return *index <= prop_.num_vertices();
+        //*index = prop_->lookup(name) + 1;
+        //return *index <= prop_->num_variables();
     }
 
     clingo_symbol_t get_symbol(size_t index) override {
-//        return prop_->symbol(index - 1).to_c();
+        //return prop_->symbol(index - 1).to_c();
     }
 
     bool has_value(uint32_t thread_id, size_t index) override {
-//        return prop_->has_lower_bound(thread_id, index - 1);
+        //return prop_->has_unique_value(thread_id, index - 1);
     }
-    void get_value(uint32_t thread_id, size_t index, clingcon_value_t *value) override {
-//        assert(index > 0 && index <= prop_.num_vertices());
-//        set_value(value, prop_.lower_bound(thread_id, index - 1));
+    void get_value(uint32_t thread_id, size_t index, int64_t *value) override {
+        //assert(index > 0 && index <= prop_->num_variables());
+        //value = prop_->value(thread_id, index - 1);
     }
 
     bool next(uint32_t thread_id, size_t *current) override {
-//        for (++*current; *current <= prop_.num_vertices(); ++*current) {
-//            if (prop_.has_lower_bound(thread_id, *current - 1)) {
+//        for (++*current; *current <= prop_->num_variables(); ++*current) {
+//            if (prop_->has_value(thread_id, *current - 1)) {
 //                return true;
 //            }
 //        }
@@ -386,7 +381,6 @@ static bool parse_translate_constraints(const char* value, void* data) {
     int64 x = 0;
     return (value = parse_int64_pre(value,&x)) && x >= -1 && set_config(value, data,
         [x](clingcon::Config &config) { config.translateConstraints = x; },
-//        [x](ThreadConfig &config) { config.propagate_root = {true, x}; });
         [x](int a) { });
 }
 
@@ -489,9 +483,6 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *prop, clingo_option
 
 extern "C" bool clingcon_validate_options(clingcon_theory_t *prop) {
     CLINGCON_TRY {
-//        if (prop->config.strict && prop->rdl) {
-//            throw std::runtime_error("real difference logic not available with strict semantics");
-//        }
     }
     CLINGCON_CATCH;
 }
@@ -524,7 +515,7 @@ extern "C" bool clingcon_assignment_has_value(clingcon_theory_t *prop, uint32_t 
     return prop->clingcon->has_value(thread_id, index);
 }
 
-extern "C" void clingcon_assignment_get_value(clingcon_theory_t *prop, uint32_t thread_id, size_t index, clingcon_value_t *value) {
+extern "C" void clingcon_assignment_get_value(clingcon_theory_t *prop, uint32_t thread_id, size_t index, int64_t *value) {
     prop->clingcon->get_value(thread_id, index, value);
 }
 

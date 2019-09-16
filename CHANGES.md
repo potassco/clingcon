@@ -1,3 +1,8 @@
+4.0.0
+ - updated to clingo-5.4.1
+ - added clingcon statistics
+ - added theory interface for similar to clingo[dl]
+ - fixed multi-threading bug
 3.3.0
  - updated to clingo-5.2.0 release
   - python and lua support is disabled for this version

@@ -23,7 +23,6 @@
 // }}}
 
 #include <clingcon/theoryparser.h>
-//#include <clingcon/clingconorderpropagator.h>
 
 
 namespace clingcon
@@ -131,6 +130,31 @@ std::stringstream &TheoryParser::toString(std::stringstream &ss, const Clingo::T
     return ss;
 }
 
+Clingo::Symbol TheoryParser::toSymbol(const Clingo::TheoryTerm &t) const {
+    if (isNumber(t))
+        return Clingo::Number(getNumber(t));
+    if (t.type() == Clingo::TheoryTermType::Symbol)
+    {
+        return Clingo::Function(t.name(),{});
+    }
+    if (t.type() == Clingo::TheoryTermType::Function)
+    {
+        Clingo::SymbolVector sv;
+        for (const auto& i : t.arguments()) {
+            sv.emplace_back(toSymbol(i));
+        }
+        return Clingo::Function(t.name(), sv);
+    }
+    else // compound
+    {
+        Clingo::SymbolVector sv;
+        for (const auto& i : t.arguments()) {
+            sv.emplace_back(toSymbol(i));
+        }
+        return Clingo::Function("", sv);
+    }
+}
+
 bool TheoryParser::isVariable(const Clingo::TheoryTerm &a)
 {
     return ((a.type() == Clingo::TheoryTermType::Function ||
@@ -138,7 +162,7 @@ bool TheoryParser::isVariable(const Clingo::TheoryTerm &a)
             check(a));
 }
 
-bool TheoryParser::isNumber(const Clingo::TheoryTerm &a)
+bool TheoryParser::isNumber(const Clingo::TheoryTerm &a) const
 {
     if (a.type() == Clingo::TheoryTermType::Number) return true;
     if (a.type() == Clingo::TheoryTermType::Function)
@@ -173,7 +197,7 @@ bool TheoryParser::isNumber(const Clingo::TheoryTerm &a)
     return false;
 }
 
-int TheoryParser::getNumber(const Clingo::TheoryTerm &a)
+int TheoryParser::getNumber(const Clingo::TheoryTerm &a) const
 {
     assert(isNumber(a));
 
@@ -229,27 +253,28 @@ int TheoryParser::getNumber(const Clingo::TheoryTerm &a)
 ///
 bool TheoryParser::getView(const Clingo::TheoryTerm &a, View &v)
 {
+    auto s = toSymbol(a);
     Clingo::id_t id = a.to_c();
     /// already exists a view
-    if (termId2View_.size() > id && termId2View_[id] != View(InvalidVar))
+    if (symbol2view_.size() > id && symbol2view_[s] != View(InvalidVar))
     {
-        v = termId2View_[id];
+        v = symbol2view_[s];
         return true;
     }
 
     if (a.type() == Clingo::TheoryTermType::Number)
     {
-        v = createVar(a, a.number());
+        v = createVar(a);
     }
     else if (a.type() == Clingo::TheoryTermType::Symbol)
     {
         v = createVar(a);
-        auto pred = std::make_pair(toString(a), 0);
+        auto pred = std::make_pair(Clingo::Function(a.name(),{}), 0);
         pred2Variables_[pred].emplace(v.v);
         auto l_it = shownPredPerm_.find(pred);
         if (l_it != shownPredPerm_.end())
         {
-            for (auto i : l_it->second) add2Shown(v.v, id, i);
+            for (auto i : l_it->second) add2Shown(v.v, s, i);
         }
     }
     else
@@ -274,8 +299,8 @@ bool TheoryParser::getView(const Clingo::TheoryTerm &a, View &v)
                     // binary plus
                     if (isNumber(*a.arguments().begin()) && isNumber(*(a.arguments().begin() + 1)))
                     {
-                        v = createVar(a, getNumber(*a.arguments().begin()) +
-                                             getNumber(*(a.arguments().begin() + 1)));
+                        v = createVar(Clingo::Number(getNumber(*a.arguments().begin()) +
+                                             getNumber(*(a.arguments().begin() + 1))));
                     }
                     else
                     {
@@ -300,8 +325,8 @@ bool TheoryParser::getView(const Clingo::TheoryTerm &a, View &v)
                     // binary minus
                     if (isNumber(*a.arguments().begin()) && isNumber(*(a.arguments().begin() + 1)))
                     {
-                        v = createVar(a, getNumber(*a.arguments().begin()) -
-                                             getNumber(*(a.arguments().begin() + 1)));
+                        v = createVar(Clingo::Number(getNumber(*a.arguments().begin()) -
+                                             getNumber(*(a.arguments().begin() + 1))));
                     }
                     else
                     {
@@ -328,8 +353,8 @@ bool TheoryParser::getView(const Clingo::TheoryTerm &a, View &v)
                     // binary times
                     if (isNumber(*a.arguments().begin()) && isNumber(*(a.arguments().begin() + 1)))
                     {
-                        v = createVar(a, getNumber(*a.arguments().begin()) *
-                                             getNumber(*(a.arguments().begin() + 1)));
+                        v = createVar(Clingo::Number(getNumber(*a.arguments().begin()) *
+                                             getNumber(*(a.arguments().begin() + 1))));
                     }
                     else
                     {
@@ -356,12 +381,12 @@ bool TheoryParser::getView(const Clingo::TheoryTerm &a, View &v)
                     if (!check(*i)) return false;
                 v = createVar(a);
 
-                auto pred = std::make_pair(std::string(a.name()), a.arguments().size());
+                auto pred = std::make_pair(Clingo::Function(a.name(),{}), a.arguments().size());
                 pred2Variables_[pred].emplace(v.v);
                 auto l_it = shownPredPerm_.find(pred);
                 if (l_it != shownPredPerm_.end())
                 {
-                    for (auto i : l_it->second) add2Shown(v.v, id, i);
+                    for (auto i : l_it->second) add2Shown(v.v, s, i);
                 }
             }
         }
@@ -372,51 +397,34 @@ bool TheoryParser::getView(const Clingo::TheoryTerm &a, View &v)
     return true;
 }
 
-View TheoryParser::createVar(const Clingo::TheoryTerm &t)
-{
-    Clingo::id_t id = t.to_c();
-    termId2View_.resize(std::max(( unsigned int )(termId2View_.size()), ( unsigned int )(id + 1)),
-                        View(InvalidVar));
-    assert(termId2View_[id] == View(InvalidVar));
-    std::string s = toString(t);
+View TheoryParser::createVar(const Clingo::TheoryTerm &t) {
+    return createVar(toSymbol(t));
+}
+
+View TheoryParser::createVar(const Clingo::Symbol &s) {
+    auto it = symbol2view_.find(s);
+    if (it != symbol2view_.end())
+        return it->second;
     View v;
-    auto it = string2view_.find(s);
-
-    if (it != string2view_.end())
-        v = it->second;
-    else
-    {
-        v = n_.createView();
-        string2view_.insert(std::make_pair(s, v));
+    if (s.type() == Clingo::SymbolType::Number) {
+        v = n_.createView(Domain(s.number(), s.number()));
     }
-    // std::cout << "Variable v" << v.v << " is named " << s << std::endl;
-    termId2View_[id] = v;
-    // string2View_[s]=v;
-    return v;
-}
-
-View TheoryParser::createVar(const Clingo::TheoryTerm &t, int32 val)
-{
-    Clingo::id_t id = t.to_c();
-    termId2View_.resize(std::max(( unsigned int )(termId2View_.size()), ( unsigned int )(id + 1)),
-                        View(InvalidVar));
-    assert(termId2View_[id] == InvalidVar);
-    View v = n_.createView(Domain(val, val));
-    termId2View_[id] = v;
-    std::string s = toString(t);
-    string2view_.insert(std::make_pair(s, v));
-    // string2Var_[s]=v;
+    else {
+        v = n_.createView();
+    }
+    symbol2view_[s] = v;
     return v;
 }
 
 
-std::string TheoryParser::getName(Variable v)
+const char* TheoryParser::getName(Variable v) const
 {
-    auto x = find_if(string2view_.begin(), string2view_.end(),
-                     [&v](const std::pair< std::string, View > &vt) { return vt.second.v == v; });
-    if (x != string2view_.end()) return x->first;
+    auto x = find_if(symbol2view_.begin(), symbol2view_.end(),
+                     [&v](const std::pair< Clingo::Symbol, View > &vt) { return vt.second.v == v; });
+    if (x != symbol2view_.end()) return (x->first).name();
     return "__unknownVariable";
 }
+
 
 bool TheoryParser::check(const Clingo::TheoryTerm &a)
 {
@@ -424,14 +432,9 @@ bool TheoryParser::check(const Clingo::TheoryTerm &a)
     {
         return true;
     }
-    if (a.type() == Clingo::TheoryTermType::Symbol)
-    {
-        return true;
-    }
-
     if (a.type() == Clingo::TheoryTermType::Function)
     {
-        std::string fname = a.name();
+        auto fname = a.name();
         if (!isalpha(fname[0]))
         {
             if (isNumber(a)) return true;
@@ -447,7 +450,6 @@ bool TheoryParser::check(const Clingo::TheoryTerm &a)
     }
     return true;
 }
-
 
 bool TheoryParser::isClingconConstraint(Clingo::TheoryAtom &i)
 {
@@ -687,7 +689,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
                         if (op.arguments().size() == 2 && isVariable(*op.arguments().begin()) &&
                             (op.arguments().begin() + 1)->type() == Clingo::TheoryTermType::Number)
                         {
-                            shownPred_.emplace_back(single_elem->to_c(), elem.condition_id());
+                            shownPred_.emplace_back(single_elem->to_c(), (op.arguments().begin() + 1)->number(), elem.condition_id());
                             continue;
                         }
                         else
@@ -700,8 +702,8 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
                 {
                     shown_.resize(
                         std::max(( unsigned int )(v.v) + 1, ( unsigned int )(shown_.size())),
-                        std::make_pair(InvalidVar, Literal(0)));
-                    shown_[v.v] = std::make_pair(single_elem->to_c(), elem.condition_id());
+                        std::make_pair(MAXID, Literal(0)));
+                    shown_[v.v] = std::make_pair(toSymbol(*single_elem), elem.condition_id());
                 }
                 else
                     error("Variable or pred/n show expression expected", *single_elem);
@@ -786,7 +788,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
 }
 
 
-void TheoryParser::add2Shown(Variable v, uint32 tid, Literal l)
+void TheoryParser::add2Shown(Variable v, Clingo::Symbol tid, Literal l)
 {
     shown_.resize(std::max(( unsigned int )(v) + 1, ( unsigned int )(shown_.size())),
                   std::make_pair(MAXID, Literal(0)));
@@ -809,28 +811,33 @@ NameList &TheoryParser::postProcess()
 {
     for (auto i : shownPred_)
     {
-        const auto &predTerm = Clingo::TheoryTerm(td_.to_c(), i.first);
-        //        auto& predTerm = td_.getTerm(i.first);
-        unsigned int arity = (predTerm.arguments().begin() + 1)->number();
-        const Clingo::TheoryTerm &function = *predTerm.arguments().begin();
-
-        shownPredPerm_[std::make_pair(toString(function), arity)].push_back(i.second);
-        for (uint32 tid = 0; tid != termId2View_.size(); ++tid)
-        {
-            // std::cout << toString(td_.getTerm(tid)) << std::endl;
-            View v(termId2View_[tid]);
-            if (v.v != InvalidVar)
-            {
-                const auto &term = Clingo::TheoryTerm(td_.to_c(), tid);
-                if ((term.type() == Clingo::TheoryTermType::Function &&
-                     term.arguments().size() == arity && std::string(term.name()) == std::string(function.name())) ||
-                    (arity == 0 && term.type() == Clingo::TheoryTermType::Symbol &&
-                     tid == function.to_c()))
-                {
-                    add2Shown(v.v, tid, i.second);
+        auto &function = std::get<0>(i);
+        auto &arity  = std::get<1>(i);
+        auto lit = std::get<2>(i);
+        shownPredPerm_[std::make_pair(function, arity)].push_back(std::get<2>(i));
+        for (const auto& i : symbol2view_) {
+            if (i.first.type() == Clingo::SymbolType::Function && strcmp(i.first.name(),function.name())==0) {
+                if (i.first.arguments().size() == arity) {
+                    add2Shown(i.second.v,i.first,lit);
                 }
             }
         }
+//        for (uint32 tid = 0; tid != symbol2view_.size(); ++tid)
+//        {
+//            // std::cout << toString(td_.getTerm(tid)) << std::endl;
+//            View v(symbol2View_[tid]);
+//            if (v.v != InvalidVar)
+//            {
+//                const auto &term = Clingo::TheoryTerm(td_.to_c(), tid);
+//                if ((term.type() == Clingo::TheoryTermType::Function &&
+//                     term.arguments().size() == arity && (term.name == function)) ||
+//                    (arity == 0 && term.type() == Clingo::TheoryTermType::Symbol &&
+//                     tid == function.to_c()))
+//                {
+//                    add2Shown(v.v, tid, i.second);
+//                }
+//            }
+//        }
     }
 
     for (unsigned int i = 0; i < shown_.size(); ++i)
@@ -842,8 +849,7 @@ NameList &TheoryParser::postProcess()
             {
                 LitVec lv;
                 lv.push_back(shown_[i].second);
-                orderVar2nameAndConditions_[i] = std::make_pair(
-                    toString(Clingo::TheoryTerm(td_.to_c(), shown_[i].first)), std::move(lv));
+                orderVar2nameAndConditions_[i] = std::make_pair(shown_[i].first, std::move(lv));
             }
             else
             {
@@ -869,11 +875,11 @@ void TheoryParser::error(const std::string &s, const Clingo::TheoryTerm &t)
 
 void TheoryParser::reset()
 {
-    termId2View_.clear();
+    symbol2view_.clear();
     termId2constraint_.clear();
     shown_.clear();
     shownPred_.clear();
     minimize_.clear();
-    termId2View_.clear();
 }
+
 }

@@ -39,7 +39,7 @@ inline void hash_combine(std::size_t &seed, const T &v)
     seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-using NameList = std::unordered_map< Variable, std::pair< std::string, LitVec > >;
+using NameList = std::unordered_map< Variable, std::pair< Clingo::Symbol, LitVec > >;
 
 class TheoryParser
 {
@@ -59,6 +59,7 @@ public:
         : s_(g)
         , n_(n)
         , td_(td)
+        , MAXID(Clingo::Infimum())
     {
     }
 
@@ -71,7 +72,8 @@ public:
     void reset();
 
     /// slow lookup, use with care
-    std::string getName(Variable v);
+    Clingo::Symbol getSymbol(Variable v);
+    const char *getName(Variable v) const;
 
 private:
     bool isClingconConstraint(Clingo::TheoryAtom &i);
@@ -90,12 +92,14 @@ private:
 
     std::string toString(const Clingo::TheoryTerm &t);
     std::stringstream &toString(std::stringstream &ss, const Clingo::TheoryTerm &t);
+    Clingo::Symbol toSymbol(const Clingo::TheoryTerm &t) const;
 
-    bool isNumber(const Clingo::TheoryTerm &a);
 
-    int getNumber(const Clingo::TheoryTerm &a);
+    bool isNumber(const Clingo::TheoryTerm &a) const;
 
-    void add2Shown(Variable v, uint32 tid, Literal l);
+    int getNumber(const Clingo::TheoryTerm &a) const;
+
+    void add2Shown(Variable v, Clingo::Symbol tid, Literal l);
 
     ///
     /// \brief getView
@@ -121,28 +125,27 @@ private:
     bool getView(const Clingo::TheoryTerm &a, View &v);
 
     View createVar(const Clingo::TheoryTerm &t);
-
-    View createVar(const Clingo::TheoryTerm &t, int32 val);
+    View createVar(const Clingo::Symbol &t);
 
 private:
     bool check(const Clingo::TheoryTerm &id);
     bool isVariable(const Clingo::TheoryTerm &id);
 
+
     Grounder &s_;
 
     std::unordered_map< Clingo::id_t, CType > termId2constraint_;
-    std::vector< std::pair< Clingo::id_t, Literal > >
-        shown_; /// Variable to TermId + condition literal
-    std::vector< std::pair< Clingo::id_t, Literal > >
-        shownPred_; /// a list of p/3 predicates to be shown + condition literal
+    std::vector< std::pair< Clingo::Symbol, Literal > >
+        shown_; /// Variable to Symbol + condition literal
+    std::vector< std::tuple< Clingo::Symbol, size_t, Literal > >
+        shownPred_; /// a list of symbol/arity predicates to be shown + condition literal
     std::vector< tuple2View > minimize_; /// for each level
 
-    std::vector< View > termId2View_;
     Normalizer &n_;
     Clingo::TheoryAtoms td_;
-    const Clingo::id_t MAXID = std::numeric_limits< Clingo::id_t >::max();
-    std::unordered_map< std::string, View > string2view_;
-    using Predicate = std::pair< std::string, unsigned int >;
+    const Clingo::Symbol MAXID;
+    std::unordered_map< Clingo::Symbol, View > symbol2view_;
+    using Predicate = std::pair< Clingo::Symbol, unsigned int >;
 
     struct PredicateHasher
     {
@@ -156,7 +159,7 @@ private:
     };
 
     std::unordered_map< Predicate, std::set< Variable >, PredicateHasher > pred2Variables_;
-    std::unordered_map< Variable, std::pair< std::string, LitVec > > orderVar2nameAndConditions_;
+    std::unordered_map< Variable, std::pair< Clingo::Symbol, LitVec > > orderVar2nameAndConditions_;
     std::unordered_map< Predicate, LitVec, PredicateHasher > shownPredPerm_;
 };
 }

@@ -744,7 +744,7 @@ void PropagatorThread::extend_model(Clingo::Model& m) const {
     Clingo::SymbolVector vec;
     for (const auto &i : lastModel_) {
         Clingo::SymbolVector params;
-        params.emplace_back(Clingo::String((*names_).at(i.first).first.c_str()));
+        params.emplace_back((*names_).at(i.first).first);
         params.emplace_back(Clingo::Number(i.second));
         vec.emplace_back(Clingo::Function("csp",params));
     }
