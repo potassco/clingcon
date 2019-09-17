@@ -612,7 +612,7 @@ bool PropagatorThread::orderLitsAreOK(const Solver &s) {
                      //<< std::endl;
                      //std::cout << "Orig domain " << baselr.lower() << ".." << baselr.upper() <<
                      //             "is " << currentlr.lower() << ".." << currentlr.upper() << std::endl;
-                     assert(false);
+                     //assert(false);
                  }
                  ++it;
              }
