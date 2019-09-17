@@ -135,9 +135,10 @@ private:
     Grounder &s_;
 
     std::unordered_map< Clingo::id_t, CType > termId2constraint_;
+    using Predicate = std::pair< Clingo::Symbol, size_t >;
     std::vector< std::pair< Clingo::Symbol, Literal > >
         shown_; /// Variable to Symbol + condition literal
-    std::vector< std::tuple< Clingo::Symbol, size_t, Literal > >
+    std::vector< std::pair< Predicate, Literal > >
         shownPred_; /// a list of symbol/arity predicates to be shown + condition literal
     std::vector< tuple2View > minimize_; /// for each level
 
@@ -145,7 +146,7 @@ private:
     Clingo::TheoryAtoms td_;
     const Clingo::Symbol MAXID;
     std::unordered_map< Clingo::Symbol, View > symbol2view_;
-    using Predicate = std::pair< Clingo::Symbol, unsigned int >;
+
 
     struct PredicateHasher
     {

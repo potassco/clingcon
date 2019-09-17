@@ -689,7 +689,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
                         if (op.arguments().size() == 2 && isVariable(*op.arguments().begin()) &&
                             (op.arguments().begin() + 1)->type() == Clingo::TheoryTermType::Number)
                         {
-                            shownPred_.emplace_back(single_elem->to_c(), (op.arguments().begin() + 1)->number(), elem.condition_id());
+                            shownPred_.emplace_back(std::make_pair(single_elem->to_c(), (op.arguments().begin() + 1)->number()), elem.condition_id());
                             continue;
                         }
                         else
@@ -811,14 +811,14 @@ NameList &TheoryParser::postProcess()
 {
     for (auto i : shownPred_)
     {
-        auto &function = std::get<0>(i);
-        auto &arity  = std::get<1>(i);
-        auto lit = std::get<2>(i);
-        shownPredPerm_[std::make_pair(function, arity)].push_back(std::get<2>(i));
-        for (const auto& i : symbol2view_) {
-            if (i.first.type() == Clingo::SymbolType::Function && strcmp(i.first.name(),function.name())==0) {
-                if (i.first.arguments().size() == arity) {
-                    add2Shown(i.second.v,i.first,lit);
+        auto &function = i.first.first;
+        auto &arity  = i.first.second;
+        auto lit = i.second;
+        shownPredPerm_[std::make_pair(function, arity)].push_back(lit);
+        for (const auto& it : symbol2view_) {
+            if (it.first.type() == Clingo::SymbolType::Function && strcmp(it.first.name(),function.name())==0) {
+                if (it.first.arguments().size() == arity) {
+                    add2Shown(it.second.v,it.first,lit);
                 }
             }
         }
