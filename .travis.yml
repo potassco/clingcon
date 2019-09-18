@@ -4,52 +4,99 @@ language: c++
 matrix:
   include:
     - os: linux
-      compiler: gcc
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-5
-            - re2c
-            - liblua5.1-0-dev
-            - zsh
       env:
-        - MY_CC=gcc-5
-        - MY_CXX=g++-5
+        - CONFIG=Release
+        - PYTHON_VERSION=2.7
+        - COMPILER=gxx_linux-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
+    - os: linux
+      env:
+        - CONFIG=Debug
+        - PYTHON_VERSION=2.7
+        - COMPILER=gxx_linux-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
+
+    - os: linux
+      env:
+        - CONFIG=Release
+        - PYTHON_VERSION=3.6
+        - COMPILER=gxx_linux-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    - os: linux
+      env:
+        - CONFIG=Debug
+        - PYTHON_VERSION=3.6
+        - COMPILER=gxx_linux-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+
     - os: osx
       env:
-        - MY_CC=clang
-        - MY_CXX=clang++
+        - CONFIG=Release
+        - PYTHON_VERSION=2.7
+        - COMPILER=clangxx_osx-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh
+        - MACOSSDK=https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.9.sdk.tar.xz
+        - SDKROOT=${HOME}/MacOSX10.9.sdk
+        - MACOSX_DEPLOYMENT_TARGET=10.9
+      before_install:
+        - wget "${MACOSSDK}"
+        - tar xf MacOSX10.9.sdk.tar.xz -C "${HOME}"
+    - os: osx
+      env:
+        - CONFIG=Debug
+        - PYTHON_VERSION=2.7
+        - COMPILER=clangxx_osx-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh
+        - MACOSSDK=https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.9.sdk.tar.xz
+        - SDKROOT=${HOME}/MacOSX10.9.sdk
+        - MACOSX_DEPLOYMENT_TARGET=10.9
+      before_install:
+        - wget "${MACOSSDK}"
+        - tar xf MacOSX10.9.sdk.tar.xz -C "${HOME}"
+
+    - os: osx
+      env:
+        - CONFIG=Release
+        - PYTHON_VERSION=3.6
+        - COMPILER=clangxx_osx-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+        - MACOSSDK=https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.9.sdk.tar.xz
+        - SDKROOT=${HOME}/MacOSX10.9.sdk
+        - MACOSX_DEPLOYMENT_TARGET=10.9
+      before_install:
+        - wget "${MACOSSDK}"
+        - tar xf MacOSX10.9.sdk.tar.xz -C "${HOME}"
+    - os: osx
+      env:
+        - CONFIG=Debug
+        - PYTHON_VERSION=3.6
+        - COMPILER=clangxx_osx-64
+        - ANACONDA=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+        - MACOSSDK=https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.9.sdk.tar.xz
+        - SDKROOT=${HOME}/MacOSX10.9.sdk
+        - MACOSX_DEPLOYMENT_TARGET=10.9
+      before_install:
+        - wget "${MACOSSDK}"
+        - tar xf MacOSX10.9.sdk.tar.xz -C "${HOME}"
+
+git:
+  submodules: false
+
+install:
+  - wget "${ANACONDA}" -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda config --append channels potassco/label/dev
+  - conda update -q conda
+  - conda info -a
+  - conda create -q -n build python=$PYTHON_VERSION
+  - source activate build
+  - conda install -q clingo cmake "${COMPILER}" ninja
+  - cmake -G Ninja -DCLINGCON_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=${CONFIG} -DCMAKE_VERBOSE_MAKEFILE=True -DCMAKE_INSTALL_PREFIX="${CONDA_PREFIX}" -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,${CONDA_PREFIX}/lib" -H. -Bbuild
+  - cmake --build build -- -j3
+  - cmake --build build --target install
 
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      brew uninstall --ignore-dependencies python@2;
-      brew install lua bison re2c;
-      export PATH="/usr/local/opt/bison/bin:$PATH";
-    fi
-  - if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
-      CMAKE_URL="http://www.cmake.org/files/v3.3/cmake-3.3.2-Linux-x86_64.tar.gz";
-      mkdir cmake-bin && wget --quiet --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake-bin;
-      export PATH=${PWD}/cmake-bin/bin:${PATH};
-    fi
-  - git submodule update --init --recursive &&
-    cmake
-      -H.
-      -Bbuild
-      -DCMAKE_VERBOSE_MAKEFILE=True
-      -DCLINGCON_BUILD_TESTS=True
-      -DCMAKE_C_COMPILER=${MY_CC}
-      -DCMAKE_CXX_COMPILER=${MY_CXX} &&
-    cmake --build build -- -j3 &&
-    ./libclingcon/test/test.sh ./build/bin/testclingcon &&
-    cmake
-      -H.
-      -Bdebug
-      -DCMAKE_BUILD_TYPE=Debug
-      -DCMAKE_VERBOSE_MAKEFILE=True
-      -DCLINGCON_BUILD_TESTS=True
-      -DCMAKE_C_COMPILER=${MY_CC}
-      -DCMAKE_CXX_COMPILER=${MY_CXX} &&
-    cmake --build debug -- -j3 &&
-    ./libclingcon/test/test.sh ./debug/bin/testclingcon
+    - ./libclingcon/test/test.sh ./build/bin/testclingcon
