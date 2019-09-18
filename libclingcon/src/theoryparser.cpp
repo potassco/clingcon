@@ -689,7 +689,7 @@ bool TheoryParser::readConstraint(Clingo::TheoryAtom &i, Direction dir)
                         if (op.arguments().size() == 2 && isVariable(*op.arguments().begin()) &&
                             (op.arguments().begin() + 1)->type() == Clingo::TheoryTermType::Number)
                         {
-                            shownPred_.emplace_back(std::make_pair(std::make_pair(single_elem->to_c(), (op.arguments().begin() + 1)->number()), elem.condition_id()));
+                            shownPred_.emplace_back(Predicate(Clingo::Symbol(single_elem->to_c()), (op.arguments().begin() + 1)->number()), elem.condition_id());
                             continue;
                         }
                         else
