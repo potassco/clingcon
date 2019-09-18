@@ -882,4 +882,8 @@ void TheoryParser::reset()
     minimize_.clear();
 }
 
+const SymbolMap &TheoryParser::getSymbols() const {
+    return symbol2view_;
+}
+
 }

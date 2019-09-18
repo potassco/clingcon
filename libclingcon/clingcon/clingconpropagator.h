@@ -139,12 +139,13 @@ class ClingconPropagator : public Clingo::Propagator
 {
 public:
     ClingconPropagator(Stats& stats, Literal trueLit, const VariableCreator &vc, const Config &conf,
-                       NameList *names, const std::vector< ReifiedLinearConstraint > &constraints)
+                       NameList *names, SymbolMap* symbols, const std::vector< ReifiedLinearConstraint > &constraints)
         : stats_(stats)
         , trueLit_(trueLit)
         , vc_(vc)
         , conf_(conf)
         , names_(names)
+        , symbols_(symbols)
         , constraints_(constraints)
     {
     }
@@ -163,9 +164,24 @@ public:
         
     }
 
-    size_t lookup(clingo_symbol_t name) {
-        auto s = Clingo::Symbol(name).to_string();
+    size_t lookup(clingo_symbol_t symbol) const {
+        clingcon::Var max = 0;
+        auto it = symbols_->find(Clingo::Symbol(symbol));
+        if (it != symbols_->end())
+            return it->second.v;
+        return vc_.numVariables();
+    }
 
+    size_t num_variables() const {
+        return vc_.numVariables();
+    }
+
+    Clingo::Symbol symbol(size_t index) const {
+        for (const auto&i : *symbols_) {
+            if (i.second == index)
+                return i.first;
+        }
+        assert(false);
     }
 
 private:
@@ -177,6 +193,7 @@ private:
     const VariableCreator &vc_;
     Config conf_;
     NameList *names_;
+    SymbolMap* symbols_;
     std::vector< ReifiedLinearConstraint > constraints_;
     std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
         propVar2cspVar_;

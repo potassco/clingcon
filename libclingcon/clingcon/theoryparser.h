@@ -40,6 +40,7 @@ inline void hash_combine(std::size_t &seed, const T &v)
 }
 
 using NameList = std::unordered_map< Variable, std::pair< Clingo::Symbol, LitVec > >;
+using SymbolMap = std::unordered_map< Clingo::Symbol, View >;
 
 class TheoryParser
 {
@@ -71,6 +72,7 @@ public:
 
     void reset();
 
+    const SymbolMap& getSymbols() const;
     /// slow lookup, use with care
     Clingo::Symbol getSymbol(Variable v);
     const char *getName(Variable v) const;
@@ -145,7 +147,7 @@ private:
     Normalizer &n_;
     Clingo::TheoryAtoms td_;
     const Clingo::Symbol MAXID;
-    std::unordered_map< Clingo::Symbol, View > symbol2view_;
+    SymbolMap symbol2view_;
 
 
     struct PredicateHasher

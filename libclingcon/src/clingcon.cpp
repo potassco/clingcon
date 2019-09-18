@@ -161,6 +161,8 @@ public:
                 else
                     names_[i.first] = i.second;
             }
+            auto symbols = tp.getSymbols();
+            symbols_.insert(symbols.begin(), symbols.end());
 
             for (unsigned int level = 0; level < tp.minimize().size(); ++level)
                 for (auto i : tp.minimize()[level])
@@ -202,6 +204,7 @@ public:
                                                      normalizer_.getVariableCreator(),
                                                      normalizer_.getConfig(),
                                                      &names_,
+                                                     &symbols_,
                                                      normalizer_.constraints());
         static clingo_propagator_t prop = {
             init,
@@ -215,12 +218,12 @@ public:
     }
 
     bool lookup_symbol(clingo_symbol_t name, size_t *index) override {
-        //*index = prop_->lookup(name) + 1;
-        //return *index <= prop_->num_variables();
+        *index = prop_->lookup(name) + 1;
+        return *index <= prop_->num_variables();
     }
 
     clingo_symbol_t get_symbol(size_t index) override {
-        //return prop_->symbol(index - 1).to_c();
+        return prop_->symbol(index - 1).to_c();
     }
 
     bool has_value(uint32_t thread_id, size_t index) override {
@@ -277,6 +280,7 @@ private:
     clingcon::Grounder grounder_;
     clingcon::Normalizer normalizer_;
     clingcon::NameList names_;
+    clingcon::SymbolMap symbols_;
 };
 
 struct clingcon_theory {

@@ -107,7 +107,7 @@ namespace
 
         REQUIRE(norm.finalize());
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==1);
@@ -148,7 +148,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -213,7 +213,7 @@ namespace
 
         REQUIRE(norm.finalize());
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -262,7 +262,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==2); return true;
@@ -321,7 +321,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==3); return true;
@@ -364,7 +364,7 @@ namespace
 
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==30); return true;
@@ -451,7 +451,7 @@ namespace
 
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==5040); return true;
@@ -725,7 +725,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==1); return true;
@@ -998,7 +998,7 @@ namespace
 
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==1); return true;
@@ -1060,7 +1060,7 @@ namespace
 
 
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==12); return true;
@@ -1126,7 +1126,7 @@ namespace
         REQUIRE(norm.finalize());
 
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==12); return true;
@@ -1209,7 +1209,7 @@ namespace
         REQUIRE(norm.finalize());
 
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==24); return true;
@@ -1246,7 +1246,7 @@ namespace
            REQUIRE(norm.finalize());
 
 
-           clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+           clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                           norm.constraints());
            ctl.register_propagator(p);
            REQUIRE(expectedModels(ctl)==4); return true;
@@ -1281,7 +1281,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==2); return true;
@@ -1349,7 +1349,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==6); return true;
@@ -1431,7 +1431,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==1); return true;
@@ -1514,7 +1514,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==1); return true;
@@ -1627,7 +1627,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==450); return true;
@@ -1669,7 +1669,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModelsMin(ctl,13)); return true;
@@ -1714,7 +1714,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModelsMin(ctl,13)); return true;
@@ -1760,7 +1760,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModelsMin(ctl,13)); return true;
@@ -1808,7 +1808,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModelsMin(ctl,13)); return true;
@@ -1850,7 +1850,7 @@ namespace
             REQUIRE(norm.finalize());
 
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModelsMin(ctl,13)); return true;
@@ -1888,7 +1888,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModelsMin(ctl,13)); return true;
@@ -1916,7 +1916,7 @@ namespace
         REQUIRE(norm.finalize());
 
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==24); return true;
@@ -1947,7 +1947,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==10); return true;
@@ -1979,7 +1979,7 @@ namespace
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
             REQUIRE(expectedModels(ctl)==14); return true;
@@ -2034,7 +2034,7 @@ namespace
         REQUIRE(norm.finalize());
 
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==2448); return true;
@@ -2077,7 +2077,7 @@ namespace
 
         REQUIRE(norm.finalize());
 
-        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         REQUIRE(expectedModels(ctl)==2); return true;

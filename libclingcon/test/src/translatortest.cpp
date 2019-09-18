@@ -78,7 +78,7 @@ namespace {
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr, nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -120,7 +120,7 @@ namespace {
 
             REQUIRE(norm.finalize());
 
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -152,7 +152,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -207,7 +207,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -262,7 +262,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -373,7 +373,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -424,7 +424,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -473,7 +473,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -533,7 +533,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -607,7 +607,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -674,7 +674,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -734,7 +734,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -793,7 +793,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -864,7 +864,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -933,7 +933,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1011,7 +1011,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1107,7 +1107,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1146,7 +1146,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1185,7 +1185,7 @@ namespace {
             //s.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,s.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1220,7 +1220,7 @@ namespace {
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1256,7 +1256,7 @@ namespace {
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-            clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+            clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                            norm.constraints());
             ctl.register_propagator(p);
 
@@ -1313,7 +1313,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -1376,7 +1376,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -1467,7 +1467,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -1754,7 +1754,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -1848,7 +1848,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
         //solver.printDimacs(std::cout);std::cout << std::endl;
@@ -1896,7 +1896,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -1967,7 +1967,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2068,7 +2068,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2157,7 +2157,7 @@ namespace {
         //solver.createNewLiterals(norm.estimateVariables());
 
         REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2200,7 +2200,7 @@ namespace {
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2232,7 +2232,7 @@ bool allDiffTranslate2(Clingo::Control& ctl)
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2274,7 +2274,7 @@ bool allDiffTranslate2(Clingo::Control& ctl)
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2309,7 +2309,7 @@ bool allDiffTranslate2(Clingo::Control& ctl)
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2362,7 +2362,7 @@ bool allDiffTranslate2(Clingo::Control& ctl)
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2426,7 +2426,7 @@ bool allDiffTranslate2(Clingo::Control& ctl)
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
@@ -2461,7 +2461,7 @@ bool domainC4(Clingo::Control& ctl)
             //solver.createNewLiterals(norm.estimateVariables());
 
             REQUIRE(norm.finalize());
-        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,
+        clingcon::ClingconPropagator p(stats,solver.trueLit(), norm.getVariableCreator(), norm.getConfig(), nullptr,nullptr,
                                        norm.constraints());
         ctl.register_propagator(p);
 
