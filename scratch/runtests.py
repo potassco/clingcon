@@ -25,7 +25,7 @@ for i, rc_expected in calls:
     process = Popen(i.split(), stdout=PIPE,stderr=PIPE)
     (output, err) = process.communicate()
     exit_code = process.wait()
-    rc_call = output.count("Answer")
+    rc_call = output.count(b"Answer")
     if rc_call != rc_expected:
         rc = 1
         print("Failed: '{}' with error code {}".format(i, rc_call))
