@@ -79,6 +79,9 @@ public:
 
     void extend_model(Clingo::Model& m) const;
     void printAssignment() const;
+    /// returns range of free values, or 0 if variable is not valid or important
+    uint64_t free_range(Var v, Solver &s) const;
+    int32_t value(Var v, Solver& s) const;
 
 private:
     bool propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
@@ -164,7 +167,7 @@ public:
         
     }
 
-    size_t lookup(clingo_symbol_t symbol) const {
+    Var lookup(clingo_symbol_t symbol) const {
         clingcon::Var max = 0;
         auto it = symbols_->find(Clingo::Symbol(symbol));
         if (it != symbols_->end())
@@ -176,12 +179,21 @@ public:
         return vc_.numVariables();
     }
 
-    Clingo::Symbol symbol(size_t index) const {
+    Clingo::Symbol symbol(Var var) const {
         for (const auto&i : *symbols_) {
-            if (i.second == index)
+            if (i.second == var)
                 return i.first;
         }
         assert(false);
+    }
+
+    bool has_unique_value(size_t thread_id, Var v) const {
+        //return threads_[thread_id].free_range(v)==1;
+    }
+
+    int32_t value(size_t thread_id, Var v) const {
+        //assert(has_unique_value(thread_id, v));
+        //return threads_[thread_id].value(v);
     }
 
 private:

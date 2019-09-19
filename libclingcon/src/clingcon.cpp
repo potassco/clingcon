@@ -223,24 +223,24 @@ public:
     }
 
     clingo_symbol_t get_symbol(size_t index) override {
-        return prop_->symbol(index - 1).to_c();
+        return prop_->symbol(Var(index - 1)).to_c();
     }
 
-    bool has_value(uint32_t thread_id, size_t index) override {
-        //return prop_->has_unique_value(thread_id, index - 1);
+    bool has_value(uint32_t thread_id, size_t index) {
+        return prop_->has_unique_value(thread_id, Var(index - 1));
     }
-    void get_value(uint32_t thread_id, size_t index, int64_t *value) override {
-        //assert(index > 0 && index <= prop_->num_variables());
-        //value = prop_->value(thread_id, index - 1);
+    void get_value(uint32_t thread_id, size_t index, int64_t *value)  {
+        assert(index > 0 && index <= prop_->num_variables());
+        *value = static_cast<int64_t>(prop_->value(thread_id, Var(index - 1)));
     }
 
-    bool next(uint32_t thread_id, size_t *current) override {
-//        for (++*current; *current <= prop_->num_variables(); ++*current) {
-//            if (prop_->has_value(thread_id, *current - 1)) {
-//                return true;
-//            }
-//        }
-//        return false;
+    bool next(uint32_t thread_id, size_t *current) {
+        for (++*current; *current <= prop_->num_variables(); ++*current) {
+            if (prop_->has_unique_value(thread_id, *current - 1)) {
+                return true;
+            }
+        }
+        return false;
     }
     void extend_model(Model &m) override {
         prop_->extend_model(m);

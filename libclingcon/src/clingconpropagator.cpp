@@ -627,7 +627,7 @@ bool PropagatorThread::orderLitsAreOK(const Solver &s) {
 namespace
 {
 
-    /// finds first literal that is true
+    /// finds first literal that is not false
     template < class ForwardIt >
     ForwardIt my_upper_bound(ForwardIt first, ForwardIt last, Solver &s, const orderStorage &os)
     {
@@ -652,6 +652,35 @@ namespace
     }
 }
 
+uint64_t PropagatorThread::free_range(Var v, Solver& s) const {
+    assert(p_->getVVS().getVariableStorage().isValid(v));
+    if (watched_[v])
+        return p_->getVVS().getVariableStorage().getCurrentRestrictor(v).size();
+    else {
+        auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(v));
+        return s.isTrue(*(my_upper_bound(rs.begin(), rs.end(), s,
+                             p_->getVVS().getVariableStorage().getOrderStorage(v))));
+    }
+
+}
+
+int32_t PropagatorThread::value(Var v, Solver& s) const {
+    ViewIterator vit;
+    if (watched_[v])
+    {
+        Restrictor lr;
+        lr = p_->getVVS().getVariableStorage().getCurrentRestrictor(v);
+        assert(lr.size() == 1);
+        return *lr.begin();
+    }
+    else /// not watched, need to search for value
+    {
+        auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(v));
+        return *(my_upper_bound(rs.begin(), rs.end(), s,
+                             p_->getVVS().getVariableStorage().getOrderStorage(v)));
+    }
+}
+
 
 bool PropagatorThread::isModel(Clingo::PropagateControl &control)
 {
@@ -667,15 +696,10 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
     unsigned int maxSize = 1;
     for (unsigned int i = 0; i < vs.numVariables(); ++i)
     {
-        if (p_->getVVS().getVariableStorage().isValid(i) && watched_[i])
-        {
-            auto lr = vs.getCurrentRestrictor(i);
-
-            if (lr.size() > maxSize)
-            {
-                maxSize = lr.size();
-                unrestrictedVariable = i;
-            }
+        uint64_t size = free_range(i,s);
+        if (size > maxSize) {
+            maxSize = size;
+            unrestrictedVariable = i;
         }
     }
 
@@ -713,32 +737,15 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
                 }
 
                 Variable v(it->first);
-
-                Variable var(v);
-                assert(p_->getVVS().getVariableStorage().isValid(v));
-
-
-                ViewIterator vit;
-                if (watched_[var])
-                {
-                    Restrictor lr;
-                    lr = p_->getVVS().getVariableStorage().getCurrentRestrictor(var);
-                    assert(lr.size() == 1);
-                    vit = lr.begin();
-                }
-                else /// not watched, need to search for value
-                {
-                    auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(var));
-                    vit = my_upper_bound(rs.begin(), rs.end(), s,
-                                         p_->getVVS().getVariableStorage().getOrderStorage(var));
-                }
-                int32 value = *vit;
-                lastModel_[v] = value;
+                assert(p_->getVVS().getVariableStorage().isValid(v));                
+                lastModel_[v] = value(v,s);
             }
     }
 
     return true;
 }
+
+
 
 void PropagatorThread::extend_model(Clingo::Model& m) const {
     Clingo::SymbolVector vec;
