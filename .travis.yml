@@ -99,4 +99,4 @@ install:
   - cmake --build build --target install
 
 script:
-    - ./libclingcon/test/test.sh ./build/bin/testclingcon
+    - python scratch/runtests.py
