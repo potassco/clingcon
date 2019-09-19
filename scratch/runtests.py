@@ -17,8 +17,6 @@ for i in range(0,num):
 if rc == 0:
     print("Success: {} tests passed".format(num))
 
-exit(ret)
-
 calls = [("clingcon examples/bignumbers.lp 99 --outf=3", 99),
          ("clingcon examples/negative.lp 99 --outf=3", 4),
          ("clingcon examples/sendmoney.lp 99 --outf=3", 1),
