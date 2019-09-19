@@ -23,36 +23,42 @@
 // }}}
 
 #pragma once
-#include <vector>
 #include <chrono>
+#include <vector>
 
 namespace clingcon
 {
-using Duration = std::chrono::duration<double>;
-class Timer {
+using Duration = std::chrono::duration< double >;
+class Timer
+{
 public:
     Timer(Duration &elapsed)
         : elapsed_(elapsed)
-        , start_(std::chrono::steady_clock::now()) {}
+        , start_(std::chrono::steady_clock::now())
+    {
+    }
     ~Timer() { elapsed_ += std::chrono::steady_clock::now() - start_; }
 
 private:
     Duration &elapsed_;
-    std::chrono::time_point<std::chrono::steady_clock> start_;
+    std::chrono::time_point< std::chrono::steady_clock > start_;
 };
 
-struct ClingconStats {
-    void reset() {
+struct ClingconStats
+{
+    void reset()
+    {
         time_propagate = std::chrono::steady_clock::duration::zero();
-        time_undo      = std::chrono::steady_clock::duration::zero();
-        num_lits       = 0;
-        num_clauses    = 0;
+        time_undo = std::chrono::steady_clock::duration::zero();
+        num_lits = 0;
+        num_clauses = 0;
     }
-    void accu(ClingconStats const &x) {
-        time_propagate+= x.time_propagate;
-        time_undo     += x.time_undo;
-        num_lits      += x.num_lits;
-        num_clauses   += x.num_clauses;
+    void accu(ClingconStats const &x)
+    {
+        time_propagate += x.time_propagate;
+        time_undo += x.time_undo;
+        num_lits += x.num_lits;
+        num_clauses += x.num_clauses;
     }
     Duration time_propagate = Duration{0};
     Duration time_undo = Duration{0};
@@ -60,39 +66,44 @@ struct ClingconStats {
     uint64_t num_clauses{0};
 };
 
-struct Stats {
-    void reset() {
-        time_init= std::chrono::steady_clock::duration::zero(); 
+struct Stats
+{
+    void reset()
+    {
+        time_init = std::chrono::steady_clock::duration::zero();
         num_constraints = 0;
         num_int_variables = 0;
         num_lits = 0;
         num_clauses = 0;
-        for (auto& i : clingcon_stats) {
+        for (auto &i : clingcon_stats)
+        {
             i.reset();
-        } 
-    } 
-    void accu(Stats const &x) { 
-        time_init += x.time_init; 
+        }
+    }
+    void accu(Stats const &x)
+    {
+        time_init += x.time_init;
         num_constraints = x.num_constraints;
         num_int_variables = x.num_int_variables;
         num_lits = x.num_lits;
         num_clauses = x.num_clauses;
-        if (clingcon_stats.size() < x.clingcon_stats.size()) {
-            clingcon_stats.resize(x.clingcon_stats.size()); 
-        } 
-        auto it = x.clingcon_stats.begin(); 
-        for (auto &y : clingcon_stats) {
+        if (clingcon_stats.size() < x.clingcon_stats.size())
+        {
+            clingcon_stats.resize(x.clingcon_stats.size());
+        }
+        auto it = x.clingcon_stats.begin();
+        for (auto &y : clingcon_stats)
+        {
             y.accu(*it++);
-        } 
-    } 
-    Duration time_init = Duration{0}; 
+        }
+    }
+    Duration time_init = Duration{0};
     uint64_t num_constraints{0};
     uint64_t num_int_variables{0};
     uint64_t num_lits{0};
     uint64_t num_clauses{0};
-    std::vector<ClingconStats> clingcon_stats;
+    std::vector< ClingconStats > clingcon_stats;
 };
-
 
 
 } // namespace clingcon

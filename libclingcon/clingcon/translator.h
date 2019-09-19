@@ -76,4 +76,4 @@ inline bool translate(Grounder &s, VariableCreator &vc, std::vector< ReifiedLine
     rl.erase(rl.begin() + num, rl.end());
     return true;
 }
-}
+} // namespace clingcon

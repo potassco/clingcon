@@ -72,7 +72,7 @@ public:
 
     void reset();
 
-    const SymbolMap& getSymbols() const;
+    const SymbolMap &getSymbols() const;
     /// slow lookup, use with care
     Clingo::Symbol getSymbol(Variable v);
     const char *getName(Variable v) const;
@@ -165,4 +165,4 @@ private:
     std::unordered_map< Variable, std::pair< Clingo::Symbol, LitVec > > orderVar2nameAndConditions_;
     std::unordered_map< Predicate, LitVec, PredicateHasher > shownPredPerm_;
 };
-}
+} // namespace clingcon

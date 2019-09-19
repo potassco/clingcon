@@ -183,4 +183,4 @@ inline T right_most_bit(T x)
 {
     return x & (-x);
 }
-}
+} // namespace MyClasp

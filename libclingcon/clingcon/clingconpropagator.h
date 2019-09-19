@@ -39,7 +39,8 @@ class PropagatorThread
 {
 public:
     PropagatorThread(
-        Literal trueLit, Stats& s, ClingconStats& clingcon_stats, const VariableCreator &vc, const Config &conf, const NameList *names,
+        Literal trueLit, Stats &s, ClingconStats &clingcon_stats, const VariableCreator &vc,
+        const Config &conf, const NameList *names,
         const std::vector< ReifiedLinearConstraint > &constraints,
         std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
             propVar2cspVar,
@@ -47,7 +48,7 @@ public:
         : trueLit_(trueLit)
         , stats_(s)
         , clingcon_stats_(clingcon_stats)
-        , p_(std::make_unique<LinearLiteralPropagator>(trueLit_, vc, conf))
+        , p_(std::make_unique< LinearLiteralPropagator >(trueLit_, vc, conf))
         , pendingProp_(false)
         , conf_(conf)
         , names_(names)
@@ -64,8 +65,8 @@ public:
         }
     }
 
-    PropagatorThread(const PropagatorThread&) = delete;
-    PropagatorThread(PropagatorThread&& other) = default;
+    PropagatorThread(const PropagatorThread &) = delete;
+    PropagatorThread(PropagatorThread &&other) = default;
 
 
     /// propagator interface
@@ -74,14 +75,14 @@ public:
     void check(Clingo::PropagateControl &control);
     void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes);
 
-    //Solver &solver() { return s_; }
+    // Solver &solver() { return s_; }
     const VolatileVariableStorage &getVVS() const { return p_->getVVS(); }
 
-    void extend_model(Clingo::Model& m) const;
+    void extend_model(Clingo::Model &m) const;
     void printAssignment() const;
     /// returns range of free values, or 0 if variable is not valid or important
     uint64_t free_range(Var v, Solver &s) const;
-    int32_t value(Var v, Solver& s) const;
+    int32_t value(Var v, Solver &s) const;
 
 private:
     bool propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
@@ -94,19 +95,19 @@ private:
                   unsigned int step);
     /// debug functions
     void printPartialState(const Solver &s);
-    bool orderLitsAreOK(const Solver& s);
+    bool orderLitsAreOK(const Solver &s);
 
     /// force a new literal l, associated with it to be true,
     /// where l==x>it because x>it+eps
     /// where eps is the next valid literal
-    bool forceKnownLiteralLE(ViewIterator it, Literal l, Solver& s);
-    bool forceKnownLiteralGE(ViewIterator it, Literal l, Solver& s);
+    bool forceKnownLiteralLE(ViewIterator it, Literal l, Solver &s);
+    bool forceKnownLiteralGE(ViewIterator it, Literal l, Solver &s);
 
     Literal trueLit_;
-    Stats& stats_;
-    ClingconStats& clingcon_stats_;
-    std::unique_ptr<LinearLiteralPropagator> p_;
-    bool pendingProp_;  // if there is still unit or other propagation pending and no conflict
+    Stats &stats_;
+    ClingconStats &clingcon_stats_;
+    std::unique_ptr< LinearLiteralPropagator > p_;
+    bool pendingProp_; // if there is still unit or other propagation pending and no conflict
     Config conf_;
     std::vector< std::string > show_; /// order::Variable -> string name
     std::string outputbuf_;
@@ -141,8 +142,9 @@ private:
 class ClingconPropagator : public Clingo::Propagator
 {
 public:
-    ClingconPropagator(Stats& stats, Literal trueLit, const VariableCreator &vc, const Config &conf,
-                       NameList *names, SymbolMap* symbols, const std::vector< ReifiedLinearConstraint > &constraints)
+    ClingconPropagator(Stats &stats, Literal trueLit, const VariableCreator &vc, const Config &conf,
+                       NameList *names, SymbolMap *symbols,
+                       const std::vector< ReifiedLinearConstraint > &constraints)
         : stats_(stats)
         , trueLit_(trueLit)
         , vc_(vc)
@@ -160,52 +162,53 @@ public:
     virtual void check(Clingo::PropagateControl &control) override;
     virtual void undo(Clingo::PropagateControl const &s, Clingo::LiteralSpan changes) override;
 
-    void extend_model(Clingo::Model &m) {
+    void extend_model(Clingo::Model &m)
+    {
         auto threadID = m.thread_id();
         assert(threads_.size() > threadID);
         threads_[threadID].extend_model(m);
-        
     }
 
-    Var lookup(clingo_symbol_t symbol) const {
+    Var lookup(clingo_symbol_t symbol) const
+    {
         clingcon::Var max = 0;
         auto it = symbols_->find(Clingo::Symbol(symbol));
-        if (it != symbols_->end())
-            return it->second.v;
+        if (it != symbols_->end()) return it->second.v;
         return vc_.numVariables();
     }
 
-    size_t num_variables() const {
-        return vc_.numVariables();
-    }
+    size_t num_variables() const { return vc_.numVariables(); }
 
-    Clingo::Symbol symbol(Var var) const {
-        for (const auto&i : *symbols_) {
-            if (i.second == var)
-                return i.first;
+    Clingo::Symbol symbol(Var var) const
+    {
+        for (const auto &i : *symbols_)
+        {
+            if (i.second == var) return i.first;
         }
         assert(false);
     }
 
-    bool has_unique_value(size_t thread_id, Var v) const {
-        //return threads_[thread_id].free_range(v)==1;
+    bool has_unique_value(size_t thread_id, Var v) const
+    {
+        // return threads_[thread_id].free_range(v)==1;
     }
 
-    int32_t value(size_t thread_id, Var v) const {
-        //assert(has_unique_value(thread_id, v));
-        //return threads_[thread_id].value(v);
+    int32_t value(size_t thread_id, Var v) const
+    {
+        // assert(has_unique_value(thread_id, v));
+        // return threads_[thread_id].value(v);
     }
 
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
     void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
-    Stats& stats_;
+    Stats &stats_;
     Literal trueLit_;
     const VariableCreator &vc_;
     Config conf_;
     NameList *names_;
-    SymbolMap* symbols_;
+    SymbolMap *symbols_;
     std::vector< ReifiedLinearConstraint > constraints_;
     std::unordered_map< clingcon::Var, std::vector< std::pair< Variable, int32 > > >
         propVar2cspVar_;
@@ -219,4 +222,4 @@ private:
     std::vector< bool > watched_; /// which variables we need to watch
     std::vector< PropagatorThread > threads_;
 };
-}
+} // namespace clingcon

@@ -24,8 +24,8 @@
 
 #pragma once
 #include "clingcon/platform.h"
-#include "clingcon/variable.h"
 #include "clingcon/stats.h"
+#include "clingcon/variable.h"
 #include <cassert>
 #include <clingo.hh>
 #include <cstdlib>
@@ -69,7 +69,7 @@ public:
 class Grounder : public BaseSolver
 {
 public:
-    Grounder(Clingo::Control& c, Stats& stats)
+    Grounder(Clingo::Control &c, Stats &stats)
         : c_(c)
         , stats_(stats)
     {
@@ -77,21 +77,17 @@ public:
         trueLit_ = backend_->add_atom();
         backend_->rule(false, {Clingo::atom_t(std::abs(trueLit_))}, {}); // add a fact for trueLit_
     }
-    
-    void activate() {
-        auto c_ptr = c_.backend().to_c();  /// dirty, should begin/end an backend
-        backend_ = std::make_unique<Clingo::Backend>(c_ptr);
-        
+
+    void activate()
+    {
+        auto c_ptr = c_.backend().to_c(); /// dirty, should begin/end an backend
+        backend_ = std::make_unique< Clingo::Backend >(c_ptr);
     }
-    
-    void deactivate() {
-        backend_.reset(nullptr);
-    }
-    
-    bool isActivated() const {
-        return bool(backend_);
-    }
-    
+
+    void deactivate() { backend_.reset(nullptr); }
+
+    bool isActivated() const { return bool(backend_); }
+
 
     /// creates a new literal, makes a choice rule for it
     Literal createNewLiteral()
@@ -156,7 +152,7 @@ public:
         }
         auto aux = backend_->add_atom();
         backend_->weight_rule(false, {aux}, lb, {&wlv[0], wlv.size()});
-        return setEqual(aux,v);
+        return setEqual(aux, v);
     }
 
     bool createChoice(Clingo::AtomSpan atoms)
@@ -178,28 +174,30 @@ public:
     }
 
 private:
-    Clingo::Control& c_;
-    Stats& stats_;
-    std::unique_ptr<Clingo::Backend> backend_;// must be activated/deactivated
+    Clingo::Control &c_;
+    Stats &stats_;
+    std::unique_ptr< Clingo::Backend > backend_; // must be activated/deactivated
     Literal trueLit_;
 };
 
 class Solver : public BaseSolver
 {
 public:
-    Solver(Stats& stats, Literal trueLit, Clingo::PropagateControl c)
+    Solver(Stats &stats, Literal trueLit, Clingo::PropagateControl c)
         : c_(c)
         , stats_(stats)
-        , trueLit_(trueLit) {}
+        , trueLit_(trueLit)
+    {
+    }
 
-    Solver(const Solver& ) = delete;
-    Solver(Solver&& other) = delete;
+    Solver(const Solver &) = delete;
+    Solver(Solver &&other) = delete;
 
 
     void addWatch(Clingo::PropagateInit &init, Literal l) { init.add_watch(l); }
 
 
-     /// during runtime
+    /// during runtime
     void addWatch(Literal l)
     {
         assert(c_.to_c());
@@ -228,7 +226,7 @@ public:
     {
         assert(c_.to_c());
         ++(stats_.clingcon_stats[c_.thread_id()].num_lits);
-        auto x= c_.add_literal();
+        auto x = c_.add_literal();
         return x;
     }
 
@@ -238,9 +236,10 @@ public:
         ++(stats_.clingcon_stats[c_.thread_id()].num_clauses);
         return c_.add_clause(lits);
     }
+
 private:
     Clingo::PropagateControl c_;
-    Stats& stats_;
+    Stats &stats_;
     Literal trueLit_;
 };
 

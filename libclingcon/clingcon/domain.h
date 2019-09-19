@@ -946,4 +946,4 @@ private:
     ViewIterator upper_;
 };
 */
-}
+} // namespace clingcon

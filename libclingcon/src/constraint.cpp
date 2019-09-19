@@ -230,4 +230,4 @@ void ReifiedLinearConstraint::normalize()
     }
     l.normalize();
 }
-}
+} // namespace clingcon

@@ -168,14 +168,14 @@ bool LinearPropagator::propagate()
 /// propagate, but not until a fixpoint
 /// returns a set of new clauses
 std::vector< LinearLiteralPropagator::LinearConstraintClause > &
-LinearLiteralPropagator::propagateSingleStep(Solver& s)
+LinearLiteralPropagator::propagateSingleStep(Solver &s)
 {
     propClauses_.clear();
     while (!storage_.atFixPoint() && propClauses_.empty())
     {
         auto &lc = storage_.linearImpConstraints_[storage_.popConstraint()];
         if (s.isTrue(lc.v))
-            propagate_true(lc,s);
+            propagate_true(lc, s);
         else if (conf_.propStrength >= 2 && s.isUnknown(lc.v))
             propagate_impl(lc);
     }
@@ -261,7 +261,7 @@ bool LinearPropagator::propagate_true(const LinearConstraint &l)
     return true;
 }
 
-void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, const Solver& s)
+void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, const Solver &s)
 {
     const LinearConstraint &l = rl.l;
     assert(l.getRelation() == LinearConstraint::Relation::LE);
@@ -308,9 +308,10 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, 
         }
         else if (up < r.upper())
         {
-//             std::cout << "Constrain Variable " << i.v << "*" << i.a << "+" << i.c << " with new upper bound " << up << std::endl;
-//             std::cout << "This Variable before had domain " << r.lower() << " .. " << r.upper()
-//             << std::endl;
+            //             std::cout << "Constrain Variable " << i.v << "*" << i.a << "+" << i.c <<
+            //             " with new upper bound " << up << std::endl; std::cout << "This Variable
+            //             before had domain " << r.lower() << " .. " << r.upper()
+            //             << std::endl;
             auto newUpper = wrap_upper_bound(wholeRange.begin(), r.end(), up);
             // assert(newUpper != r.end()); /// should never be able to happen, as up <
             // r.upper().first, so there is something which is smaller, this means we do not need r
@@ -327,8 +328,9 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, 
                 // prop = vs_.getVariableCreator().getLiteral(newUpper);
                 // std::cout << "the upper bound not included for this view will be " <<
                 // *(newUpper+1) << std::endl;
-                conflict = !constrainUpperBound((
-                    newUpper + 1),s); // +1 is needed, as it is an iterator pointing after the element
+                conflict = !constrainUpperBound(
+                    (newUpper + 1),
+                    s); // +1 is needed, as it is an iterator pointing after the element
                 // minmax.first = mm.first + r.lower();
                 minmax.second = mm.second + *newUpper;
                 // minmax = mm +
@@ -431,16 +433,16 @@ bool LinearPropagator::constrainUpperBound(const ViewIterator &u)
 
 
 /// return false if the domain is empty
-bool LinearLiteralPropagator::constrainUpperBound(const ViewIterator &u, const BaseSolver& s)
+bool LinearLiteralPropagator::constrainUpperBound(const ViewIterator &u, const BaseSolver &s)
 {
     storage_.constrainUpperBound(u.view(), s);
     return vs_.getVariableStorage().constrainUpperBound(u);
 }
 
 /// return false if the domain is empty
-bool LinearLiteralPropagator::constrainLowerBound(const ViewIterator &l, const BaseSolver& s)
+bool LinearLiteralPropagator::constrainLowerBound(const ViewIterator &l, const BaseSolver &s)
 {
     storage_.constrainLowerBound(l.view(), s);
     return vs_.getVariableStorage().constrainLowerBound(l);
 }
-}
+} // namespace clingcon

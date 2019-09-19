@@ -22,42 +22,45 @@
 
 // }}}
 
-#include <clingo.hh>
 #include <clingcon.h>
+#include <clingo.hh>
 #include <sstream>
 
 using namespace Clingo;
 
 #define CLINGO_CALL(x) Clingo::Detail::handle_error(x)
 
-class ClingconApp : public Clingo::Application, private SolveEventHandler {
+class ClingconApp : public Clingo::Application, private SolveEventHandler
+{
 public:
-    ClingconApp() {
-        CLINGO_CALL(clingcon_create(&theory_));
-    }
+    ClingconApp() { CLINGO_CALL(clingcon_create(&theory_)); }
     ~ClingconApp() { clingcon_destroy(theory_); }
     char const *program_name() const noexcept override { return "clingcon"; }
     char const *version() const noexcept override { return CLINGCON_VERSION; }
-    bool on_model(Model &model) override {
+    bool on_model(Model &model) override
+    {
         CLINGO_CALL(clingcon_on_model(theory_, model.to_c()));
         return true;
     }
 
-    void add_stats(UserStatistics root) {
-    }
+    void add_stats(UserStatistics root) {}
 
-    void on_statistics(UserStatistics step, UserStatistics accu) override {
+    void on_statistics(UserStatistics step, UserStatistics accu) override
+    {
         add_stats(step);
         add_stats(accu);
         CLINGO_CALL(clingcon_on_statistics(theory_, step.to_c(), accu.to_c()));
     }
 
-    void main(Control &ctl, StringSpan files) override {
+    void main(Control &ctl, StringSpan files) override
+    {
         CLINGO_CALL(clingcon_register(theory_, ctl.to_c()));
-        for (auto &file : files) {
+        for (auto &file : files)
+        {
             ctl.load(file);
         }
-        if (files.empty()) {
+        if (files.empty())
+        {
             ctl.load("-");
         }
 
@@ -67,20 +70,21 @@ public:
         ctl.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
     }
 
-    void register_options(ClingoOptions &options) override {
+    void register_options(ClingoOptions &options) override
+    {
         CLINGO_CALL(clingcon_register_options(theory_, options.to_c()));
-   }
-
-    void validate_options() override {
-        CLINGO_CALL(clingcon_validate_options(theory_));
     }
+
+    void validate_options() override { CLINGO_CALL(clingcon_validate_options(theory_)); }
+
 private:
     clingcon_theory_t *theory_;
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     ClingconApp app;
-    return Clingo::clingo_main(app, {argv + 1, static_cast<size_t>(argc - 1)});
+    return Clingo::clingo_main(app, {argv + 1, static_cast< size_t >(argc - 1)});
 }
 
 

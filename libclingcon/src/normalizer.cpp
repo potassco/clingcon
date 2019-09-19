@@ -532,7 +532,7 @@ namespace
     {
         return std::max(vc.getDomainSize(v), 1u) - 1;
     }
-}
+} // namespace
 
 bool Normalizer::prepare()
 {
@@ -849,4 +849,4 @@ bool Normalizer::createOrderClauses()
 }
 
 bool Normalizer::createEqualClauses() { return vc_.createEqualClauses(); }
-}
+} // namespace clingcon

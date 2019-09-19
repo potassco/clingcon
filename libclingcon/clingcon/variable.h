@@ -90,4 +90,4 @@ inline bool operator!=(const View &v1, const View &v2)
 }
 inline View operator*(const View &v1, int32 x) { return View(v1.v, v1.a * x, v1.c * x); }
 inline View operator+(const View &v1, int32 x) { return View(v1.v, v1.a, v1.c + x); }
-}
+} // namespace clingcon

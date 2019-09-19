@@ -769,4 +769,4 @@ ViewIterator upper_bound(ViewIterator first, ViewIterator last, int64 value)
     if (it != last && *it == value) ++it;
     return it;
 }
-}
+} // namespace clingcon

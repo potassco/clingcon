@@ -26,4 +26,4 @@ clang-format -i -style="{AccessModifierOffset: -4,
                          SpacesInParentheses: false,
                          Standard: Cpp11,
                          TabWidth: 4,
-                         UseTab: Never }" clingcon/*.h src/*.cpp main.cpp
+                         UseTab: Never }" libclingcon/clingcon.h libclingcon/clingcon/*.h libclingcon/src/*.cpp app/main.cpp libclingcon/test/test/*.h libclingcon/test/src/*.cpp

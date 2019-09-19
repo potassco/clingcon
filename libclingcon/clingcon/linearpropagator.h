@@ -46,8 +46,8 @@ private:
     {
     }
 
-    ConstraintStorage(const ConstraintStorage&) = delete;
-    ConstraintStorage(ConstraintStorage&& other) = delete;
+    ConstraintStorage(const ConstraintStorage &) = delete;
+    ConstraintStorage(ConstraintStorage &&other) = delete;
     friend LinearPropagator;
     friend LinearLiteralPropagator;
     /// add an implication constraint l.v -> l.l
@@ -91,7 +91,7 @@ public:
     {
     }
 
-    LinearPropagator(const LinearPropagator&) = delete;
+    LinearPropagator(const LinearPropagator &) = delete;
 
     Grounder &getSolver() { return s_; }
 
@@ -172,8 +172,8 @@ public:
     {
     }
 
-    LinearLiteralPropagator(const LinearLiteralPropagator&) = delete;
-    LinearLiteralPropagator(LinearLiteralPropagator&& other) = delete;
+    LinearLiteralPropagator(const LinearLiteralPropagator &) = delete;
+    LinearLiteralPropagator(LinearLiteralPropagator &&other) = delete;
 
     VolatileVariableStorage &getVVS() { return vs_; }
     const VolatileVariableStorage &getVVS() const { return vs_; }
@@ -214,9 +214,9 @@ public:
 
     /// return false if the domain is empty
     /// iterator points to element after the bound
-    bool constrainUpperBound(const ViewIterator &u, const BaseSolver& s);
+    bool constrainUpperBound(const ViewIterator &u, const BaseSolver &s);
     /// return false if the domain is empty
-    bool constrainLowerBound(const ViewIterator &l, const BaseSolver& s);
+    bool constrainLowerBound(const ViewIterator &l, const BaseSolver &s);
 
     /// add a constraint (identified by id) to the propagation queue
     void queueConstraint(std::size_t id) { storage_.queueConstraint(id); }
@@ -249,4 +249,4 @@ private:
         propClauses_; /// temp variable for generatedclauses
     Config conf_;
 };
-}
+} // namespace clingcon

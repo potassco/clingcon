@@ -125,7 +125,7 @@ namespace
         const std::vector< std::pair< int64, int64 > > &subsums;
         ClauseChecker &clause;
     };
-}
+} // namespace
 
 bool Translator::doTranslateImplication(VariableCreator &vc, Literal l, const LinearConstraint &c)
 {
@@ -149,4 +149,4 @@ bool Translator::doTranslateImplication(VariableCreator &vc, Literal l, const Li
     if (!r.recTrans(0, 0)) return false;
     return true;
 }
-}
+} // namespace clingcon

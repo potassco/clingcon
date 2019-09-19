@@ -685,4 +685,4 @@ bool VolatileVariableStorage::setGELit(const Restrictor::ViewIterator &it, Liter
     volOrderLitMemory_[v].setLiteral((it - 1).numElement(), -l);
     return true;
 }
-}
+} // namespace clingcon

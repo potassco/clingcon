@@ -298,4 +298,4 @@ private:
     Literal l_;
     Direction impl_;
 };
-}
+} // namespace clingcon

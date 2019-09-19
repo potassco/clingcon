@@ -222,4 +222,4 @@ public:
     unsigned int varsAfterFinalize_; /// the highest variable we have after this
                                      /// step
 };
-}
+} // namespace clingcon

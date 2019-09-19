@@ -51,4 +51,4 @@ public:
                                /// multiplied (if avoidable)
     unsigned int propStrength; /// propagation strength for lazy constraints 1..4
 };
-}
+} // namespace clingcon

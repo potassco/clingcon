@@ -27,9 +27,9 @@
 
 namespace clingcon
 {
-using ::uint64;
 using ::int64;
+using ::uint64;
 
-using ::uint32;
 using ::int32;
-}
+using ::uint32;
+} // namespace clingcon

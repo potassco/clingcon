@@ -758,8 +758,8 @@ public:
                     /*const std::map<std::pair<Variable,int>,Literal>& equalLits,*/
                     Literal trueLit);
 
-    VariableStorage(const VariableStorage& ) =  delete;
-    VariableStorage(VariableStorage&& other) = delete;
+    VariableStorage(const VariableStorage &) = delete;
+    VariableStorage(VariableStorage &&other) = delete;
 
     /// interface for variableCreator
     std::size_t numVariables() const { return domains_.size(); }
@@ -936,8 +936,8 @@ public:
     {
     }
 
-    VolatileVariableStorage(const VolatileVariableStorage& ) = delete;
-    VolatileVariableStorage(VolatileVariableStorage&& other) = delete;
+    VolatileVariableStorage(const VolatileVariableStorage &) = delete;
+    VolatileVariableStorage(VolatileVariableStorage &&other) = delete;
 
     VariableStorage &getVariableStorage() { return vs_; }
     const VariableStorage &getVariableStorage() const { return vs_; }
@@ -970,4 +970,4 @@ inline std::ostream &operator<<(std::ostream &stream, const VariableStorage &s)
     }
     return stream;
 }
-}
+} // namespace clingcon
