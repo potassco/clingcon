@@ -412,7 +412,7 @@ bool set_config(char const *value, void *data, F f, G g)
     try
     {
         auto &config = *static_cast< clingcon::Config * >(data);
-        uint64_t id = 0;
+        // uint64_t id = 0;
         if (*value == '\0')
         {
             f(config);
@@ -564,7 +564,7 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *prop, clingo_option
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_validate_options(clingcon_theory_t *prop)
+extern "C" bool clingcon_validate_options(clingcon_theory_t *)
 {
     CLINGCON_TRY {}
     CLINGCON_CATCH;

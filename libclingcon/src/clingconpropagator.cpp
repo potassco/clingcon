@@ -244,7 +244,7 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
             /// again
 
             if ((p < 0 && !sign) || (p > 0 && sign))
-            {   /// cspVar.first > bound
+            { /// cspVar.first > bound
                 //                std::cout << "new lower bound " << *(lr.begin() + bound + 1) <<
                 //                std::endl;
                 if (p_->getVVS().getVariableStorage().getCurrentRestrictor(cspVar.first).begin() <

@@ -645,12 +645,12 @@ bool Normalizer::auxprepare()
             if (tempv.size())
             {
                 tempv.front().normalize();
-                tempv.front().l.sort(vc_, conf_);
+                tempv.front().l.sort(vc_);
                 linearConstraints_[i] = std::move(tempv.front());
                 for (auto j = tempv.begin() + 1; j != tempv.end(); ++j)
                 {
                     j->normalize();
-                    j->l.sort(vc_, conf_);
+                    j->l.sort(vc_);
                     linearConstraints_.emplace_back(std::move(*j));
                 }
                 tempv.clear();

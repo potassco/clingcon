@@ -47,10 +47,10 @@ public:
     bool operator==(const Range &d) const { return l == d.l && u == d.u; }
     bool operator!=(const Range &d) const { return l != d.l || u != d.u; }
     int32 l, u;
-    int64 size() const { return (static_cast<int64>(u) - static_cast<int64>(l)) + 1; }
+    int64 size() const { return (static_cast< int64 >(u) - static_cast< int64 >(l)) + 1; }
 };
 
-static_assert(std::numeric_limits< int32 >::min() == -2147483647 -1 &&
+static_assert(std::numeric_limits< int32 >::min() == -2147483647 - 1 &&
                   std::numeric_limits< int32 >::max() == 2147483647,
               "requires int to be 32bit and between -2147483648 .. 2147483647");
 
@@ -232,7 +232,9 @@ public:
         {
             modified_ = false;
             size_ = 0;
-            for (auto i : ranges_) size_ += static_cast<uint64>((static_cast<int64>(i.u) - static_cast<int64>(i.l)) + 1);
+            for (auto i : ranges_)
+                size_ += static_cast< uint64 >(
+                    (static_cast< int64 >(i.u) - static_cast< int64 >(i.l)) + 1);
         }
         return size_;
     }
@@ -469,7 +471,7 @@ public:
     uint64 size() const
     {
         uint64 size = 0;
-        for (auto i : ranges_) size += static_cast<uint64>(i.u - i.l) + 1;
+        for (auto i : ranges_) size += static_cast< uint64 >(i.u - i.l) + 1;
         return size;
     }
 
@@ -650,7 +652,7 @@ public:
     bool operator>=(const ViewIterator &m) const { return !(*this < m); }
     bool operator<=(const ViewIterator &m) const { return !(*this > m); }
 
-    int64 operator-(const ViewIterator &m) const { return static_cast<int64>(index_ - m.index_); }
+    int64 operator-(const ViewIterator &m) const { return static_cast< int64 >(index_ - m.index_); }
 
     ViewIterator &operator+=(int64 x)
     {
@@ -699,8 +701,10 @@ public:
         ret.index_ = it.index_;
         if (it.view().reversed())
         {
-            if (it.it_.getDomain().size() == it.index_)       /// we are at the end
-                ret.it_ = it.it_ + static_cast<int64>(it.it_.getDomain().size()); // index is already set for end it
+            if (it.it_.getDomain().size() == it.index_) /// we are at the end
+                ret.it_ =
+                    it.it_ + static_cast< int64 >(
+                                 it.it_.getDomain().size()); // index is already set for end it
             else
             {
                 --ret.it_;
@@ -803,7 +807,7 @@ public:
     uint64 size() const
     {
         assert(upper_ - lower_ <= std::numeric_limits< uint32 >::max());
-        return upper_ - lower_;
+        return static_cast< uint64 >(upper_ - lower_);
     }
     bool isEmpty() const { return lower_ == upper_; }
 

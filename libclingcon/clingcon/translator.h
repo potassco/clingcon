@@ -57,8 +57,9 @@ inline bool translate(Grounder &s, VariableCreator &vc, std::vector< ReifiedLine
 {
     Translator t(s, conf);
 
-    uint64 size = conf.translateConstraints == -1 ? std::numeric_limits< uint64 >::max() :
-                                                    conf.translateConstraints;
+    uint64 size = conf.translateConstraints == -1 ?
+                      std::numeric_limits< uint64 >::max() :
+                      static_cast< uint64 >(conf.translateConstraints);
 
 
     unsigned int num = rl.size();

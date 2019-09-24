@@ -494,8 +494,8 @@ public:
         if (lower > upper) return false;
         Variable var = v.v;
         assert(isValid(v.v));
-        int newlower = v.divide(v.reversed() ? upper : lower);
-        int newupper = v.divide(v.reversed() ? lower : upper);
+        int newlower = static_cast< int >(v.divide(v.reversed() ? upper : lower));
+        int newupper = static_cast< int >(v.divide(v.reversed() ? lower : upper));
         if (domains_[var]->lower() == newlower && domains_[var]->upper() == newupper) return true;
         if (!domainChange(var, newlower, newupper)) return false;
         return domains_[var]->intersect(newlower, newupper);
@@ -961,7 +961,7 @@ inline std::ostream &operator<<(std::ostream &stream, const VariableStorage &s)
 {
     for (std::size_t i = 0; i != s.rs_.size(); ++i)
     {
-        if (s.isValid(i))
+        if (s.isValid(static_cast< Variable >(i)))
         {
             stream << "Var " << i << ":\t";
             for (auto r = s.rs_[i].begin(); r != s.rs_[i].end(); ++r) stream << *r;

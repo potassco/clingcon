@@ -44,7 +44,7 @@ enum class Direction : int
 };
 inline Direction operator|(Direction lhs, Direction rhs)
 {
-    return (Direction)(static_cast< int >(lhs) | static_cast< int >(rhs));
+    return static_cast< Direction >(static_cast< int >(lhs) | static_cast< int >(rhs));
 }
 inline bool operator&(Direction lhs, Direction rhs)
 {
@@ -52,7 +52,7 @@ inline bool operator&(Direction lhs, Direction rhs)
 }
 inline Direction &operator|=(Direction &lhs, Direction rhs)
 {
-    lhs = (Direction)(static_cast< int >(lhs) | static_cast< int >(rhs));
+    lhs = static_cast< Direction >(static_cast< int >(lhs) | static_cast< int >(rhs));
     return lhs;
 }
 enum class TruthValue
@@ -94,7 +94,8 @@ public:
     }
     bool operator<(const LinearConstraint &r) const
     {
-        return ( int )r_ < ( int )r.r_ && constant_ < r.constant_ && views_ < r.views_;
+        return static_cast< int >(r_) < static_cast< int >(r.r_) && constant_ < r.constant_ &&
+               views_ < r.views_;
     }
 
     Relation getRelation() const { return r_; }
@@ -136,10 +137,10 @@ public:
 
     /// sort the constraint according to |coefficient|, domainsize(var), biggest
     /// element first
-    void sort(const VariableCreator &vc, const Config &conf)
+    void sort(const VariableCreator &vc)
     {
         assert(normalized_);
-        std::sort(views_.begin(), views_.end(), [&vc, &conf](const View &x, const View &y) {
+        std::sort(views_.begin(), views_.end(), [&vc](const View &x, const View &y) {
             uint32 a = vc.getDomainSize(x);
             uint32 b = vc.getDomainSize(y);
             if (a != b) return a < b;
@@ -226,7 +227,7 @@ struct ReifiedLinearConstraint
     // l==r.l; }
     // bool operator<(const ReifiedLinearConstraint& r) const { return
     // /*std::tie(l,v) < std::tie(r.l,r.v);*/ v<r.v && l<r.l; }
-    void sort(const VariableCreator &vc, const Config &c) { l.sort(vc, c); }
+    void sort(const VariableCreator &vc) { l.sort(vc); }
     LinearConstraint l;
     Literal v;
     Direction impl;
