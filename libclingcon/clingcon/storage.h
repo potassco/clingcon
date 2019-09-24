@@ -49,7 +49,7 @@ class orderStorage
 {
 public:
     friend pure_LELiteral_iterator;
-    using map = std::map< unsigned int, Literal >;
+    using map = std::map< size_t, Literal >;
 
 private:
     enum store : unsigned int
@@ -63,7 +63,7 @@ private:
     ///
     LitVec vector_;
     map map_;
-    unsigned int maxSize_;
+    size_t maxSize_;
 
 public:
     orderStorage()
@@ -81,7 +81,7 @@ public:
     bool hasMap() const { return store_ & hasmap; }
 
     /// returns the number of literals already created
-    uint32 numLits() const
+    size_t numLits() const
     {
         if (hasMap()) return map_.size();
         Literal l(0);
@@ -120,7 +120,7 @@ public:
 
     // just increases/shrinks the vector
     // does not care for setting truthvalues !
-    void setSize(unsigned int s)
+    void setSize(size_t s)
     {
         maxSize_ = s;
         if (hasVector())
@@ -130,7 +130,7 @@ public:
         }
     }
 
-    bool hasNoLiteral(unsigned int index) const
+    bool hasNoLiteral(size_t index) const
     {
         assert(isPrepared());
         assert(index < maxSize_);
@@ -140,7 +140,7 @@ public:
             return map_.find(index) == map_.end();
     }
 
-    void setLiteral(unsigned int index, const Literal &l)
+    void setLiteral(size_t index, const Literal &l)
     {
         assert(isPrepared());
         assert(l != Literal(0));
@@ -178,7 +178,7 @@ public:
         }
     }
 
-    Literal getLiteral(unsigned int index) const
+    Literal getLiteral(size_t index) const
     {
         assert(isPrepared());
         if (hasVector() && hasMap())
@@ -218,7 +218,7 @@ public:
         assert(!it.view().reversed());
         assert(it.view().c == 0); // not necessary, but does not make much sense ?
 
-        unsigned int realIndex = it.numElement();
+        uint64 realIndex = it.numElement();
         if (storage_.hasMap())
         {
 
@@ -389,7 +389,9 @@ public:
     unsigned int numElement() const
     {
         assert(valid_);
-        return storage_.hasMap() ? mapit_->first : vectorit_ - storage_.getVector().begin();
+        return storage_.hasMap() ?
+                   mapit_->first :
+                   static_cast< unsigned int >(vectorit_ - storage_.getVector().begin());
     }
 
     /// returns a literal
@@ -453,7 +455,7 @@ public:
         return *domains_[v];
     }
 
-    unsigned int getDomainSize(const View &v) const
+    size_t getDomainSize(const View &v) const
     {
         assert(isValid(v.v));
         return domains_[v.v]->size();
@@ -476,7 +478,7 @@ public:
     Variable createVariable(const Domain &d = Domain())
     {
         domains_.emplace_back(new Domain(d));
-        Variable v = domains_.size() - 1;
+        Variable v = static_cast< Variable >(domains_.size() - 1);
         return v;
     }
 
@@ -654,7 +656,7 @@ public:
         return getEqualLit(it);
     }
 
-    unsigned int numEqualLits() const { return equalLits_.size(); }
+    size_t numEqualLits() const { return equalLits_.size(); }
 
     /// stores unary eq/ne constraints as literals for reuse
     /// if the literal already exists, posts boolean equality of the two
@@ -889,7 +891,7 @@ public:
 private:
     void init();
 
-    unsigned int getDomainSize(const View &v) const
+    size_t getDomainSize(const View &v) const
     {
         assert(isValid(v.v));
         return domains_[v.v]->size();

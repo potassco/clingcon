@@ -530,7 +530,7 @@ namespace
 {
     uint64 allLiterals(Variable v, const VariableCreator &vc)
     {
-        return std::max(vc.getDomainSize(v), 1u) - 1;
+        return std::max(vc.getDomainSize(v), static_cast< size_t >(1u)) - 1;
     }
 } // namespace
 

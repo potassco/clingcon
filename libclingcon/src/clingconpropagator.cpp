@@ -115,7 +115,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
         if (watched_[var])
         {
             auto lr = pure_LELiteral_iterator(vc_.getRestrictor(View(var)).begin(),
-                                              vc_.getStorage(var), true);
+                                              vc_.getStorage(Variable(var)), true);
 
             while (lr.isValid())
             {
@@ -571,11 +571,11 @@ void ClingconPropagator::addWatch(Clingo::PropagateInit &init, const Variable &v
 }
 
 void PropagatorThread::addWatch(Clingo::PropagateControl &control, const Variable &var, Literal cl,
-                                unsigned int step)
+                                size_t step)
 {
     control.add_watch(cl);
     control.add_watch(-cl);
-    int32 x = cl < 0 ? int32(step + 1) * -1 : int32(step + 1);
+    int32 x = cl < 0 ? static_cast< int32 >(step + 1) * -1 : static_cast< int32 >(step + 1);
     propVar2cspVar_[abs(cl)].emplace_back(std::make_pair(var, x));
 }
 
@@ -666,7 +666,7 @@ namespace
     }
 } // namespace
 
-uint64_t PropagatorThread::free_range(Var v, Solver &s) const
+uint64_t PropagatorThread::free_range(Variable v, Solver &s) const
 {
     assert(p_->getVVS().getVariableStorage().isValid(v));
     if (watched_[v])
@@ -679,7 +679,7 @@ uint64_t PropagatorThread::free_range(Var v, Solver &s) const
     }
 }
 
-int32_t PropagatorThread::value(Var v, Solver &s) const
+int32_t PropagatorThread::value(Variable v, Solver &s) const
 {
     ViewIterator vit;
     if (watched_[v])
@@ -687,13 +687,13 @@ int32_t PropagatorThread::value(Var v, Solver &s) const
         Restrictor lr;
         lr = p_->getVVS().getVariableStorage().getCurrentRestrictor(v);
         assert(lr.size() == 1);
-        return *lr.begin();
+        return static_cast< int32_t >(*lr.begin());
     }
     else /// not watched, need to search for value
     {
         auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(v));
-        return *(my_upper_bound(rs.begin(), rs.end(), s,
-                                p_->getVVS().getVariableStorage().getOrderStorage(v)));
+        return static_cast< int32_t >(*(my_upper_bound(
+            rs.begin(), rs.end(), s, p_->getVVS().getVariableStorage().getOrderStorage(v))));
     }
 }
 
@@ -712,11 +712,11 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
     unsigned int maxSize = 1;
     for (unsigned int i = 0; i < vs.numVariables(); ++i)
     {
-        uint64_t size = free_range(i, s);
+        uint64_t size = free_range(Variable(i), s);
         if (size > maxSize)
         {
             maxSize = size;
-            unrestrictedVariable = i;
+            unrestrictedVariable = Variable(i);
         }
     }
 

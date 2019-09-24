@@ -99,8 +99,8 @@ bool VariableCreator::setLELit(const Restrictor::ViewIterator &it, Literal l)
         orderLitMemory_[v].setLiteral(it.numElement(), l);
     else if (!s_.setEqual(l, getLELiteral(it)))
         return false;
-    if (s_.isTrue(l)) return constrainUpperBound(it.view(), *it);
-    if (s_.isFalse(l)) return constrainLowerBound(it.view(), *(it + 1));
+    if (s_.isTrue(l)) return constrainUpperBound(it.view(), static_cast< int >(*it));
+    if (s_.isFalse(l)) return constrainLowerBound(it.view(), static_cast< int >(*(it + 1)));
     return true;
 }
 
@@ -172,8 +172,8 @@ bool VariableCreator::createOrderLiterals()
     orderLitMemory_.resize(numVariables());
     // create order-literals for the domains
     for (std::size_t i = 0; i < numVariables(); ++i)
-        if (isValid(i))
-            if (!createOrderLiterals(i)) return false;
+        if (isValid(static_cast< Variable >(i)))
+            if (!createOrderLiterals(static_cast< Variable >(i))) return false;
     return true;
 }
 
@@ -181,7 +181,7 @@ bool VariableCreator::createOrderLiterals(const Variable &i)
 {
     assert(i < numVariables());
     orderLitMemory_.resize(numVariables());
-    int64 size = getDomainSize(View(i)) - 1;
+    size_t size = getDomainSize(View(i)) - 1;
     assert(orderLitMemory_[i].isPrepared());
     /// prepareOrderLitMemory(i,size);
 
@@ -194,15 +194,16 @@ bool VariableCreator::createOrderLiterals(const Variable &i)
         (conf_.minLitsPerVar >= 0 ? orderLitMemory_[i].numLits() < conf_.minLitsPerVar :
                                     orderLitMemory_[i].numLits() < size + 1))
     {
-        unsigned int add =
-            std::max((conf_.minLitsPerVar == -1 ? size : (int64)(conf_.minLitsPerVar)), ( int64 )0);
+        uint64 add = static_cast< uint64 >(
+            std::max((conf_.minLitsPerVar == -1 ? size : (int64)(conf_.minLitsPerVar)),
+                     static_cast< size_t >(0)));
         if (add > 0)
         {
             double step = std::max((( double )(size) / (add)), ( double )1);
             for (double j = 0 + step / 2; j < size; j += step)
-                if (orderLitMemory_[i].hasNoLiteral(j))
+                if (orderLitMemory_[i].hasNoLiteral(static_cast< size_t >(j)))
                 {
-                    orderLitMemory_[i].setLiteral(j, s_.createNewLiteral());
+                    orderLitMemory_[i].setLiteral(static_cast< size_t >(j), s_.createNewLiteral());
                 }
         }
     }
@@ -527,7 +528,7 @@ bool VariableCreator::domainChange(const Variable &var, const Domain &d)
                             {
                                 /// remove from map, but make it equal its least
                                 /// partner
-                                unsigned int lastInsert = (*(k)) - r.begin() - move - 1;
+                                size_t lastInsert = (*(k)) - r.begin() - move - 1;
                                 auto it = newMap.find(lastInsert);
                                 if (it != newMap.end())
                                 {
