@@ -32,7 +32,7 @@ before_build:
 
 build:
   project: clingcon.sln
-  verbosity: maximal
+  verbosity: minimal
 
 test_script:
 - cmd: >-
