@@ -19,10 +19,9 @@ before_build:
     conda install cmake 
     conda install -c potassco/label/dev clingo
     mkdir build
-    cd build
-    cmake -G "%GEN%" .. -DCLINGODL_BUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=True
+    cmake -G "%GEN%" . -DCLINGODL_BUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=True
 build:
-  project: build\clingcon.sln
+  project: clingcon.sln
   verbosity: maximal
 
 test_script:
