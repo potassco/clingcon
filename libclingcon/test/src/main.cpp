@@ -29,12 +29,13 @@
 
 int main(int argc, char *argv[])
 {
-    int ret;
+
     {
+        int ret;
         if (argc == 1)
         {
             std::cout << clingcon::Adder::singleton().size() << " Tests" << std::endl;
-            return clingcon::Adder::singleton().size();
+            return static_cast<int>(clingcon::Adder::singleton().size());
         }
         clingcon::TestApp app(strtol(argv[1], nullptr, 10));
         const char *empty[] = {"--quiet=2,2,2", "--verbose=0", "0",

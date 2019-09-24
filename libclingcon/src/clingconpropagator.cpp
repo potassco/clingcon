@@ -100,7 +100,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     /// add watches for the order literals
     for (std::size_t var = 0; var != vc_.numVariables(); ++var)
     {
-        if (vc_.isValid(var))
+        if (vc_.isValid(Variable(var)))
         {
             // if (!conf_.explicitBinaryOrderClausesIfPossible)
             watched_[var] = true;
@@ -114,13 +114,13 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
     {
         if (watched_[var])
         {
-            auto lr = pure_LELiteral_iterator(vc_.getRestrictor(View(var)).begin(),
+            auto lr = pure_LELiteral_iterator(vc_.getRestrictor(View(Variable(var))).begin(),
                                               vc_.getStorage(Variable(var)), true);
 
             while (lr.isValid())
             {
                 /// TODO: do i need to do this for true lits ?
-                addWatch(init, (Variable)(var), *lr, lr.numElement());
+                addWatch(init, Variable(var), *lr, lr.numElement());
                 ++lr;
             }
         }

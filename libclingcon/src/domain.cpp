@@ -509,7 +509,7 @@ Domain::const_iterator &Domain::const_iterator::operator+=(int64 x)
 {
     if (x < 0) return operator-=(-x);
     assert(x <= std::numeric_limits< uint32 >::max());
-    unsigned int add = (uint32)(x) + steps_;
+    uint32 add = (uint32)(x) + steps_;
     steps_ = 0;
     while (index_ < d_->ranges_.size())
     {
@@ -517,7 +517,7 @@ Domain::const_iterator &Domain::const_iterator::operator+=(int64 x)
         if (range < add)
         {
             ++index_;
-            add -= range + 1;
+            add -= static_cast< uint32 >(range + 1);
         }
         else
         {
@@ -547,7 +547,7 @@ Domain::const_iterator &Domain::const_iterator::operator-=(int64 x)
         }
         else
         {
-            steps_ = range - sub;
+            steps_ = static_cast< uint32 >(range - sub);
             return *this;
         }
     }
@@ -757,7 +757,7 @@ ViewIterator lower_bound(ViewIterator first, ViewIterator last, int64 value)
 
     if (first == last) return first;
 
-    int64 diff = std::ceil(double(value - (*first)) / std::abs(view.a));
+    int64 diff = static_cast< int64 >(std::ceil(double(value - (*first)) / std::abs(view.a)));
     if (diff > 0) first += diff;
     return first;
 }

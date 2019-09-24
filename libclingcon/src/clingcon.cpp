@@ -276,7 +276,7 @@ public:
         clingcon.add_subkey("Constraints", StatisticsType::Value)
             .set_value(static_cast< double >(stats.num_constraints));
         clingcon.add_subkey("Integer Variables", StatisticsType::Value)
-            .set_value(stats.num_int_variables);
+            .set_value(static_cast< double >(stats.num_int_variables));
         clingcon.add_subkey("Preadded Literals", StatisticsType::Value)
             .set_value(static_cast< double >(stats.num_lits));
         clingcon.add_subkey("Preadded Clauses", StatisticsType::Value)

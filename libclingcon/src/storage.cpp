@@ -162,7 +162,7 @@ bool VariableCreator::setEqualLit(Restrictor::ViewIterator it, Literal l)
         /// equivalent to an order literal
         if (it.numElement() == 0) return setLELit(it, l);
         if (it.numElement() == getDomainSize(it.view()) - 1) return setGELit(it, l);
-        equalLits_.insert(std::make_pair(std::make_pair(it.view().v, *it), l));
+        equalLits_.insert(std::make_pair(std::make_pair(it.view().v, static_cast< int >(*it)), l));
         return true;
     }
 }
@@ -196,7 +196,7 @@ bool VariableCreator::createOrderLiterals(const Variable &i)
              orderLitMemory_[i].numLits() < size + 1))
     {
         uint64 add = static_cast< uint64 >(
-            std::max((conf_.minLitsPerVar == -1 ? size : (int64)(conf_.minLitsPerVar)),
+            std::max((conf_.minLitsPerVar == -1 ? size : static_cast<size_t>(conf_.minLitsPerVar)),
                      static_cast< size_t >(0)));
         if (add > 0)
         {
@@ -223,29 +223,30 @@ bool VariableCreator::restrictDomainsAccordingToLiterals()
 {
     for (std::size_t i = 0; i < numVariables(); ++i)
     {
-        if (isValid(i) && hasOrderLitMemory(Variable(i)) &&
+        if (isValid(Variable(i)) && hasOrderLitMemory(Variable(i)) &&
             orderLitMemory_[Variable(i)].numLits() > 0)
         {
-            auto r = getRestrictor(View(i));
+            auto r = getRestrictor(View(Variable(i)));
             if (r.size() == 1) continue;
             pure_LELiteral_iterator pitbegin(r.begin(), orderLitMemory_[Variable(i)], true);
             pure_LELiteral_iterator pitend(r.end(), orderLitMemory_[Variable(i)], false);
             assert(pitbegin.isValid());
             assert(pitend.isValid());
 
-            int32 lower = r.lower(); // can be int32 here, as i only have Variables
-            int32 upper = r.upper();
+            int32 lower =
+                static_cast< int32 >(r.lower()); // can be int32 here, as i only have Variables
+            int32 upper = static_cast< int32 >(r.upper());
 
             while (pitbegin <= pitend)
             {
                 assert(pitbegin.isValid());
                 if (s_.isFalse(*pitbegin))
                 {
-                    lower = (*(r.begin() + pitbegin.numElement())) + 1;
+                    lower = static_cast< int32 >((*(r.begin() + pitbegin.numElement())) + 1);
                 }
                 else if (s_.isTrue(*pitbegin))
                 {
-                    upper = (*(r.begin() + pitbegin.numElement()));
+                    upper = static_cast< int32 >((*(r.begin() + pitbegin.numElement())));
                     break;
                 }
                 ++pitbegin;
@@ -281,7 +282,7 @@ Literal VariableCreator::createEqualLit(Restrictor::ViewIterator it)
     if (d.lower() == *it) return getLELiteral(it);
     if (d.upper() == *it) return getGELiteral(it);
     Literal aux = s_.createNewLiteral();
-    equalLits_.insert(std::make_pair(std::make_pair(it.view().v, *it), aux));
+    equalLits_.insert(std::make_pair(std::make_pair(it.view().v, static_cast< int >(*it)), aux));
     return aux;
 }
 
