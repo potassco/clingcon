@@ -77,8 +77,8 @@ public:
     void useVector() { store_ = store_ | hasvector; }
     void useMap() { store_ = store_ | hasmap; }
 
-    bool hasVector() const { return store_ & hasvector; }
-    bool hasMap() const { return store_ & hasmap; }
+    bool hasVector() const { return static_cast<bool>(store_ & hasvector); }
+    bool hasMap() const { return static_cast<bool>(store_ & hasmap); }
 
     /// returns the number of literals already created
     size_t numLits() const
@@ -386,12 +386,12 @@ public:
         return temp;
     }
 
-    unsigned int numElement() const
+    size_t numElement() const
     {
         assert(valid_);
         return storage_.hasMap() ?
                    mapit_->first :
-                   static_cast< unsigned int >(vectorit_ - storage_.getVector().begin());
+                   static_cast< size_t >(vectorit_ - storage_.getVector().begin());
     }
 
     /// returns a literal
@@ -671,7 +671,7 @@ public:
 
     void prepareOrderLitMemory();
 
-    unsigned int numOrderLits(Variable v) const
+    size_t numOrderLits(Variable v) const
     {
         return hasOrderLitMemory(v) ? getStorage(v).numLits() - 1 : 0;
     }

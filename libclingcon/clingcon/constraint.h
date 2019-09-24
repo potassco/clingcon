@@ -48,7 +48,7 @@ inline Direction operator|(Direction lhs, Direction rhs)
 }
 inline bool operator&(Direction lhs, Direction rhs)
 {
-    return ( bool )static_cast< int >(static_cast< int >(lhs) & static_cast< int >(rhs));
+    return static_cast< bool >(static_cast< int >(lhs) & static_cast< int >(rhs));
 }
 inline Direction &operator|=(Direction &lhs, Direction rhs)
 {
@@ -141,8 +141,8 @@ public:
     {
         assert(normalized_);
         std::sort(views_.begin(), views_.end(), [&vc](const View &x, const View &y) {
-            uint32 a = vc.getDomainSize(x);
-            uint32 b = vc.getDomainSize(y);
+            size_t a = vc.getDomainSize(x);
+            size_t b = vc.getDomainSize(y);
             if (a != b) return a < b;
             return abs(x.a) > abs(y.a);
         });
