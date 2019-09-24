@@ -2,13 +2,13 @@
 
 from subprocess import *
 
-num = call("./build/bin/testclingcon", shell=True)
+num = call("testclingcon", shell=True)
 rc = 0
 if num==0:
     rc = 1
 
 for i in range(0,num):
-    rc_call = call("./build/bin/testclingcon {}".format(i), shell=True)
+    rc_call = call("testclingcon {}".format(i), shell=True)
     if rc_call != 0:
         rc = 1
         print("Failed: '{}' with error code {}".format(i, rc_call))
