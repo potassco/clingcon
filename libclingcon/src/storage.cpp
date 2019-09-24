@@ -195,9 +195,9 @@ bool VariableCreator::createOrderLiterals(const Variable &i)
              orderLitMemory_[i].numLits() < static_cast< size_t >(conf_.minLitsPerVar) :
              orderLitMemory_[i].numLits() < size + 1))
     {
-        uint64 add = static_cast< uint64 >(
-            std::max((conf_.minLitsPerVar == -1 ? size : static_cast<size_t>(conf_.minLitsPerVar)),
-                     static_cast< size_t >(0)));
+        uint64 add = static_cast< uint64 >(std::max(
+            (conf_.minLitsPerVar == -1 ? size : static_cast< size_t >(conf_.minLitsPerVar)),
+            static_cast< size_t >(0)));
         if (add > 0)
         {
             double step = std::max((( double )(size) / (add)), ( double )1);
