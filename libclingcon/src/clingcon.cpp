@@ -111,7 +111,7 @@ template <>
 void set_value< double >(clingcon_value_t *variant, double value)
 {
     variant->type = clingcon_value_type_int;
-    variant->int_number = value;
+    variant->int_number = static_cast< int >(value);
 }
 
 class CSPPropagatorFacade : public PropagatorFacade
@@ -200,7 +200,7 @@ public:
             uint64_t numlits = normalizer_.getVariableCreator().numEqualLits();
             for (size_t i = 0; i < normalizer_.getVariableCreator().numVariables(); ++i)
             {
-                numlits += normalizer_.getVariableCreator().numOrderLits(i);
+                numlits += normalizer_.getVariableCreator().numOrderLits(Variable(i));
             }
             step_.num_lits = numlits;
 
@@ -252,7 +252,7 @@ public:
     {
         for (++*current; *current <= prop_->num_variables(); ++*current)
         {
-            if (prop_->has_unique_value(thread_id, *current - 1))
+            if (prop_->has_unique_value(thread_id, Variable(*current - 1)))
             {
                 return true;
             }
@@ -273,11 +273,14 @@ public:
         UserStatistics clingcon = root.add_subkey("Clingcon", StatisticsType::Map);
         clingcon.add_subkey("Time init(s)", StatisticsType::Value)
             .set_value(stats.time_init.count());
-        clingcon.add_subkey("Constraints", StatisticsType::Value).set_value(stats.num_constraints);
+        clingcon.add_subkey("Constraints", StatisticsType::Value)
+            .set_value(static_cast< double >(stats.num_constraints));
         clingcon.add_subkey("Integer Variables", StatisticsType::Value)
             .set_value(stats.num_int_variables);
-        clingcon.add_subkey("Preadded Literals", StatisticsType::Value).set_value(stats.num_lits);
-        clingcon.add_subkey("Preadded Clauses", StatisticsType::Value).set_value(stats.num_clauses);
+        clingcon.add_subkey("Preadded Literals", StatisticsType::Value)
+            .set_value(static_cast< double >(stats.num_lits));
+        clingcon.add_subkey("Preadded Clauses", StatisticsType::Value)
+            .set_value(static_cast< double >(stats.num_clauses));
         UserStatistics threads = clingcon.add_subkey("Thread", StatisticsType::Array);
         threads.ensure_size(stats.clingcon_stats.size(), StatisticsType::Map);
         auto it = threads.begin();
@@ -286,9 +289,12 @@ public:
             auto thread = *it++;
             thread.add_subkey("Propagation(s)", StatisticsType::Value)
                 .set_value(stat.time_propagate.count());
-            thread.add_subkey("Undo(s)", StatisticsType::Value).set_value(stat.time_undo.count());
-            thread.add_subkey("Order Literals", StatisticsType::Value).set_value(stat.num_lits);
-            thread.add_subkey("Added Clauses", StatisticsType::Value).set_value(stat.num_clauses);
+            thread.add_subkey("Undo(s)", StatisticsType::Value)
+                .set_value(static_cast< double >(stat.time_undo.count()));
+            thread.add_subkey("Order Literals", StatisticsType::Value)
+                .set_value(static_cast< double >(stat.num_lits));
+            thread.add_subkey("Added Clauses", StatisticsType::Value)
+                .set_value(static_cast< double >(stat.num_clauses));
         }
     }
 

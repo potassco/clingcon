@@ -48,7 +48,7 @@ inline Direction operator|(Direction lhs, Direction rhs)
 }
 inline bool operator&(Direction lhs, Direction rhs)
 {
-    return static_cast< bool >(static_cast< int >(lhs) & static_cast< int >(rhs));
+    return !!(static_cast< int >(lhs) & static_cast< int >(rhs));
 }
 inline Direction &operator|=(Direction &lhs, Direction rhs)
 {

@@ -333,7 +333,7 @@ bool Normalizer::addDistinctCardinality(ReifiedAllDistinct &&l)
     {
         LitVec lits;
 
-        for (auto v : views) lits.emplace_back(vc_.getEqualLit(v, i));
+        for (auto v : views) lits.emplace_back(vc_.getEqualLit(v, static_cast< int32 >(i)));
 
         Literal x(0);
         if (s_.isTrue(l.getLiteral()))
@@ -587,10 +587,10 @@ bool Normalizer::prepare()
     /// update the domain
     for (std::size_t i = 0; i < vc_.numVariables(); ++i)
     {
-        if (getVariableCreator().isValid(i))
+        if (getVariableCreator().isValid(Variable(i)))
         {
-            auto r = p.getVariableStorage().getCurrentRestrictor(i);
-            vc_.constrainView(View(i), r.lower(),
+            auto r = p.getVariableStorage().getCurrentRestrictor(Variable(i));
+            vc_.constrainView(View(Variable(i)), r.lower(),
                               r.upper()); /// should be the same as intersect (but cheaper),
         }
         /// as i only do bound propagation
@@ -612,7 +612,7 @@ void Normalizer::addMinimize()
         uint64 before = 0;
         for (auto it = res.begin(); it != res.end(); ++it)
         {
-            int32 w = ((*it) - before);
+            int32 w = static_cast< int32 >(((*it) - before));
             before = *it;
             s_.addMinimize(vc.getGELiteral(it), w, level);
         }
@@ -635,8 +635,8 @@ bool Normalizer::auxprepare()
 
     /// 1st: add all linear constraints
     std::vector< ReifiedLinearConstraint > tempv;
-    unsigned int end = linearConstraints_.size();
-    for (unsigned int i = 0; i < end;)
+    size_t end = linearConstraints_.size();
+    for (size_t i = 0; i < end;)
     {
         if (!convertLinear(std::move(linearConstraints_[i]), tempv)) /// adds it to the constraints
             return false;
@@ -752,10 +752,10 @@ bool Normalizer::propagate()
     /// update the domain
     for (std::size_t i = 0; i < vc_.numVariables(); ++i)
     {
-        if (getVariableCreator().isValid(i))
+        if (getVariableCreator().isValid(Variable(i)))
         {
-            const auto &r = propagator_->getVariableStorage().getCurrentRestrictor(i);
-            if (!vc_.constrainView(View(i), r.lower(), r.upper())) return false;
+            const auto &r = propagator_->getVariableStorage().getCurrentRestrictor(Variable(i));
+            if (!vc_.constrainView(View(Variable(i)), r.lower(), r.upper())) return false;
         }
     }
     return true;

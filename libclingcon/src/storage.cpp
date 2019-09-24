@@ -132,7 +132,7 @@ std::pair< bool, Literal > VariableCreator::hasEqualLit(Restrictor::ViewIterator
     assert(isValid(v));
     ViewDomain d = getViewDomain(it.view());
     if (!d.in(*it)) return std::make_pair(true, s_.falseLit());
-    auto f = equalLits_.find(std::make_pair(v, *it));
+    auto f = equalLits_.find(std::make_pair(v, static_cast< int >(*it)));
     if (f != equalLits_.end())
         return std::make_pair(true, f->second);
     else
@@ -191,8 +191,9 @@ bool VariableCreator::createOrderLiterals(const Variable &i)
     //                                        to use a vector
 
     if (size && (0 < conf_.minLitsPerVar || conf_.minLitsPerVar == -1) &&
-        (conf_.minLitsPerVar >= 0 ? orderLitMemory_[i].numLits() < conf_.minLitsPerVar :
-                                    orderLitMemory_[i].numLits() < size + 1))
+        (conf_.minLitsPerVar >= 0 ?
+             orderLitMemory_[i].numLits() < static_cast< size_t >(conf_.minLitsPerVar) :
+             orderLitMemory_[i].numLits() < size + 1))
     {
         uint64 add = static_cast< uint64 >(
             std::max((conf_.minLitsPerVar == -1 ? size : (int64)(conf_.minLitsPerVar)),
@@ -222,12 +223,13 @@ bool VariableCreator::restrictDomainsAccordingToLiterals()
 {
     for (std::size_t i = 0; i < numVariables(); ++i)
     {
-        if (isValid(i) && hasOrderLitMemory(i) && orderLitMemory_[i].numLits() > 0)
+        if (isValid(i) && hasOrderLitMemory(Variable(i)) &&
+            orderLitMemory_[Variable(i)].numLits() > 0)
         {
             auto r = getRestrictor(View(i));
             if (r.size() == 1) continue;
-            pure_LELiteral_iterator pitbegin(r.begin(), orderLitMemory_[i], true);
-            pure_LELiteral_iterator pitend(r.end(), orderLitMemory_[i], false);
+            pure_LELiteral_iterator pitbegin(r.begin(), orderLitMemory_[Variable(i)], true);
+            pure_LELiteral_iterator pitend(r.end(), orderLitMemory_[Variable(i)], false);
             assert(pitbegin.isValid());
             assert(pitend.isValid());
 
@@ -249,7 +251,7 @@ bool VariableCreator::restrictDomainsAccordingToLiterals()
                 ++pitbegin;
                 if (!pitbegin.isValid()) break;
             }
-            if (!constrainView(View(i), lower, upper)) return false;
+            if (!constrainView(View(Variable(i)), lower, upper)) return false;
         }
     }
     for (auto i = equalLits_.begin(); i != equalLits_.end();)
@@ -512,13 +514,14 @@ bool VariableCreator::domainChange(const Variable &var, const Domain &d)
                     }
                     else
                     {
-                        while (h->first >= (*(k + 1)) - r.begin())
+                        while (static_cast< int64 >(h->first) >= (*(k + 1)) - r.begin())
                         {
                             inside = !inside;
                             if (inside) move += ((*(k + 1)) - (*k));
                             ++k;
                         }
-                        if (h->first >= (*(k)) - r.begin() && h->first < (*(k + 1)) - r.begin())
+                        if (static_cast< int64 >(h->first) >= (*(k)) - r.begin() &&
+                            static_cast< int64 >(h->first) < (*(k + 1)) - r.begin())
                         {
                             if (inside)
                             {
@@ -579,9 +582,9 @@ bool VariableCreator::domainChange(const Variable &var, const Domain &d)
                 /// valid value
                 if (i + 2 != keep.end())
                 {
-                    unsigned int startindex = offset_start + offset;
-                    unsigned int endindex = (*(i + 2) - r.begin());
-                    unsigned int oldindex = startindex - 1;
+                    size_t startindex = offset_start + offset;
+                    size_t endindex = (*(i + 2) - r.begin());
+                    size_t oldindex = startindex - 1;
                     for (auto elems = startindex; elems < endindex; ++elems)
                     {
                         if (orderLitMemory_[var].getVector()[elems] != Literal(0))
@@ -632,10 +635,10 @@ void VariableStorage::init()
     for (std::size_t i = 0; i < numVariables(); ++i)
     {
         rs_.emplace_back();
-        if (isValid(i))
+        if (isValid(Variable(i)))
         {
-            rs_.back().emplace_back(getRestrictor(View(i)));
-            levelSets_.back().insert(i);
+            rs_.back().emplace_back(getRestrictor(View(Variable(i))));
+            levelSets_.back().insert(Variable(i));
         }
     }
 }

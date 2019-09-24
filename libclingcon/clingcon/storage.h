@@ -77,8 +77,8 @@ public:
     void useVector() { store_ = store_ | hasvector; }
     void useMap() { store_ = store_ | hasmap; }
 
-    bool hasVector() const { return static_cast<bool>(store_ & hasvector); }
-    bool hasMap() const { return static_cast<bool>(store_ & hasmap); }
+    bool hasVector() const { return static_cast< bool >(store_ & hasvector); }
+    bool hasMap() const { return !!(store_ & hasmap); }
 
     /// returns the number of literals already created
     size_t numLits() const
@@ -389,9 +389,8 @@ public:
     size_t numElement() const
     {
         assert(valid_);
-        return storage_.hasMap() ?
-                   mapit_->first :
-                   static_cast< size_t >(vectorit_ - storage_.getVector().begin());
+        return storage_.hasMap() ? mapit_->first :
+                                   static_cast< size_t >(vectorit_ - storage_.getVector().begin());
     }
 
     /// returns a literal
@@ -509,7 +508,7 @@ public:
 
     /// return false if the domain is empty
     /// function can potentially produce clauses
-    bool constrainUpperBound(const View &v, int u)
+    bool constrainUpperBound(const View &v, int64 u)
     {
         if (v.reversed())
             return constrainView(v, v.multiply(domains_[v.v]->upper()), u);
@@ -519,7 +518,7 @@ public:
 
     /// return false if the domain is empty
     /// function can potentially produce clauses
-    bool constrainLowerBound(const View &v, int l)
+    bool constrainLowerBound(const View &v, int64 l)
     {
         if (v.reversed())
             return constrainView(v, l, v.multiply(domains_[v.v]->lower()));

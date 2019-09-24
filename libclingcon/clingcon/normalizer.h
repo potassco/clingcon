@@ -216,10 +216,10 @@ public:
 
     std::unique_ptr< LinearPropagator > propagator_;
     bool firstRun_;
-    unsigned int varsBefore_;        /// the number of variables that we had before this
-                                     /// step
-    unsigned int varsAfter_;         /// the highest problem specific variable in this step + 1
-    unsigned int varsAfterFinalize_; /// the highest variable we have after this
-                                     /// step
+    unsigned int varsBefore_;  /// the number of variables that we had before this
+                               /// step
+    size_t varsAfter_;         /// the highest problem specific variable in this step + 1
+    size_t varsAfterFinalize_; /// the highest variable we have after this
+                               /// step
 };
 } // namespace clingcon
