@@ -22,7 +22,7 @@ before_build:
     cd build
     cmake -G "%GEN%" .. -DCLINGODL_BUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=True
 build:
-  project: clingcon.sln
+  project: build\clingcon.sln
   verbosity: maximal
 
 test_script:
