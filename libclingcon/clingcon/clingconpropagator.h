@@ -191,12 +191,16 @@ public:
     bool has_unique_value(size_t thread_id, Var v) const
     {
         // return threads_[thread_id].free_range(v)==1;
+        /// temporarily
+        return false;
     }
 
     int32_t value(size_t thread_id, Var v) const
     {
         // assert(has_unique_value(thread_id, v));
         // return threads_[thread_id].value(v);
+        /// temporarily
+        return 0;
     }
 
 private:

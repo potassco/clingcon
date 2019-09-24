@@ -47,10 +47,10 @@ public:
     bool operator==(const Range &d) const { return l == d.l && u == d.u; }
     bool operator!=(const Range &d) const { return l != d.l || u != d.u; }
     int32 l, u;
-    int64 size() const { return (( int64 )u - ( int64 )l) + 1; }
+    int64 size() const { return (static_cast<int64>(u) - static_cast<int64>(l)) + 1; }
 };
 
-static_assert(std::numeric_limits< int32 >::min() == -2147483648 &&
+static_assert(std::numeric_limits< int32 >::min() == -2147483647 -1 &&
                   std::numeric_limits< int32 >::max() == 2147483647,
               "requires int to be 32bit and between -2147483648 .. 2147483647");
 
@@ -232,7 +232,7 @@ public:
         {
             modified_ = false;
             size_ = 0;
-            for (auto i : ranges_) size_ += (uint64)(((int64)(i.u) - (int64)(i.l)) + 1);
+            for (auto i : ranges_) size_ += static_cast<uint64>((static_cast<int64>(i.u) - static_cast<int64>(i.l)) + 1);
         }
         return size_;
     }
@@ -322,7 +322,7 @@ public:
         }
 
     private:
-        const_iterator(Domain const *d, int index, int steps)
+        const_iterator(Domain const *d, size_t index, uint32 steps)
             : d_(d)
             , index_(index)
             , steps_(steps)
@@ -469,7 +469,7 @@ public:
     uint64 size() const
     {
         uint64 size = 0;
-        for (auto i : ranges_) size += (i.u - i.l) + 1;
+        for (auto i : ranges_) size += static_cast<uint64>(i.u - i.l) + 1;
         return size;
     }
 
@@ -556,7 +556,7 @@ public:
         }
 
     private:
-        const_iterator(ViewDomain const *d, int index, uint64 steps)
+        const_iterator(ViewDomain const *d, size_t index, uint64 steps)
             : d_(d)
             , index_(index)
             , steps_(steps)
@@ -650,7 +650,7 @@ public:
     bool operator>=(const ViewIterator &m) const { return !(*this < m); }
     bool operator<=(const ViewIterator &m) const { return !(*this > m); }
 
-    int64 operator-(const ViewIterator &m) const { return index_ - m.index_; }
+    int64 operator-(const ViewIterator &m) const { return static_cast<int64>(index_ - m.index_); }
 
     ViewIterator &operator+=(int64 x)
     {
@@ -700,7 +700,7 @@ public:
         if (it.view().reversed())
         {
             if (it.it_.getDomain().size() == it.index_)       /// we are at the end
-                ret.it_ = it.it_ + it.it_.getDomain().size(); // index is already set for end it
+                ret.it_ = it.it_ + static_cast<int64>(it.it_.getDomain().size()); // index is already set for end it
             else
             {
                 --ret.it_;
@@ -716,7 +716,7 @@ public:
     // const Domain& getDomain() const { return it_.getDomain()v_.a + v_.c_; }
 
 private:
-    ViewIterator(const View &v, const Domain::const_iterator &it, unsigned int index)
+    ViewIterator(const View &v, const Domain::const_iterator &it, uint64 index)
         : v_(v)
         , it_(it)
         , index_(index)

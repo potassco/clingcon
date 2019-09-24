@@ -54,12 +54,12 @@ struct View
     /// returns x given rhs
     int64 divide(int64 rhs) const
     {
-        return reversed() ? std::ceil(( double )(rhs - c) / a) :
-                            std::floor(( double )(rhs - c) / a);
+        return static_cast<int64>(reversed() ? std::ceil(static_cast<double>(rhs - c) / a) :
+                            std::floor(static_cast<double>(rhs - c) / a));
     }
 
     /// return rhs given a
-    int64 multiply(int64 x) const { return (int64)(a) * (int64)(x) + (int64)(c); }
+    int64 multiply(int64 x) const { return static_cast<int64>(a) * static_cast<int64>(x) + static_cast<int64>(c); }
 
     bool reversed() const { return a < 0; }
 
