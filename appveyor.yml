@@ -9,17 +9,27 @@ environment:
 
 before_build:
 - cmd: >-
+
     set PATH=C:\Miniconda36-x64\Scripts;%PATH%
+
     activate
+
     conda config --set always_yes yes --set changeps1 no
+
     conda update -q conda
+
     conda info -a
+
     conda create -q -n test-environment python=%PYTHON_VERSION%
+
     activate test-environment
+
     conda install cmake 
+
     conda install -c potassco/label/dev clingo
+
     cmake -G "%GEN%" . -DCLINGCON_BUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=True
-    tree
+
 build:
   project: clingcon.sln
   verbosity: maximal
@@ -27,5 +37,7 @@ build:
 test_script:
 - cmd: >-
     cmake --build . --target install --config release
+
     clingcon --version
+
     python scratch/runtests.py
