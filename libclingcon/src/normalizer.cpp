@@ -808,8 +808,8 @@ void Normalizer::variablesWithoutBounds(std::vector< Variable > &lb, std::vector
     {
         if (vc_.isValid(Variable(i)))
         {
-            if (vc_.getDomain(i).lower() == Domain::min) lb.push_back(Variable(i));
-            if (vc_.getDomain(i).upper() == Domain::max) ub.push_back(Variable(i));
+            if (vc_.getDomain(Variable(i)).lower() == Domain::min) lb.push_back(Variable(i));
+            if (vc_.getDomain(Variable(i)).upper() == Domain::max) ub.push_back(Variable(i));
         }
     }
 }
