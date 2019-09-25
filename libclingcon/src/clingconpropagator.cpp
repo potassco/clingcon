@@ -736,8 +736,8 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
 
 
     Variable unrestrictedVariable(InvalidVar);
-    unsigned int maxSize = 1;
-    for (unsigned int i = 0; i < vs.numVariables(); ++i)
+    uint64_t maxSize = 1;
+    for (size_t i = 0; i < vs.numVariables(); ++i)
     {
         uint64_t size = free_range(Variable(i), s);
         if (size > maxSize)
@@ -750,7 +750,7 @@ bool PropagatorThread::isModel(Clingo::PropagateControl &control)
     if (maxSize > 1) /// there is some unknownness
     {
         auto lr = vs.getCurrentRestrictor(View(unrestrictedVariable));
-        auto it = lr.begin() + ((maxSize - 1) / 2);
+        auto it = lr.begin() + static_cast< int64 >((maxSize - 1) / 2);
         Literal l = s.getNewLiteral();
         p_->getVVS().setLELit(it, l);
         // std::cout << "Added V" << unrestrictedVariable << "<=" << *it << std::endl;

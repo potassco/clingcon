@@ -449,7 +449,10 @@ static bool parse_prop_strength(const char *value, void *data)
 {
     uint64 x = 0;
     return (value = parse_uint64_pre(value, &x)) && 1ull <= x && x <= 4ull &&
-           set_config(value, data, [x](clingcon::Config &config) { config.propStrength = x; },
+           set_config(value, data,
+                      [x](clingcon::Config &config) {
+                          config.propStrength = static_cast< unsigned int >(x);
+                      },
                       [x](int a) {});
 }
 
