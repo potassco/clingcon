@@ -804,12 +804,12 @@ bool Normalizer::finalize()
 
 void Normalizer::variablesWithoutBounds(std::vector< Variable > &lb, std::vector< Variable > &ub)
 {
-    for (unsigned int i = varsBefore_; i < varsAfter_; ++i)
+    for (size_t i = varsBefore_; i < varsAfter_; ++i)
     {
-        if (vc_.isValid(i))
+        if (vc_.isValid(Variable(i)))
         {
-            if (vc_.getDomain(i).lower() == Domain::min) lb.push_back(i);
-            if (vc_.getDomain(i).upper() == Domain::max) ub.push_back(i);
+            if (vc_.getDomain(i).lower() == Domain::min) lb.push_back(Variable(i));
+            if (vc_.getDomain(i).upper() == Domain::max) ub.push_back(Variable(i));
         }
     }
 }
