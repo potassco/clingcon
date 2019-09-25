@@ -62,8 +62,8 @@ inline bool translate(Grounder &s, VariableCreator &vc, std::vector< ReifiedLine
                       static_cast< uint64 >(conf.translateConstraints);
 
 
-    unsigned int num = rl.size();
-    for (unsigned int i = 0; i < num;)
+    size_t num = rl.size();
+    for (size_t i = 0; i < num;)
     {
         if (rl[i].l.productOfDomainsExceptLastLEx(vc, size))
         {

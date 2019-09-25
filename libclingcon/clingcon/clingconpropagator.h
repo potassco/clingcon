@@ -206,7 +206,7 @@ public:
 private:
     /// add a watch for var<=a for iterator it
     /// step is the precalculated number of it-getLiteralRestrictor(var).begin()
-    void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, unsigned int step);
+    void addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl, size_t step);
     Stats &stats_;
     Literal trueLit_;
     const VariableCreator &vc_;

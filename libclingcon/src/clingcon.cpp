@@ -439,36 +439,34 @@ bool set_config(char const *value, void *data, F f, G g)
 static bool parse_translate_constraints(const char *value, void *data)
 {
     int64 x = 0;
-    return (value = parse_int64_pre(value, &x)) && x >= -1 &&
-           set_config(
-               value, data, [x](clingcon::Config &config) { config.translateConstraints = x; },
-               [x](int a) {});
+    return (value = parse_int64_pre(value, &x)) && x >= -1ll &&
+           set_config(value, data,
+                      [x](clingcon::Config &config) { config.translateConstraints = x; },
+                      [x](int a) {});
 }
 
 static bool parse_prop_strength(const char *value, void *data)
 {
     uint64 x = 0;
-    return (value = parse_uint64_pre(value, &x)) && 1 <= x && x <= 4 &&
-           set_config(
-               value, data, [x](clingcon::Config &config) { config.propStrength = x; },
-               [x](int a) {});
+    return (value = parse_uint64_pre(value, &x)) && 1ull <= x && x <= 4ull &&
+           set_config(value, data, [x](clingcon::Config &config) { config.propStrength = x; },
+                      [x](int a) {});
 }
 
 static bool parse_min_lits_per_var(const char *value, void *data)
 {
     int64 x = 0;
-    return (value = parse_int64_pre(value, &x)) && x >= -1 &&
-           set_config(
-               value, data, [x](clingcon::Config &config) { config.minLitsPerVar = x; },
-               [x](int a) {});
+    return (value = parse_int64_pre(value, &x)) && x >= -1ll &&
+           set_config(value, data, [x](clingcon::Config &config) { config.minLitsPerVar = x; },
+                      [x](int a) {});
 }
 
 static bool parse_domain_propagation(const char *value, void *data)
 {
     int64 x = 0;
-    return (value = parse_int64_pre(value, &x)) && x >= -1 &&
-           set_config(
-               value, data, [x](clingcon::Config &config) { config.domSize = x; }, [x](int a) {});
+    return (value = parse_int64_pre(value, &x)) && x >= -1ll &&
+           set_config(value, data, [x](clingcon::Config &config) { config.domSize = x; },
+                      [x](int a) {});
 }
 
 static bool parse_bool(const char *value, void *data)

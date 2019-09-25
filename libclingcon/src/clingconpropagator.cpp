@@ -561,12 +561,12 @@ bool PropagatorThread::forceKnownLiteralLE(ViewIterator it, Literal l, Solver &s
 
 
 void ClingconPropagator::addWatch(Clingo::PropagateInit &init, const Variable &var, Literal cl,
-                                  unsigned int step)
+                                  size_t step)
 {
     // std::cout << "OrderProp watch " << cl << " and " << -cl << std::endl;
     init.add_watch(cl);
     init.add_watch(-cl);
-    int32 x = (cl < 0) ? int32(step + 1) * -1 : int32(step + 1);
+    int32 x = (cl < 0) ? static_cast< int32 >(step + 1) * -1 : static_cast< int32 >(step + 1);
     propVar2cspVar_[abs(cl)].emplace_back(std::make_pair(var, x));
 }
 
@@ -643,7 +643,7 @@ namespace
 
     /// finds first literal that is not false
     template < class ForwardIt >
-    ForwardIt my_upper_bound(ForwardIt first, ForwardIt last, Solver &s, const orderStorage &os)
+    ForwardIt my_lower_bound(ForwardIt first, ForwardIt last, Solver &s, const orderStorage &os)
     {
         ForwardIt it;
         typename std::iterator_traits< ForwardIt >::difference_type count, step;
@@ -664,6 +664,30 @@ namespace
         }
         return first;
     }
+
+    /// finds first literal that is true
+    template < class ForwardIt >
+    ForwardIt my_upper_bound(ForwardIt first, ForwardIt last, Solver &s, const orderStorage &os)
+    {
+        ForwardIt it;
+        typename std::iterator_traits< ForwardIt >::difference_type count, step;
+        count = std::distance(first, last);
+
+        while (count > 0)
+        {
+            it = first;
+            step = count / 2;
+            std::advance(it, step);
+            if (!s.isTrue(os.getLiteral(it.numElement())))
+            { /// if (lit is not true)
+                first = ++it;
+                count -= step + 1;
+            }
+            else
+                count = step;
+        }
+        return first;
+    }
 } // namespace
 
 uint64_t PropagatorThread::free_range(Variable v, Solver &s) const
@@ -674,8 +698,11 @@ uint64_t PropagatorThread::free_range(Variable v, Solver &s) const
     else
     {
         auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(v));
-        return s.isTrue(*(my_upper_bound(rs.begin(), rs.end(), s,
-                                         p_->getVVS().getVariableStorage().getOrderStorage(v))));
+        return static_cast< uint64_t >(
+            my_upper_bound(rs.begin(), rs.end(), s,
+                           p_->getVVS().getVariableStorage().getOrderStorage(v)) -
+            my_lower_bound(rs.begin(), rs.end(), s,
+                           p_->getVVS().getVariableStorage().getOrderStorage(v)));
     }
 }
 
@@ -686,13 +713,13 @@ int32_t PropagatorThread::value(Variable v, Solver &s) const
     {
         Restrictor lr;
         lr = p_->getVVS().getVariableStorage().getCurrentRestrictor(v);
-        assert(lr.size() == 1);
+        assert(lr.size() == static_cast< size_t >(1));
         return static_cast< int32_t >(*lr.begin());
     }
     else /// not watched, need to search for value
     {
         auto rs = p_->getVVS().getVariableStorage().getRestrictor(View(v));
-        return static_cast< int32_t >(*(my_upper_bound(
+        return static_cast< int32_t >(*(my_lower_bound(
             rs.begin(), rs.end(), s, p_->getVVS().getVariableStorage().getOrderStorage(v))));
     }
 }
