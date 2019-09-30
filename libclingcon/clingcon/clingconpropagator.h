@@ -86,6 +86,8 @@ public:
 
 private:
     bool propagateOrderVariables(Clingo::PropagateControl &control, Clingo::LiteralSpan changes);
+    bool propagateVariableAssignment(Clingo::PropagateControl &control, Literal p, Variable v,
+                                     int32 value);
     bool propagateConstraintVariables(Clingo::PropagateControl &control);
     bool isModel(Clingo::PropagateControl &control);
 

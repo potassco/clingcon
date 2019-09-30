@@ -301,17 +301,17 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, 
 
         if (up < wholeRange.lower()) // derive false
         {
-            // std::cout << "Constrain View " << i.v << "*" << i.a << "+" << i.c << " with new upper
-            // bound " << up << std::endl;
+//            std::cout << "Constrain View " << i.v << "*" << i.a << "+" << i.c
+//                      << " with new upper bound " << up << std::endl;
             // propIt=wholeRange.begin();//can be removed
             conflict = true;
         }
         else if (up < r.upper())
         {
-            //             std::cout << "Constrain Variable " << i.v << "*" << i.a << "+" << i.c <<
-            //             " with new upper bound " << up << std::endl; std::cout << "This Variable
-            //             before had domain " << r.lower() << " .. " << r.upper()
-            //             << std::endl;
+//            std::cout << "Constrain Variable " << i.v << "*" << i.a << "+" << i.c
+//                      << " with new upper bound " << up << std::endl;
+//            std::cout << "This Variable before had domain " << r.lower() << " .. " << r.upper()
+//                      << std::endl;
             auto newUpper = wrap_upper_bound(wholeRange.begin(), r.end(), up);
             // assert(newUpper != r.end()); /// should never be able to happen, as up <
             // r.upper().first, so there is something which is smaller, this means we do not need r
@@ -326,8 +326,8 @@ void LinearLiteralPropagator::propagate_true(const ReifiedLinearConstraint &rl, 
                 --newUpper;
                 prop = true;
                 // prop = vs_.getVariableCreator().getLiteral(newUpper);
-                // std::cout << "the upper bound not included for this view will be " <<
-                // *(newUpper+1) << std::endl;
+//                std::cout << "the upper bound not included for this view will be "
+//                          << *(newUpper + 1) << std::endl;
                 conflict = !constrainUpperBound(
                     (newUpper + 1),
                     s); // +1 is needed, as it is an iterator pointing after the element
