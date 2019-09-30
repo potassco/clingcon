@@ -137,7 +137,7 @@ void ClingconPropagator::init(Clingo::PropagateInit &init)
 
 void ClingconPropagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes)
 {
-    //std::cout << "called propagate on level " << control.assignment().decision_level() << " with counter " << counter << std::endl;
+    //std::cout << "called propagate on level " << control.assignment().decision_level() << std::endl;
     assert(control.thread_id() < threads_.size());
     Timer tprop(stats_.clingcon_stats[control.thread_id()].time_propagate);
     threads_[control.thread_id()].propagate(control, changes);
@@ -210,6 +210,7 @@ bool PropagatorThread::propagateOrderVariables(Clingo::PropagateControl &control
                                                Clingo::LiteralSpan changes)
 {
     Solver s(stats_, trueLit_, control);
+    //printPartialState(s);
     for (auto p : changes)
     {
         //std::cout << " one change in propagate order variables" << std::endl;
@@ -390,20 +391,12 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                         if (control.assignment().decision_level() == 0)
                         {
                             auto current = vs.getVariableStorage().getCurrentRestrictor(its[i].view());
-                            if (its[i].view().reversed()) {
                                 if (its[i] > current.end())
                                     l = s.trueLit();
                                 else
                                 if (its[i] < current.begin())
                                     l = s.falseLit();
-                            }
-                            else {
-                                if (its[i] > current.end())
-                                    l = s.falseLit();
-                                else
-                                if (its[i] < current.begin())
-                                    l = s.trueLit();                                
-                            }                          
+                        
                         }
                         else
                         {
@@ -526,7 +519,7 @@ void ClingconPropagator::undo(Clingo::PropagateControl const &control, Clingo::L
 
 void PropagatorThread::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan)
 {
-     //std::cout << "reset on dl " << control.assignment().decision_level() << std::endl;
+    //std::cout << "reset on dl " << control.assignment().decision_level() << std::endl;
     //        if (control.assignment().decision_level() != 0 &&
     //        control.assignment().decision_level() == base_.dls_.back())
     //        {
