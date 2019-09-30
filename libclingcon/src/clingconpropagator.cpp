@@ -437,7 +437,7 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                             p_->getVVS().getVariableStorage().getCurrentRestrictor(its[i].view());
                         Literal l = vs.getVariableStorage().getGELiteral(its[i]);
                                                 //std::cout << l << std::endl;
-                        /*if (s.isUnknown(l))
+                        if (s.isUnknown(l))
                         {
                             auto it = its[i] - 1;
                             if (it < currentIt.begin())
@@ -467,7 +467,7 @@ bool PropagatorThread::propagateConstraintVariables(Clingo::PropagateControl &co
                                 }
                             }
                             /// else it simply free and unit asserting
-                        }*/
+                        }
 
                         claspClause.push_back(-l);
                     }
