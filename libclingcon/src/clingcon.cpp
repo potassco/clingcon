@@ -499,7 +499,7 @@ static bool check_parse(char const *key, bool ret)
     return ret;
 }
 
-extern "C" bool clingcon_configure_theory(clingcon_theory_t *prop, char const *key,
+extern "C" bool clingcon_configure(clingcon_theory_t *prop, char const *key,
                                           char const *value)
 {
     CLINGCON_TRY
