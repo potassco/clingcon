@@ -59,11 +59,11 @@ public:
         }
     }
 
-    char const *program_name() const noexcept override {
+    [[nodiscard]] char const *program_name() const noexcept override {
         return "clingcon";
     }
 
-    char const *version() const noexcept override {
+    [[nodiscard]] char const *version() const noexcept override {
         return CLINGCON_VERSION;
     }
 

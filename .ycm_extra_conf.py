@@ -42,7 +42,7 @@ flags = [
 '-fexceptions',
 '-DNDEBUG',
 '-xc++',
-'-std=c++14',
+'-std=c++17',
 '-stdlib=libc++',
 '-Ilibclingcon',
 '-I{home}/git/clingo/install/debug/include'.format(home=os.path.expanduser('~')),
