@@ -35,6 +35,23 @@
 
 namespace Clingcon {
 
+// defaults for thread config
+constexpr bool DEFAULT_PROPAGATE_CHAIN{true};
+constexpr bool DEFAULT_REFINE_REASONS{true};
+constexpr bool DEFAULT_REFINE_INTRODUCE{true};
+
+// defaults for global config
+constexpr int DEFAULT_MAX_INT{1 << 30};
+constexpr int DEFAULT_MIN_INT{-DEFAULT_MAX_INT};
+constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
+constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
+constexpr bool DEFAULT_LITERALS_ONLY{false};
+constexpr uint32_t DEFAULT_WEIGHT_CONSTRAINT_LIMIT{0};
+constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
+constexpr bool DEFAULT_CHECK_SOLUTION{true};
+constexpr bool DEFAULT_CHECK_STATE{false};
+constexpr bool DEFAULT_TRANSLATE_MINIMIZE{false};
+
 using literal_t = Clingo::literal_t;
 using weight_t = Clingo::weight_t;
 constexpr literal_t TRUE_LIT{1};
@@ -130,9 +147,9 @@ struct Statistics {
 
 //! Per state configuration.
 struct StateConfig {
-    bool propagate_chain{true};
-    bool refine_reasons{true};
-    bool refine_introduce{true};
+    bool propagate_chain{DEFAULT_PROPAGATE_CHAIN};
+    bool refine_reasons{DEFAULT_REFINE_REASONS};
+    bool refine_introduce{DEFAULT_REFINE_INTRODUCE};
 };
 
 
@@ -146,16 +163,16 @@ struct Config {
         return states[thread_id];
     }
 
-    int32_t min_int{-(1 << 30)};
-    int32_t max_int{(1 << 30)};
-    bool sort_constraints{true};
-    uint32_t clause_limit{1000};
-    bool literals_only{false};
-    uint32_t weight_constraint_limit{0};
-    uint32_t distinct_limit{1000};
-    bool check_solution{true};
-    bool check_state{false};
-    bool translate_minimize{false};
+    int32_t min_int{DEFAULT_MIN_INT};
+    int32_t max_int{DEFAULT_MAX_INT};
+    bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
+    uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
+    bool literals_only{DEFAULT_LITERALS_ONLY};
+    uint32_t weight_constraint_limit{DEFAULT_WEIGHT_CONSTRAINT_LIMIT};
+    uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
+    bool check_solution{DEFAULT_CHECK_SOLUTION};
+    bool check_state{DEFAULT_CHECK_STATE};
+    bool translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
     StateConfig default_state_config;
     std::vector<StateConfig> states;
 };
@@ -165,6 +182,13 @@ struct Config {
 //! assignment.
 class AbstractClauseCreator {
 public:
+    AbstractClauseCreator() = default;
+
+    AbstractClauseCreator(AbstractClauseCreator &&) = delete;
+    AbstractClauseCreator(AbstractClauseCreator const &) = delete;
+    AbstractClauseCreator &operator=(AbstractClauseCreator &&) = delete;
+    AbstractClauseCreator &operator=(AbstractClauseCreator const &) = delete;
+
     virtual ~AbstractClauseCreator() = default;
 
     //! Add a new solver literal.
@@ -201,9 +225,14 @@ public:
     , stats_{stats} {
     }
 
-    virtual ~InitClauseCreator() override = default;
+    InitClauseCreator(InitClauseCreator &&) = delete;
+    InitClauseCreator(InitClauseCreator const &) = delete;
+    InitClauseCreator &operator=(InitClauseCreator &&) = delete;
+    InitClauseCreator &operator=(InitClauseCreator const &) = delete;
 
-    virtual literal_t add_literal() override {
+    ~InitClauseCreator() override = default;
+
+    literal_t add_literal() override {
         auto lit = init_.add_literal();
         ++stats_.num_literals;
         if (state_ == StateTranslate) {
@@ -212,15 +241,15 @@ public:
         return lit;
     }
 
-    virtual void add_watch(literal_t lit) override {
+    void add_watch(literal_t lit) override {
         init_.add_watch(lit);
     }
 
-    virtual bool propagate() override {
+    bool propagate() override {
         return commit() && init_.propagate();
     }
 
-    virtual bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
+    bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
         assert(type != Clingo::ClauseType::Volatile && type != Clingo::ClauseType::VolatileStatic);
         static_cast<void>(type);
 
@@ -233,7 +262,7 @@ public:
         return true;
     }
 
-    virtual Clingo::Assignment assignment() override {
+    Clingo::Assignment assignment() override {
         return init_.assignment();
     }
 
@@ -318,24 +347,24 @@ public:
     , stats_{stats} {
     }
 
-    virtual literal_t add_literal() override {
+    literal_t add_literal() override {
         ++stats_.literals;
         return control_.add_literal();
     }
 
-    virtual void add_watch(literal_t lit) override {
+    void add_watch(literal_t lit) override {
         control_.add_watch(lit);
     }
 
-    virtual bool propagate() override {
+    bool propagate() override {
         return control_.propagate();
     }
 
-    virtual bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
+    bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
         return control_.add_clause(clause, type) && propagate();
     }
 
-    virtual Clingo::Assignment assignment() override {
+    Clingo::Assignment assignment() override {
         return control_.assignment();
     }
 

@@ -1,6 +1,7 @@
 BUILD_TYPE:=debug
 CLINGO_DIR:=$(HOME)/git/clingo/install/$(BUILD_TYPE)/lib64/cmake/Clingo
-CLANG_TIDY:=clang-tidy;-checks=clang-analyzer-*,readability-*,modernize-*,cppcoreguidelines-*,performance-*,bugprone-*,-modernize-use-trailing-return-type;-warnings-as-errors=*
+CLANG_TIDY_WARNINGS:=clang-analyzer-*,readability-*,modernize-*,cppcoreguidelines-*,performance-*,bugprone-*,-modernize-use-trailing-return-type,-cppcoreguidelines-pro-bounds-array-to-pointer-decay
+CLANG_TIDY:=clang-tidy;-header-filter=.*hh;-checks=$(CLANG_TIDY_WARNINGS);-warnings-as-errors=$(CLANG_TIDY_WARNINGS)
 
 .PHONY: all configure
 
