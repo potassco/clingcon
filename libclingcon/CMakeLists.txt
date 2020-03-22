@@ -3,13 +3,28 @@ set(ide_header_group "Header Files")
 set(header-group
     "${CMAKE_CURRENT_SOURCE_DIR}/clingcon.h")
 source_group("${ide_header_group}" FILES ${header-group})
+set(header-group-clingcon
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/base.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/constraints.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/parsing.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/propagator.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/solver.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/clingcon/util.hh")
+source_group("${ide_header_group}\\clingcon" FILES ${header-group-clingcon})
 set(header
-    ${header-group})
+    ${header-group}
+    ${header-group-clingcon})
 # ]]]
 # [[[source: src
 set(ide_source_group "Source Files")
 set(source-group
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/propagator.cc")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/base.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/clingcon.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/constraints.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/parsing.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/propagator.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/solver.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/util.cc")
 source_group("${ide_source_group}" FILES ${source-group})
 set(source
     ${source-group})

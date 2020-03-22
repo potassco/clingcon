@@ -22,4 +22,4 @@
 //
 // }}}
 
-#include "clingcon/propagator.hh"
+#include "clingcon/util.hh"

@@ -22,4 +22,7 @@
 //
 // }}}
 
-#include "clingcon/propagator.hh"
+#ifndef CLINGCON_UTIL_H
+#define CLINGCON_UTIL_H
+
+#endif // CLINGCON_UTIL_H

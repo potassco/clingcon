@@ -4,6 +4,7 @@ import os
 import os.path
 import re
 import sys
+from subprocess import Popen, PIPE
 
 def split_path(path):
     components = os.path.normpath(path).split(os.sep)
@@ -75,6 +76,13 @@ def rep(m):
     return "# [[[{}: {}\n{}# ]]]".format(target, path, content)
 
 files = [os.path.abspath(f) for f in sys.argv[1:]]
+
+if not files:
+    root = os.path.join(os.path.dirname(__file__), "..")
+    p = Popen(["git", "ls-files", "-i", "-x", "CMakeLists.txt", root], stdout=PIPE, stderr=PIPE)
+    stdout, _ = p.communicate()
+
+    files = [os.path.abspath(f) for f in stdout.splitlines()]
 
 for f in files:
     os.chdir(os.path.dirname(f))
