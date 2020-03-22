@@ -9,8 +9,8 @@ class Rewriter {
 public:
     Rewriter(clingcon_theory_t *theory, clingo_program_builder_t *builder)
     : theory_{theory}
-    , builder_{builder}
-    { }
+    , builder_{builder} {
+    }
 
     void load(char const *file) {
         std::string program;
@@ -45,12 +45,15 @@ private:
 
 class ClingconApp : public Clingo::Application, private Clingo::SolveEventHandler {
 public:
-    ClingconApp() {
+    ClingconApp()
+    : theory_{nullptr} {
         CLINGO_CALL(clingcon_create(&theory_));
     }
 
     ~ClingconApp() {
-        clingcon_destroy(theory_);
+        if (theory_) {
+            clingcon_destroy(theory_);
+        }
     }
 
     char const *program_name() const noexcept override {
