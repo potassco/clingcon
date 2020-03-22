@@ -2,7 +2,7 @@
 #include <clingcon.h>
 #include <fstream>
 
-#define CLINGO_CALL(x) Clingo::Detail::handle_error(x)
+using Clingo::Detail::handle_error;
 
 
 class Rewriter {
@@ -23,35 +23,38 @@ public:
         }
 
         // TODO: parsing from file would be nice
-        CLINGO_CALL(clingo_parse_program(program.c_str(), rewrite_, this, nullptr, nullptr, 0));
+        handle_error(clingo_parse_program(program.c_str(), rewrite_, this, nullptr, nullptr, 0));
     }
 
 private:
     static bool add_(clingo_ast_statement_t const *stm, void *data) {
-        Rewriter *self = static_cast<Rewriter*>(data);
+        auto *self = static_cast<Rewriter*>(data);
         return clingo_program_builder_add(self->builder_, stm);
     }
 
     static bool rewrite_(clingo_ast_statement_t const *stm, void *data) {
-        Rewriter *self = static_cast<Rewriter*>(data);
+        auto *self = static_cast<Rewriter*>(data);
         return clingcon_rewrite_statement(self->theory_, stm, add_, self);
     }
 
-private:
     clingcon_theory_t *theory_;
     clingo_program_builder_t *builder_;
 };
 
 
-class ClingconApp : public Clingo::Application, private Clingo::SolveEventHandler {
+class ClingconApp final : public Clingo::Application, private Clingo::SolveEventHandler {
 public:
-    ClingconApp()
-    : theory_{nullptr} {
-        CLINGO_CALL(clingcon_create(&theory_));
+    ClingconApp() {
+        handle_error(clingcon_create(&theory_));
     }
 
-    ~ClingconApp() {
-        if (theory_) {
+    ClingconApp(ClingconApp const &) = delete;
+    ClingconApp(ClingconApp &&) = delete;
+    ClingconApp &operator=(ClingconApp const &) = delete;
+    ClingconApp &operator=(ClingconApp &&) = delete;
+
+    ~ClingconApp() override {
+        if (theory_ != nullptr) {
             clingcon_destroy(theory_);
         }
     }
@@ -65,28 +68,28 @@ public:
     }
 
     void register_options(Clingo::ClingoOptions &options) override {
-        CLINGO_CALL(clingcon_register_options(theory_, options.to_c()));
+        handle_error(clingcon_register_options(theory_, options.to_c()));
     }
 
     void validate_options() override {
-        CLINGO_CALL(clingcon_validate_options(theory_));
+        handle_error(clingcon_validate_options(theory_));
     }
 
     bool on_model(Clingo::Model &model) override {
-        CLINGO_CALL(clingcon_on_model(theory_, model.to_c()));
+        handle_error(clingcon_on_model(theory_, model.to_c()));
         return true;
     }
 
     void on_statistics(Clingo::UserStatistics step, Clingo::UserStatistics accu) override {
-        CLINGO_CALL(clingcon_on_statistics(theory_, step.to_c(), accu.to_c()));
+        handle_error(clingcon_on_statistics(theory_, step.to_c(), accu.to_c()));
     }
 
-    void main(Clingo::Control &control, Clingo::StringSpan files) override {
-        CLINGO_CALL(clingcon_register(theory_, control.to_c()));
+    void main(Clingo::Control &control, Clingo::StringSpan files) override { // NOLINT(bugprone-exception-escape)
+        handle_error(clingcon_register(theory_, control.to_c()));
 
         parse_(control, files);
         control.ground({{"base", {}}});
-        CLINGO_CALL(clingcon_prepare(theory_, control.to_c()));
+        handle_error(clingcon_prepare(theory_, control.to_c()));
         control.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
     }
 
@@ -94,7 +97,7 @@ private:
     void parse_(Clingo::Control &control, Clingo::StringSpan files) {
         control.with_builder([&](Clingo::ProgramBuilder &builder) {
             Rewriter rewriter{theory_, builder.to_c()};
-            for (auto &file : files) {
+            for (auto const &file : files) {
                 rewriter.load(file);
             }
             if (files.empty()) {
@@ -103,8 +106,7 @@ private:
         });
     }
 
-private:
-    clingcon_theory_t *theory_;
+    clingcon_theory_t *theory_{nullptr};
 };
 
 
