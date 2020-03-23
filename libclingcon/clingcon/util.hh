@@ -63,10 +63,10 @@ private:
 
 template <class T>
 struct FlagUnique {
-    [[nodiscard]] bool get_flag_unique(T const &x) const {
+    [[nodiscard]] bool get_flag_unique(T const *x) const {
         return x->flag_unique;
     }
-    void set_flag_unique(T const &x, bool flag) const {
+    void set_flag_unique(T *x, bool flag) const {
         x->flag_unique = flag;
     }
 };
@@ -75,8 +75,9 @@ struct FlagUnique {
 template <class T, class Flagger=FlagUnique<T>>
 class UniqueVector : private Flagger {
 public:
-    using Iterator = typename std::vector<T>::iterator;
-    using ConstIterator = typename std::vector<T>::const_iterator;
+    using Vector = typename std::vector<T*>;
+    using Iterator = typename Vector::iterator;
+    using ConstIterator = typename Vector::const_iterator;
 
     UniqueVector(const Flagger &m = Flagger())
     : Flagger(m) {
@@ -99,12 +100,16 @@ public:
         return vec_.size();
     }
 
-    [[nodiscard]] T const &operator[](size_t i) const {
+    [[nodiscard]] T *operator[](size_t i) const {
         return vec_[i];
     }
 
-    [[nodiscard]] bool contains(T const &x) const {
+    [[nodiscard]] bool contains(T const *x) const {
         return Flagger::get_flag_unique(x);
+    }
+
+    [[nodiscard]] bool contains(T const &x) const {
+        return contains(&x);
     }
 
     [[nodiscard]] ConstIterator begin() const {
@@ -146,21 +151,20 @@ public:
         return n;
     }
 
-    bool append(T const &x) { return append_(x); }
-    bool append(T &&x) { return append_(std::move(x)); }
-
-private:
-    template <class U>
-    bool append_(U &&x) {
+    bool append(T *x) {
         if (Flagger::get_flag_unique(x)) {
             return false;
         }
-        vec_.emplace_back(std::forward<U>(x));
-        Flagger::set_flag_unique(vec_.back(), true);
+        vec_.emplace_back(x);
+        Flagger::set_flag_unique(x, true);
         return true;
     }
+    bool append(T &x) {
+        return append(&x);
+    }
 
-    std::vector<T> vec_;
+private:
+    Vector vec_;
 };
 /*
 class IntervalSet(object):
