@@ -29,6 +29,7 @@
 #include <vector>
 #include <unordered_set>
 
+namespace Clingcon {
 
 template<typename I>
 I midpoint(I a, I b) noexcept {
@@ -38,8 +39,8 @@ I midpoint(I a, I b) noexcept {
 
 
 class Timer {
-    using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
     using Clock = std::chrono::high_resolution_clock;
+    using Time = std::chrono::time_point<Clock>;
     using Duration = std::chrono::duration<double>;
 public:
     Timer(double &target)
@@ -57,7 +58,7 @@ public:
 
 private:
     double &target_;
-    TimePoint start_;
+    Time start_;
 };
 
 
@@ -198,5 +199,7 @@ class IntervalSet(object):
         return " ".join("[{},{})".format(x, y) for x, y in self)
 
 */
+
+} // namespace Clingcon
 
 #endif // CLINGCON_UTIL_H
