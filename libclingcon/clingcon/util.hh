@@ -27,13 +27,14 @@
 
 #include <chrono>
 #include <vector>
+#include <map>
 
 namespace Clingcon {
 
 template<typename I>
 I midpoint(I a, I b) noexcept {
     using U = std::make_unsigned_t<I>;
-    return static_cast<I>(static_cast<U>(a) + (static_cast<U>(b) - static_cast<U>(b)) / 2);
+    return static_cast<I>(static_cast<U>(a) + (static_cast<U>(b) - static_cast<U>(a)) / 2);
 }
 
 
@@ -72,7 +73,7 @@ struct FlagUnique {
 };
 
 
-template <class T, class Flagger=FlagUnique<T>>
+template <typename T, class Flagger=FlagUnique<T>>
 class UniqueVector : private Flagger {
 public:
     using Vector = typename std::vector<T*>;
@@ -166,71 +167,116 @@ public:
 private:
     Vector vec_;
 };
-/*
-class IntervalSet(object):
-    """
-    Simplistic interval set class restricted to methods needed to implement
-    `&dom` statements.
-    """
-    def __init__(self, seq=()):
-        self._items = SortedDict()
-        for x, y in seq:
-            self.add(x, y)
 
-    def add(self, x1, y1):
-        """
-        Add an interval to the set.
-        """
-        if y1 <= x1:
-            return
-        i = self._items.bisect_left(x1)
-        while i < len(self._items):
-            y2, x2 = self._items.peekitem(i)
-            if y1 < x2:
-                break
-            x1 = min(x1, x2)
-            y1 = max(y1, y2)
-            del self._items[y2]
-        self._items[y1] = x1
+//! Simplistic interval set class restricted to methods needed to implement
+//! `&dom` statements.
+template <typename T>
+class IntervalSet {
+public:
+    using Map = typename std::map<T, T>;
+    using Iterator = typename Map::const_iterator;
 
-    def extend(self, other):
-        """
-        Inplace union with given interval set.
-        """
-        for x, y in other:
-            self.add(x, y)
+    IntervalSet() = default;
+    IntervalSet(const IntervalSet &) = default;
+    IntervalSet(IntervalSet &&) noexcept = default;
+    IntervalSet& operator=(const IntervalSet &) = default;
+    IntervalSet& operator=(IntervalSet &&) noexcept = default;
+    ~IntervalSet() = default;
 
-    def copy(self):
-        """
-        Return a shallow copy the interval set.
-        """
-        return IntervalSet(self)
+    [[nodiscard]] Iterator begin() const {
+        return map_.begin();
+    }
 
-    def enum(self):
-        """
-        Enumerate values in interval set.
-        """
-        for l, u in self:
-            for i in range(l, u):
-                yield i
+    [[nodiscard]] Iterator end() const {
+        return map_.end();
+    }
 
-    def __contains__(self, x):
-        i = self._items.bisect_right(x)
-        return i < len(self) and x >= self._items.peekitem(i)[1]
+    [[nodiscard]] bool empty() const {
+        return map_.empty();
+    }
 
-    def __iter__(self):
-        """
-        Return the intervals in the set.
-        """
-        return ((x, y) for y, x in self._items.items())
+    [[nodiscard]] bool contains(T const &a, T const &b) const {
+        //           v
+        //   |-------|
+        // |---|  |---|  |---|
+        //               ^
+        auto it = map_.upper_bound(a);
+        if (it == map_.begin()) {
+            return false;
+        }
+        --it;
+        //   v       v
+        //   |-------|
+        // |-----------|
+        // ^           ^
+        return !(a < it->first) && !(it->second < b);
+    }
 
-    def __len__(self):
-        return len(self._items)
+    //! Add an interval to the set.
+    void add(T a, T b) {
+        if (!(a < b)) {
+            return;
+        }
+        //           v
+        //   |-------|
+        // |---|  |---|  |---|
+        //               ^
+        auto it = map_.upper_bound(b);
+        while (it != map_.begin()) {
+            --it;
+            //       v
+            //       |-------|
+            // |---|            |---|
+            //     ^
+            if (it->second < a) {
+                break;
+            }
+            // Note: This can only apply in the first iteration.
+            //        v
+            // -------|
+            // -------------|
+            //              ^
+            if (b < it->second) {
+                b = std::move(it->second);
+            }
+            //    v
+            //    |-------|
+            // |-----|
+            // ^
+            if (it->first < a) {
+                it->second = std::move(b);
+                return;
+            }
+            // |-------|
+            //   |---|
+            it = map_.erase(it);
+        }
+        map_.emplace_hint(it, std::move(a), std::move(b));
+    }
 
-    def __repr__(self):
-        return " ".join("[{},{})".format(x, y) for x, y in self)
+    //! Inplace union with given interval set.
+    void extend(IntervalSet const &other) {
+        for (auto &[x, y] : other) {
+            add(x, y);
+        }
+    }
 
-*/
+    void clear() {
+        map_.clear();
+    }
+
+    template <typename F>
+    void enumerate(F f) {
+        for (const auto &[x, y] : map_) {
+            for (auto i = x; i < y; ++i) {
+                f(i);
+            }
+        }
+    }
+
+private:
+    std::map<T, T> map_;
+};
 
 } // namespace Clingcon
 
