@@ -27,7 +27,6 @@
 
 #include <chrono>
 #include <vector>
-#include <unordered_set>
 
 namespace Clingcon {
 
@@ -63,16 +62,33 @@ private:
 
 
 template <class T>
-class UniqueVector {
+struct FlagUnique {
+    [[nodiscard]] bool get_flag_unique(T const &x) const {
+        return x->flag_unique;
+    }
+    void set_flag_unique(T const &x, bool flag) const {
+        x->flag_unique = flag;
+    }
+};
+
+
+template <class T, class Flagger=FlagUnique<T>>
+class UniqueVector : private Flagger {
 public:
-    using Iterator = typename std::vector<T>::const_iterator;
+    using Iterator = typename std::vector<T>::iterator;
+    using ConstIterator = typename std::vector<T>::const_iterator;
 
-    UniqueVector() = default;
-    ~UniqueVector() = default;
+    UniqueVector(const Flagger &m = Flagger())
+    : Flagger(m) {
+    }
 
-    UniqueVector(UniqueVector const &) = default;
+    ~UniqueVector() {
+        clear();
+    }
+
+    UniqueVector(UniqueVector const &) = delete;
     UniqueVector(UniqueVector &&) noexcept = default;
-    UniqueVector &operator=(UniqueVector const &) = default;
+    UniqueVector &operator=(UniqueVector const &) = delete;
     UniqueVector &operator=(UniqueVector &&) noexcept = default;
 
     [[nodiscard]] bool empty() const {
@@ -88,52 +104,64 @@ public:
     }
 
     [[nodiscard]] bool contains(T const &x) const {
-        return set_.find(x) != set_.end();
+        return Flagger::get_flag_unique(x);
     }
 
-    [[nodiscard]] Iterator begin() const {
+    [[nodiscard]] ConstIterator begin() const {
         return vec_.begin();
     }
 
-    [[nodiscard]] Iterator end() const {
+    [[nodiscard]] ConstIterator end() const {
         return vec_.end();
     }
 
-    void erase(Iterator it) {
-        set_.erase(*it);
+    [[nodiscard]] Iterator begin() {
+        return vec_.begin();
+    }
+
+    [[nodiscard]] Iterator end() {
+        return vec_.end();
+    }
+
+    void erase(ConstIterator it) {
+        Flagger::set_flag_unique(*it, false);
         vec_.erase(it);
     }
 
     void clear() {
+        for (auto &x : vec_) {
+            Flagger::set_flag_unique(x, false);
+        }
         vec_.clear();
-        set_.clear();
     }
 
     template <typename It>
     size_t extend(It begin, It end) {
         size_t n = 0;
         for (auto it = begin; it != end; ++it) {
-            if (emplace_back(*it)) {
+            if (append(*it)) {
                 ++n;
             }
         }
         return n;
     }
 
-    template<class... Args>
-    bool emplace_back(Args&&... args) {
-        auto [it, ret] = set_.emplace(std::forward<Args>(args)...);
-        if (ret) {
-            vec_.emplace_back(*it);
-        }
-        return ret;
-    }
+    bool append(T const &x) { return append_(x); }
+    bool append(T &&x) { return append_(std::move(x)); }
 
 private:
-    std::vector<T> vec_;
-    std::unordered_set<T> set_;
-};
+    template <class U>
+    bool append_(U &&x) {
+        if (Flagger::get_flag_unique(x)) {
+            return false;
+        }
+        vec_.emplace_back(std::forward<U>(x));
+        Flagger::set_flag_unique(vec_.back(), true);
+        return true;
+    }
 
+    std::vector<T> vec_;
+};
 /*
 class IntervalSet(object):
     """
