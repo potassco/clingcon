@@ -37,6 +37,7 @@ std::vector<std::string> collect(char const *prg) {
 
 TEST_CASE("astutil", "[astutil]") {
     SECTION("collect") {
+        REQUIRE(collect("p(X) :- &p{ Y }.") == vec({"X", "Y"}));
         REQUIRE(collect("p(X) :- p(Y).") == vec({"X", "Y"}));
         REQUIRE(collect("#show p(X) : p(Y).") == vec({"X", "Y"}));
         REQUIRE(collect("#external p(X) : p(Y).") == vec({"X", "Y"}));

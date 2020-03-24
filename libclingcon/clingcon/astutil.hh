@@ -474,7 +474,8 @@ struct Visitor {
 };
 
 struct VarCollector {
-    void visit(Clingo::AST::Term const &node, Clingo::AST::Variable const &value) {
+    template <class T>
+    void visit(T const &node, Clingo::AST::Variable const &value) {
         static_cast<void>(node);
         vars.emplace(value.name);
     }
