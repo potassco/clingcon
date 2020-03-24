@@ -31,37 +31,41 @@
 
 namespace Clingcon {
 
+//! Calculate the midpoint of two values of integral type.
 template<typename I>
 I midpoint(I a, I b) noexcept {
     using U = std::make_unsigned_t<I>;
     return static_cast<I>(static_cast<U>(a) + (static_cast<U>(b) - static_cast<U>(a)) / 2);
 }
 
-
+//! Simple timer that adds the elapsed time to the given `double` upon
+//! destruction.
 class Timer {
     using Clock = std::chrono::high_resolution_clock;
     using Time = std::chrono::time_point<Clock>;
     using Duration = std::chrono::duration<double>;
 public:
+    //! Start the timer given a target where to store the elapsed time.
     Timer(double &target)
     : target_{target}
     , start_{Clock::now()} { }
+
+    //! Stop the timer storing the result.
+    ~Timer() {
+        target_ += Duration{Clock::now() - start_}.count();
+    }
 
     Timer(Timer const &) = delete;
     Timer(Timer &&) = delete;
     Timer &operator=(Timer const &) = delete;
     Timer &operator=(Timer &&) = delete;
 
-    ~Timer() {
-        target_ += Duration{Clock::now() - start_}.count();
-    }
-
 private:
     double &target_;
     Time start_;
 };
 
-
+//! Helper to mark/detect if an element is contained in a `UniqueVector`.
 template <class T>
 struct FlagUnique {
     [[nodiscard]] bool get_flag_unique(T const *x) const {
@@ -72,7 +76,7 @@ struct FlagUnique {
     }
 };
 
-
+//! Like a vector but only adds an element if it is not contained yet.
 template <typename T, class Flagger=FlagUnique<T>>
 class UniqueVector : private Flagger {
 public:
@@ -80,10 +84,12 @@ public:
     using Iterator = typename Vector::iterator;
     using ConstIterator = typename Vector::const_iterator;
 
+    //! Create an empty vector.
     UniqueVector(const Flagger &m = Flagger())
     : Flagger(m) {
     }
 
+    //! Destroy the vector unmarking all contained elements.
     ~UniqueVector() {
         clear();
     }
@@ -93,47 +99,58 @@ public:
     UniqueVector &operator=(UniqueVector const &) = delete;
     UniqueVector &operator=(UniqueVector &&) noexcept = default;
 
+    //! Check if the vector is empty.
     [[nodiscard]] bool empty() const {
         return vec_.empty();
     }
 
+    //! Get the size of the vector.
     [[nodiscard]] size_t size() const {
         return vec_.size();
     }
 
+    //! Get the element at the given position.
     [[nodiscard]] T *operator[](size_t i) const {
         return vec_[i];
     }
 
+    //! Check if the vector contains an element.
     [[nodiscard]] bool contains(T const *x) const {
         return Flagger::get_flag_unique(x);
     }
 
+    //! Check if the vector contains an element.
     [[nodiscard]] bool contains(T const &x) const {
         return contains(&x);
     }
 
+    //! Iterator to the beginning of the vector.
     [[nodiscard]] ConstIterator begin() const {
         return vec_.begin();
     }
 
+    //! Iterator to the end of the vector.
     [[nodiscard]] ConstIterator end() const {
         return vec_.end();
     }
 
+    //! Iterator to the beginning of the vector.
     [[nodiscard]] Iterator begin() {
         return vec_.begin();
     }
 
+    //! Iterator to the end of the vector.
     [[nodiscard]] Iterator end() {
         return vec_.end();
     }
 
+    //! Remove an element from the vector.
     void erase(ConstIterator it) {
         Flagger::set_flag_unique(*it, false);
         vec_.erase(it);
     }
 
+    //! Clear the vector.
     void clear() {
         for (auto &x : vec_) {
             Flagger::set_flag_unique(x, false);
@@ -141,6 +158,7 @@ public:
         vec_.clear();
     }
 
+    //! Add elements from a sequence to the vector.
     template <typename It>
     size_t extend(It begin, It end) {
         size_t n = 0;
@@ -152,6 +170,7 @@ public:
         return n;
     }
 
+    //! Append an element to the vector.
     bool append(T *x) {
         if (Flagger::get_flag_unique(x)) {
             return false;
@@ -160,6 +179,8 @@ public:
         Flagger::set_flag_unique(x, true);
         return true;
     }
+
+    //! Append an element to the vector.
     bool append(T &x) {
         return append(&x);
     }
@@ -176,25 +197,31 @@ public:
     using Map = typename std::map<T, T>;
     using Iterator = typename Map::const_iterator;
 
+    //! Create an empty interval set.
     IntervalSet() = default;
+
     IntervalSet(const IntervalSet &) = default;
     IntervalSet(IntervalSet &&) noexcept = default;
     IntervalSet& operator=(const IntervalSet &) = default;
     IntervalSet& operator=(IntervalSet &&) noexcept = default;
     ~IntervalSet() = default;
 
+    //! Iterator to the beginning of the set.
     [[nodiscard]] Iterator begin() const {
         return map_.begin();
     }
 
+    //! Iterator to the end of the set.
     [[nodiscard]] Iterator end() const {
         return map_.end();
     }
 
+    //! Check if the set is empty.
     [[nodiscard]] bool empty() const {
         return map_.empty();
     }
 
+    //! Check if the set contains in interval.
     [[nodiscard]] bool contains(T const &a, T const &b) const {
         //           v
         //   |-------|
@@ -261,10 +288,14 @@ public:
         }
     }
 
+    //! Clear the set.
     void clear() {
         map_.clear();
     }
 
+    //! Enumerate the values in the interval.
+    //!
+    //! This shoud be used on types that behave like integers.
     template <typename F>
     void enumerate(F f) {
         for (const auto &[x, y] : map_) {
