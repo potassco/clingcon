@@ -27,17 +27,19 @@
 
 using namespace Clingcon;
 
+using vec = std::vector<std::string>;
+
+std::vector<std::string> collect(char const *prg) {
+    std::set<char const*> vars;
+    Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) { collect_variables(vars, stm); });
+    return {vars.begin(), vars.end()};
+}
 
 TEST_CASE("astutil", "[astutil]") {
-    SECTION("visit") {
-        Clingo::Location loc{"<file>", "<file>", 1, 1, 1, 1};
-
-        char const *name = "X";
-        Clingo::AST::Variable var{name};
-        Clingo::AST::Term term{loc, var};
-        Clingo::AST::Literal lit{loc, Clingo::AST::Sign::None, term};
-
-        REQUIRE(collect_variables(lit) == (std::set<char const *>{name}));
+    SECTION("collect") {
+        REQUIRE(collect("p(X) :- p(Y).") == vec({"X", "Y"}));
+        REQUIRE(collect("#show p(X) : p(Y).") == vec({"X", "Y"}));
+        REQUIRE(collect("#external p(X) : p(Y).") == vec({"X", "Y"}));
     }
 }
 

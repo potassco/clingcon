@@ -61,7 +61,8 @@ struct has_visit<T, N, V, std::void_t<decltype(std::declval<T>().visit(std::decl
 template <typename T, typename N, typename V>
 std::enable_if_t<has_visit<T, N, V>::value, bool>
 call_visit(T& t, N&& node, V&& value) {
-    return t.visit(std::forward<N>(node), std::forward<V>(value));
+    t.visit(std::forward<N>(node), std::forward<V>(value));
+    return false;
 }
 
 template <typename T, typename N, typename V>
@@ -78,6 +79,12 @@ using make_const_t = std::conditional_t<C, std::add_const_t<T>, T>;
 
 template <typename V, bool Const>
 struct Visitor {
+
+    template <class T>
+    void accept(T &value) {
+        value.data.accept(*this, value);
+    }
+
     // terms
     void visit(make_const_t<Const, Clingo::Symbol> &value, make_const_t<Const, Clingo::AST::Term> &node) {
         if (call_visit(visitor, node, value)) {
@@ -91,28 +98,28 @@ struct Visitor {
 
     void visit(make_const_t<Const, Clingo::AST::UnaryOperation> &value, make_const_t<Const, Clingo::AST::Term> &node) {
         if (call_visit(visitor, node, value)) {
-            value.argument.data.accept(*this, value.argument);
+            accept(value.argument);
         }
     }
 
     void visit(make_const_t<Const, Clingo::AST::BinaryOperation> &value, make_const_t<Const, Clingo::AST::Term> &node) {
         if (call_visit(visitor, node, value)) {
-            value.left.data.accept(*this, value.left);
-            value.right.data.accept(*this, value.right);
+            accept(value.left);
+            accept(value.right);
         }
     }
 
     void visit(make_const_t<Const, Clingo::AST::Interval> &value, make_const_t<Const, Clingo::AST::Term> &node) {
         if (call_visit(visitor, node, value)) {
-            value.left.data.accept(*this, value.left);
-            value.right.data.accept(*this, value.right);
+            accept(value.left);
+            accept(value.right);
         }
     }
 
     void visit(make_const_t<Const, Clingo::AST::Function> &value, make_const_t<Const, Clingo::AST::Term> &node) {
         if (call_visit(visitor, node, value)) {
             for (auto &argument : value.arguments) {
-                argument.data.accept(*this, argument);
+                accept(argument);
             }
         }
     }
@@ -120,7 +127,7 @@ struct Visitor {
     void visit(make_const_t<Const, Clingo::AST::Pool> &value, make_const_t<Const, Clingo::AST::Term> &node) {
         if (call_visit(visitor, node, value)) {
             for (auto &argument : value.arguments) {
-                argument.data.accept(*this, argument);
+                accept(argument);
             }
         }
     }
@@ -133,61 +140,348 @@ struct Visitor {
 
     void visit(make_const_t<Const, Clingo::AST::Term> &value, make_const_t<Const, Clingo::AST::Literal> &node) {
         if (call_visit(visitor, node, value)) {
-            value.data.accept(*this, value);
+            accept(value);
         }
     }
 
     void visit(make_const_t<Const, Clingo::AST::Comparison> &value, make_const_t<Const, Clingo::AST::Literal> &node) {
         if (call_visit(visitor, node, value)) {
-            value.left.data.accept(*this, value.left);
-            value.right.data.accept(*this, value.right);
+            accept(value.left);
+            accept(value.right);
         }
     }
 
     void visit(make_const_t<Const, Clingo::AST::CSPLiteral> &value, make_const_t<Const, Clingo::AST::Literal> &node) {
-        // Note: CSP terms should just be removed from clingo
-        static_cast<void>(visitor);
-        static_cast<void>(node);
-        static_cast<void>(value);
-        std::abort();
+        if (call_visit(visitor, node, value)) {
+            for (auto &term : value.term.terms) {
+                accept(term.coefficient);
+                if (auto *variable = term.variable.get()) {
+                    accept(*variable);
+                }
+            }
+            for (auto &guard : value.guards) {
+                for (auto &term : guard.term.terms) {
+                    accept(term.coefficient);
+                    if (auto *variable = term.variable.get()) {
+                        accept(*variable);
+                    }
+                }
+            }
+        }
     }
 
-    /*
-    // TODO: Need more visitors for the following...
-    struct TheoryTerm {
-        Location location;
-        Variant<Symbol, Variable, TheoryTermSequence, TheoryFunction, TheoryUnparsedTerm> data;
-    };
+    // theory terms
+    void visit(make_const_t<Const, Clingo::Symbol> &value, make_const_t<Const, Clingo::AST::TheoryTerm> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
 
-    struct HeadLiteral {
-        Location location;
-        Variant<Literal, Disjunction, Aggregate, HeadAggregate, TheoryAtom> data;
-    };
+    void visit(make_const_t<Const, Clingo::AST::Variable> &value, make_const_t<Const, Clingo::AST::TheoryTerm> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
 
-    struct BodyLiteral {
-        Location location;
-        Sign sign;
-        Variant<Literal, ConditionalLiteral, Aggregate, BodyAggregate, TheoryAtom, Disjoint> data;
-    };
+    void visit(make_const_t<Const, Clingo::AST::TheoryTermSequence> &value, make_const_t<Const, Clingo::AST::TheoryTerm> &node) {
+        if (call_visit(visitor, node, value)) {
+            for (auto &term : value.terms) {
+                accept(term);
+            }
+        }
+    }
 
-    struct Statement {
-        Location location;
-        Variant<Rule, Definition, ShowSignature, ShowTerm, Minimize, Script, Program, External, Edge, Heuristic, ProjectAtom, ProjectSignature, TheoryDefinition, Defined> data;
-    };
-    */
+    void visit(make_const_t<Const, Clingo::AST::TheoryFunction> &value, make_const_t<Const, Clingo::AST::TheoryTerm> &node) {
+        if (call_visit(visitor, node, value)) {
+            for (auto &term : value.arguments) {
+                accept(term);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::TheoryUnparsedTerm> &value, make_const_t<Const, Clingo::AST::TheoryTerm> &node) {
+        if (call_visit(visitor, node, value)) {
+            for (auto &element : value.elements) {
+                accept(element.term);
+            }
+        }
+    }
+
+    // head literals
+    void visit(make_const_t<Const, Clingo::AST::Literal> &value, make_const_t<Const, Clingo::AST::HeadLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value);
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Disjunction> &value, make_const_t<Const, Clingo::AST::HeadLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            for (auto &condlit : value.elements) {
+                accept(condlit.literal);
+                for (auto &literal : condlit.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Aggregate> &value, make_const_t<Const, Clingo::AST::HeadLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            if (auto *guard = value.left_guard.get()) {
+                accept(guard->term);
+            }
+            if (auto *guard = value.right_guard.get()) {
+                accept(guard->term);
+            }
+            for (auto &element : value.elements) {
+                accept(element.literal);
+                for (auto &literal : element.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::HeadAggregate> &value, make_const_t<Const, Clingo::AST::HeadLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            if (auto *guard = value.left_guard.get()) {
+                accept(guard->term);
+            }
+            if (auto *guard = value.right_guard.get()) {
+                accept(guard->term);
+            }
+            for (auto &element : value.elements) {
+                for (auto &term : element.tuple) {
+                    accept(term);
+                }
+                accept(element.condition.literal);
+                for (auto &literal : element.condition.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::TheoryAtom> &value, make_const_t<Const, Clingo::AST::HeadLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            if (auto *guard = value.guard.get()) {
+                accept(guard->term);
+            }
+            for (auto &element : value.elements) {
+                for (auto &term : element.tuple) {
+                    accept(term);
+                }
+                for (auto &literal : element.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    // body literals
+    void visit(make_const_t<Const, Clingo::AST::Literal> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value);
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::ConditionalLiteral> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.literal);
+            for (auto &literal : value.condition) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Aggregate> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            if (auto *guard = value.left_guard.get()) {
+                accept(guard->term);
+            }
+            if (auto *guard = value.right_guard.get()) {
+                accept(guard->term);
+            }
+            for (auto &element : value.elements) {
+                accept(element.literal);
+                for (auto &literal : element.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::BodyAggregate> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            if (auto *guard = value.left_guard.get()) {
+                accept(guard->term);
+            }
+            if (auto *guard = value.right_guard.get()) {
+                accept(guard->term);
+            }
+            for (auto &element : value.elements) {
+                for (auto &term : element.tuple) {
+                    accept(term);
+                }
+                for (auto &literal : element.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::TheoryAtom> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            if (auto *guard = value.guard.get()) {
+                accept(guard->term);
+            }
+            for (auto &element : value.elements) {
+                for (auto &term : element.tuple) {
+                    accept(term);
+                }
+                for (auto &literal : element.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Disjoint> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
+        if (call_visit(visitor, node, value)) {
+            for (auto &element : value.elements) {
+                for (auto &term : element.term.terms) {
+                    accept(term.coefficient);
+                    if (auto *variable = term.variable.get()) {
+                        accept(*variable);
+                    }
+                }
+                for (auto &term : element.tuple) {
+                    accept(term);
+                }
+                for (auto &literal : element.condition) {
+                    accept(literal);
+                }
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Rule> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.head);
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Definition> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.value);
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::ShowSignature> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::ShowTerm> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.term);
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Minimize> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.weight);
+            accept(value.priority);
+            for (auto &term : value.tuple) {
+                accept(term);
+            }
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Script> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Program> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::External> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.atom);
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Edge> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.u);
+            accept(value.v);
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Heuristic> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.atom);
+            accept(value.bias);
+            accept(value.modifier);
+            accept(value.priority);
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::ProjectAtom> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+            accept(value.atom);
+            for (auto &literal : value.body) {
+                accept(literal);
+            }
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::ProjectSignature> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::TheoryDefinition> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
+
+    void visit(make_const_t<Const, Clingo::AST::Defined> &value, make_const_t<Const, Clingo::AST::Statement> &node) {
+        if (call_visit(visitor, node, value)) {
+        }
+    }
+
     V &visitor;
 };
 
 struct VarCollector {
-    bool visit(Clingo::AST::Term const &node, Clingo::AST::Variable const &value) {
+    void visit(Clingo::AST::Term const &node, Clingo::AST::Variable const &value) {
         static_cast<void>(node);
         vars.emplace(value.name);
-        return true;
     }
     std::set<char const *> &vars;
 };
 
-}
+} // namespace Detail
 
 template <typename V, typename N>
 void transform_ast(V&& v, N &node) {
