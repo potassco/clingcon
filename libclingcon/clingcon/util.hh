@@ -102,7 +102,11 @@ public:
     UniqueVector(UniqueVector const &) = delete;
     UniqueVector(UniqueVector &&) noexcept = default;
     UniqueVector &operator=(UniqueVector const &) = delete;
-    UniqueVector &operator=(UniqueVector &&) noexcept = default;
+    //! Clear the vector then move.
+    UniqueVector &operator=(UniqueVector &&x) noexcept {
+        clear();
+        vec_ = std::move(x.vec_);
+    }
 
     //! Check if the vector is empty.
     [[nodiscard]] bool empty() const {
