@@ -27,20 +27,32 @@
 
 using namespace Clingcon;
 
-using vec = std::vector<std::string>;
+using svec = std::vector<std::string>;
+using pvec = std::vector<std::vector<int>>;
 
-std::vector<std::string> collect(char const *prg) {
+svec collect(char const *prg) {
     std::set<char const*> vars;
     Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) { collect_variables(vars, stm); });
     return {vars.begin(), vars.end()};
 }
 
+pvec product(pvec const &vec) {
+    pvec ret;
+    cross_product(vec, [&](auto begin, auto end) { ret.emplace_back(begin, end); });
+    return ret;
+}
+
 TEST_CASE("astutil", "[astutil]") {
     SECTION("collect") {
-        REQUIRE(collect("p(X) :- &p{ Y }.") == vec({"X", "Y"}));
-        REQUIRE(collect("p(X) :- p(Y).") == vec({"X", "Y"}));
-        REQUIRE(collect("#show p(X) : p(Y).") == vec({"X", "Y"}));
-        REQUIRE(collect("#external p(X) : p(Y).") == vec({"X", "Y"}));
+        REQUIRE(collect("p(X) :- &p{ Y }.") == svec({"X", "Y"}));
+        REQUIRE(collect("p(X) :- p(Y).") == svec({"X", "Y"}));
+        REQUIRE(collect("#show p(X) : p(Y).") == svec({"X", "Y"}));
+        REQUIRE(collect("#external p(X) : p(Y).") == svec({"X", "Y"}));
+    }
+    SECTION("product") {
+        REQUIRE(product({}) == pvec({{}}));
+        REQUIRE(product({{}}) == pvec({}));
+        REQUIRE(product({{1,2}, {3}, {4,5}}) == pvec({{1, 3, 4}, {1, 3, 5}, {2, 3, 4}, {2, 3, 5}}));
     }
 }
 
