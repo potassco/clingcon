@@ -58,6 +58,15 @@ template <typename N>
 template <typename Seq, typename F>
 inline void cross_product(Seq seq, F f);
 
+//! Unpool the given term.
+[[nodiscard]] std::vector<Clingo::AST::Term> unpool(Clingo::AST::Term const &term);
+
+//! Unpool the given literal.
+[[nodiscard]] std::vector<Clingo::AST::Literal> unpool(Clingo::AST::Literal const &lit);
+
+//! Inplace unpool the conditions of the given theory atom.
+void unpool(Clingo::AST::TheoryAtom &atom);
+
 } // namespace Clingcon
 
 #endif // CLINGCON_ASTUTIL_H

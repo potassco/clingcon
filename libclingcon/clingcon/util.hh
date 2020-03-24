@@ -99,14 +99,24 @@ public:
         clear();
     }
 
-    UniqueVector(UniqueVector const &) = delete;
-    UniqueVector(UniqueVector &&) noexcept = default;
-    UniqueVector &operator=(UniqueVector const &) = delete;
-    //! Clear the vector then move.
+    //! Move construct the vector.
+    //!
+    //! Implemented via swap because the destructor iterates over the
+    //! invalidated vector again.
+    UniqueVector(UniqueVector &&x) noexcept {
+        std::swap(vec_, x.vec_);
+    }
+    //! Move assign the vector.
+    //!
+    //! Implemented via swap because the destructor iterates over the
+    //! invalidated vector again.
     UniqueVector &operator=(UniqueVector &&x) noexcept {
         clear();
-        vec_ = std::move(x.vec_);
+        std::swap(vec_, x.vec_);
     }
+
+    UniqueVector(UniqueVector const &) = delete;
+    UniqueVector &operator=(UniqueVector const &) = delete;
 
     //! Check if the vector is empty.
     [[nodiscard]] bool empty() const {

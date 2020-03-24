@@ -42,6 +42,26 @@ pvec product(pvec const &vec) {
     return ret;
 }
 
+struct Unpooler {
+    template <class T>
+    void visit(T const &node, Clingo::AST::TheoryAtom &value) {
+        static_cast<void>(node);
+        unpool(value);
+    }
+};
+
+std::string unpool(char const *prg) {
+    std::stringstream oss;
+    Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
+        if (stm.data.is<Clingo::AST::Rule>()) {
+            Unpooler trans;
+            Clingcon::transform_ast(trans, stm);
+            oss << stm;
+        }
+    });
+    return oss.str();
+}
+
 TEST_CASE("astutil", "[astutil]") {
     SECTION("collect") {
         REQUIRE(collect("p(X) :- &p{ Y }.") == svec({"X", "Y"}));
@@ -54,5 +74,9 @@ TEST_CASE("astutil", "[astutil]") {
         REQUIRE(product({{}}) == pvec({}));
         REQUIRE(product({{1,2}, {3}, {4,5}}) == pvec({{1, 3, 4}, {1, 3, 5}, {2, 3, 4}, {2, 3, 5}}));
     }
+    SECTION("unpool") {
+        REQUIRE(unpool("&p { X : p(1;2) }.") == "&p { X : p(1); X : p(2) }.");
+        REQUIRE(unpool("&p { X : p(1;2), p(3;4) }.") == "&p { X : p(1),p(3); X : p(1),p(4); X : p(2),p(3); X : p(2),p(4) }.");
+        REQUIRE(unpool("&p { X : 1+(1;2)<3 }.") == "&p { X : (1+1)<3; X : (1+2)<3 }.");
+    }
 }
-
