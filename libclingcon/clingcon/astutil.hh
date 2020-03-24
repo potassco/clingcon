@@ -25,11 +25,6 @@
 #ifndef CLINGCON_ASTUTIL_H
 #define CLINGCON_ASTUTIL_H
 
-//! @file clingcon/astutil.hh
-//! Utility functions to work with ASTs.
-//!
-//! @author Roland Kaminski
-
 #include <clingo.hh>
 #include <set>
 
@@ -43,16 +38,23 @@ namespace Clingcon {
 //! Match the given term if it is a function with signature `name/arity`.
 [[nodiscard]] bool match(Clingo::AST::TheoryTerm const &term, char const *name, size_t arity);
 
-template <typename V, typename N>
-void transform_ast(V&& v, N &node);
+//! Visit an AST.
 template <typename V, typename N>
 void visit_ast(V&& v, N const &node);
 
+//! Visit and modify an AST.
+template <typename V, typename N>
+void transform_ast(V&& v, N &node);
+
+//! Collect variables in an ast.
 template <typename N>
 void collect_variables(std::set<char const *> &vars, N const &node);
-template <typename N>
-std::set<char const *> collect_variables(N const &node);
 
+//! Collect variables in an ast.
+template <typename N>
+[[nodiscard]] std::set<char const *> collect_variables(N const &node);
+
+//! Calculate the crossproduct of a sequence of sequences.
 template <typename Seq, typename F>
 inline void cross_product(Seq seq, F f);
 
@@ -63,4 +65,3 @@ inline void cross_product(Seq seq, F f);
 #ifndef CLINGCON_ASTUTIL_IMPL_H
 #include "clingcon/astutil_impl.hh"
 #endif
-

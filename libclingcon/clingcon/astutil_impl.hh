@@ -634,4 +634,4 @@ def unpool_theory_atom(x):
 
 } // namespace Clingcon
 
-#endif // CLINGCON_ASTUTIL_IMPL_H
+#endif
