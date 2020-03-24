@@ -339,7 +339,7 @@ private:
 
 
 //! Implement an `AbstractClauseCreator` using a `Clingo::PropagateControl`
-//! object;
+//! object.
 class ControlClauseCreator final : public AbstractClauseCreator {
 public:
     ControlClauseCreator(Clingo::PropagateControl &control, ThreadStatistics &stats)

@@ -25,6 +25,14 @@
 #ifndef CLINGCON_H
 #define CLINGCON_H
 
+#include <clingo.h>
+
+//! @file clingcon.h
+//! Functions implementing the tefoli interface to register a propagator with a
+//! clingo application or use it with a standalone control object.
+//!
+//! @author Roland Kaminski
+
 //! Major version number.
 #define CLINGCON_VERSION_MAJOR 4
 //! Minor version number.
@@ -63,15 +71,16 @@ extern "C" {
 #   endif
 #endif
 
-#include <clingo.h>
-
+//! Value types that can be returned by a theory.
 enum clingcon_value_type {
     clingcon_value_type_int = 0,
     clingcon_value_type_double = 1,
     clingcon_value_type_symbol = 2
 };
+//! Corresponding type to ::clingcon_value_type.
 typedef int clingcon_value_type_t;
 
+//! Struct to store values that can be returned by a theory.
 typedef struct clingcon_value {
     clingcon_value_type type;
     union {
@@ -81,66 +90,79 @@ typedef struct clingcon_value {
     };
 } clingcon_value_t;
 
+//! The clingcon theory.
 typedef struct clingcon_theory clingcon_theory_t;
 
+//! Callback to rewrite statements (see ::clingcon_rewrite_statement).
 typedef bool (*clingcon_rewrite_callback_t)(clingo_ast_statement_t const *statement, void *data);
 
-//! creates the theory
+//! Creates the theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_create(clingcon_theory_t **theory);
 
-//! registers the theory with the control
+//! Register the theory with a control object.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control);
 
-//! rewrite statements before adding them via the given callback
+//! Rewrite statements before adding them via the given callback.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_rewrite_statement(clingcon_theory_t *theory, clingo_ast_statement_t const *stm, clingcon_rewrite_callback_t add, void *data);
 
-//! prepare the theory between grounding and solving
+//! Prepare the theory between grounding and solving.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control);
 
-//! destroys the theory, currently no way to unregister a theory
+//! Destroy the theory.
+//!
+//! Currently no way to unregister a theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_destroy(clingcon_theory_t *theory);
 
-//! configure theory manually (without using clingo's options facility)
-//! Note that the theory has to be configured before registering it and cannot be reconfigured.
+//! Configure theory manually (without using clingo's options facility).
+//!
+//! Note that the theory has to be configured before registering it and cannot
+//! be reconfigured.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_configure(clingcon_theory_t *theory, char const *key, char const *value);
 
-//! add options for your theory
+//! Register options of the theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_register_options(clingcon_theory_t *theory, clingo_options_t* options);
 
-//! validate options for your theory
+//! Validate options of the theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_validate_options(clingcon_theory_t *theory);
 
-//! callback on every model
+//! Callback for models.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t* model);
 
-//! obtain a symbol index which can be used to get the value of a symbol
-//! returns true if the symbol exists
-//! does not throw
+//! Obtain a symbol index which can be used to get the value of a symbol.
+//!
+//! Returns true if the symbol exists.
+//! Does not throw.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_t symbol, size_t *index);
 
-//! obtain the symbol at the given index
-//! does not throw
+//! Obtain the symbol at the given index.
+//!
+//! Does not throw.
 CLINGCON_VISIBILITY_DEFAULT clingo_symbol_t clingcon_get_symbol(clingcon_theory_t *theory, size_t index);
 
-//! initialize index so that it can be used with clingcon_assignment_next
-//! does not throw
+//! Initialize index so that it can be used with clingcon_assignment_next.
+//!
+//! Does not throw.
 CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_begin(clingcon_theory_t *theory, uint32_t thread_id, size_t *index);
 
-//! move to the next index that has a value
-//! returns true if the updated index is valid
-//! does not throw
+//! Move to the next index that has a value.
+//!
+//! Returns true if the updated index is valid.
+//! Does not throw.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_assignment_next(clingcon_theory_t *theory, uint32_t thread_id, size_t *index);
 
-//! check if the symbol at the given index has a value
-//! does not throw
+//! Check if the symbol at the given index has a value.
+//!
+//! Does not throw.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_assignment_has_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index);
 
-//! get the symbol and it's value at the given index
-//! does not throw
+//! Get the symbol and it's value at the given index.
+//!
+//! Does not throw.
 CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index, clingcon_value_t *value);
 
-//! callback on statistic updates
-/// please add a subkey with the name of your theory
+//! Callback for statistic updates.
+//!
+//! Best add statistics under a subkey with the name of your theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t* step, clingo_statistics_t* accu);
 
 #ifdef __cplusplus

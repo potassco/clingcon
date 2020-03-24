@@ -29,6 +29,11 @@
 #include <vector>
 #include <map>
 
+//! @file clingcon/util.hh
+//! Very general utility functions.
+//!
+//! @author Roland Kaminski
+
 namespace Clingcon {
 
 //! Calculate the midpoint of two values of integral type.
