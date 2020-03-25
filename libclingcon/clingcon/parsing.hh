@@ -30,6 +30,8 @@
 //! @file clingcon/parsing.hh
 //! This module contains functions for parsing and normalizing constraints.
 //!
+//! To keep the solver implementation as simple and fast as possible all
+//! overflow checking should happen here (or in the builder).
 //! @author Roland Kaminski
 
 namespace Clingcon {
