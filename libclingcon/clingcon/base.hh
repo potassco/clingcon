@@ -52,10 +52,21 @@ constexpr bool DEFAULT_CHECK_SOLUTION{true};
 constexpr bool DEFAULT_CHECK_STATE{false};
 constexpr bool DEFAULT_TRANSLATE_MINIMIZE{false};
 
-using literal_t = Clingo::literal_t;
-using weight_t = Clingo::weight_t;
-constexpr literal_t TRUE_LIT{1};
+using lit_t = Clingo::literal_t;
+using var_t = uint32_t;                   //!< indexes of variables
+using val_t = int32_t;                    //!< type for values of variables and coefficients
+using sum_t = int64_t;                    //!< type for summing up value
+using co_var_t = std::pair<val_t, var_t>; //!< coeffcient/variable pair
+using CoVarVec = std::vector<co_var_t>;
+constexpr lit_t TRUE_LIT{1};          //!< The true literal.
+constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
 
+//! Test whether a variable is valid.
+inline bool is_valid_var(var_t var) {
+    return var < INVALID_VAR;
+}
+
+static_assert(std::is_same<Clingo::weight_t, val_t>::value);
 
 //! Thread specific statistics.
 struct ThreadStatistics {
@@ -192,10 +203,10 @@ public:
     virtual ~AbstractClauseCreator() = default;
 
     //! Add a new solver literal.
-    virtual literal_t add_literal() = 0;
+    virtual lit_t add_literal() = 0;
 
     //! Watch the given solver literal.
-    virtual void add_watch(literal_t lit) = 0;
+    virtual void add_watch(lit_t lit) = 0;
 
     //! Call unit propagation on the solver.
     virtual bool propagate() = 0;
@@ -216,9 +227,9 @@ public:
         StateInit = 0,
         StateTranslate = 1
     };
-    using Clause = std::vector<literal_t>;
-    using WeightConstraint = std::tuple<literal_t, std::vector<Clingo::WeightedLiteral>, weight_t, Clingo::WeightConstraintType>;
-    using MinimizeLiteral = std::tuple<literal_t, weight_t, int>;
+    using Clause = std::vector<lit_t>;
+    using WeightConstraint = std::tuple<lit_t, std::vector<Clingo::WeightedLiteral>, val_t, Clingo::WeightConstraintType>;
+    using MinimizeLiteral = std::tuple<lit_t, val_t, int>;
 
     InitClauseCreator(Clingo::PropagateInit &init, Statistics &stats)
     : init_{init}
@@ -232,7 +243,7 @@ public:
 
     ~InitClauseCreator() override = default;
 
-    literal_t add_literal() override {
+    lit_t add_literal() override {
         auto lit = init_.add_literal();
         ++stats_.num_literals;
         if (state_ == StateTranslate) {
@@ -241,7 +252,7 @@ public:
         return lit;
     }
 
-    void add_watch(literal_t lit) override {
+    void add_watch(lit_t lit) override {
         init_.add_watch(lit);
     }
 
@@ -273,12 +284,12 @@ public:
     }
 
     //! Map the literal to a solver literal.
-    literal_t solver_literal(literal_t literal) {
+    lit_t solver_literal(lit_t literal) {
         return init_.solver_literal(literal);
     }
 
     //! Add a weight constraint of form `lit == (wlits <= bound)`.
-    bool add_weight_constraint(literal_t lit, Clingo::WeightedLiteralSpan wlits, weight_t bound, Clingo::WeightConstraintType type) {
+    bool add_weight_constraint(lit_t lit, Clingo::WeightedLiteralSpan wlits, val_t bound, Clingo::WeightConstraintType type) {
         auto ass = assignment();
         if (ass.is_true(lit)) {
             if (type < 0) {
@@ -299,7 +310,7 @@ public:
     }
 
     //! Add a literal to the objective function.
-    void add_minimize(literal_t lit, weight_t weight, int level) {
+    void add_minimize(lit_t lit, val_t weight, int level) {
         minimize_.emplace_back(lit, weight, level);
     }
 
@@ -347,12 +358,12 @@ public:
     , stats_{stats} {
     }
 
-    literal_t add_literal() override {
+    lit_t add_literal() override {
         ++stats_.literals;
         return control_.add_literal();
     }
 
-    void add_watch(literal_t lit) override {
+    void add_watch(lit_t lit) override {
         control_.add_watch(lit);
     }
 
