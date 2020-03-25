@@ -473,7 +473,7 @@ struct VarCollector {
         static_cast<void>(node);
         vars.emplace(value.name);
     }
-    std::set<char const *> &vars;
+    VarSet &vars;
 };
 
 } // namespace Detail
@@ -490,14 +490,14 @@ void visit_ast(V&& v, N const &node) {
 }
 
 template <typename N>
-void collect_variables(std::set<char const *> &vars, N const &node) {
+void collect_variables(VarSet &vars, N const &node) {
     Detail::VarCollector v{vars};
     visit_ast(v, node);
 }
 
 template <typename N>
-std::set<char const *> collect_variables(N const &node) {
-    std::set<char const *> vars;
+VarSet collect_variables(N const &node) {
+    VarSet vars;
     collect_variables(vars, node);
     return vars;
 }

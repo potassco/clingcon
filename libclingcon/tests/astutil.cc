@@ -31,7 +31,7 @@ using svec = std::vector<std::string>;
 using pvec = std::vector<std::vector<int>>;
 
 svec collect(char const *prg) {
-    std::set<char const*> vars;
+    VarSet vars;
     Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) { collect_variables(vars, stm); });
     return {vars.begin(), vars.end()};
 }

@@ -35,6 +35,15 @@
 
 namespace Clingcon {
 
+//! Comparison operator to compare C strings.
+struct CStrCmp {
+    inline bool operator()(char const *a, char const *b) const {
+        return std::strcmp(a, b) < 0;
+    }
+};
+//! Container to store variables.
+using VarSet = std::set<char const *, CStrCmp>;
+
 //! Match the given term if it is a function with signature `name/arity`.
 [[nodiscard]] bool match(Clingo::AST::TheoryTerm const &term, char const *name, size_t arity);
 
@@ -48,11 +57,11 @@ void transform_ast(V&& v, N &node);
 
 //! Collect variables in an AST.
 template <typename N>
-void collect_variables(std::set<char const *> &vars, N const &node);
+void collect_variables(VarSet &vars, N const &node);
 
 //! Collect variables in an AST.
 template <typename N>
-[[nodiscard]] std::set<char const *> collect_variables(N const &node);
+[[nodiscard]] VarSet collect_variables(N const &node);
 
 //! Calculate the crossproduct of a sequence of sequences.
 template <typename Seq, typename F>
