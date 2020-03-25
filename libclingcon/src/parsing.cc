@@ -23,6 +23,7 @@
 // }}}
 
 #include "clingcon/parsing.hh"
+#include "clingcon/util.hh"
 #include "clingcon/astutil.hh"
 
 #include <unordered_map>
@@ -46,12 +47,10 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
             continue;
         }
         if (!is_valid_var(var)) {
-            // TODO: check overflow
-            rhs -= co;
+            rhs = safe_sub(rhs, co);
         }
         else if (auto [kt, ins] = seen.try_emplace(var, jt); !ins) {
-            // TODO: check overflow
-            kt->second->first += co;
+            kt->second->first = safe_add(kt->second->first, co);
         }
         else {
             if (it != jt) {

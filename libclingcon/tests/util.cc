@@ -36,7 +36,7 @@ struct Element {
 };
 
 
-TEST_CASE("util", "[util]") {
+TEST_CASE("util", "[util]") { // NOLINT
     SECTION("midpoint") {
         auto a = std::numeric_limits<int>::max();
         auto b = std::numeric_limits<int>::min();
@@ -125,5 +125,53 @@ TEST_CASE("util", "[util]") {
         REQUIRE(!a.contains(0, 2));
         REQUIRE(!a.contains(1, 3));
         REQUIRE(!a.contains(0, 3));
+    }
+
+    SECTION("safe-int") {
+        using O = std::overflow_error const &;
+        using U = std::underflow_error const &;
+        auto a = std::numeric_limits<int>::max();
+        auto b = std::numeric_limits<int>::min();
+
+        REQUIRE(safe_add(3, 7) == 10);
+        REQUIRE(safe_add(a, 0) == a);
+        REQUIRE(safe_add(b, 0) == b);
+        REQUIRE_THROWS_AS(safe_add(a, 1), O);
+        REQUIRE_THROWS_AS(safe_add(b, -1), U);
+
+        REQUIRE(safe_sub(3, 7) == -4);
+        REQUIRE(safe_sub(a, 0) == a);
+        REQUIRE(safe_sub(b, 0) == b);
+        REQUIRE_THROWS_AS(safe_sub(a, -1), O);
+        REQUIRE_THROWS_AS(safe_sub(b, 1), U);
+
+        REQUIRE(safe_mul(3, 7) == 21);
+        REQUIRE(safe_mul(a, 1) == a);
+        REQUIRE(safe_mul(b, 1) == b);
+        REQUIRE(safe_mul(a, -1) == -a);
+        REQUIRE_THROWS_AS(safe_mul(b, -1), O);
+        REQUIRE_THROWS_AS(safe_mul(b, -2), O);
+        REQUIRE_THROWS_AS(safe_mul(a, 2), O);
+        REQUIRE_THROWS_AS(safe_mul(b, 2), U);
+        REQUIRE_THROWS_AS(safe_mul(a, -2), U);
+
+        REQUIRE(safe_div(3, 7) == 0);
+        REQUIRE(safe_div(a, -1) == -a);
+        REQUIRE_THROWS_AS(safe_div(b, -1), O);
+        REQUIRE_THROWS_AS(safe_div(1, 0), O);
+        REQUIRE_THROWS_AS(safe_div(0, 0), O);
+        REQUIRE_THROWS_AS(safe_div(-1, 0), U);
+
+        REQUIRE(safe_mod(3, 7) == 3);
+        REQUIRE(safe_mod(a, -1) == 0);
+        REQUIRE_THROWS_AS(safe_mod(b, -1), O);
+        REQUIRE_THROWS_AS(safe_mod(1, 0), O);
+        REQUIRE_THROWS_AS(safe_mod(0, 0), O);
+        REQUIRE_THROWS_AS(safe_mod(-1, 0), U);
+
+        REQUIRE(safe_inv(3) == -3);
+        REQUIRE(safe_inv(-7) == 7);
+        REQUIRE(safe_inv(a) == -a);
+        REQUIRE_THROWS_AS(safe_inv(b), O);
     }
 }

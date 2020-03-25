@@ -328,6 +328,109 @@ private:
     std::map<T, T> map_;
 };
 
+// Some of the functions below could also be implemented using (much faster)
+// compiler specific built-ins. For more information check the following links:
+// - https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
+// - https://wiki.sei.cmu.edu/confluence/display/c/INT32-C.+Ensure+that+operations+on+signed+integers+do+not+result+in+overflow
+
+//! Safely add a and b throwing an exception in case of overflow/underflow.
+template <typename Int>
+Int safe_add(Int a, Int b) {
+    if (b > 0) {
+        if (a > std::numeric_limits<Int>::max() - b) {
+            throw std::overflow_error("integer overflow");
+        }
+    }
+    else if (b < 0) {
+        if (a < std::numeric_limits<Int>::min() - b) {
+            throw std::underflow_error("integer underflow");
+        }
+    }
+    return a + b;
+}
+
+//! Safely subtract a and b throwing an exception in case of
+//! overflow/underflow.
+template <typename Int>
+Int safe_sub(Int a, Int b) {
+    if (b > 0) {
+        if (a < std::numeric_limits<Int>::min() + b) {
+            throw std::underflow_error("integer underflow");
+        }
+    }
+    else if (b < 0) {
+        if (a > std::numeric_limits<Int>::max() + b) {
+            throw std::overflow_error("integer overflow");
+        }
+    }
+    return a - b;
+}
+
+//! Safely multiply a and b throwing an exception in case of
+//! overflow/underflow.
+template <typename Int>
+Int safe_mul(Int a, Int b) {
+    if (a > 0) {
+        if (b > 0) {
+            if (a > (std::numeric_limits<Int>::max() / b)) {
+                throw std::overflow_error("integer overflow");
+            }
+        }
+        else if (b < (std::numeric_limits<Int>::min() / a)) {
+            throw std::underflow_error("integer underflow");
+        }
+    } else {
+        if (b > 0) {
+            if (a < (std::numeric_limits<Int>::min() / b)) {
+                throw std::underflow_error("integer underflow");
+            }
+        } else if (a < 0 && b < (std::numeric_limits<Int>::max() / a)) {
+            throw std::overflow_error("integer overflow");
+        }
+    }
+    return a * b;
+}
+
+//! Safely divide a and b throwing an exception in case of overflow/underflow.
+template <typename Int>
+Int safe_div(Int a, Int b) {
+    if (a == std::numeric_limits<Int>::min() && b == -1) {
+        throw std::overflow_error("integer overflow");
+    }
+    if (b == 0) {
+        if (a < 0) {
+            throw std::underflow_error("integer underflow");
+        }
+        throw std::overflow_error("integer overflow");
+    }
+    return a / b;
+}
+
+//! Safely calculate the modulo of a and b throwing an exception in case of
+//! overflow/underflow.
+template <typename Int>
+Int safe_mod(Int a, Int b) {
+    if (a == std::numeric_limits<Int>::min() && b == -1) {
+        throw std::overflow_error("integer overflow");
+    }
+    if (b == 0) {
+        if (a < 0) {
+            throw std::underflow_error("integer underflow");
+        }
+        throw std::overflow_error("integer overflow");
+    }
+    return a % b;
+}
+
+//! Safely invert a throwing an exception in case of an underflow.
+template <typename Int>
+Int safe_inv(Int a) {
+    if (a == std::numeric_limits<Int>::min()) {
+        throw std::overflow_error("integer overflow");
+    }
+    return -a;
+}
+
 } // namespace Clingcon
 
 #endif // CLINGCON_UTIL_H
