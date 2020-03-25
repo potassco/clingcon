@@ -23,6 +23,7 @@
 // }}}
 
 #include "clingcon/parsing.hh"
+#include "clingcon/base.hh"
 #include "clingcon/util.hh"
 #include "clingcon/astutil.hh"
 
@@ -65,6 +66,16 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     }
 
     vec.erase(jt, vec.end());
+
+    // overflow checking
+    check_valid_value(rhs);
+    sum_t min = rhs;
+    sum_t max = rhs;
+    for (auto co_var : vec) {
+        check_valid_value(co_var.first);
+        min = safe_add<sum_t>(min, safe_mul<sum_t>(co_var.first, co_var.first > 0 ? MIN_VAL : MAX_VAL));
+        max = safe_add<sum_t>(max, safe_mul<sum_t>(co_var.first, co_var.first > 0 ? MAX_VAL : MIN_VAL));
+    }
 
     return rhs;
 }

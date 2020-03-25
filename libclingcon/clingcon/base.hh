@@ -35,14 +35,29 @@
 
 namespace Clingcon {
 
+using lit_t = Clingo::literal_t;
+using var_t = uint32_t;                   //!< indexes of variables
+using val_t = int32_t;                    //!< type for values of variables and coefficients
+using sum_t = int64_t;                    //!< type for summing up value
+using co_var_t = std::pair<val_t, var_t>; //!< coeffcient/variable pair
+using CoVarVec = std::vector<co_var_t>;
+
+//! The maximum value for variables/coefficients in clingcon.
+constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max();
+//! The minimum value for variables/coefficionts in clingcon.
+//!
+//! The minimum is chosen so that the product of two values will always fit
+//! into Clingcon::sum_t.
+constexpr val_t MIN_VAL = -MAX_VAL;
+
 // defaults for thread config
 constexpr bool DEFAULT_PROPAGATE_CHAIN{true};
 constexpr bool DEFAULT_REFINE_REASONS{true};
 constexpr bool DEFAULT_REFINE_INTRODUCE{true};
 
 // defaults for global config
-constexpr int DEFAULT_MAX_INT{1 << 30};
-constexpr int DEFAULT_MIN_INT{-DEFAULT_MAX_INT};
+constexpr val_t DEFAULT_MAX_INT{MAX_VAL};
+constexpr val_t DEFAULT_MIN_INT{MIN_VAL};
 constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
@@ -52,12 +67,6 @@ constexpr bool DEFAULT_CHECK_SOLUTION{true};
 constexpr bool DEFAULT_CHECK_STATE{false};
 constexpr bool DEFAULT_TRANSLATE_MINIMIZE{false};
 
-using lit_t = Clingo::literal_t;
-using var_t = uint32_t;                   //!< indexes of variables
-using val_t = int32_t;                    //!< type for values of variables and coefficients
-using sum_t = int64_t;                    //!< type for summing up value
-using co_var_t = std::pair<val_t, var_t>; //!< coeffcient/variable pair
-using CoVarVec = std::vector<co_var_t>;
 constexpr lit_t TRUE_LIT{1};          //!< The true literal.
 constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
 
@@ -66,6 +75,14 @@ inline bool is_valid_var(var_t var) {
     return var < INVALID_VAR;
 }
 
+inline void check_valid_value(val_t val) {
+    if (val < MIN_VAL) {
+        throw std::underflow_error("value too small");
+    }
+    if (val > MAX_VAL) {
+        throw std::underflow_error("value too large");
+    }
+}
 static_assert(std::is_same<Clingo::weight_t, val_t>::value);
 
 //! Thread specific statistics.
