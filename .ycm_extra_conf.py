@@ -31,6 +31,7 @@
 import os
 import os.path
 import ycm_core
+import subprocess
 
 # These are the compilation flags that will be used in case there's no
 # compilation database set (by default, one is not set).
@@ -48,6 +49,16 @@ flags = [
 '-I{home}/git/clingo/install/debug/include'.format(home=os.path.expanduser('~')),
 ]
 
+proc = subprocess.Popen(
+    ['clang++', '-std=c++17', '-stdlib=libc++', '-E', '-x', 'c++', '-', '-v'],
+    stdin=open(os.devnull), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+out, err = proc.communicate()
+
+for line in err.splitlines():
+    line = line.strip()
+    if line.startswith(b'/') and line.endswith(b'include/c++/v1'):
+        flags.append('-I{}'.format(line))
+        break
 
 # Set this to the absolute path to the folder (NOT the file!) containing the
 # compile_commands.json file to use that instead of 'flags'. See here for
