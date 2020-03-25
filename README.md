@@ -2,7 +2,7 @@
 
 ## Building with conda
 
-    conda create -n clingcon -c potassco/label/dev -c conda-forge clingo ninja cmake gxx_linux-64 clang-tools
+    conda create -n clingcon -c potassco/label/dev -c conda-forge clingo ninja cmake gxx_linux-64 libcxx clang-tools
     conda activate clingcon
     make
 
