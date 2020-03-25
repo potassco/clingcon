@@ -46,11 +46,11 @@ void visit_ast(V&& v, N const &node);
 template <typename V, typename N>
 void transform_ast(V&& v, N &node);
 
-//! Collect variables in an ast.
+//! Collect variables in an AST.
 template <typename N>
 void collect_variables(std::set<char const *> &vars, N const &node);
 
-//! Collect variables in an ast.
+//! Collect variables in an AST.
 template <typename N>
 [[nodiscard]] std::set<char const *> collect_variables(N const &node);
 

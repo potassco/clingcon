@@ -12,7 +12,7 @@ set(source
 # ]]]
 
 add_executable(test_clingcon ${source})
-target_link_libraries(test_clingcon PRIVATE libclingo libclingcon)
+target_link_libraries(test_clingcon PRIVATE libclingcon_t)
 target_include_directories(test_clingcon PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )

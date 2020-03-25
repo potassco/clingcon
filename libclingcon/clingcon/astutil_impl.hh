@@ -452,15 +452,6 @@ struct Visitor {
     V &visitor;
 };
 
-struct VarCollector {
-    template <class T>
-    void visit(T const &node, Clingo::AST::Variable const &value) {
-        static_cast<void>(node);
-        vars.emplace(value.name);
-    }
-    std::set<char const *> &vars;
-};
-
 template <typename It, typename V, typename F>
 inline void cross_product(It begin, It end, V &accu, F f) {
     if (begin == end) {
@@ -476,105 +467,13 @@ inline void cross_product(It begin, It end, V &accu, F f) {
     }
 }
 
-struct TermUnpooler {
-    using Ret = std::vector<Clingo::AST::Term>;
-
-    [[nodiscard]] Ret accept(Clingo::AST::Term const &term) const {
-        return term.data.accept(*this, term);
-    }
-
-    [[nodiscard]] static Ret visit(Clingo::Symbol const &value, Clingo::AST::Term const &node) {
-        static_cast<void>(value);
-        return {node};
-    }
-
-    [[nodiscard]] static Ret visit(Clingo::AST::Variable const &value, Clingo::AST::Term const &node) {
-        static_cast<void>(value);
-        return {node};
-    }
-
-    [[nodiscard]] Ret visit(Clingo::AST::UnaryOperation const &value, Clingo::AST::Term const &node) const {
-        Ret ret;
-        for (auto &argument : value.argument.data.accept(*this, value.argument)) {
-            ret.push_back({node.location, Clingo::AST::UnaryOperation{value.unary_operator, argument}});
-        }
-        return ret;
-    }
-
-    [[nodiscard]] Ret visit(Clingo::AST::BinaryOperation const &value, Clingo::AST::Term const &node) const {
-        Ret ret;
-        for (auto &left : accept(value.left)) {
-            for (auto &right : accept(value.right)) {
-                ret.push_back({node.location, Clingo::AST::BinaryOperation{value.binary_operator, left, right}});
-            }
-        }
-        return ret;
-    }
-
-    [[nodiscard]] Ret visit(Clingo::AST::Interval const &value, Clingo::AST::Term const &node) const {
-        Ret ret;
-        for (auto &left : accept(value.left)) {
-            for (auto &right : accept(value.right)) {
-                ret.push_back({node.location, Clingo::AST::Interval{left, right}});
-            }
-        }
-        return ret;
-    }
-
-    [[nodiscard]] Ret visit(Clingo::AST::Function const &value, Clingo::AST::Term const &node) const {
-        std::vector<Ret> pools;
-        for (auto const &term : value.arguments) {
-            pools.emplace_back(accept(term));
-        }
-        Ret ret;
-        ::Clingcon::cross_product(pools, [&](auto it, auto ie){
-            ret.push_back({node.location, Clingo::AST::Function{value.name, {it, ie}, value.external}});
-        });
-        return ret;
-    }
-
-    [[nodiscard]] Ret visit(Clingo::AST::Pool const &value, Clingo::AST::Term const &node) const {
+struct VarCollector {
+    template <class T>
+    void visit(T const &node, Clingo::AST::Variable const &value) {
         static_cast<void>(node);
-        Ret ret;
-        for (auto const &term : value.arguments) {
-            auto pool = accept(term);
-            ret.insert(ret.end(), pool.begin(), pool.end());
-        }
-        return ret;
+        vars.emplace(value.name);
     }
-};
-
-struct LiteralUnpooler {
-    using Ret = std::vector<Clingo::AST::Literal>;
-
-    [[nodiscard]] static Ret visit(Clingo::AST::Boolean const &value, Clingo::AST::Literal const &node) {
-        static_cast<void>(value);
-        return {node};
-    }
-
-    [[nodiscard]] static Ret visit(Clingo::AST::Term const &value, Clingo::AST::Literal const &node) {
-        Ret ret;
-        for (auto &term : ::Clingcon::unpool(value)) {
-            ret.push_back({node.location, node.sign, term});
-        }
-        return ret;
-    }
-
-    [[nodiscard]] static Ret visit(Clingo::AST::Comparison const &value, Clingo::AST::Literal const &node) {
-        Ret ret;
-        for (auto &left : ::Clingcon::unpool(value.left)) {
-            for (auto &right : ::Clingcon::unpool(value.right)) {
-                ret.push_back({node.location, node.sign, Clingo::AST::Comparison{value.comparison, left, right}});
-            }
-        }
-        return ret;
-    }
-
-    [[nodiscard]] static Ret visit(Clingo::AST::CSPLiteral const &value, Clingo::AST::Literal const &node) {
-        static_cast<void>(value);
-        static_cast<void>(node);
-        throw std::runtime_error("not implemented!!!");
-    }
+    std::set<char const *> &vars;
 };
 
 } // namespace Detail
@@ -607,30 +506,6 @@ template <typename Seq, typename F>
 inline void cross_product(Seq seq, F f) {
     std::vector<std::reference_wrapper<std::remove_reference_t<decltype(*begin(*begin(seq)))>>> accu;
     Detail::cross_product(begin(seq), end(seq), accu, f);
-}
-
-std::vector<Clingo::AST::Term> unpool(Clingo::AST::Term const &term) {
-    Detail::TermUnpooler v;
-    return v.accept(term);
-}
-
-std::vector<Clingo::AST::Literal> unpool(Clingo::AST::Literal const &lit) {
-    Detail::LiteralUnpooler v;
-    return lit.data.accept(v, lit);
-}
-
-void unpool(Clingo::AST::TheoryAtom &atom) {
-    std::vector<Clingo::AST::TheoryAtomElement> elements;
-    std::swap(elements, atom.elements);
-    for (auto const &element : elements) {
-        std::vector<std::vector<Clingo::AST::Literal>> pools;
-        for (auto const &lit : element.condition) {
-            pools.emplace_back(unpool(lit));
-        }
-        cross_product(pools, [&](auto it, auto ie){
-            atom.elements.push_back({element.tuple, {it, ie}});
-        });
-    }
 }
 
 // }}}
