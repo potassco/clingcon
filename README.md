@@ -1,10 +1,21 @@
 # Clingcon
 
+## Building with conda
+
+    conda create -n clingcon -c potassco/label/dev -c conda-forge clingo ninja cmake gxx_linux-64 clang-tools
+    conda activate clingcon
+    make
+
 ## Linting
 
-The following linter configuration seems to be reasonable to implement:
+The default Makefile will setup the cmake to use `clang-tidy`. It is also
+possible to create a compile database to use with linting plugins.
 
-    -DCMAKE_CXX_CLANG_TIDY:STRING="clang-tidy;-checks=clang-analyzer-*,readability-*,modernize-*,cppcoreguidelines-*,performance-*,bugprone-*,-modernize-use-trailing-return-type;-warnings-as-errors=*" ../..
+    conda install -n clingcon -c programfan compdb
+    conda activate clingcon
+    make compdb
 
-Individual warnings can be disabled using `// NOLINT(warning)` in selected
-lines.
+With this, plugins like [vim-ale] should be able to lint the source code while
+editing.
+
+[vim-ale]: https://github.com/dense-analysis/ale
