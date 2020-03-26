@@ -68,13 +68,19 @@ template <typename Seq, typename F>
 inline void cross_product(Seq seq, F f);
 
 //! Unpool the given term.
-[[nodiscard]] std::vector<Clingo::AST::Term> unpool(Clingo::AST::Term const &term);
+[[nodiscard]] std::vector<Clingo::AST::Term> unpool(Clingo::AST::Term &&term);
 
 //! Unpool the given literal.
-[[nodiscard]] std::vector<Clingo::AST::Literal> unpool(Clingo::AST::Literal const &lit);
+[[nodiscard]] std::vector<Clingo::AST::Literal> unpool(Clingo::AST::Literal &&lit);
 
-//! Inplace unpool the conditions of the given theory atom.
-void unpool(Clingo::AST::TheoryAtom &atom);
+//! Unpool theory atoms in the given head literal.
+[[nodiscard]] std::vector<Clingo::AST::HeadLiteral> unpool(Clingo::AST::HeadLiteral &&lit);
+
+//! Unpool theory atoms in the given body literal.
+[[nodiscard]] std::vector<Clingo::AST::BodyLiteral> unpool(Clingo::AST::BodyLiteral &&lit);
+
+//! Unpool theory atoms in statements.
+void unpool(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb);
 
 } // namespace Clingcon
 

@@ -74,24 +74,6 @@ struct ShiftMatcher {
     }
 };
 
-// Unpools theory atoms.
-template <typename StatementCallback>
-struct TheoryUnpooler {
-    TheoryUnpooler(StatementCallback callback)
-    : callback{callback}  {
-    }
-
-    template <class T>
-    void visit(T &value, Clingo::AST::Statement &stm) {
-        static_cast<void>(value);
-        // TODO: this has to visit anything with a body and unpool it; a long list :(
-        callback(stm);
-        throw std::runtime_error("implement me!!!");
-    }
-
-    StatementCallback callback;
-};
-
 // Shifts constraints into rule heads.
 struct TheoryShifter {
     static void visit(Clingo::AST::Rule &rule) {
@@ -136,15 +118,13 @@ struct TheoryShifter {
     }
 };
 
-// Tags head and body atoms, unpools conditions in theory atoms, and ensures multiset semantics.
-// TODO: the unpooling part should probably move up into the unpooler.
-class TheoryTagger {
+// Tags head and body atoms and ensures multiset semantics.
+class TheoryRewriter {
 
     /*
     def _rewrite_tuple(self, element, number):
         """
         Add variables to tuple to ensure multiset semantics.
-void transform(Clingo::ProgramBuilder &builder, char const *prg, bool shift);
         """
         if len(element.tuple) != 1:
             raise RuntimeError("Invalid Syntax")
@@ -178,7 +158,6 @@ void transform(Clingo::ProgramBuilder &builder, char const *prg, bool shift);
 
         # ensure multi set semantics for theory atoms
         if term.name in ["sum", "diff", "distinct", "minimize", "maximize"] and not term.arguments:
-            atom = unpool_theory_atom(atom)
             atom.elements = self._rewrite_tuples(atom.elements)
 
         # annotate theory atoms in heads and bodies
@@ -249,17 +228,16 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     return rhs;
 }
 
-void transform(Clingo::AST::Statement &stm, Clingo::StatementCallback cb, bool shift) {
-    TheoryUnpooler unpooler{[&](auto &stm) {
+void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb, bool shift) {
+    unpool(std::move(stm), [&](Clingo::AST::Statement &&unpooled) {
         if (shift) {
             TheoryShifter shifter;
-            stm.data.accept(shifter);
+            unpooled.data.accept(shifter);
         }
-        TheoryTagger tagger;
-        transform_ast(tagger, stm);
-        cb(std::move(stm));
-    }};
-    stm.data.accept(unpooler, stm);
+        TheoryRewriter tagger;
+        transform_ast(tagger, unpooled);
+        cb(std::move(unpooled));
+    });
 }
 
 /*
