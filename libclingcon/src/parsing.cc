@@ -33,6 +33,175 @@ namespace Clingcon {
 
 namespace {
 
+char const *negate_relation(char const *op) {
+    if (std::strcmp(op, "=") == 0) {
+        return "!=";
+    }
+    if (std::strcmp(op, "!=") == 0) {
+        return "=";
+    }
+    if (std::strcmp(op, "<") == 0) {
+        return ">=";
+    }
+    if (std::strcmp(op, "<=") == 0) {
+        return ">";
+    }
+    if (std::strcmp(op, ">") == 0) {
+        return ">=";
+    }
+    if (std::strcmp(op, ">=") == 0) {
+        return "<";
+    }
+    throw std::runtime_error("unexpected operator");
+}
+
+// Checks if the given theory atom is shiftable.
+struct ShiftMatcher {
+    [[nodiscard]] static bool visit(Clingo::Symbol const &f) {
+        return f.match("sum", 0) || f.match("diff", 0);
+    }
+
+    [[nodiscard]] static bool visit(Clingo::AST::Function const &f) {
+        auto is_sum = std::strcmp(f.name, "sum") == 0 && f.arguments.empty();
+        auto is_diff = std::strcmp(f.name, "diff") == 0 && f.arguments.empty();
+        return (is_sum || is_diff) && !f.external;
+    }
+
+    template <class T>
+    [[nodiscard]] static bool visit(T const &x) {
+        static_cast<void>(x);
+        return false;
+    }
+};
+
+// Unpools theory atoms.
+template <typename StatementCallback>
+struct TheoryUnpooler {
+    TheoryUnpooler(StatementCallback callback)
+    : callback{callback}  {
+    }
+
+    template <class T>
+    void visit(T &value, Clingo::AST::Statement &stm) {
+        static_cast<void>(value);
+        // TODO: this has to visit anything with a body and unpool it; a long list :(
+        callback(stm);
+        throw std::runtime_error("implement me!!!");
+    }
+
+    StatementCallback callback;
+};
+
+// Shifts constraints into rule heads.
+struct TheoryShifter {
+    static void visit(Clingo::AST::Rule &rule) {
+        if (rule.head.data.is<Clingo::AST::Literal>()) {
+            auto &head = rule.head.data.get<Clingo::AST::Literal>();
+            if (head.data.is<Clingo::AST::Boolean>() && !head.data.get<Clingo::AST::Boolean>().value) {
+                auto it = rule.body.begin();
+                auto jt = it;
+                auto ie = rule.body.end();
+                for (; it != ie; ++it) {
+                    if (it->data.is<Clingo::AST::TheoryAtom>()) {
+                        auto &atom = it->data.get<Clingo::AST::TheoryAtom>();
+                        ShiftMatcher matcher;
+                        if (atom.term.data.accept(matcher)) {
+                            if (it->sign != Clingo::AST::Sign::Negation) {
+                                auto *guard = atom.guard.get();
+                                guard->operator_name = negate_relation(guard->operator_name);
+                            }
+                            rule.head.location = it->location;
+                            rule.head.data = std::move(atom);
+                            break;
+                        }
+                    }
+                    if (it != jt) {
+                        std::iter_swap(it, jt);
+                    }
+                    ++jt;
+                }
+                for (; it != ie; ++it, ++jt) {
+                    if (it != jt) {
+                        std::iter_swap(it, jt);
+                    }
+                }
+                rule.body.erase(jt, ie);
+            }
+        }
+    }
+
+    template <class T>
+    static void visit(T &value) {
+        static_cast<void>(value);
+    }
+};
+
+// Tags head and body atoms, unpools conditions in theory atoms, and ensures multiset semantics.
+// TODO: the unpooling part should probably move up into the unpooler.
+class TheoryTagger {
+
+    /*
+    def _rewrite_tuple(self, element, number):
+        """
+        Add variables to tuple to ensure multiset semantics.
+void transform(Clingo::ProgramBuilder &builder, char const *prg, bool shift);
+        """
+        if len(element.tuple) != 1:
+            raise RuntimeError("Invalid Syntax")
+
+        in_condition = collect_variables(element.condition)
+        for name in collect_variables(element.tuple):
+            if name in in_condition:
+                del in_condition[name]
+
+        element.tuple = list(element.tuple)
+        if number is not None:
+            element.tuple.append(ast.Symbol(element.tuple[0].location, clingo.Number(number)))
+        element.tuple.extend(in_condition[name] for name in sorted(in_condition))
+
+        return element
+
+    def _rewrite_tuples(self, elements):
+        """
+        Add variables to tuples of elements to ensure multiset semantics.
+        """
+        if len(elements) == 1:
+            return [self._rewrite_tuple(elements[0], None)]
+
+        return [self._rewrite_tuple(element, n) for n, element in enumerate(elements)]
+
+    def visit_TheoryAtom(self, atom, loc="body"):
+        """
+        Mark head/body literals and ensure multiset semantics for theory atoms.
+        """
+        term = atom.term
+
+        # ensure multi set semantics for theory atoms
+        if term.name in ["sum", "diff", "distinct", "minimize", "maximize"] and not term.arguments:
+            atom = unpool_theory_atom(atom)
+            atom.elements = self._rewrite_tuples(atom.elements)
+
+        # annotate theory atoms in heads and bodies
+        if term.name in ["sum", "diff"] and not term.arguments:
+            atom.term = ast.Function(term.location, term.name, [ast.Function(term.location, loc, [], False)], False)
+
+        return atom
+     */
+
+    template <class Node>
+    void visit(Clingo::AST::HeadLiteral &node, Clingo::AST::TheoryAtom &atom) {
+        static_cast<void>(node);
+        static_cast<void>(atom);
+        throw std::runtime_error("implement me!!!");
+    }
+
+    template <class Node>
+    void visit(Clingo::AST::BodyLiteral &node, Clingo::AST::TheoryAtom &atom) {
+        static_cast<void>(node);
+        static_cast<void>(atom);
+        throw std::runtime_error("implement me!!!");
+    }
+};
 } // namespace
 
 val_t simplify(CoVarVec &vec, bool drop_zero) {
@@ -67,7 +236,7 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
 
     vec.erase(jt, vec.end());
 
-    // overflow checking
+    // overflow checking (maybe put in seperate function)
     check_valid_value(rhs);
     sum_t min = rhs;
     sum_t max = rhs;
@@ -78,6 +247,19 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     }
 
     return rhs;
+}
+
+void transform(Clingo::AST::Statement &stm, Clingo::StatementCallback cb, bool shift) {
+    TheoryUnpooler unpooler{[&](auto &stm) {
+        if (shift) {
+            TheoryShifter shifter;
+            stm.data.accept(shifter);
+        }
+        TheoryTagger tagger;
+        transform_ast(tagger, stm);
+        cb(std::move(stm));
+    }};
+    stm.data.accept(unpooler, stm);
 }
 
 /*
@@ -430,167 +612,6 @@ def _evaluate_term(term):
 
     raise RuntimeError("Invalid Syntax")
 
-
-def _negate_relation(name):
-    if name == "=":
-        return "!="
-    if name == "!=":
-        return "="
-    if name == "<":
-        return ">="
-    if name == "<=":
-        return ">"
-    if name == ">=":
-        return "<"
-    if name == ">":
-        return "<="
-    raise RuntimeError("unknown relation")
-
-
-class HeadBodyTransformer(Transformer):
-    """
-    Transforms sum/diff theory atoms in heads and bodies of rules by turning
-    the name of each theory atom into a function with head or body as argument.
-    Shift constraints into heads of integrity constraints. And make sure that
-    diff, sum, and distinct constraints are treated as multisets.
-    """
-    # pylint: disable=invalid-name
-
-    def __init__(self, shift):
-        self._shift = shift
-
-    def visit_Rule(self, rule):
-        """
-        Shift constraints in integrity constraints and visit head/body
-        literals.
-        """
-        # Note: This implements clingcon's don't care propagation. We can shift
-        # one constraint from the body of an integrity constraint to the head
-        # of a rule. This way the constraint is no longer strict and can be
-        # represented internally with less constraints.
-        head = rule.head
-        body = rule.body
-        if self._shift and head.type == ast.ASTType.Literal and head.atom.type == ast.ASTType.BooleanConstant and not head.atom.value:
-            for literal in body:
-                if literal.type == ast.ASTType.Literal and literal.atom.type == ast.ASTType.TheoryAtom:
-                    atom = literal.atom
-                    term = atom.term
-                    if term.name in ["sum", "diff"] and not term.arguments:
-                        body = copy(body)
-                        body.remove(literal)
-                        if literal.sign != ast.Sign.Negation:
-                            atom = copy(atom)
-                            atom.guard = copy(atom.guard)
-                            atom.guard.operator_name = _negate_relation(atom.guard.operator_name)
-                        head = atom
-                        break
-
-        # tag heads and bodies
-        head = self.visit(head, loc="head")
-        body = self.visit(body, loc="body")
-
-        return ast.Rule(rule.location, head, body)
-
-    def _rewrite_body(self, x):
-        """
-        Rewrite the body of the given statement.
-        """
-        body = self.visit(x.body, loc="body")
-        if x.body is not body:
-            x = copy(x)
-            x.body = body
-        return x
-
-    def visit_ShowTerm(self, x):
-        """
-        Rewrite statements with a body.
-        """
-        return self._rewrite_body(x)
-
-    def visit_Minimize(self, x):
-        """
-        Rewrite statements with a body.
-        """
-        return self._rewrite_body(x)
-
-    def visit_External(self, x):
-        """
-        Rewrite statements with a body.
-        """
-        return self._rewrite_body(x)
-
-    def visit_Edge(self, x):
-        """
-        Rewrite statements with a body.
-        """
-        return self._rewrite_body(x)
-
-    def visit_Heuristic(self, x):
-        """
-        Rewrite statements with a body.
-        """
-        return self._rewrite_body(x)
-
-    def visit_ProjectAtom(self, x):
-        """
-        Rewrite statements with a body.
-        """
-        return self._rewrite_body(x)
-
-    def _rewrite_tuple(self, element, number):
-        """
-        Add variables to tuple to ensure multiset semantics.
-        """
-        if len(element.tuple) != 1:
-            raise RuntimeError("Invalid Syntax")
-
-        in_condition = collect_variables(element.condition)
-        for name in collect_variables(element.tuple):
-            if name in in_condition:
-                del in_condition[name]
-
-        element.tuple = list(element.tuple)
-        if number is not None:
-            element.tuple.append(ast.Symbol(element.tuple[0].location, clingo.Number(number)))
-        element.tuple.extend(in_condition[name] for name in sorted(in_condition))
-
-        return element
-
-    def _rewrite_tuples(self, elements):
-        """
-        Add variables to tuples of elements to ensure multiset semantics.
-        """
-        if len(elements) == 1:
-            return [self._rewrite_tuple(elements[0], None)]
-
-        return [self._rewrite_tuple(element, n) for n, element in enumerate(elements)]
-
-    def visit_TheoryAtom(self, atom, loc="body"):
-        """
-        Mark head/body literals and ensure multiset semantics for theory atoms.
-        """
-        term = atom.term
-
-        # ensure multi set semantics for theory atoms
-        if term.name in ["sum", "diff", "distinct", "minimize", "maximize"] and not term.arguments:
-            atom = unpool_theory_atom(atom)
-            atom.elements = self._rewrite_tuples(atom.elements)
-
-        # annotate theory atoms in heads and bodies
-        if term.name in ["sum", "diff"] and not term.arguments:
-            atom.term = ast.Function(term.location, term.name, [ast.Function(term.location, loc, [], False)], False)
-
-        return atom
-
-
-void transform(Clingo::ProgramBuilder &builder, char const *prg, bool shift);
-def transform(builder, s, shift):
-    """
-    Transform the program with csp constraints in the given file and pass it to
-    the builder.
-    """
-    t = HeadBodyTransformer(shift)
-    clingo.parse_program(s, lambda stm: builder.add(t.visit(stm)))
 */
 
 } // namespace Clingcon

@@ -103,9 +103,12 @@ public:
 //! This functions throws if there is a (potential) overflow.
 [[nodiscard]] val_t simplify(CoVarVec &vec, bool drop_zero=true);
 
-//! Transform the program with csp constraints in the given file and pass it to
-//! the builder.
-void transform(Clingo::ProgramBuilder &builder, char const *prg, bool shift);
+//! Transform the given statement with csp constraints and pass it on to the
+//! given callback.
+//!
+//! Optionally shifts constraints from rule bodies into heads of integrity
+//! constraints if possible.
+void transform(Clingo::AST::Statement &stm, Clingo::StatementCallback cb, bool shift);
 
 //! Parse the given theory passing the result to the given builder.
 //!
