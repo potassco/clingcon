@@ -38,19 +38,14 @@ template <typename T, typename N, typename V>
 struct has_visit<T, N, V, std::void_t<decltype(std::declval<T>().visit(std::declval<N>(), std::declval<V>()))>> : std::true_type { };
 
 template <typename T, typename N, typename V>
-std::enable_if_t<has_visit<T, N, V>::value, bool>
-call_visit(T& t, N&& node, V&& value) {
-    t.visit(std::forward<N>(node), std::forward<V>(value));
-    return false;
-}
-
-template <typename T, typename N, typename V>
-std::enable_if_t<!has_visit<T, N, V>::value, bool>
-call_visit(T& t, N&& node, V&& value) {
-    static_cast<void>(t);
-    static_cast<void>(node);
-    static_cast<void>(value);
-    return true;
+bool call_visit(T& t, N&& node, V&& value) {
+    if constexpr(has_visit<T, N, V>::value) {
+        t.visit(std::forward<N>(node), std::forward<V>(value));
+        return false;
+    }
+    else {
+        return true;
+    }
 }
 
 template <bool C, typename T>
