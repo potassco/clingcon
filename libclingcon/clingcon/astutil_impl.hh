@@ -39,7 +39,7 @@ struct has_visit<T, N, V, std::void_t<decltype(std::declval<T>().visit(std::decl
 
 template <typename T, typename N, typename V>
 bool call_visit(T& t, N&& node, V&& value) {
-    if constexpr(has_visit<T, N, V>::value) {
+    if constexpr(has_visit<T, N, V>::value) { // NOLINT(readability-braces-around-statements)
         t.visit(std::forward<N>(node), std::forward<V>(value));
         return false;
     }
