@@ -100,7 +100,7 @@ public:
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
-    virtual void add_distinct(lit_t lit, std::vector<CoVarVec> const &elems) = 0;
+    virtual void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
     //! Add a domain for the given variable.
     virtual void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) = 0;
 };

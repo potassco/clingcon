@@ -532,116 +532,89 @@ void parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom con
 
 // Parses minimize and maximize directives.
 void parse_objective(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, int factor) {
-    static_cast<void>(builder);
-    static_cast<void>(atom);
-    static_cast<void>(factor);
-    throw std::runtime_error("implement me!!!");
-    /*
-    assert factor in (1, -1)
-    for co, var in _parse_constraint_elems(builder, atom.elements, None, True):
-        builder.add_minimize(factor * co, var)
-    */
+    CoVarVec elems;
+    parse_constraint_elems(builder, atom.elements(), nullptr, true, elems);
+    for (auto &[co, var] : elems) {
+        builder.add_minimize(safe_mul(factor, co), var);
+    }
 }
 
 void parse_show_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
-    static_cast<void>(builder);
-    static_cast<void>(term);
-    throw std::runtime_error("implement me!!!");
-    /*
-    if match(term, "/", 2):
-        a = _evaluate_term(term.arguments[0])
-        if a.type != clingo.SymbolType.Function or a.arguments:
-            raise RuntimeError("Invalid Syntax")
+    if (match(term, "/", 2)) {
+        auto args = term.arguments();
 
-        b = _evaluate_term(term.arguments[1])
-        if b.type != clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
+        auto a = evaluate(args.front());
+        check_syntax(a.type() == Clingo::SymbolType::Function && a.arguments().empty(), "Invalid Syntax: invalid show statement");
 
-        builder.show_signature(a.name, b.number)
-    else:
-        a = _evaluate_term(term)
-        if a.type == clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
+        auto b = evaluate(args.back());
+        check_syntax(b.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid show statement");
 
-        builder.show_variable(a)
-    */
+        builder.show_signature(a.name(), b.number());
+    }
+    else {
+        auto a = evaluate(term);
+        check_syntax(a.type() != Clingo::SymbolType::Number, "Invalid Syntax: invalid show statement");
+
+        builder.show_variable(builder.add_variable(a));
+    }
 }
 void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
-    static_cast<void>(builder);
-    static_cast<void>(atom);
-    static_cast<void>(parse_show_elem);
-    throw std::runtime_error("implement me!!!");
-    /*
-    builder.add_show()
+    builder.add_show();
 
-    for elem in atom.elements:
-        if len(elem.terms) == 1 and not elem.condition:
-            _parse_show_elem(builder, elem.terms[0])
-        else:
-            raise RuntimeError("Invalid Syntax")
-    */
+    for (auto elem : atom.elements()) {
+        check_syntax(elem.tuple().size() == 1 && elem.condition().empty(), "Invalid Syntax: invalid show statement");
+        parse_show_elem(builder, elem.tuple().front());
+    }
 }
 
 std::pair<val_t, val_t> parse_dom_elem(Clingo::TheoryTerm const &term) {
-    static_cast<void>(term);
-    throw std::runtime_error("implement me!!!");
-    /*
-    if match(term, "..", 2):
-        a = _evaluate_term(term.arguments[0])
-        if a.type != clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
+    if (match(term, "..", 2)) {
+        auto args = term.arguments();
 
-        b = _evaluate_term(term.arguments[1])
-        if b.type != clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
+        auto a = evaluate(args.front());
+        check_syntax(a.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid dom statement");
 
-        return (a.number, b.number+1)
+        auto b = evaluate(args.back());
+        check_syntax(b.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid dom statement");
 
-    a = _evaluate_term(term)
-    if a.type != clingo.SymbolType.Number:
-        raise RuntimeError("Invalid Syntax")
+        return {a.number(), safe_add(b.number(), 1)};
+    }
 
-    return (a.number, a.number+1)
-    */
+    auto a = evaluate(term);
+    check_syntax(a.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid dom statement");
+
+    return {a.number(), safe_add(a.number(), 1)};
 }
 
 void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
-    static_cast<void>(builder);
-    static_cast<void>(atom);
-    static_cast<void>(parse_dom_elem);
-    throw std::runtime_error("implement me!!!");
-    /*
-    elements = []
-    for elem in atom.elements:
-        if len(elem.terms) == 1 and not elem.condition:
-            elements.append(_parse_dom_elem(elem.terms[0]))
-        else:
-            raise RuntimeError("Invalid Syntax")
+    std::vector<std::pair<val_t, val_t>> elements;
+    for (auto elem : atom.elements()) {
+        auto tuple = elem.tuple();
+        check_syntax(tuple.size() == 1 && elem.condition().empty(), "Invalid Syntax: invalid dom statement");
+        elements.emplace_back(parse_dom_elem(tuple.front()));
+    }
 
-    var = _evaluate_term(atom.guard[1])
-    if var.type == clingo.SymbolType.Number:
-        raise RuntimeError("Invalid Syntax")
+    check_syntax(atom.has_guard(), "Invalid Syntax: invalid dom statement");
+    auto var = evaluate(atom.guard().second);
 
-    builder.add_dom(builder.cc.solver_literal(atom.literal), builder.add_variable(var), elements)
-    */
+    builder.add_dom(builder.solver_literal(atom.literal()), builder.add_variable(var), elements);
 }
 
 // Currently only distinct constraints in the head are supported. Supporting
 // them in the body would also be possible where they should be strict.
 void parse_distinct(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
-    static_cast<void>(builder);
-    static_cast<void>(atom);
-    throw std::runtime_error("implement me!!!");
-    /*
-    elements = []
-    for elem in atom.elements:
-        if elem.terms and not elem.condition:
-            elements.append(simplify(_parse_constraint_elem(builder, elem.terms[0], True), False))
-        else:
-            raise RuntimeError("Invalid Syntax")
+    std::vector<std::pair<CoVarVec,val_t>> elements;
 
-    builder.add_distinct(builder.cc.solver_literal(atom.literal), elements)
-    */
+    for (auto elem : atom.elements()) {
+        auto tuple = elem.tuple();
+        check_syntax(!tuple.empty() && elem.condition().empty(), "Invalid Syntax: invalid distinct statement");
+        elements.emplace_back();
+        auto &term = elements.back();
+        parse_constraint_elem(builder, tuple.front(), true, term.first);
+        term.second = safe_inv(simplify(term.first));
+    }
+
+    builder.add_distinct(builder.solver_literal(atom.literal()), elements);
 }
 
 } // namespace

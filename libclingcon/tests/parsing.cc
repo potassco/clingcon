@@ -123,19 +123,22 @@ public:
         minimize_.emplace_back(co, var);
     }
 
-    void add_distinct(lit_t lit, std::vector<CoVarVec> const &elems) override {
+    void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
         oss_ << lit << " -> ";
         bool sep{false};
         if (elems.size() > 1) {
             for (auto const &elem : elems) {
-                if (!sep) {
+                if (sep) {
                     oss_ << " != ";
-                    sep = true;
                 }
+                sep = true;
                 bool plus{false};
-                for (auto const &[co, var] : elem) {
+                for (auto const &[co, var] : elem.first) {
                     oss_ << (plus ? " + " : "") << co << "*" << vars_[var];
                     plus = true;
+                }
+                if (elem.second != 0) {
+                    oss_ << (plus ? " + " : "") << elem.second;
                 }
             }
         }
@@ -282,19 +285,27 @@ TEST_CASE("parsing", "[parsing]") {
                 "-2 -> -1*x + 1*z <= -1.");
         }
         SECTION("distinct") {
-            // TODO
+            REQUIRE(parse("&distinct { x; y; z }.") ==
+                "2 -> 1*x != 1*y != 1*z.");
+            REQUIRE(parse("&distinct { x+y; 3*y+2; z; -1 }.") ==
+                "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
         }
         SECTION("show") {
-            // TODO
+            REQUIRE(parse("&show { x/1; y }.") ==
+                "#show."
+                "#show x/1."
+                "#show y.");
         }
         SECTION("dom") {
-            // TODO
+            REQUIRE(parse("&dom { 1..2; 5; 2..7 } = x.") ==
+                "2 -> x = { 1..3, 5..6, 2..8}."
+                );
         }
-        SECTION("minimize") {
-            // TODO
-        }
-        SECTION("maximize") {
-            // TODO
+        SECTION("optimize") {
+            REQUIRE(parse("&minimize { x - z }.") ==
+                "#minimize { 1*x + -1*z }.");
+            REQUIRE(parse("&maximize { x - z }.") ==
+                "#minimize { -1*x + 1*z }.");
         }
     }
 }
