@@ -84,39 +84,42 @@ struct SigMatcher {
 // Shifts constraints into rule heads.
 struct TheoryShifter {
     static void visit(Clingo::AST::Rule &rule) {
-        if (rule.head.data.is<Clingo::AST::Literal>()) {
-            auto &head = rule.head.data.get<Clingo::AST::Literal>();
-            if (head.data.is<Clingo::AST::Boolean>() && !head.data.get<Clingo::AST::Boolean>().value) {
-                auto it = rule.body.begin();
-                auto jt = it;
-                auto ie = rule.body.end();
-                for (; it != ie; ++it) {
-                    if (it->data.is<Clingo::AST::TheoryAtom>()) {
-                        auto &atom = it->data.get<Clingo::AST::TheoryAtom>();
-                        SigMatcher matcher;
-                        if (atom.term.data.accept(matcher, "sum", "diff")) {
-                            if (it->sign != Clingo::AST::Sign::Negation) {
-                                auto *guard = atom.guard.get();
-                                guard->operator_name = negate_relation(guard->operator_name);
-                            }
-                            rule.head.location = it->location;
-                            rule.head.data = std::move(atom);
-                            break;
+        if (!rule.head.data.is<Clingo::AST::Literal>()) {
+            return;
+        }
+        auto &head = rule.head.data.get<Clingo::AST::Literal>();
+        if (!head.data.is<Clingo::AST::Boolean>() || head.data.get<Clingo::AST::Boolean>().value) {
+            return;
+        }
+        auto it = rule.body.begin();
+        auto ie = rule.body.end();
+        auto jt = it;
+        for (; it != ie; ++it) {
+            if (it->data.is<Clingo::AST::TheoryAtom>()) {
+                auto &atom = it->data.get<Clingo::AST::TheoryAtom>();
+                SigMatcher matcher;
+                if (atom.term.data.accept(matcher, "sum", "diff")) {
+                    check_syntax(atom.guard.get() != nullptr);
+                    if (it->sign != Clingo::AST::Sign::Negation) {
+                        auto *guard = atom.guard.get();
+                        guard->operator_name = negate_relation(guard->operator_name);
+                    }
+                    rule.head.location = it->location;
+                    rule.head.data = std::move(atom);
+                    for (++it; it != ie; ++it, ++jt) {
+                        if (it != jt) {
+                            std::iter_swap(it, jt);
                         }
                     }
-                    if (it != jt) {
-                        std::iter_swap(it, jt);
-                    }
-                    ++jt;
+                    break;
                 }
-                for (; it != ie; ++it, ++jt) {
-                    if (it != jt) {
-                        std::iter_swap(it, jt);
-                    }
-                }
-                rule.body.erase(jt, ie);
             }
+            if (it != jt) {
+                std::iter_swap(it, jt);
+            }
+            ++jt;
         }
+        rule.body.erase(jt, ie);
     }
 
     template <class T>
@@ -153,11 +156,12 @@ struct TermTagger {
 struct TheoryRewriter {
     // Add variables to tuple to ensure multiset semantics.
     static void rewrite_tuple(Clingo::AST::TheoryAtomElement &element, int number) {
-        check_syntax(element.tuple.size() != 1);
+        check_syntax(element.tuple.size() == 1);
         auto vars_condition = collect_variables(element.condition.begin(), element.condition.end());
         for (auto const &name : collect_variables(element.tuple.begin(), element.tuple.end())) {
             vars_condition.erase(name);
         }
+        vars_condition.erase("_");
         if (number >= 0) {
             element.tuple.push_back({element.tuple.front().location, Clingo::Number(number)});
         }

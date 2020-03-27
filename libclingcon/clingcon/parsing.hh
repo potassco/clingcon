@@ -108,7 +108,7 @@ public:
 //!
 //! Optionally shifts constraints from rule bodies into heads of integrity
 //! constraints if possible.
-void transform(Clingo::AST::Statement &stm, Clingo::StatementCallback cb, bool shift);
+void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb, bool shift);
 
 //! Parse the given theory passing the result to the given builder.
 //!

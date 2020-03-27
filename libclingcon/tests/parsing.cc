@@ -35,6 +35,20 @@ sret simplify(CoVarVec const &vec, bool drop_zero=true) {
     return {ret, rhs};
 }
 
+std::string transform(char const *prg, bool shift=true) {
+    bool sep = false;
+    std::ostringstream oss;
+    Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
+        if (!stm.data.is<Clingo::AST::Program>()) {
+            transform(std::move(stm), [&](Clingo::AST::Statement &&stm) {
+                oss << (sep ? "\n" : "") << stm;
+                sep = true;
+            }, shift);
+        }
+    });
+    return oss.str();
+}
+
 TEST_CASE("parsing", "[parsing]") {
     SECTION("simplify") {
         REQUIRE(simplify({}) == sret({}, 0));
@@ -48,6 +62,13 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error const &);
     }
     SECTION("transform") {
-        // todo!!!
+        REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h {  } = 0 :- &__sum_b {  } = 1.");
+        REQUIRE(transform(":- &sum{ } = 0.") == "&__sum_h {  } != 0.");
+        REQUIRE(transform(":- &sum{ } = 0, &sum{ } = 1.") == "&__sum_h {  } != 0 :- &__sum_b {  } = 1.");
+
+        REQUIRE(transform("&sum{ X } = 0.") == "&__sum_h { X :  } = 0.");
+        REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y : p(X,Y) } = 0.");
+        REQUIRE(transform("&sum{ X : p(X,Y); X : q(X,Y) } = 0.") == "&__sum_h { X,0,Y : p(X,Y); X,1,Y : q(X,Y) } = 0.");
+        REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X : p(X,_) } = 0.");
     }
 }
