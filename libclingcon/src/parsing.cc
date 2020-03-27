@@ -375,213 +375,41 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
     }
 }
 
-} // namespace
 
-val_t simplify(CoVarVec &vec, bool drop_zero) {
-    static thread_local std::unordered_map<var_t, CoVarVec::iterator> seen;
-    val_t rhs = 0;
+void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan &elements, Clingo::TheoryTerm const *rhs, bool is_sum, CoVarVec &res) {
+    check_syntax(!is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
 
-    seen.clear();
+    for (auto const &element : elements) {
+        auto tuple = element.tuple();
+        check_syntax(!tuple.empty() && element.condition().empty(), "Invalid Syntax: invalid sum constraint");
+        parse_constraint_elem(builder, element.tuple().front(), is_sum, res);
+    }
 
-    auto jt = vec.begin();
-    for (auto it = jt, ie = vec.end(); it != ie; ++it) {
-        auto &[co, var] = *it;
-        if (drop_zero && co == 0) {
-            continue;
-        }
-        if (!is_valid_var(var)) {
-            rhs = safe_sub(rhs, co);
-        }
-        else if (auto [kt, ins] = seen.try_emplace(var, jt); !ins) {
-            kt->second->first = safe_add(kt->second->first, co);
+    if (rhs != nullptr) {
+        if (is_sum) {
+            auto pos = res.size();
+            parse_constraint_elem(builder, *rhs, is_sum, res);
+            for (auto it = res.begin() + pos, ie = res.end(); it != ie; ++it) {
+                it->first = safe_inv(it->first);
+            }
         }
         else {
-            if (it != jt) {
-                *jt = *it;
-            }
-            ++jt;
+            auto term = evaluate(*rhs);
+            check_syntax(term.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid difference constraint");
+            res.emplace_back(safe_inv(term.number()), INVALID_VAR);
         }
     }
-
-    if (drop_zero) {
-        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; } );
-    }
-
-    vec.erase(jt, vec.end());
-
-    // overflow checking (maybe put in seperate function)
-    check_valid_value(rhs);
-    sum_t min = rhs;
-    sum_t max = rhs;
-    for (auto co_var : vec) {
-        check_valid_value(co_var.first);
-        min = safe_add<sum_t>(min, safe_mul<sum_t>(co_var.first, co_var.first > 0 ? MIN_VAL : MAX_VAL));
-        max = safe_add<sum_t>(max, safe_mul<sum_t>(co_var.first, co_var.first > 0 ? MAX_VAL : MIN_VAL));
-    }
-
-    return rhs;
 }
 
-void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb, bool shift) {
-    unpool(std::move(stm), [&](Clingo::AST::Statement &&unpooled) {
-        if (shift) {
-            TheoryShifter shifter;
-            unpooled.data.accept(shifter);
-        }
-        TheoryRewriter tagger;
-        transform_ast(tagger, unpooled);
-        cb(std::move(unpooled));
-    });
-}
-
-void parse_theory(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms &theory_atoms) {
+void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec &elements, char const *op, val_t rhs, bool strict) {
     static_cast<void>(builder);
-    static_cast<void>(theory_atoms);
-    static_cast<void>(parse_constraint_elem);
+    static_cast<void>(literal);
+    static_cast<void>(elements);
+    static_cast<void>(op);
+    static_cast<void>(rhs);
+    static_cast<void>(strict);
     throw std::runtime_error("implement me!!!");
-}
-
-/*
-def parse_theory(builder, theory_atoms):
-    """
-    Parse the atoms in the given theory and pass them to the builder.
-    """
-    for atom in theory_atoms:
-        is_sum = match(atom.term, "sum", 1)
-        is_diff = match(atom.term, "diff", 1)
-        if is_sum or is_diff:
-            body = match(atom.term.arguments[0], "body", 0)
-            _parse_constraint(builder, atom, is_sum, body)
-        elif match(atom.term, "distinct", 0):
-            _parse_distinct(builder, atom)
-        elif match(atom.term, "show", 0):
-            _parse_show(builder, atom)
-        elif match(atom.term, "dom", 0):
-            _parse_dom(builder, atom)
-        elif match(atom.term, "minimize", 0):
-            _parse_objective(builder, atom, 1)
-        elif match(atom.term, "maximize", 0):
-            _parse_objective(builder, atom, -1)
-
-
-def _parse_objective(builder, atom, factor):
-    """
-    Parses minimize and maximize directives.
-    """
-    assert factor in (1, -1)
-    for co, var in _parse_constraint_elems(builder, atom.elements, None, True):
-        builder.add_minimize(factor * co, var)
-
-
-def _parse_show(builder, atom):
-    builder.add_show()
-
-    for elem in atom.elements:
-        if len(elem.terms) == 1 and not elem.condition:
-            _parse_show_elem(builder, elem.terms[0])
-        else:
-            raise RuntimeError("Invalid Syntax")
-
-
-def _parse_show_elem(builder, term):
-    if match(term, "/", 2):
-        a = _evaluate_term(term.arguments[0])
-        if a.type != clingo.SymbolType.Function or a.arguments:
-            raise RuntimeError("Invalid Syntax")
-
-        b = _evaluate_term(term.arguments[1])
-        if b.type != clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
-
-        builder.show_signature(a.name, b.number)
-    else:
-        a = _evaluate_term(term)
-        if a.type == clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
-
-        builder.show_variable(a)
-
-
-def _parse_dom(builder, atom):
-    elements = []
-    for elem in atom.elements:
-        if len(elem.terms) == 1 and not elem.condition:
-            elements.append(_parse_dom_elem(elem.terms[0]))
-        else:
-            raise RuntimeError("Invalid Syntax")
-
-    var = _evaluate_term(atom.guard[1])
-    if var.type == clingo.SymbolType.Number:
-        raise RuntimeError("Invalid Syntax")
-
-    builder.add_dom(builder.cc.solver_literal(atom.literal), builder.add_variable(var), elements)
-
-
-def _parse_dom_elem(term):
-    if match(term, "..", 2):
-        a = _evaluate_term(term.arguments[0])
-        if a.type != clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
-
-        b = _evaluate_term(term.arguments[1])
-        if b.type != clingo.SymbolType.Number:
-            raise RuntimeError("Invalid Syntax")
-
-        return (a.number, b.number+1)
-
-    a = _evaluate_term(term)
-    if a.type != clingo.SymbolType.Number:
-        raise RuntimeError("Invalid Syntax")
-
-    return (a.number, a.number+1)
-
-
-def _parse_distinct(builder, atom):
-    """
-    Currently only distinct constraints in the head are supported. Supporting
-    them in the body would also be possible where they should be strict.
-    """
-
-    elements = []
-    for elem in atom.elements:
-        if elem.terms and not elem.condition:
-            elements.append(simplify(_parse_constraint_elem(builder, elem.terms[0], True), False))
-        else:
-            raise RuntimeError("Invalid Syntax")
-
-    builder.add_distinct(builder.cc.solver_literal(atom.literal), elements)
-
-
-def _parse_constraint(builder, atom, is_sum, strict):
-    """
-    Adds constraints from the given theory atom to the builder.
-
-    If `is_sum` is true parses a sum constraint. Otherwise, it parses a
-    difference constraint as supported by clingo-dl.
-
-    Contraints are represented as a triple of a literal, its elements, and an
-    upper bound.
-    """
-
-    elements = []
-    rhs = 0
-
-    # map literal
-    literal = builder.cc.solver_literal(atom.literal)
-
-    # combine coefficients
-    rhs, elements = simplify(_parse_constraint_elems(builder, atom.elements, atom.guard[1], is_sum), True)
-
-    # divide by gcd
-    d = reduce(lambda a, b: gcd(a, b[0]), elements, rhs)
-    if d > 1:
-        elements = [(co//d, var) for co, var in elements]
-        rhs //= d
-
-    _normalize_constraint(builder, literal, elements, atom.guard[0], rhs, strict)
-
-
-def _normalize_constraint(builder, literal, elements, op, rhs, strict):
+    /*
     # rerwrite > and < guard
     if op == ">":
         op = ">="
@@ -645,30 +473,243 @@ def _normalize_constraint(builder, literal, elements, op, rhs, strict):
             op = "="
 
         _normalize_constraint(builder, -literal, elements, op, rhs, False)
+    */
+}
 
 
-def _parse_constraint_elems(builder, elems, rhs, is_sum):
-    if not is_sum and len(elems) != 1:
+// Adds constraints from the given theory atom to the builder.
+//
+// If `is_sum` is true parses a sum constraint. Otherwise, it parses a
+// difference constraint as supported by clingo-dl.
+//
+// Contraints are represented as a triple of a literal, its elements, and an
+// upper bound.
+void parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool is_sum, bool strict) {
+    static_cast<void>(builder);
+    static_cast<void>(atom);
+    static_cast<void>(is_sum);
+    static_cast<void>(strict);
+    static_cast<void>(parse_constraint_elems);
+    static_cast<void>(normalize_constraint);
+    throw std::runtime_error("implement me!!!");
+    /*
+    elements = []
+    rhs = 0
+
+    # map literal
+    literal = builder.cc.solver_literal(atom.literal)
+
+    # combine coefficients
+    rhs, elements = simplify(_parse_constraint_elems(builder, atom.elements, atom.guard[1], is_sum), True)
+
+    # divide by gcd
+    d = reduce(lambda a, b: gcd(a, b[0]), elements, rhs)
+    if d > 1:
+        elements = [(co//d, var) for co, var in elements]
+        rhs //= d
+
+    _normalize_constraint(builder, literal, elements, atom.guard[0], rhs, strict)
+*/
+}
+
+// Parses minimize and maximize directives.
+void parse_objective(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, int factor) {
+    static_cast<void>(builder);
+    static_cast<void>(atom);
+    static_cast<void>(factor);
+    throw std::runtime_error("implement me!!!");
+    /*
+    assert factor in (1, -1)
+    for co, var in _parse_constraint_elems(builder, atom.elements, None, True):
+        builder.add_minimize(factor * co, var)
+    */
+}
+
+void parse_show_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
+    static_cast<void>(builder);
+    static_cast<void>(term);
+    throw std::runtime_error("implement me!!!");
+    /*
+    if match(term, "/", 2):
+        a = _evaluate_term(term.arguments[0])
+        if a.type != clingo.SymbolType.Function or a.arguments:
+            raise RuntimeError("Invalid Syntax")
+
+        b = _evaluate_term(term.arguments[1])
+        if b.type != clingo.SymbolType.Number:
+            raise RuntimeError("Invalid Syntax")
+
+        builder.show_signature(a.name, b.number)
+    else:
+        a = _evaluate_term(term)
+        if a.type == clingo.SymbolType.Number:
+            raise RuntimeError("Invalid Syntax")
+
+        builder.show_variable(a)
+    */
+}
+void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+    static_cast<void>(builder);
+    static_cast<void>(atom);
+    static_cast<void>(parse_show_elem);
+    throw std::runtime_error("implement me!!!");
+    /*
+    builder.add_show()
+
+    for elem in atom.elements:
+        if len(elem.terms) == 1 and not elem.condition:
+            _parse_show_elem(builder, elem.terms[0])
+        else:
+            raise RuntimeError("Invalid Syntax")
+    */
+}
+
+std::pair<val_t, val_t> parse_dom_elem(Clingo::TheoryTerm const &term) {
+    static_cast<void>(term);
+    throw std::runtime_error("implement me!!!");
+    /*
+    if match(term, "..", 2):
+        a = _evaluate_term(term.arguments[0])
+        if a.type != clingo.SymbolType.Number:
+            raise RuntimeError("Invalid Syntax")
+
+        b = _evaluate_term(term.arguments[1])
+        if b.type != clingo.SymbolType.Number:
+            raise RuntimeError("Invalid Syntax")
+
+        return (a.number, b.number+1)
+
+    a = _evaluate_term(term)
+    if a.type != clingo.SymbolType.Number:
         raise RuntimeError("Invalid Syntax")
 
-    for elem in elems:
+    return (a.number, a.number+1)
+    */
+}
+
+void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+    static_cast<void>(builder);
+    static_cast<void>(atom);
+    static_cast<void>(parse_dom_elem);
+    throw std::runtime_error("implement me!!!");
+    /*
+    elements = []
+    for elem in atom.elements:
+        if len(elem.terms) == 1 and not elem.condition:
+            elements.append(_parse_dom_elem(elem.terms[0]))
+        else:
+            raise RuntimeError("Invalid Syntax")
+
+    var = _evaluate_term(atom.guard[1])
+    if var.type == clingo.SymbolType.Number:
+        raise RuntimeError("Invalid Syntax")
+
+    builder.add_dom(builder.cc.solver_literal(atom.literal), builder.add_variable(var), elements)
+    */
+}
+
+// Currently only distinct constraints in the head are supported. Supporting
+// them in the body would also be possible where they should be strict.
+void parse_distinct(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+    static_cast<void>(builder);
+    static_cast<void>(atom);
+    throw std::runtime_error("implement me!!!");
+    /*
+    elements = []
+    for elem in atom.elements:
         if elem.terms and not elem.condition:
-            for co, var in _parse_constraint_elem(builder, elem.terms[0], is_sum):
-                yield co, var
+            elements.append(simplify(_parse_constraint_elem(builder, elem.terms[0], True), False))
         else:
             raise RuntimeError("Invalid Syntax")
 
-    if is_sum:
-        if rhs is not None:
-            for co, var in _parse_constraint_elem(builder, rhs, is_sum):
-                yield -co, var
-    else:
-        term = _evaluate_term(rhs)
-        if term.type == clingo.SymbolType.Number:
-            yield -term.number, None
-        else:
-            raise RuntimeError("Invalid Syntax")
+    builder.add_distinct(builder.cc.solver_literal(atom.literal), elements)
+    */
+}
 
-*/
+} // namespace
+
+val_t simplify(CoVarVec &vec, bool drop_zero) {
+    static thread_local std::unordered_map<var_t, CoVarVec::iterator> seen;
+    val_t rhs = 0;
+
+    seen.clear();
+
+    auto jt = vec.begin();
+    for (auto it = jt, ie = vec.end(); it != ie; ++it) {
+        auto &[co, var] = *it;
+        if (drop_zero && co == 0) {
+            continue;
+        }
+        if (!is_valid_var(var)) {
+            rhs = safe_sub(rhs, co);
+        }
+        else if (auto [kt, ins] = seen.try_emplace(var, jt); !ins) {
+            kt->second->first = safe_add(kt->second->first, co);
+        }
+        else {
+            if (it != jt) {
+                *jt = *it;
+            }
+            ++jt;
+        }
+    }
+
+    if (drop_zero) {
+        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; } );
+    }
+
+    vec.erase(jt, vec.end());
+
+    // overflow checking (maybe put in seperate function)
+    check_valid_value(rhs);
+    sum_t min = rhs;
+    sum_t max = rhs;
+    for (auto co_var : vec) {
+        check_valid_value(co_var.first);
+        min = safe_add<sum_t>(min, safe_mul<sum_t>(co_var.first, co_var.first > 0 ? MIN_VAL : MAX_VAL));
+        max = safe_add<sum_t>(max, safe_mul<sum_t>(co_var.first, co_var.first > 0 ? MAX_VAL : MIN_VAL));
+    }
+
+    return rhs;
+}
+
+void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb, bool shift) {
+    unpool(std::move(stm), [&](Clingo::AST::Statement &&unpooled) {
+        if (shift) {
+            TheoryShifter shifter;
+            unpooled.data.accept(shifter);
+        }
+        TheoryRewriter tagger;
+        transform_ast(tagger, unpooled);
+        cb(std::move(unpooled));
+    });
+}
+
+void parse_theory(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms &theory_atoms) {
+    for (auto const &atom : theory_atoms) {
+        bool is_sum_b = match(atom.term(), "__sum_b", 1);
+        bool is_sum_h = match(atom.term(), "__sum_h", 1);
+        bool is_diff_b = match(atom.term(), "__diff_b", 1);
+        bool is_diff_h = match(atom.term(), "__diff_h", 1);
+        if (is_sum_b || is_diff_b || is_sum_h || is_diff_h) {
+            parse_constraint(builder, atom, is_sum_b || is_sum_h, is_sum_b || is_diff_b);
+        }
+        else if(match(atom.term(), "distinct", 0)) {
+            parse_distinct(builder, atom);
+        }
+        else if(match(atom.term(), "show", 0)) {
+            parse_show(builder, atom);
+        }
+        else if(match(atom.term(), "dom", 0)) {
+            parse_dom(builder, atom);
+        }
+        else if(match(atom.term(), "minimize", 0)) {
+            parse_objective(builder, atom, 1);
+        }
+        else if(match(atom.term(), "maximize", 0)) {
+            parse_objective(builder, atom, -1);
+        }
+    }
+}
 
 } // namespace Clingcon
