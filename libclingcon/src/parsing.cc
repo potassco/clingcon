@@ -33,6 +33,12 @@ namespace Clingcon {
 
 namespace {
 
+void check_syntax(bool condition=false, char const *message="Invalid Syntax") {
+    if (!condition) {
+        throw std::runtime_error(message);
+    }
+}
+
 char const *negate_relation(char const *op) {
     if (std::strcmp(op, "=") == 0) {
         return "!=";
@@ -56,20 +62,21 @@ char const *negate_relation(char const *op) {
 }
 
 // Checks if the given theory atom is shiftable.
-struct ShiftMatcher {
-    [[nodiscard]] static bool visit(Clingo::Symbol const &f) {
-        return f.match("sum", 0) || f.match("diff", 0);
+struct SigMatcher {
+    template <typename... CStrs>
+    [[nodiscard]] static bool visit(Clingo::Symbol const &f, CStrs... strs) {
+        return (f.match(strs, 0) || ...);
     }
 
-    [[nodiscard]] static bool visit(Clingo::AST::Function const &f) {
-        auto is_sum = std::strcmp(f.name, "sum") == 0 && f.arguments.empty();
-        auto is_diff = std::strcmp(f.name, "diff") == 0 && f.arguments.empty();
-        return (is_sum || is_diff) && !f.external;
+    template <typename... CStrs>
+    [[nodiscard]] static bool visit(Clingo::AST::Function const &f, CStrs... strs) {
+        return !f.external && f.arguments.empty() && ((std::strcmp(f.name, strs) == 0) || ...);
     }
 
-    template <class T>
-    [[nodiscard]] static bool visit(T const &x) {
+    template <class T, typename... CStrs>
+    [[nodiscard]] static bool visit(T const &x, CStrs... strs) {
         static_cast<void>(x);
+        (static_cast<void>(strs), ...);
         return false;
     }
 };
@@ -86,8 +93,8 @@ struct TheoryShifter {
                 for (; it != ie; ++it) {
                     if (it->data.is<Clingo::AST::TheoryAtom>()) {
                         auto &atom = it->data.get<Clingo::AST::TheoryAtom>();
-                        ShiftMatcher matcher;
-                        if (atom.term.data.accept(matcher)) {
+                        SigMatcher matcher;
+                        if (atom.term.data.accept(matcher, "sum", "diff")) {
                             if (it->sign != Clingo::AST::Sign::Negation) {
                                 auto *guard = atom.guard.get();
                                 guard->operator_name = negate_relation(guard->operator_name);
@@ -118,69 +125,83 @@ struct TheoryShifter {
     }
 };
 
-// Tags head and body atoms and ensures multiset semantics.
-class TheoryRewriter {
-
-    /*
-    def _rewrite_tuple(self, element, number):
-        """
-        Add variables to tuple to ensure multiset semantics.
-        """
-        if len(element.tuple) != 1:
-            raise RuntimeError("Invalid Syntax")
-
-        in_condition = collect_variables(element.condition)
-        for name in collect_variables(element.tuple):
-            if name in in_condition:
-                del in_condition[name]
-
-        element.tuple = list(element.tuple)
-        if number is not None:
-            element.tuple.append(ast.Symbol(element.tuple[0].location, clingo.Number(number)))
-        element.tuple.extend(in_condition[name] for name in sorted(in_condition))
-
-        return element
-
-    def _rewrite_tuples(self, elements):
-        """
-        Add variables to tuples of elements to ensure multiset semantics.
-        """
-        if len(elements) == 1:
-            return [self._rewrite_tuple(elements[0], None)]
-
-        return [self._rewrite_tuple(element, n) for n, element in enumerate(elements)]
-
-    def visit_TheoryAtom(self, atom, loc="body"):
-        """
-        Mark head/body literals and ensure multiset semantics for theory atoms.
-        """
-        term = atom.term
-
-        # ensure multi set semantics for theory atoms
-        if term.name in ["sum", "diff", "distinct", "minimize", "maximize"] and not term.arguments:
-            atom.elements = self._rewrite_tuples(atom.elements)
-
-        # annotate theory atoms in heads and bodies
-        if term.name in ["sum", "diff"] and not term.arguments:
-            atom.term = ast.Function(term.location, term.name, [ast.Function(term.location, loc, [], False)], False)
-
-        return atom
-     */
-
-    template <class Node>
-    void visit(Clingo::AST::HeadLiteral &node, Clingo::AST::TheoryAtom &atom) {
-        static_cast<void>(node);
-        static_cast<void>(atom);
-        throw std::runtime_error("implement me!!!");
+struct TermTagger {
+    static void visit(Clingo::AST::Function &term, char const *tag) {
+        std::string name{"__"};
+        name += term.name;
+        name += tag;
+        term.name = Clingo::add_string(name.c_str());
     }
 
-    template <class Node>
-    void visit(Clingo::AST::BodyLiteral &node, Clingo::AST::TheoryAtom &atom) {
-        static_cast<void>(node);
-        static_cast<void>(atom);
-        throw std::runtime_error("implement me!!!");
+    static void visit(Clingo::Symbol &term, char const *tag) {
+        std::string name{"__"};
+        name += term.name();
+        name += tag;
+        term = Clingo::Function(name.c_str(), {});
+    }
+
+    template <typename T>
+    static void visit(T &value, char const *tag) {
+        static_cast<void>(value);
+        static_cast<void>(tag);
+        check_syntax();
     }
 };
+
+
+// Tags head and body atoms and ensures multiset semantics.
+struct TheoryRewriter {
+    // Add variables to tuple to ensure multiset semantics.
+    static void rewrite_tuple(Clingo::AST::TheoryAtomElement &element, int number) {
+        check_syntax(element.tuple.size() != 1);
+        auto vars_condition = collect_variables(element.condition.begin(), element.condition.end());
+        for (auto const &name : collect_variables(element.tuple.begin(), element.tuple.end())) {
+            vars_condition.erase(name);
+        }
+        if (number >= 0) {
+            element.tuple.push_back({element.tuple.front().location, Clingo::Number(number)});
+        }
+        for (auto const &name : vars_condition) {
+            element.tuple.push_back({element.tuple.front().location, Clingo::AST::Variable{name}});
+        }
+    }
+
+    // Add variables to tuples of elements to ensure multiset semantics.
+    static void rewrite_tuples(Clingo::AST::TheoryAtom &atom) {
+        int number = atom.elements.size() > 1 ? 0 : -1;
+        for (auto &element : atom.elements) {
+            rewrite_tuple(element, number++);
+        }
+    }
+
+    static char const *tag(Clingo::AST::HeadLiteral const &lit) {
+        static_cast<void>(lit);
+        return "_h";
+    }
+
+    static char const *tag(Clingo::AST::BodyLiteral const &lit) {
+        static_cast<void>(lit);
+        return "_b";
+    }
+
+    // Mark head/body literals and ensure multiset semantics for theory atoms.
+    template <class Lit>
+    static void visit(Lit &node, Clingo::AST::TheoryAtom &atom) {
+        SigMatcher matcher;
+        if (atom.term.data.accept(matcher, "sum", "diff", "distinct", "minimize", "maximize")) {
+            int number = atom.elements.size() > 1 ? 0 : -1;
+            for (auto &element : atom.elements) {
+                rewrite_tuple(element, number++);
+            }
+        }
+
+        if (atom.term.data.accept(matcher, "sum", "diff")) {
+            TermTagger tagger;
+            atom.term.data.accept(tagger, tag(node));
+        }
+    }
+};
+
 } // namespace
 
 val_t simplify(CoVarVec &vec, bool drop_zero) {

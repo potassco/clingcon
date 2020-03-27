@@ -59,9 +59,17 @@ void transform_ast(V&& v, N &node);
 template <typename N>
 void collect_variables(VarSet &vars, N const &node);
 
+//! Collect variables in a sequence of ASTs.
+template <typename It>
+void collect_variables(VarSet &vars, It ib,It ie);
+
 //! Collect variables in an AST.
 template <typename N>
 [[nodiscard]] VarSet collect_variables(N const &node);
+
+//! Collect variables in a sequence of ASTs.
+template <typename It>
+VarSet collect_variables(It ib,It ie);
 
 //! Calculate the crossproduct of a sequence of sequences.
 template <typename Seq, typename F>

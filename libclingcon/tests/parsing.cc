@@ -47,4 +47,7 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::max(), 0}, {std::numeric_limits<int>::max(), 0}}), std::overflow_error const &);
         REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error const &);
     }
+    SECTION("transform") {
+        // todo!!!
+    }
 }

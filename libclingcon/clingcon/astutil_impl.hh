@@ -490,10 +490,24 @@ void collect_variables(VarSet &vars, N const &node) {
     visit_ast(v, node);
 }
 
+template <typename It>
+void collect_variables(VarSet &vars, It ib,It ie) {
+    for (auto it = ib; it != ie; ++it) {
+        collect_variables(vars, *it);
+    }
+}
+
 template <typename N>
 VarSet collect_variables(N const &node) {
     VarSet vars;
     collect_variables(vars, node);
+    return vars;
+}
+
+template <typename It>
+VarSet collect_variables(It ib,It ie) {
+    VarSet vars;
+    collect_variables(vars, ib, ie);
     return vars;
 }
 
