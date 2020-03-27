@@ -34,14 +34,14 @@ namespace Clingcon {
 
 namespace {
 
-template <typename T>
+template <typename T=void>
 T throw_syntax_error(char const *message="Invalid Syntax") {
     throw std::runtime_error(message);
 }
 
 void check_syntax(bool condition=false, char const *message="Invalid Syntax") {
     if (!condition) {
-        throw_syntax_error<void>(message);
+        throw_syntax_error(message);
     }
 }
 
@@ -296,6 +296,85 @@ Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
     return throw_syntax_error<Clingo::Symbol>();
 }
 
+void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term, bool is_sum, CoVarVec &res) {
+    if (!is_sum) {
+        if (match(term, "-", 2)) {
+            auto args = term.arguments();
+
+            auto a = evaluate(args.front());
+            if (a.type() == Clingo::SymbolType::Number) {
+                res.emplace_back(a.number(), INVALID_VAR);
+            }
+            else {
+                res.emplace_back(1, builder.add_variable(a));
+            }
+
+            auto b = evaluate(args.front());
+            if (b.type() == Clingo::SymbolType::Number) {
+                res.emplace_back(-b.number(), INVALID_VAR);
+            }
+            else {
+                res.emplace_back(-1, builder.add_variable(b));
+            }
+        }
+        else {
+            throw_syntax_error("Invalid Syntax: invalid difference constraint");
+        }
+    }
+    else if (term.type() == Clingo::TheoryTermType::Number) {
+        res.emplace_back(term.number(), INVALID_VAR);
+    }
+    else if (match(term, "+", 2)) {
+        auto args = term.arguments();
+        parse_constraint_elem(builder, args.front(), true, res);
+        parse_constraint_elem(builder, args.back(), true, res);
+    }
+    else if (match(term, "-", 2)) {
+        auto args = term.arguments();
+        parse_constraint_elem(builder, args.front(), true, res);
+        auto pos = res.size();
+        parse_constraint_elem(builder, args.back(), true, res);
+        for (auto it = res.begin() + pos, ie = res.end(); it != ie; ++it) {
+            it->first = safe_inv(it->first);
+        }
+    }
+    else if (match(term, "-", 1)) {
+        auto pos = res.size();
+        parse_constraint_elem(builder, term.arguments().front(), true, res);
+        for (auto it = res.begin() + pos, ie = res.end(); it != ie; ++it) {
+            it->first = safe_inv(it->first);
+        }
+    }
+    else if (match(term, "+", 1)) {
+        parse_constraint_elem(builder, term.arguments().front(), true, res);
+    }
+    else if (match(term, "*", 2)) {
+        auto args = term.arguments();
+        CoVarVec lhs, rhs; // NOLINT
+        parse_constraint_elem(builder, args.front(), true, lhs);
+        parse_constraint_elem(builder, args.back(), true, rhs);
+        for (auto &l : lhs) {
+            for (auto &r : rhs) {
+                if (!is_valid_var(l.second)) {
+                    res.emplace_back(safe_mul(l.first, r.first), r.second);
+                }
+                else if (!is_valid_var(l.second)) {
+                    res.emplace_back(safe_mul(l.first, r.first), l.second);
+                }
+                else {
+                    throw_syntax_error("Invalid Syntax: only linear sum constraints are supported");
+                }
+            }
+        }
+    }
+    else if (term.type() == Clingo::TheoryTermType::Symbol || term.type() == Clingo::TheoryTermType::Function || term.type() == Clingo::TheoryTermType::Tuple) {
+        res.emplace_back(1, builder.add_variable(evaluate(term)));
+    }
+    else {
+        throw_syntax_error("Invalid Syntax: invalid sum constraint");
+    }
+}
+
 } // namespace
 
 val_t simplify(CoVarVec &vec, bool drop_zero) {
@@ -355,8 +434,14 @@ void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb
     });
 }
 
+void parse_theory(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms &theory_atoms) {
+    static_cast<void>(builder);
+    static_cast<void>(theory_atoms);
+    static_cast<void>(parse_constraint_elem);
+    throw std::runtime_error("implement me!!!");
+}
+
 /*
-void parse_theory(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms &theory_atoms);
 def parse_theory(builder, theory_atoms):
     """
     Parse the atoms in the given theory and pass them to the builder.
@@ -583,67 +668,6 @@ def _parse_constraint_elems(builder, elems, rhs, is_sum):
             yield -term.number, None
         else:
             raise RuntimeError("Invalid Syntax")
-
-
-def _parse_constraint_elem(builder, term, is_sum):
-    assert term is not None
-    if not is_sum:
-        if match(term, "-", 2):
-            a = _evaluate_term(term.arguments[0])
-            if a.type == clingo.SymbolType.Number:
-                yield a.number, None
-            else:
-                yield 1, builder.add_variable(a)
-
-            b = _evaluate_term(term.arguments[1])
-            if b.type == clingo.SymbolType.Number:
-                yield -b.number, None
-            else:
-                yield -1, builder.add_variable(b)
-
-        else:
-            raise RuntimeError("Invalid Syntax for difference constraint")
-
-    else:
-        if match(term, "+", 2):
-            for co, var in _parse_constraint_elem(builder, term.arguments[0], True):
-                yield co, var
-            for co, var in _parse_constraint_elem(builder, term.arguments[1], True):
-                yield co, var
-
-        elif match(term, "-", 2):
-            for co, var in _parse_constraint_elem(builder, term.arguments[0], True):
-                yield co, var
-            for co, var in _parse_constraint_elem(builder, term.arguments[1], True):
-                yield -co, var
-
-        elif match(term, "*", 2):
-            lhs = list(_parse_constraint_elem(builder, term.arguments[0], True))
-            for co_prime, var_prime in _parse_constraint_elem(builder, term.arguments[1], True):
-                for co, var in lhs:
-                    if var is None:
-                        yield co*co_prime, var_prime
-                    elif var_prime is None:
-                        yield co*co_prime, var
-                    else:
-                        raise RuntimeError("Invalid Syntax, only linear constraints allowed")
-
-        elif match(term, "-", 1):
-            for co, var in _parse_constraint_elem(builder, term.arguments[0], True):
-                yield -co, var
-
-        elif match(term, "+", 1):
-            for co, var in _parse_constraint_elem(builder, term.arguments[0], True):
-                yield co, var
-
-        elif term.type == clingo.TheoryTermType.Number:
-            yield term.number, None
-
-        elif term.type in (clingo.TheoryTermType.Symbol, clingo.TheoryTermType.Function, clingo.TheoryTermType.Tuple):
-            yield 1, builder.add_variable(_evaluate_term(term))
-
-        else:
-            raise RuntimeError("Invalid Syntax for linear constraint")
 
 */
 
