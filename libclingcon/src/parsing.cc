@@ -29,6 +29,7 @@
 
 #include <unordered_map>
 #include <cmath>
+#include <numeric>
 
 namespace Clingcon {
 
@@ -213,9 +214,12 @@ struct TheoryRewriter {
 };
 
 [[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
-    return term.type() == Clingo::TheoryTermType::Function &&
+    return (term.type() == Clingo::TheoryTermType::Symbol &&
         std::strcmp(term.name(), name) == 0 &&
-        term.arguments().size() == arity;
+        arity == 0) ||
+        (term.type() == Clingo::TheoryTermType::Function &&
+        std::strcmp(term.name(), name) == 0 &&
+        term.arguments().size() == arity);
 }
 
 [[nodiscard]] Clingo::Symbol evaluate(Clingo::TheoryTerm const &term);
@@ -376,8 +380,8 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
 }
 
 
-void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan &elements, Clingo::TheoryTerm const *rhs, bool is_sum, CoVarVec &res) {
-    check_syntax(!is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
+void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan elements, Clingo::TheoryTerm const *rhs, bool is_sum, CoVarVec &res) {
+    check_syntax(is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
 
     for (auto const &element : elements) {
         auto tuple = element.tuple();
@@ -401,81 +405,94 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
     }
 }
 
-void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec &elements, char const *op, val_t rhs, bool strict) {
-    static_cast<void>(builder);
-    static_cast<void>(literal);
-    static_cast<void>(elements);
-    static_cast<void>(op);
-    static_cast<void>(rhs);
-    static_cast<void>(strict);
-    throw std::runtime_error("implement me!!!");
-    /*
-    # rerwrite > and < guard
-    if op == ">":
-        op = ">="
-        rhs = rhs + 1
-    elif op == "<":
-        op = "<="
-        rhs -= 1
+void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec const &elements, char const *op, val_t rhs, bool strict) {
+    CoVarVec copy;
+    CoVarVec const *elems = &elements;
 
-    # rewrite >= guard
-    if op == ">=":
-        op = "<="
-        rhs = -rhs
-        elements = [(-co, var) for co, var in elements]
+    // rewrite '>', '<', and '>=' into '<='
+    if (std::strcmp(op, ">") == 0) {
+        op = ">=";
+        rhs = safe_add(rhs, 1);
+    }
+    else if (std::strcmp(op, "<") == 0) {
+        op = "<=";
+        rhs = safe_inv(rhs);
+    }
+    if (std::strcmp(op, ">=") == 0) {
+        op = "<=";
+        rhs = safe_inv(rhs);
+        copy.reserve(elements.size());
+        for (auto const &[co, var] : elements) {
+            copy.emplace_back(safe_inv(co), var);
+        }
+        elems = &copy;
+    }
 
-    if op == "<=":
-        if strict and len(elements) == 1:
-            builder.add_constraint(literal, elements, rhs, True)
-            return
-        builder.add_constraint(literal, elements, rhs, False)
+    // hanle remainig '<=', '=', and '!='
+    if (std::strcmp(op, "<=") == 0) {
+        if (strict && elems->size() == 1) {
+            builder.add_constraint(literal, *elems, rhs, true);
+            return;
+        }
+        builder.add_constraint(literal, *elems, rhs, false);
+    }
+    else if (std::strcmp(op, "=") == 0) {
+        lit_t a, b; // NOLINT
+        if (strict) {
+            if (builder.is_true(literal)) {
+                a = b = 1;
+            }
+            else {
+                a = builder.add_literal();
+                b = builder.add_literal();
+            }
 
-    elif op == "=":
-        if strict:
-            if builder.cc.assignment.is_true(literal):
-                a = b = 1
-            else:
-                a = builder.cc.add_literal()
-                b = builder.cc.add_literal()
+            // Note: this cannot fail because constraint normalization does not propagate
+            builder.add_clause({-literal, a});
+            builder.add_clause({-literal, b});
+            builder.add_clause({-a, -b, literal});
+        }
+        else {
+            a = b = literal;
+        }
 
-            # Note: this cannot fail because constraint normalization does not propagate
-            builder.cc.add_clause([-literal, a])
-            builder.cc.add_clause([-literal, b])
-            builder.cc.add_clause([-a, -b, literal])
-        else:
-            a = b = literal
+        normalize_constraint(builder, a, *elems, "<=", rhs, strict);
+        normalize_constraint(builder, b, *elems, ">=", rhs, strict);
 
-        _normalize_constraint(builder, a, elements, "<=", rhs, strict)
-        _normalize_constraint(builder, b, elements, ">=", rhs, strict)
+        if (strict) {
+            return;
+        }
+    }
+    else if (std::strcmp(op, "!=") == 0) {
+        if (strict) {
+            normalize_constraint(builder, -literal, *elems, "=", rhs, true);
+            return;
+        }
 
-        if strict:
-            return
+        auto a = builder.add_literal();
+        auto b = builder.add_literal();
 
-    elif op == "!=":
-        if strict:
-            _normalize_constraint(builder, -literal, elements, "=", rhs, True)
-            return
+        // Note: this cannot fail
+        builder.add_clause({a, b, -literal});
+        builder.add_clause({-a, -b});
 
-        a = builder.cc.add_literal()
-        b = builder.cc.add_literal()
+        normalize_constraint(builder, a, *elems, "<", rhs, false);
+        normalize_constraint(builder, b, *elems, ">", rhs, false);
+    }
 
-        # Note: this cannot fail
-        builder.cc.add_clause([a, b, -literal])
-        builder.cc.add_clause([-a, -b])
+    if (strict) {
+        assert(std::strcmp(op, "=") != 0);
 
-        _normalize_constraint(builder, a, elements, "<", rhs, False)
-        _normalize_constraint(builder, b, elements, ">", rhs, False)
+        if (std::strcmp(op, "<=") == 0) {
+            op = ">";
+        }
+        else if (std::strcmp(op, "!=") == 0) {
+            op = "=";
+        }
 
-    if strict:
-        if op == "<=":
-            op = ">"
-        elif op == "!=":
-            op = "="
-
-        _normalize_constraint(builder, -literal, elements, op, rhs, False)
-    */
+        normalize_constraint(builder, -literal, *elems, op, rhs, false);
+    }
 }
-
 
 // Adds constraints from the given theory atom to the builder.
 //
@@ -485,31 +502,30 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
 // Contraints are represented as a triple of a literal, its elements, and an
 // upper bound.
 void parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool is_sum, bool strict) {
-    static_cast<void>(builder);
-    static_cast<void>(atom);
-    static_cast<void>(is_sum);
-    static_cast<void>(strict);
-    static_cast<void>(parse_constraint_elems);
-    static_cast<void>(normalize_constraint);
-    throw std::runtime_error("implement me!!!");
-    /*
-    elements = []
-    rhs = 0
+    check_syntax(atom.has_guard());
 
-    # map literal
-    literal = builder.cc.solver_literal(atom.literal)
+    CoVarVec elements;
+    val_t rhs{0};
+    auto guard{atom.guard()};
+    auto literal = builder.solver_literal(atom.literal());
 
-    # combine coefficients
-    rhs, elements = simplify(_parse_constraint_elems(builder, atom.elements, atom.guard[1], is_sum), True)
+    // combine coefficients
+    parse_constraint_elems(builder, atom.elements(), &guard.second, is_sum, elements);
+    rhs = simplify(elements, true);
 
-    # divide by gcd
-    d = reduce(lambda a, b: gcd(a, b[0]), elements, rhs)
-    if d > 1:
-        elements = [(co//d, var) for co, var in elements]
-        rhs //= d
+    // divide by gcd
+    auto d = rhs;
+    for (auto const &element : elements) {
+        d = std::gcd(d, element.first);
+    }
+    if (d > 1) {
+        for (auto &element : elements) {
+            element.first /= d;
+        }
+        rhs /= d;
+    }
 
-    _normalize_constraint(builder, literal, elements, atom.guard[0], rhs, strict)
-*/
+    normalize_constraint(builder, literal, elements, guard.first, rhs, strict);
 }
 
 // Parses minimize and maximize directives.
@@ -685,12 +701,12 @@ void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb
     });
 }
 
-void parse_theory(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms &theory_atoms) {
+void parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) {
     for (auto const &atom : theory_atoms) {
-        bool is_sum_b = match(atom.term(), "__sum_b", 1);
-        bool is_sum_h = match(atom.term(), "__sum_h", 1);
-        bool is_diff_b = match(atom.term(), "__diff_b", 1);
-        bool is_diff_h = match(atom.term(), "__diff_h", 1);
+        bool is_sum_b = match(atom.term(), "__sum_b", 0);
+        bool is_sum_h = match(atom.term(), "__sum_h", 0);
+        bool is_diff_b = match(atom.term(), "__diff_b", 0);
+        bool is_diff_h = match(atom.term(), "__diff_h", 0);
         if (is_sum_b || is_diff_b || is_sum_h || is_diff_h) {
             parse_constraint(builder, atom, is_sum_b || is_sum_h, is_sum_b || is_diff_b);
         }

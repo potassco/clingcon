@@ -49,6 +49,155 @@ std::string transform(char const *prg, bool shift=true) {
     return oss.str();
 }
 
+class TestBuilder : public Clingcon::AbstractConstraintBuilder {
+public:
+    TestBuilder(std::ostringstream &oss)
+    : oss_{oss} {
+    }
+    TestBuilder(TestBuilder const &) = delete;
+    TestBuilder(TestBuilder &&) = delete;
+    TestBuilder &operator=(TestBuilder const &) = delete;
+    TestBuilder &operator=(TestBuilder &&) = delete;
+    ~TestBuilder() override = default;
+
+    lit_t solver_literal(lit_t literal) override {
+        return literal;
+    }
+
+    bool is_true(lit_t literal) override {
+        static_cast<void>(literal);
+        return false;
+    }
+
+    lit_t add_literal() override {
+        return ++literals_;
+    }
+
+    bool add_clause(Clingo::LiteralSpan clause) override {
+        bool sep{false};
+        oss_ << "{ ";
+        for (auto const &lit : clause) {
+            oss_ << (sep ? ", " : "") << lit;
+            sep = true;
+        }
+        oss_ << " }.\n";
+        return false;
+    }
+
+    void add_show() override {
+        if (!show_) {
+            oss_ << "#show.\n";
+            show_ = true;
+        }
+    }
+
+    void show_signature(char const *name, size_t arity) override {
+        oss_ << "#show " << name << "/" << arity << ".\n";
+    }
+
+    void show_variable(var_t idx) override {
+        oss_ << "#show " << vars_[idx] << ".\n";
+    }
+
+    var_t add_variable(Clingo::Symbol var) override {
+        auto it = std::find(vars_.begin(), vars_.end(), var);
+        if (it == vars_.end()) {
+            vars_.emplace_back(var);
+            return vars_.size() - 1;
+        }
+        return it - vars_.begin();
+    }
+
+    void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
+        oss_ << lit << (strict ? " <> " : " <- ");
+        bool sep{false};
+        for (auto const &[co, var] : elems) {
+            oss_ << (sep ? " + " : "") << co << "*" << vars_[var];
+            sep = true;
+        }
+        if (elems.empty()) {
+            oss_ << "0";
+        }
+        oss_ << " <= " << rhs << ".\n";
+    }
+
+    void add_minimize(val_t co, var_t var) override {
+        minimize_.emplace_back(co, var);
+    }
+
+    void add_distinct(lit_t lit, std::vector<CoVarVec> const &elems) override {
+        oss_ << lit << " <- ";
+        bool sep{false};
+        if (elems.size() > 1) {
+            for (auto const &elem : elems) {
+                if (!sep) {
+                    oss_ << " != ";
+                    sep = true;
+                }
+                bool plus{false};
+                for (auto const &[co, var] : elem) {
+                    oss_ << (plus ? " + " : "") << co << "*" << vars_[var];
+                    plus = true;
+                }
+            }
+        }
+        else {
+            oss_ << "true";
+        }
+        oss_ << ".\n";
+    }
+
+    void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) override {
+        oss_ << lit << " <- " << vars_[var] << " = { ";
+        bool sep{false};
+        for (auto const &[l, r] : elems) {
+            oss_ << (sep ? ", " : "") << l << ".." <<r;
+            sep = true;
+        }
+        oss_ << "}.\n";
+    }
+
+    void commit() {
+        if (!minimize_.empty()) {
+            oss_ << "#minimize { ";
+            bool sep{false};
+            for (auto const &[co, var] : minimize_) {
+                oss_ << (sep ? " + " : "") << co << "*" << vars_[var];
+                sep = true;
+            }
+            oss_ << " }.\n";
+        }
+    }
+
+private:
+    std::ostringstream &oss_;
+    bool show_{false};
+    lit_t literals_{100}; // NOLINT
+    std::vector<Clingo::Symbol> vars_;
+    CoVarVec minimize_;
+};
+
+std::string parse(char const *prg) {
+    Clingo::Control ctl;
+    ctl.with_builder([&](Clingo::ProgramBuilder &builder) {
+        bool sep{false};
+        std::ostringstream oss;
+        Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
+            transform(std::move(stm), [&](Clingo::AST::Statement &&stm) {
+                builder.add(stm);
+            }, true);
+        });
+    });
+    ctl.add("base", {}, THEORY);
+    ctl.ground({{"base", {}}});
+
+    std::ostringstream oss;
+    TestBuilder builder{oss};
+    parse(builder, ctl.theory_atoms());
+    builder.commit();
+    return oss.str();
+}
+
 TEST_CASE("parsing", "[parsing]") {
     SECTION("simplify") {
         REQUIRE(simplify({}) == sret({}, 0));
@@ -70,5 +219,14 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y : p(X,Y) } = 0.");
         REQUIRE(transform("&sum{ X : p(X,Y); X : q(X,Y) } = 0.") == "&__sum_h { X,0,Y : p(X,Y); X,1,Y : q(X,Y) } = 0.");
         REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X : p(X,_) } = 0.");
+    }
+    SECTION("parse") {
+        SECTION("sum") {
+            REQUIRE(parse("&sum { x; y; z } = 0.") ==
+                "1 <- 1*x + 1*y + 1*z <= 0.\n"
+                "1 <- -1*x + -1*y + -1*z <= 0.\n");
+            // TODO: more...
+        }
+        // TODO: more...
     }
 }

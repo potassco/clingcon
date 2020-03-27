@@ -57,8 +57,10 @@ constexpr char const *THEORY = R"(
     -  : 1, binary, left;
     .. : 0, binary, left
     };
-    &sum/1 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
-    &diff/1 : sum_term, {<=}, sum_term, any;
+    &__sum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
+    &__sum_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
+    &__diff_h/0 : sum_term, {<=}, sum_term, any;
+    &__diff_b/0 : sum_term, {<=}, sum_term, any;
     &minimize/0 : sum_term, directive;
     &maximize/0 : sum_term, directive;
     &show/0 : sum_term, directive;
@@ -77,8 +79,14 @@ public:
     AbstractConstraintBuilder& operator=(AbstractConstraintBuilder &&) noexcept = delete;
     virtual ~AbstractConstraintBuilder() = default;
 
-    //! Return an AbstractClauseCreator.
-    virtual AbstractClauseCreator &cc() = 0;
+    //! Map a program to a solver literal.
+    virtual lit_t solver_literal(lit_t literal) = 0;
+    //! Add a new solver literal.
+    virtual lit_t add_literal() = 0;
+    //! Check whether the given solver literal is true.
+    virtual bool is_true(lit_t literal) = 0;
+    //! Add a clause over solver literals.
+    virtual bool add_clause(Clingo::LiteralSpan clause) = 0;
     //! Inform the builder that there is a show statement.
     virtual void add_show() = 0;
     //! Show variables with the given signature.
@@ -94,7 +102,7 @@ public:
     //! Add a distinct constraint.
     virtual void add_distinct(lit_t lit, std::vector<CoVarVec> const &elems) = 0;
     //! Add a domain for the given variable.
-    virtual void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>>) = 0;
+    virtual void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) = 0;
 };
 
 //! Combine coefficients of terms with the same variable and optionally drop
@@ -113,7 +121,7 @@ void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.
-void parse_theory(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms &theory_atoms);
+void parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms);
 
 } // namespace Clingcon
 
