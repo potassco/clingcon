@@ -109,7 +109,7 @@ public:
     }
 
     void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
-        oss_ << lit << (strict ? " <> " : " <- ");
+        oss_ << lit << (strict ? " <> " : " -> ");
         bool sep{false};
         for (auto const &[co, var] : elems) {
             oss_ << (sep ? " + " : "") << co << "*" << vars_[var];
@@ -126,7 +126,7 @@ public:
     }
 
     void add_distinct(lit_t lit, std::vector<CoVarVec> const &elems) override {
-        oss_ << lit << " <- ";
+        oss_ << lit << " -> ";
         bool sep{false};
         if (elems.size() > 1) {
             for (auto const &elem : elems) {
@@ -148,7 +148,7 @@ public:
     }
 
     void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) override {
-        oss_ << lit << " <- " << vars_[var] << " = { ";
+        oss_ << lit << " -> " << vars_[var] << " = { ";
         bool sep{false};
         for (auto const &[l, r] : elems) {
             oss_ << (sep ? ", " : "") << l << ".." <<r;
@@ -223,8 +223,8 @@ TEST_CASE("parsing", "[parsing]") {
     SECTION("parse") {
         SECTION("sum") {
             REQUIRE(parse("&sum { x; y; z } = 0.") ==
-                "1 <- 1*x + 1*y + 1*z <= 0.\n"
-                "1 <- -1*x + -1*y + -1*z <= 0.\n");
+                "1 -> 1*x + 1*y + 1*z <= 0.\n"
+                "1 -> -1*x + -1*y + -1*z <= 0.\n");
             // TODO: more...
         }
         // TODO: more...
