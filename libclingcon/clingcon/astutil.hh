@@ -44,9 +44,6 @@ struct CStrCmp {
 //! Container to store variables.
 using VarSet = std::set<char const *, CStrCmp>;
 
-//! Match the given term if it is a function with signature `name/arity`.
-[[nodiscard]] bool match(Clingo::AST::TheoryTerm const &term, char const *name, size_t arity);
-
 //! Visit an AST.
 template <typename V, typename N>
 void visit_ast(V&& v, N const &node);

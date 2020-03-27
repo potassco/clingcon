@@ -28,14 +28,20 @@
 #include "clingcon/astutil.hh"
 
 #include <unordered_map>
+#include <cmath>
 
 namespace Clingcon {
 
 namespace {
 
+template <typename T>
+T throw_syntax_error(char const *message="Invalid Syntax") {
+    throw std::runtime_error(message);
+}
+
 void check_syntax(bool condition=false, char const *message="Invalid Syntax") {
     if (!condition) {
-        throw std::runtime_error(message);
+        throw_syntax_error<void>(message);
     }
 }
 
@@ -205,6 +211,90 @@ struct TheoryRewriter {
         }
     }
 };
+
+[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
+    return term.type() == Clingo::TheoryTermType::Function &&
+        std::strcmp(term.name(), name) == 0 &&
+        term.arguments().size() == arity;
+}
+
+[[nodiscard]] Clingo::Symbol evaluate(Clingo::TheoryTerm const &term);
+
+template <class F>
+Clingo::Symbol evaluate(Clingo::TheoryTerm const &a, Clingo::TheoryTerm const &b, F f) {
+    auto ea = evaluate(a);
+    check_syntax(ea.type() == Clingo::SymbolType::Number);
+    auto eb = evaluate(b);
+    check_syntax(eb.type() == Clingo::SymbolType::Number);
+    return Clingo::Symbol(f(ea.number(), eb.number()));
+}
+
+val_t safe_pow(val_t a, val_t b) {
+    if (a == 0) {
+        throw std::overflow_error("integer overflow");
+    }
+    auto ret = std::pow(static_cast<double>(a), b);
+    if (ret > std::numeric_limits<val_t>::max()) {
+        throw std::overflow_error("integer overflow");
+    }
+    if (ret < std::numeric_limits<val_t>::min()) {
+        throw std::underflow_error("integer underflow");
+    }
+    return static_cast<val_t>(ret);
+}
+
+Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
+    if (term.type() == Clingo::TheoryTermType::Symbol) {
+        return Clingo::Function(term.name(), {});
+    }
+
+    if (term.type() == Clingo::TheoryTermType::Number) {
+        return Clingo::Number(term.number());
+    }
+
+    if (match(term, "+", 2)) {
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_add<val_t>);
+    }
+    if (match(term, "-", 2)) {
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+    }
+    if (match(term, "*", 2)) {
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+    }
+    if (match(term, "/", 2)) {
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+    }
+    if (match(term, "\\", 2)) {
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+    }
+    if (match(term, "**", 2)) {
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_pow);
+    }
+
+    if (match(term, "-", 1)) {
+        auto ea = evaluate(term.arguments().front());
+        if (ea.type() == Clingo::SymbolType::Number) {
+            return Clingo::Symbol(safe_inv(ea.number()));
+        }
+        if (ea.type() == Clingo::SymbolType::Function && std::strlen(ea.name()) > 0) {
+            return Clingo::Function(ea.name(), ea.arguments(), !ea.is_positive());
+        }
+        return throw_syntax_error<Clingo::Symbol>();
+    }
+
+    check_syntax(!match(term, "..", 2));
+
+    if (term.type() == Clingo::TheoryTermType::Function || term.type() == Clingo::TheoryTermType::Function) {
+        std::vector<Clingo::Symbol> args;
+        args.reserve(term.arguments().size());
+        for (auto const &arg : term.arguments()) {
+            args.emplace_back(evaluate(arg));
+        }
+        return Clingo::Function(term.type() == Clingo::TheoryTermType::Function ? term.name() : "", args);
+    }
+
+    return throw_syntax_error<Clingo::Symbol>();
+}
 
 } // namespace
 
@@ -554,66 +644,6 @@ def _parse_constraint_elem(builder, term, is_sum):
 
         else:
             raise RuntimeError("Invalid Syntax for linear constraint")
-
-
-_BOP = {"+": lambda a, b: a+b,
-        "-": lambda a, b: a-b,
-        "*": lambda a, b: a*b,
-        "**": lambda a, b: a**b,
-        "\\": lambda a, b: a%b,
-        "/": lambda a, b: a//b}
-
-
-def _evaluate_term(term):
-    # pylint: disable=too-many-return-statements
-
-    # tuples
-    if term.type == clingo.TheoryTermType.Tuple:
-        return clingo.Tuple(_evaluate_term(x) for x in term.arguments)
-
-    # functions and arithmetic operations
-    if term.type == clingo.TheoryTermType.Function:
-        # binary operations
-        if term.name in _BOP and len(term.arguments) == 2:
-            a = _evaluate_term(term.arguments[0])
-            b = _evaluate_term(term.arguments[1])
-
-            if a.type != clingo.SymbolType.Number or b.type != clingo.SymbolType.Number:
-                raise RuntimeError("Invalid Binary Operation")
-
-            if term.name in ("/", "\\") and b.number == 0:
-                raise RuntimeError("Division by Zero")
-
-            return clingo.Number(_BOP[term.name](a.number, b.number))
-
-        # unary operations
-        if term.name == "-" and len(term.arguments) == 1:
-            a = _evaluate_term(term.arguments[0])
-
-            if a.type == clingo.SymbolType.Number:
-                return clingo.Number(-a.number)
-
-            if a.type == clingo.SymbolType.Function and a.name:
-                return clingo.Function(a.name, a.arguments, not a.positive)
-
-            raise RuntimeError("Invalid Unary Operation")
-
-        # invalid operators
-        if term.name == ".." and len(term.arguments) == 2:
-            raise RuntimeError("Invalid Interval")
-
-        # functions
-        return clingo.Function(term.name, (_evaluate_term(x) for x in term.arguments))
-
-    # constants
-    if term.type == clingo.TheoryTermType.Symbol:
-        return clingo.Function(term.name)
-
-    # numbers
-    if term.type == clingo.TheoryTermType.Number:
-        return clingo.Number(term.number)
-
-    raise RuntimeError("Invalid Syntax")
 
 */
 
