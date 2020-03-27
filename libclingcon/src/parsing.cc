@@ -40,7 +40,7 @@ T throw_syntax_error(char const *message="Invalid Syntax") {
     throw std::runtime_error(message);
 }
 
-void check_syntax(bool condition=false, char const *message="Invalid Syntax") {
+void check_syntax(bool condition, char const *message="Invalid Syntax") {
     if (!condition) {
         throw_syntax_error(message);
     }
@@ -154,7 +154,7 @@ struct TermTagger {
     static void visit(T &value, char const *tag) {
         static_cast<void>(value);
         static_cast<void>(tag);
-        check_syntax();
+        throw_syntax_error();
     }
 };
 
