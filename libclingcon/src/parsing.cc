@@ -313,7 +313,7 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
                 res.emplace_back(1, builder.add_variable(a));
             }
 
-            auto b = evaluate(args.front());
+            auto b = evaluate(args.back());
             if (b.type() == Clingo::SymbolType::Number) {
                 res.emplace_back(-b.number(), INVALID_VAR);
             }
@@ -416,7 +416,7 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
     }
     else if (std::strcmp(op, "<") == 0) {
         op = "<=";
-        rhs = safe_inv(rhs);
+        rhs = safe_sub(rhs, 1);
     }
     if (std::strcmp(op, ">=") == 0) {
         op = "<=";
@@ -434,13 +434,15 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
             builder.add_constraint(literal, *elems, rhs, true);
             return;
         }
-        builder.add_constraint(literal, *elems, rhs, false);
+        if (!builder.is_true(-literal)) {
+            builder.add_constraint(literal, *elems, rhs, false);
+        }
     }
     else if (std::strcmp(op, "=") == 0) {
         lit_t a, b; // NOLINT
         if (strict) {
             if (builder.is_true(literal)) {
-                a = b = 1;
+                a = b = TRUE_LIT;
             }
             else {
                 a = builder.add_literal();

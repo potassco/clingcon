@@ -36,13 +36,11 @@ sret simplify(CoVarVec const &vec, bool drop_zero=true) {
 }
 
 std::string transform(char const *prg, bool shift=true) {
-    bool sep = false;
     std::ostringstream oss;
     Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
         if (!stm.data.is<Clingo::AST::Program>()) {
             transform(std::move(stm), [&](Clingo::AST::Statement &&stm) {
-                oss << (sep ? "\n" : "") << stm;
-                sep = true;
+                oss << stm;
             }, shift);
         }
     });
@@ -61,12 +59,12 @@ public:
     ~TestBuilder() override = default;
 
     lit_t solver_literal(lit_t literal) override {
-        return literal;
+        static_cast<void>(literal);
+        return 2;
     }
 
     bool is_true(lit_t literal) override {
-        static_cast<void>(literal);
-        return false;
+        return literal == 1;
     }
 
     lit_t add_literal() override {
@@ -80,23 +78,23 @@ public:
             oss_ << (sep ? ", " : "") << lit;
             sep = true;
         }
-        oss_ << " }.\n";
+        oss_ << " }.";
         return false;
     }
 
     void add_show() override {
         if (!show_) {
-            oss_ << "#show.\n";
+            oss_ << "#show.";
             show_ = true;
         }
     }
 
     void show_signature(char const *name, size_t arity) override {
-        oss_ << "#show " << name << "/" << arity << ".\n";
+        oss_ << "#show " << name << "/" << arity << ".";
     }
 
     void show_variable(var_t idx) override {
-        oss_ << "#show " << vars_[idx] << ".\n";
+        oss_ << "#show " << vars_[idx] << ".";
     }
 
     var_t add_variable(Clingo::Symbol var) override {
@@ -118,7 +116,7 @@ public:
         if (elems.empty()) {
             oss_ << "0";
         }
-        oss_ << " <= " << rhs << ".\n";
+        oss_ << " <= " << rhs << ".";
     }
 
     void add_minimize(val_t co, var_t var) override {
@@ -144,7 +142,7 @@ public:
         else {
             oss_ << "true";
         }
-        oss_ << ".\n";
+        oss_ << ".";
     }
 
     void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) override {
@@ -154,7 +152,7 @@ public:
             oss_ << (sep ? ", " : "") << l << ".." <<r;
             sep = true;
         }
-        oss_ << "}.\n";
+        oss_ << "}.";
     }
 
     void commit() {
@@ -165,14 +163,14 @@ public:
                 oss_ << (sep ? " + " : "") << co << "*" << vars_[var];
                 sep = true;
             }
-            oss_ << " }.\n";
+            oss_ << " }.";
         }
     }
 
 private:
     std::ostringstream &oss_;
     bool show_{false};
-    lit_t literals_{100}; // NOLINT
+    lit_t literals_{2};
     std::vector<Clingo::Symbol> vars_;
     CoVarVec minimize_;
 };
@@ -221,12 +219,82 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X : p(X,_) } = 0.");
     }
     SECTION("parse") {
-        SECTION("sum") {
+        SECTION("sum head") {
             REQUIRE(parse("&sum { x; y; z } = 0.") ==
-                "1 -> 1*x + 1*y + 1*z <= 0.\n"
-                "1 -> -1*x + -1*y + -1*z <= 0.\n");
-            // TODO: more...
+                "2 -> 1*x + 1*y + 1*z <= 0."
+                "2 -> -1*x + -1*y + -1*z <= 0.");
+            REQUIRE(parse("&sum { x; y; z } != 0.") ==
+                "{ 3, 4, -2 }."
+                "{ -3, -4 }."
+                "3 -> 1*x + 1*y + 1*z <= -1."
+                "4 -> -1*x + -1*y + -1*z <= -1.");
+            REQUIRE(parse("&sum { x; y; z } <= 0.") ==
+                "2 -> 1*x + 1*y + 1*z <= 0.");
+            REQUIRE(parse("&sum { x; y; z } < 0.") ==
+                "2 -> 1*x + 1*y + 1*z <= -1.");
+            REQUIRE(parse("&sum { x; y; z } >= 0.") ==
+                "2 -> -1*x + -1*y + -1*z <= 0.");
+            REQUIRE(parse("&sum { x; y; z } > 0.") ==
+                "2 -> -1*x + -1*y + -1*z <= -1.");
         }
-        // TODO: more...
+        SECTION("sum body") {
+            REQUIRE(parse("a :- &sum { x; y; z } = 0.") ==
+                "{ -2, 3 }."
+                "{ -2, 4 }."
+                "{ -3, -4, 2 }."
+                "3 -> 1*x + 1*y + 1*z <= 0."
+                "-3 -> -1*x + -1*y + -1*z <= -1."
+                "4 -> -1*x + -1*y + -1*z <= 0."
+                "-4 -> 1*x + 1*y + 1*z <= -1.");
+            REQUIRE(parse("a :- &sum { x; y; z } != 0.") ==
+                "{ 2, 3 }."
+                "{ 2, 4 }."
+                "{ -3, -4, -2 }."
+                "3 -> 1*x + 1*y + 1*z <= 0."
+                "-3 -> -1*x + -1*y + -1*z <= -1."
+                "4 -> -1*x + -1*y + -1*z <= 0."
+                "-4 -> 1*x + 1*y + 1*z <= -1.");
+            REQUIRE(parse("a :- &sum { x; y; z } <= 0.") ==
+                "2 -> 1*x + 1*y + 1*z <= 0."
+                "-2 -> -1*x + -1*y + -1*z <= -1.");
+            REQUIRE(parse("a :- &sum { x; y; z } < 0.") ==
+                "2 -> 1*x + 1*y + 1*z <= -1."
+                "-2 -> -1*x + -1*y + -1*z <= 0.");
+            REQUIRE(parse("a :- &sum { x; y; z } >= 0.") ==
+                "2 -> -1*x + -1*y + -1*z <= 0."
+                "-2 -> 1*x + 1*y + 1*z <= -1.");
+            REQUIRE(parse("a :- &sum { x; y; z } > 0.") ==
+                "2 -> -1*x + -1*y + -1*z <= -1."
+                "-2 -> 1*x + 1*y + 1*z <= 0.");
+        }
+        SECTION("sum misc") {
+            REQUIRE(parse("&sum { x + y + z } = 0.") ==
+                "2 -> 1*x + 1*y + 1*z <= 0."
+                "2 -> -1*x + -1*y + -1*z <= 0.");
+            REQUIRE(parse("&sum { 2 * (x + 3 * y) } <= z.") ==
+                "2 -> 2*x + 6*y + -1*z <= 0.");
+        }
+        SECTION("diff") {
+            REQUIRE(parse("&diff { x - z } <= 0.") ==
+                "2 -> 1*x + -1*z <= 0.");
+            REQUIRE(parse("a :- &diff { x - z } <= 0.") ==
+                "2 -> 1*x + -1*z <= 0."
+                "-2 -> -1*x + 1*z <= -1.");
+        }
+        SECTION("distinct") {
+            // TODO
+        }
+        SECTION("show") {
+            // TODO
+        }
+        SECTION("dom") {
+            // TODO
+        }
+        SECTION("minimize") {
+            // TODO
+        }
+        SECTION("maximize") {
+            // TODO
+        }
     }
 }
