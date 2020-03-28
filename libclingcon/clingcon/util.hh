@@ -76,8 +76,13 @@ struct FlagUnique {
     [[nodiscard]] bool get_flag_unique(T const *x) const {
         return x->flag_unique;
     }
-    void set_flag_unique(T *x, bool flag) const {
-        x->flag_unique = flag;
+    bool set_flag_unique(T *x) const {
+        auto ret = x->flag_unique;
+        x->flag_unique = true;
+        return ret;
+    }
+    void unset_flag_unique(T *x) const {
+        x->flag_unique = false;
     }
 };
 
@@ -134,8 +139,9 @@ public:
     }
 
     //! Check if the vector contains an element.
-    [[nodiscard]] bool contains(T const *x) const {
-        return Flagger::get_flag_unique(x);
+    template <typename... Args>
+    [[nodiscard]] bool contains(T const *x, Args&&... args) const {
+        return Flagger::get_flag_unique(x, std::forward<Args>(args)...);
     }
 
     //! Check if the vector contains an element.
@@ -165,14 +171,14 @@ public:
 
     //! Remove an element from the vector.
     void erase(ConstIterator it) {
-        Flagger::set_flag_unique(*it, false);
+        Flagger::unset_flag_unique(*it);
         vec_.erase(it);
     }
 
     //! Clear the vector.
     void clear() {
         for (auto &x : vec_) {
-            Flagger::set_flag_unique(x, false);
+            Flagger::unset_flag_unique(x);
         }
         vec_.clear();
     }
@@ -190,12 +196,18 @@ public:
     }
 
     //! Append an element to the vector.
-    bool append(T *x) {
-        if (Flagger::get_flag_unique(x)) {
+    template <typename... Args>
+    bool append(T *x, Args&&... args) {
+        if (Flagger::set_flag_unique(x, std::forward<Args>(args)...)) {
             return false;
         }
-        vec_.emplace_back(x);
-        Flagger::set_flag_unique(x, true);
+        try {
+            vec_.emplace_back(x);
+        }
+        catch (...) {
+            Flagger::unset_flag_unique(x);
+            throw;
+        }
         return true;
     }
 

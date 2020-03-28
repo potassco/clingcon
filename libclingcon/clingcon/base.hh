@@ -35,7 +35,8 @@
 
 namespace Clingcon {
 
-using lit_t = Clingo::literal_t;
+using level_t = uint32_t;                 //!< type for decision levels
+using lit_t = Clingo::literal_t;          //!< type for solver and program literals
 using var_t = uint32_t;                   //!< indexes of variables
 using val_t = int32_t;                    //!< type for values of variables and coefficients
 using sum_t = int64_t;                    //!< type for summing up value
@@ -173,8 +174,8 @@ struct Statistics {
 };
 
 
-//! Per state configuration.
-struct StateConfig {
+//! Per solver configuration.
+struct SolverConfig {
     bool propagate_chain{DEFAULT_PROPAGATE_CHAIN};
     bool refine_reasons{DEFAULT_REFINE_REASONS};
     bool refine_introduce{DEFAULT_REFINE_INTRODUCE};
@@ -183,12 +184,12 @@ struct StateConfig {
 
 //! Global configuration.
 struct Config {
-    //! Get state specific configuration.
-    StateConfig &state_config(uint32_t thread_id) {
-        if (states.size() <= thread_id) {
-            states.resize(thread_id, default_state_config);
+    //! Get solver specific configuration.
+    SolverConfig &solver_config(uint32_t thread_id) {
+        if (solver_configs.size() <= thread_id) {
+            solver_configs.resize(thread_id, default_solver_config);
         }
-        return states[thread_id];
+        return solver_configs[thread_id];
     }
 
     int32_t min_int{DEFAULT_MIN_INT};
@@ -201,8 +202,8 @@ struct Config {
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
     bool translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
-    StateConfig default_state_config;
-    std::vector<StateConfig> states;
+    SolverConfig default_solver_config;
+    std::vector<SolverConfig> solver_configs;
 };
 
 

@@ -23,334 +23,53 @@
 // }}}
 
 #include "clingcon/solver.hh"
+#include "clingcon/util.hh"
 
-/*
-"""
-This module provides a State class responsible for thread-specific propagation.
-"""
+namespace Clingcon {
 
-from abc import abstractmethod
-from collections import OrderedDict
-from itertools import chain
-from .util import lerp, remove_if, TodoList, SortedDict, measure_time_decorator, ABC
-from .base import TRUE_LIT, ThreadStatistics
+namespace {
 
+struct FlagUndoLower {
+    [[nodiscard]] static bool get_flag_unique(VarState const *x, level_t level) {
+        return x->pushed_lower(level);
+    }
+    static bool set_flag_unique(VarState *x, level_t level) {
+        if (x->pushed_lower(level)) {
+            return true;
+        }
+        x->push_lower(level);
+        return false;
+    }
+    static void unset_flag_unique(VarState *x) {
+        x->pop_lower();
+    }
+};
 
-class AbstractConstraint(ABC):
-    """
-    Base class of all constraints.
-    """
+struct FlagUndoUpper {
+    [[nodiscard]] static bool get_flag_unique(VarState const *x, level_t level) {
+        return x->pushed_upper(level);
+    }
+    static bool set_flag_unique(VarState *x, level_t level) {
+        if (x->pushed_upper(level)) {
+            return true;
+        }
+        x->push_upper(level);
+        return false;
+    }
+    static void unset_flag_unique(VarState *x) {
+        x->pop_upper();
+    }
+};
 
-    @abstractmethod
-    def create_state(self):
-        """
-        Create thread specific state for the constraint.
-        """
+} // namespace
 
+//! Simple class that captures state local to a decision level.
+struct Solver::Level {
+    Level(level_t level)
+    : level{level} {
+    }
 
-class AbstractConstraintState(ABC):
-    """
-    Abstract class to capture the state of constraints.
-    """
-    def __init__(self):
-        self.inactive_level = 0
-
-    @abstractmethod
-    def attach(self, state):
-        """
-        Attach the constraint to the state.
-        """
-
-    @abstractmethod
-    def detach(self, state):
-        """
-        Detach the constraint from the state.
-        """
-
-    @abstractmethod
-    def translate(self, cc, state, config, added):
-        """
-        Translate a constraint to simpler constraints.
-        """
-
-    @abstractmethod
-    def update(self, i, diff):
-        """
-        Inform the state about updated bounds of a variable.
-
-        Value i depends on the value passed when registering the watch and diff
-        is the change to the bound of the watched variable.
-        """
-
-    @abstractmethod
-    def undo(self, i, diff):
-        """
-        Similar to update but when the bound of a variable is backtracked.
-        """
-
-    @abstractmethod
-    def propagate(self, state, cc, config, check_state):
-        """
-        Prepagates the constraint.
-        """
-
-    @abstractmethod
-    def check_full(self, state):
-        """
-        Check if the state meets the state invariants.
-        """
-
-    @property
-    def marked_inactive(self):
-        """
-        Returns true if the constraint is marked inactive.
-        """
-        return self.inactive_level > 0
-
-    @marked_inactive.setter
-    def marked_inactive(self, level):
-        """
-        Mark a constraint as inactive on the given level.
-        """
-        assert not self.marked_inactive
-        self.inactive_level = level+1
-
-    def mark_active(self):
-        """
-        Mark a constraint as active.
-        """
-        self.inactive_level = 0
-
-    def removable(self, level):
-        """
-        A constraint is removable if it has been marked inactive on a lower
-        level.
-        """
-        return self.marked_inactive and self.inactive_level <= level
-
-
-class VarState(object):
-    """
-    Class to facilitate handling order literals associated with an integer
-    variable.
-
-    The class maintains a stack of lower and upper bounds, which initially
-    contain the smallest and largest allowed integer. These stacks must always
-    contain at least one value.
-
-    Members
-    =======
-    var -- The name of the integer variable.
-    """
-    def __init__(self, var, min_int, max_int):
-        """
-        Create an initial state for the given variable.
-
-        Initially, the state has a lower bound of `config.min_int` and an upper bound
-        of `config.max_int` and is associated with no variables.
-        """
-        self.var = var
-        self._upper_bound = [max_int]
-        self._lower_bound = [min_int]
-        self._literals = SortedDict()
-
-    def push_lower(self):
-        """
-        Grows the stack of lower bounds by one copying the top value.
-        """
-        self._lower_bound.append(self.lower_bound)
-
-    def push_upper(self):
-        """
-        Grows the stack of upper bounds by one copying the top value.
-        """
-        self._upper_bound.append(self.upper_bound)
-
-    def pop_lower(self):
-        """
-        Remove one item from the stack of lower bounds.
-
-        Must be called on a stack of size greater than one.
-        """
-        assert len(self._lower_bound) > 1
-        self._lower_bound.pop()
-
-    def pop_upper(self):
-        """
-        Remove one item from the stack of upper bounds.
-
-        Must be called on a stack of size greater than one.
-        """
-        assert len(self._upper_bound) > 1
-        self._upper_bound.pop()
-
-    @property
-    def lower_bound(self):
-        """
-        Get the current lower bound on top of the stack.
-        """
-        assert self._lower_bound
-        return self._lower_bound[-1]
-
-    @lower_bound.setter
-    def lower_bound(self, value):
-        """
-        Set the current lower bound on top of the stack.
-
-        Must not be called on an empty stack.
-        """
-        assert self._lower_bound
-        self._lower_bound[-1] = value
-
-    @property
-    def min_bound(self):
-        """
-        Get the smallest lower bound of the state.
-        """
-        assert self._lower_bound
-        return self._lower_bound[0]
-
-    @property
-    def upper_bound(self):
-        """
-        Get the current upper bound on top of the stack.
-
-        Must not be called on an empty stack.
-        """
-        assert self._upper_bound
-        return self._upper_bound[-1]
-
-    @upper_bound.setter
-    def upper_bound(self, value):
-        """
-        Set the current upper bound on top of the stack.
-
-        Must not be called on an empty stack.
-        """
-        assert self._upper_bound
-        self._upper_bound[-1] = value
-
-    @property
-    def max_bound(self):
-        """
-        Get the largest upper bound of the state.
-        """
-        assert self._upper_bound
-        return self._upper_bound[0]
-
-    @property
-    def is_assigned(self):
-        """
-        Determine if the variable is assigned, i.e., the current lower bound
-        equals the current upper bound.
-        """
-        return self.upper_bound == self.lower_bound
-
-    def has_literal(self, value):
-        """
-        Determine if the given `value` is associated with an order literal.
-        """
-        return value in self._literals
-
-    def get_literal(self, value):
-        """
-        Get the literal associated with the given `value`.
-
-        The value must be associated with a literal.
-        """
-        return self._literals[value]
-
-    def prev_values(self, value):
-        """
-        Get the the preceeding value/literal pairs of the given value in
-        descending order.
-
-        The value must be associated with a literal.
-        """
-        assert self.has_literal(value)
-        i = self._literals.bisect_left(value)
-        while i > 0:
-            yield self._literals.peekitem(i-1)
-            i -= 1
-
-    def succ_values(self, value):
-        """
-        Get the the succeeding value/literal pairs of the given value in
-        ascending order.
-
-        The value must be associated with a literal.
-        """
-        assert self.has_literal(value)
-        i = self._literals.bisect_right(value)
-        while i < len(self._literals):
-            yield self._literals.peekitem(i)
-            i += 1
-
-    def value_le(self, value):
-        """
-        Find a value less than or equal to value.
-        """
-        i = self._literals.bisect_right(value)
-        return self._literals.peekitem(i-1) if i > 0 else None
-
-    def value_ge(self, value):
-        """
-        Find a value greater than or equal to value.
-        """
-        i = self._literals.bisect_left(value)
-        return self._literals.peekitem(i) if i < len(self._literals) else None
-
-    def set_literal(self, value, lit):
-        """
-        Set the literal of the given `value`.
-        """
-        self._literals[value] = lit
-
-    def unset_literal(self, value):
-        """
-        Unset the literal of the given `value`.
-        """
-        del self._literals[value]
-
-    def reset(self, min_int, max_int):
-        """
-        Remove all literals associated with this state.
-        """
-        self._upper_bound = [max_int]
-        self._lower_bound = [min_int]
-        self._literals.clear()
-
-    def __repr__(self):
-        return "{}=[{},{}]".format(self.var, self.lower_bound, self.upper_bound)
-
-
-class Level(object):
-    """
-    Simple class that captures state local to a decision level.
-
-    Members
-    =======
-    level        -- The decision level.
-    undo_upper   -- Set of `VarState` objects that have been assigned an upper
-                    bound.
-    undo_lower   -- Set of `VarState` objects that have been assigned a lower
-                    bound.
-    inactive     -- List of constraints that are inactive on the next level.
-    removed_v2cs -- List of variable/coefficient/constraint triples that have
-                    been removed from the State._v2cs map.
-    """
-    def __init__(self, level):
-        """
-        Construct an empty state for the given decision `level`.
-        """
-        self.level = level
-        self.inactive = []
-        self.removed_v2cs = []
-        # Note: A trail-like data structure would also be possible but then
-        # assignments would have to be undone.
-        self.undo_upper = TodoList()
-        self.undo_lower = TodoList()
-
+    /*
     def copy_state(self, state, lvl):
         """
         Copy level from given state.
@@ -372,11 +91,24 @@ class Level(object):
         del self.removed_v2cs[:]
         for var, co, cs in lvl.removed_v2cs:
             self.removed_v2cs.append((var, co, state.constraint_state(cs.constraint)))
+    */
 
-    def __repr__(self):
-        return "{}:l={}/u={}".format(self.level, self.undo_lower, self.undo_upper)
+    //! The associated decision level.
+    level_t level;
+    //! Set of Clingcon::VarState objects with a modified lower bound.
+    UniqueVector<VarState, FlagUndoLower> undo_lower;
+    //! Set of Clingcon::VarState objects that a modified upper bound.
+    UniqueVector<VarState, FlagUndoUpper> undo_upper;
+    //! List of constraint states that can become inactive on the next level.
+    std::vector<AbstractConstraintState*> inactive;
+    //! List of variable/coefficient/constraint triples that have been removed
+    //! from the Solver::v2cs_ map.
+    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_v2cs;
+};
 
+Solver::~Solver() = default;
 
+/*
 class State(object):
     """
     Class to store and propagate thread-specific state.
@@ -1298,3 +1030,5 @@ class State(object):
 
         return self._update_domain(cc, 1)
 */
+
+} // namespace Clingcon

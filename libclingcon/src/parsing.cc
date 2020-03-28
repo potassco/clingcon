@@ -591,7 +591,12 @@ void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &ato
     for (auto elem : atom.elements()) {
         auto tuple = elem.tuple();
         check_syntax(tuple.size() == 1 && elem.condition().empty(), "Invalid Syntax: invalid dom statement");
-        elements.emplace_back(parse_dom_elem(tuple.front()));
+        auto [l, r] = parse_dom_elem(tuple.front());
+        if (l < r) {
+            check_valid_value(l);
+            check_valid_value(safe_sub(r, 1));
+            elements.emplace_back(l, r);
+        }
     }
 
     check_syntax(atom.has_guard(), "Invalid Syntax: invalid dom statement");
