@@ -54,7 +54,7 @@ public:
     virtual ~AbstractConstraint() = default;
 
     //! Create thread specific state for the constraint.
-    virtual UniqueConstraintState create_state() = 0;
+    [[nodiscard]] virtual UniqueConstraintState create_state() = 0;
 };
 
 
@@ -70,14 +70,22 @@ public:
 
     //! Get the associated constraint.
     virtual AbstractConstraint* constraint();
-    //! Get a refernce to the level on which the constraint became inactive.
-    virtual level_t &inactive_level() = 0;
+
+    //! @name Initialization Functions
+    //! @{
+
     //! Attach the constraint to a solver.
     virtual void attach(Solver &solver) = 0;
     //! Detach the constraint from a solver.
     virtual void detach(Solver &solver) = 0;
     //! Translate a constraint to simpler constraints.
-    virtual bool translate(Solver &solver, AbstractClauseCreator &cc, Config &config, std::vector<UniqueConstraintState> &added) = 0;
+    [[nodiscard]] virtual bool translate(Solver &solver, AbstractClauseCreator &cc, Config &config, std::vector<UniqueConstraintState> &added) = 0;
+
+    //! @}
+
+    //! @name Functions for Constraint Progation
+    //! @{
+
     //! Inform the solver about updated bounds of a variable.
     //!
     //! Value i depends on the value passed when registering the watch and diff
@@ -86,39 +94,65 @@ public:
     //! Similar to update but when the bound of a variable is backtracked.
     virtual void undo(val_t i, val_t diff) = 0;
     //! Prepagates the constraint.
-    virtual bool propagate(Solver &solver, AbstractClauseCreator &cc, SolverConfig &config, bool check_state) = 0;
+    [[nodiscard]] virtual bool propagate(Solver &solver, AbstractClauseCreator &cc, SolverConfig &config, bool check_state) = 0;
     //! Check if the solver meets the state invariants.
-    virtual bool check_full(Solver &solver);
+    [[nodiscard]] virtual bool check_full(Solver &solver);
+
+    //! @}
+
+    //! @name Functions to Manage Todo Sets
+    //! @{
+
+    //! Mark the constraint state as todo item.
+    virtual void mark_todo(bool todo) = 0;
+    //! Returns true if the constraint is marked as todo item.
+    [[nodiscard]] virtual bool marked_todo() const = 0;
+
+    //! @}
+
+    //! @name Functions to Manage Sets of Inactive Constraint States (Template)
+    //! @{
 
     //! Returns true if the constraint is marked inactive.
-    bool marked_inactive() {
+    [[nodiscard]] bool marked_inactive() const {
         return inactive_level() > 0;
     }
-
+    //! Returns true if the constraint is removable.
+    [[nodiscard]] virtual bool removable() = 0;
     //! Mark a constraint inactive on the given level.
     void mark_inactive(level_t level) {
         assert(!marked_inactive());
-        inactive_level() = level + 1;
+        inactive_level(level + 1);
     }
-
     //! Mark a constraint active.
     void mark_active() {
-        inactive_level() = 0;
+        inactive_level(0);
     }
-
     //! A constraint is removable if it has been marked inactive on a lower
     //! level.
-    bool removable(level_t level) {
+    [[nodiscard]] bool removable(level_t level) {
         return marked_inactive() && inactive_level() <= level;
     }
+
+    //! @}
+
+protected:
+    //! @name Functions Manage Sets of Inactive Constraint States (Virtual)
+    //! @{
+
+    //! Get the level on which the constraint became inactive.
+    [[nodiscard]] virtual level_t inactive_level() const = 0;
+    //! Set the level on which the constraint became inactive.
+    virtual void inactive_level(level_t level) = 0;
+
+    //! @}
 };
 
 //! Class to facilitate handling order literals associated with an integer
 //! variable.
 //!
 //! The class maintains a stack of lower and upper bounds, which initially
-//! contain the smallest and largest allowed integer. These stacks must always
-//! contain at least one value.
+//! contain the smallest and largest allowed integer.
 class VarState {
 public:
     using OrderLiterals = std::map<val_t, lit_t>;                  //!< Container to store order literals.
@@ -278,23 +312,23 @@ public:
 
     //! Return a reverse iterator to the first order literal with a value less
     //! than the given value.
-    ReverseIterator lit_lt(val_t value) {
+    [[nodiscard]] ReverseIterator lit_lt(val_t value) {
         return ReverseIterator{literals_.lower_bound(value)};
     }
     //! Return a reverse iterator to the first order literal with a value less
     //! than or equal to the given value.
-    ReverseIterator lit_le(val_t value) {
+    [[nodiscard]] ReverseIterator lit_le(val_t value) {
         return ReverseIterator{literals_.upper_bound(value)};
     }
 
     //! Return an iterator to the first order literal with a value greater than
     //! the given value.
-    Iterator lit_gt(val_t value) {
+    [[nodiscard]] Iterator lit_gt(val_t value) {
         return literals_.upper_bound(value);
     }
     //! Return an iterator to the first order literal with a value greater than
     //! or equal to the given value.
-    Iterator lit_ge(val_t value) {
+    [[nodiscard]] Iterator lit_ge(val_t value) {
         return literals_.lower_bound(value);
     }
 
@@ -314,10 +348,10 @@ private:
 using ConstraintVec = std::vector<std::pair<lit_t, AbstractConstraint*>>;
 
 class Solver {
-    struct Level;
+    class Level;
 
 public:
-    Solver(SolverConfig const &config, SolverStatistics &stats, ConstraintVec const &constraints);
+    Solver(SolverConfig const &config, SolverStatistics &stats);
 
     Solver() = delete;
     Solver(Solver const &) = delete;
@@ -341,16 +375,16 @@ public:
 
     //! Get the Clingcon::VarState object associated with the given variable.
     [[nodiscard]] VarState &var_state(var_t var) {
-        return var_states_[var];
+        return var2vs_[var];
     }
     //! Get the Clingcon::VarState object associated with the given variable.
     [[nodiscard]] VarState const &var_state(var_t var) const {
-        return var_states_[var];
+        return var2vs_[var];
     }
 
     //! Get the Clingcon::ConstraintState object associated with the given constraint.
     [[nodiscard]] AbstractConstraintState *constraint_state(AbstractConstraint *constraint) {
-        return cstate_.find(constraint)->second;
+        return c2cs_.find(constraint)->second;
     }
 
 private:
@@ -359,7 +393,7 @@ private:
     //! Solver statitstics;
     SolverStatistics &stats_;
     //! Vector of all VarState objects.
-    std::vector<VarState> var_states_;
+    std::vector<VarState> var2vs_;
     //! Vector for per decision level state.
     std::vector<Level> levels_;
     //! Map from order literals to a list of var_t, val_t pairs.
@@ -368,27 +402,33 @@ private:
     //! `(var,value)` is contained in the map
     std::unordered_multimap<lit_t, std::pair<var_t, val_t>> litmap_;
     //! A mapping from constraint states to constraints.
-    std::unordered_map<AbstractConstraint*, AbstractConstraintState*> cstate_;
-    /*
-    _v2cs             -- Map from variable names to a list of
-                         integer/constraint state pairs. The meaning of the
-                         integer depends on the type of constraint.
-    _l2c              -- Map from literals to a list of constraints. The map
-                         contains a literal/constraint pair if the literal is
-                         associated with the constraint.
-    _todo             -- Set of constraints that have to be propagated on the
-                         current decision level.
-    _facts_integrated -- A tuple of integers storing how many true/false facts
-                         have already been integrated on the top level.
-    _lerp_last        -- Offset to speed up `check_full`.
-    _trail_offset     -- Offset to speed up `simplify`.
-    _minimize_bound   -- Current bound of the minimize constraint (if any).
-    _minimize_level   -- The minimize constraint might not have been fully
-                         propagated below this level. See `update_minimize`.
-    _cstate           -- A dictionary mapping constraints to their states.
-    _udiff, _ldiff    -- Changes to upper and lower bounds since the last call
-                         to check.
-    */
+    std::unordered_map<AbstractConstraint*, AbstractConstraintState*> c2cs_;
+    //! Watches mapping variables to a constraint state and a constraint
+    //! specific integer value.
+    std::vector<std::vector<std::pair<val_t, AbstractConstraintState*>>> watches_;
+    //! Upper bound changes to variables since last check call.
+    std::vector<val_t> udiff_;
+    //! Set of variables whose upper bounds changed since the last check call.
+    std::vector<var_t> in_udiff_;
+    //! Lower bound changes to variables since last check call.
+    std::vector<val_t> ldiff_;
+    //! Set of variables whose lower bounds changed since the last check call.
+    std::vector<var_t> in_ldiff_;
+    //! Set of constraint states to propagate.
+    std::vector<AbstractConstraintState*> todo_;
+    //! Map from literals to corresponding constraint states.
+    std::unordered_multimap<lit_t, AbstractConstraintState*> lit2cs_;
+    //! The number of true/false factual literals that have been integrated.
+    std::pair<uint32_t, uint32_t> facts_integrated_{0, 0};
+    //! Offset to speed up Solver::check_full.
+    uint32_t lerp_last_{0};
+    //! Offset to speed up Solver::simplify.
+    uint32_t trail_offset_{0};
+    //! The minimize constraint might not have been fully propagated below this
+    //! level. See Solver::update_minimize.
+    level_t minimize_level_{0};
+    //! Current bound of the minimize constraint (if any).
+    std::optional<val_t> minimize_bound_;
 };
 
 } // namespace Clingcon

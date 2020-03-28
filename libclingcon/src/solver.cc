@@ -27,56 +27,109 @@
 
 namespace Clingcon {
 
-//! Simple class that captures state local to a decision level.
-struct Solver::Level {
+//! Class that helps to maintain pre decision level state.
+class Solver::Level {
 public:
     Level(level_t level)
     : level_{level} {
     }
 
+    //! Update the lower bound of a var state.
+    void update_lower(Solver &solver, var_t var, val_t value) {
+        auto &vs = solver.var_state(var);
+        val_t diff = value + 1 - vs.lower_bound();
+        if (level_ > 0 && vs.pushed_lower(level_) ) {
+            vs.push_lower(level_);
+            undo_lower_.emplace_back(var);
+        }
+        vs.lower_bound(value + 1);
+
+        if (solver.ldiff_[vs.var()] == 0) {
+            solver.in_ldiff_.emplace_back(var);
+        }
+        solver.ldiff_[var] += diff;
+    }
+
     //! Update the upper bound of a var state.
-    val_t update_upper(VarState &vs, val_t value) {
+    void update_upper(Solver &solver, var_t var, val_t value) {
+        auto &vs = solver.var_state(var);
         val_t diff = value - vs.upper_bound();
         if (level_ > 0 && vs.pushed_upper(level_) ) {
             vs.push_upper(level_);
-            undo_upper_.emplace_back(vs.var());
+            undo_upper_.emplace_back(var);
         }
         vs.upper_bound(value);
-        // TODO: this should also manage the solver's udiff
-        //       that the mapping is in the solver is just an optimization
-        //       we need two vectors
-        //       - var -> diff (where var is the index)
-        //       - var (where the vector contains all changed variables)
-        return diff;
-    }
 
-    //! Update the lower bound of a var state.
-    val_t update_lower(VarState &vs, val_t value) {
-        val_t diff = value - vs.lower_bound();
-        if (level_ > 0 && vs.pushed_lower(level_) ) {
-            vs.push_lower(level_);
-            undo_lower_.emplace_back(vs.var());
+        if (solver.udiff_[var] == 0) {
+            solver.in_udiff_.emplace_back(var);
         }
-        vs.lower_bound(value);
-        return diff;
+        solver.udiff_[var] += diff;
     }
 
     //! Mark a constraint state as inactive.
     void mark_inactive(AbstractConstraintState *cs) {
-        // TODO: consider handling the removable flag here too
-        if (!cs->marked_inactive()) {
+        if (cs->removable() && !cs->marked_inactive()) {
             inactive_.emplace_back(cs);
             cs->mark_active();
         }
     }
 
-    // TODO: shoud have an undo function managing most of the work that was so
-    // far in Solver::undo.
+    //! This function undos decision level specific state.
+    //!
+    //! This includes undoing changed bounds of variables clearing constraints
+    //! that where not propagated on the current decision level.
+    void undo(Solver &solver) {
+        // undo lower bound changes
+        for (auto var : undo_lower_) {
+            auto vs = solver.var_state(var);
+            auto value = vs.lower_bound();
+            vs.pop_lower();
+            auto diff = value - vs.lower_bound() - solver.ldiff_[var];
+            if (diff != 0) {
+                for (auto &[co, cs] : solver.watches_[var]) {
+                    cs->undo(co, diff);
+                }
+            }
+            solver.ldiff_[var] = 0;
+        }
+        solver.in_ldiff_.clear();
+
+        // undo upper bound changes
+        for (auto var : undo_upper_) {
+            auto vs = solver.var_state(var);
+            auto value = vs.upper_bound();
+            vs.pop_upper();
+            auto diff = value - vs.upper_bound() - solver.udiff_[var];
+            if (diff != 0) {
+                for (auto &[co, cs] : solver.watches_[var]) {
+                    cs->undo(co, diff);
+                }
+            }
+            solver.udiff_[var] = 0;
+        }
+        solver.in_udiff_.clear();
+
+        // mark constraints as active again
+        for (auto *cs : inactive_) {
+            cs->mark_active();
+        }
+
+        // add removed watches
+        for (auto &[var, val, cs] : removed_watches_) {
+            solver.watches_[var].emplace_back(val, cs);
+        }
+
+        // clear remaining todo items
+        for (auto *cs : solver.todo_) {
+            cs->mark_todo(false);
+        }
+        solver.todo_.clear();
+    }
 
     // TODO: should have erase functions for constraint states to handle
     // erasing during translation.
 
-    //! Copy level from given state.
+    //! Copy the given level.
     //!
     //! This function must only be called on the top level. It does not update
     //! variable and constraint states. This has to happen in
@@ -99,9 +152,9 @@ public:
             inactive_.emplace_back(solver.constraint_state(cs->constraint()));
         }
 
-        removed_v2cs_.clear();
-        for (auto const &[var, val, cs] : lvl.removed_v2cs_) {
-            removed_v2cs_.emplace_back(var, val, solver.constraint_state(cs->constraint()));
+        removed_watches_.clear();
+        for (auto const &[var, val, cs] : lvl.removed_watches_) {
+            removed_watches_.emplace_back(var, val, solver.constraint_state(cs->constraint()));
         }
     }
 
@@ -116,77 +169,19 @@ private:
     std::vector<AbstractConstraintState*> inactive_;
     //! List of variable/coefficient/constraint triples that have been removed
     //! from the Solver::v2cs_ map.
-    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_v2cs_;
+    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_watches_;
 };
 
-Solver::Solver(SolverConfig const &config, SolverStatistics &stats, ConstraintVec const &constraints)
+Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
 : config_{config}
 , stats_{stats} {
-    static_cast<void>(constraints);
+    levels_.emplace_back(0);
 }
 
 Solver::~Solver() = default;
 
 /*
 class State(object):
-    """
-    Class to store and propagate thread-specific state.
-
-    Public Members
-    ==============
-    statistics        -- A ThreadStatistics object holding statistics.
-    config            -- A StateConfig object holding thread specific configuration.
-
-    Private Members
-    ===============
-    _var_state        -- List of `VarState` objects.
-    _litmap           -- Map from order literals to a list of `VarState/value`
-                         pairs. If there is an order literal for `var<=value`,
-                         then the pair `(vs,value)` is contained in the map
-                         where `vs` is the VarState of `var`.
-    _levels           -- For each decision level propagated, there is a `Level`
-                         object in this list until `undo` is called.
-    _v2cs             -- Map from variable names to a list of
-                         integer/constraint state pairs. The meaning of the
-                         integer depends on the type of constraint.
-    _l2c              -- Map from literals to a list of constraints. The map
-                         contains a literal/constraint pair if the literal is
-                         associated with the constraint.
-    _todo             -- Set of constraints that have to be propagated on the
-                         current decision level.
-    _facts_integrated -- A tuple of integers storing how many true/false facts
-                         have already been integrated on the top level.
-    _lerp_last        -- Offset to speed up `check_full`.
-    _trail_offset     -- Offset to speed up `simplify`.
-    _minimize_bound   -- Current bound of the minimize constraint (if any).
-    _minimize_level   -- The minimize constraint might not have been fully
-                         propagated below this level. See `update_minimize`.
-    _cstate           -- A dictionary mapping constraints to their states.
-    _udiff, _ldiff    -- Changes to upper and lower bounds since the last call
-                         to check.
-    """
-    def __init__(self, l2c, config):
-        """
-        A newly inititialized state is ready to propagate decision level zero
-        after a call to `init_domain`.
-        """
-        self._var_state = []
-        self._litmap = {}
-        self._levels = [Level(0)]
-        self._v2cs = {}
-        self._l2c = l2c
-        self._todo = TodoList()
-        self._facts_integrated = (0, 0)
-        self._lerp_last = 0
-        self._trail_offset = 0
-        self._minimize_bound = None
-        self._minimize_level = 0
-        self.statistics = ThreadStatistics()
-        self._cstate = {}
-        self._udiff = OrderedDict()
-        self._ldiff = OrderedDict()
-        self.config = config
-
     def copy_state(self, master):
         """
         Copy order literals and propagation state from the given `master` state
