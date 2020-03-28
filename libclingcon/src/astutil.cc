@@ -281,16 +281,35 @@ struct HasPool {
     void visit(Clingo::AST::Term const &term, Clingo::AST::Pool const &pool) {
         static_cast<void>(term);
         static_cast<void>(pool);
-        has_pool = true;
+        found_pool = true;
     }
-    bool has_pool{false};
+    bool found_pool{false};
 };
 
 template <class N>
 bool has_pool(N const &node) {
     HasPool v;
     visit_ast(v, node);
-    return v.has_pool;
+    return v.found_pool;
+}
+
+struct TheoryHasPool {
+    void visit(Clingo::AST::BodyLiteral const &lit, Clingo::AST::TheoryAtom const &atom) {
+        static_cast<void>(atom);
+        found_pool = found_pool || has_pool(lit);
+    }
+    void visit(Clingo::AST::HeadLiteral const &lit, Clingo::AST::TheoryAtom const &atom) {
+        static_cast<void>(atom);
+        found_pool = found_pool || has_pool(lit);
+    }
+    bool found_pool{false};
+};
+
+template <class N>
+bool theory_has_pool(N const &node) {
+    TheoryHasPool v;
+    visit_ast(v, node);
+    return v.found_pool;
 }
 
 } // namespace
@@ -311,7 +330,7 @@ std::vector<Clingo::AST::Literal> unpool(Clingo::AST::Literal &&lit) {
 }
 
 std::vector<Clingo::AST::HeadLiteral> unpool(Clingo::AST::HeadLiteral &&lit) {
-    if (has_pool(lit)) {
+    if (theory_has_pool(lit)) {
         HeadBodyUnpooler v;
         return lit.data.accept(v, lit);
     }
@@ -319,7 +338,7 @@ std::vector<Clingo::AST::HeadLiteral> unpool(Clingo::AST::HeadLiteral &&lit) {
 }
 
 std::vector<Clingo::AST::BodyLiteral> unpool(Clingo::AST::BodyLiteral &&lit) {
-    if (has_pool(lit)) {
+    if (theory_has_pool(lit)) {
         HeadBodyUnpooler v;
         return lit.data.accept(v, lit);
     }
@@ -327,7 +346,7 @@ std::vector<Clingo::AST::BodyLiteral> unpool(Clingo::AST::BodyLiteral &&lit) {
 }
 
 void unpool(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb) {
-    if (has_pool(stm)) {
+    if (theory_has_pool(stm)) {
         StatementUnpooler v{cb};
         stm.data.accept(v, stm);
     }
