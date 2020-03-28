@@ -63,6 +63,24 @@ struct FlagUndoUpper {
     }
 };
 
+struct FlagInactive {
+    [[nodiscard]] static bool get_flag_unique(AbstractConstraintState *state) {
+        return state->marked_inactive();
+    }
+    static bool set_flag_unique(AbstractConstraintState *state, int level) {
+        auto ret = state->marked_inactive();
+        if (ret) {
+            return true;
+        }
+        state->mark_inactive(level);
+        return false;
+    }
+    static void unset_flag_unique(AbstractConstraintState *state) {
+        state->mark_active();
+    }
+};
+
+
 } // namespace
 
 //! Simple class that captures state local to a decision level.
@@ -84,6 +102,11 @@ struct Solver::Level {
             undo_upper.append(var, solver, level);
         }
 
+        inactive.clear();
+        for (auto *cs : lvl.inactive) {
+            static_cast<void>(cs);
+            // TODO: this needs the cstate mapping
+        }
         /*
         // Note: it really looks like inactive can be a unique vector as well
         //       this will be interesting because containment will be over
@@ -98,6 +121,9 @@ struct Solver::Level {
         */
     }
 
+    // TODO: think about not having the unique vectors and instead putting the
+    // intelligence into the level object.
+
     //! The associated decision level.
     level_t level;
     //! Set of Clingcon::VarState objects with a modified lower bound.
@@ -105,7 +131,7 @@ struct Solver::Level {
     //! Set of Clingcon::VarState objects that a modified upper bound.
     UniqueVector<var_t, FlagUndoUpper> undo_upper;
     //! List of constraint states that can become inactive on the next level.
-    std::vector<AbstractConstraintState*> inactive;
+    UniqueVector<AbstractConstraintState*, FlagInactive> inactive;
     //! List of variable/coefficient/constraint triples that have been removed
     //! from the Solver::v2cs_ map.
     std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_v2cs;
