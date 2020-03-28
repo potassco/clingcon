@@ -73,15 +73,15 @@ private:
 //! Helper to mark/detect if an element is contained in a `UniqueVector`.
 template <class T>
 struct FlagUnique {
-    [[nodiscard]] bool get_flag_unique(T const *x) const {
+    [[nodiscard]] bool get_flag_unique(T const &x) const {
         return x->flag_unique;
     }
-    bool set_flag_unique(T *x) const {
+    bool set_flag_unique(T &x) const {
         auto ret = x->flag_unique;
         x->flag_unique = true;
         return ret;
     }
-    void unset_flag_unique(T *x) const {
+    void unset_flag_unique(T &x) const {
         x->flag_unique = false;
     }
 };
@@ -90,7 +90,7 @@ struct FlagUnique {
 template <typename T, class Flagger=FlagUnique<T>>
 class UniqueVector : private Flagger {
 public:
-    using Vector = typename std::vector<T*>;
+    using Vector = typename std::vector<T>;
     using Iterator = typename Vector::iterator;
     using ConstIterator = typename Vector::const_iterator;
 
@@ -99,24 +99,21 @@ public:
     : Flagger(m) {
     }
 
-    //! Destroy the vector unmarking all contained elements.
-    ~UniqueVector() {
-        clear();
-    }
+    //! Destroy the vector but does *not* unmarking the contained elements.
+    ~UniqueVector() = default;
 
     //! Move construct the vector.
     //!
-    //! Implemented via swap because the destructor iterates over the
-    //! invalidated vector again.
+    //! Implemented via swap.
     UniqueVector(UniqueVector &&x) noexcept {
+        *static_cast<Flagger*>(this) = std::move(*static_cast<Flagger*>(x));
         std::swap(vec_, x.vec_);
     }
     //! Move assign the vector.
     //!
-    //! Implemented via swap because the destructor iterates over the
-    //! invalidated vector again.
+    //! Implemented via swap.
     UniqueVector &operator=(UniqueVector &&x) noexcept {
-        clear();
+        *static_cast<Flagger*>(this) = std::move(*static_cast<Flagger*>(x));
         std::swap(vec_, x.vec_);
     }
 
@@ -134,19 +131,14 @@ public:
     }
 
     //! Get the element at the given position.
-    [[nodiscard]] T *operator[](size_t i) const {
+    [[nodiscard]] T &operator[](size_t i) const {
         return vec_[i];
     }
 
     //! Check if the vector contains an element.
     template <typename... Args>
-    [[nodiscard]] bool contains(T const *x, Args&&... args) const {
+    [[nodiscard]] bool contains(T const &x, Args&&... args) const {
         return Flagger::get_flag_unique(x, std::forward<Args>(args)...);
-    }
-
-    //! Check if the vector contains an element.
-    [[nodiscard]] bool contains(T const &x) const {
-        return contains(&x);
     }
 
     //! Iterator to the beginning of the vector.
@@ -170,25 +162,27 @@ public:
     }
 
     //! Remove an element from the vector.
-    void erase(ConstIterator it) {
-        Flagger::unset_flag_unique(*it);
+    template <typename... Args>
+    void erase(ConstIterator it, Args&&... args) {
+        Flagger::unset_flag_unique(const_cast<T &>(*it), std::forward<Args>(args)...); // NOLINT
         vec_.erase(it);
     }
 
     //! Clear the vector.
-    void clear() {
+    template <typename... Args>
+    void clear(Args&&... args) {
         for (auto &x : vec_) {
-            Flagger::unset_flag_unique(x);
+            Flagger::unset_flag_unique(x, std::forward<Args>(args)...);
         }
         vec_.clear();
     }
 
     //! Add elements from a sequence to the vector.
-    template <typename It>
-    size_t extend(It begin, It end) {
+    template <typename It, typename... Args>
+    size_t extend(It begin, It end, Args... args) {
         size_t n = 0;
         for (auto it = begin; it != end; ++it) {
-            if (append(*it)) {
+            if (append(*it, args...)) {
                 ++n;
             }
         }
@@ -196,24 +190,14 @@ public:
     }
 
     //! Append an element to the vector.
-    template <typename... Args>
-    bool append(T *x, Args&&... args) {
+    template <typename U, typename... Args>
+    bool append(U&& x, Args&&... args) {
+        vec_.reserve(vec_.size() + 1);
         if (Flagger::set_flag_unique(x, std::forward<Args>(args)...)) {
             return false;
         }
-        try {
-            vec_.emplace_back(x);
-        }
-        catch (...) {
-            Flagger::unset_flag_unique(x);
-            throw;
-        }
+        vec_.emplace_back(std::forward<U>(x));
         return true;
-    }
-
-    //! Append an element to the vector.
-    bool append(T &x) {
-        return append(&x);
     }
 
 private:

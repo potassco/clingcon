@@ -30,34 +30,36 @@ namespace Clingcon {
 namespace {
 
 struct FlagUndoLower {
-    [[nodiscard]] static bool get_flag_unique(VarState const *x, level_t level) {
-        return x->pushed_lower(level);
+    [[nodiscard]] static bool get_flag_unique(var_t var, Solver &solver, level_t level) {
+        return solver.var_state(var).pushed_lower(level);
     }
-    static bool set_flag_unique(VarState *x, level_t level) {
-        if (x->pushed_lower(level)) {
+    static bool set_flag_unique(var_t var, Solver &solver, level_t level) {
+        auto vs = solver.var_state(var);
+        if (vs.pushed_lower(level)) {
             return true;
         }
-        x->push_lower(level);
+        vs.push_lower(level);
         return false;
     }
-    static void unset_flag_unique(VarState *x) {
-        x->pop_lower();
+    static void unset_flag_unique(var_t var, Solver &solver) {
+        solver.var_state(var).pop_lower();
     }
 };
 
 struct FlagUndoUpper {
-    [[nodiscard]] static bool get_flag_unique(VarState const *x, level_t level) {
-        return x->pushed_upper(level);
+    [[nodiscard]] static bool get_flag_unique(var_t var, Solver &solver, level_t level) {
+        return solver.var_state(var).pushed_upper(level);
     }
-    static bool set_flag_unique(VarState *x, level_t level) {
-        if (x->pushed_upper(level)) {
+    static bool set_flag_unique(var_t var, Solver &solver, level_t level) {
+        auto vs = solver.var_state(var);
+        if (vs.pushed_upper(level)) {
             return true;
         }
-        x->push_upper(level);
+        vs.push_upper(level);
         return false;
     }
-    static void unset_flag_unique(VarState *x) {
-        x->pop_upper();
+    static void unset_flag_unique(var_t var, Solver &solver) {
+        solver.var_state(var).pop_upper();
     }
 };
 
@@ -96,9 +98,9 @@ struct Solver::Level {
     //! The associated decision level.
     level_t level;
     //! Set of Clingcon::VarState objects with a modified lower bound.
-    UniqueVector<VarState, FlagUndoLower> undo_lower;
+    UniqueVector<var_t, FlagUndoLower> undo_lower;
     //! Set of Clingcon::VarState objects that a modified upper bound.
-    UniqueVector<VarState, FlagUndoUpper> undo_upper;
+    UniqueVector<var_t, FlagUndoUpper> undo_upper;
     //! List of constraint states that can become inactive on the next level.
     std::vector<AbstractConstraintState*> inactive;
     //! List of variable/coefficient/constraint triples that have been removed

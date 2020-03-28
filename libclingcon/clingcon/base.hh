@@ -51,7 +51,7 @@ constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max();
 //! into Clingcon::sum_t.
 constexpr val_t MIN_VAL = -MAX_VAL;
 
-// defaults for thread config
+// defaults for solver config
 constexpr bool DEFAULT_PROPAGATE_CHAIN{true};
 constexpr bool DEFAULT_REFINE_REASONS{true};
 constexpr bool DEFAULT_REFINE_INTRODUCE{true};
@@ -86,15 +86,15 @@ inline void check_valid_value(val_t val) {
 }
 static_assert(std::is_same<Clingo::weight_t, val_t>::value);
 
-//! Thread specific statistics.
-struct ThreadStatistics {
+//! Solver specific statistics.
+struct SolverStatistics {
     //! Reset all statistics to their starting values.
     void reset() {
-        *this = ThreadStatistics();
+        *this = SolverStatistics();
     }
 
     //! Accumulate statistics in `stats`.
-    void accu(ThreadStatistics const &stats) {
+    void accu(SolverStatistics const &stats) {
         time_propagate += stats.time_propagate;
         time_check += stats.time_check;
         time_undo += stats.time_undo;
@@ -129,7 +129,7 @@ struct Statistics {
         translate_wcs = 0;
         translate_literals = 0;
         cost.reset();
-        for (auto &s : tstats) {
+        for (auto &s : solver_stats) {
             s.reset();
         }
     }
@@ -150,9 +150,9 @@ struct Statistics {
         translate_literals += stat.translate_literals;
         cost = stat.cost;
 
-        tstats.resize(stat.tstats.size());
-        auto it = stat.tstats.begin();
-        for (auto &tstat : tstats) {
+        solver_stats.resize(stat.solver_stats.size());
+        auto it = stat.solver_stats.begin();
+        for (auto &tstat : solver_stats) {
             tstat.accu(*it++);
         }
     }
@@ -170,7 +170,7 @@ struct Statistics {
     uint64_t translate_wcs = 0;
     uint64_t translate_literals = 0;
     std::optional<uint64_t> cost;
-    std::vector<ThreadStatistics> tstats;
+    std::vector<SolverStatistics> solver_stats;
 };
 
 
@@ -371,7 +371,7 @@ private:
 //! object.
 class ControlClauseCreator final : public AbstractClauseCreator {
 public:
-    ControlClauseCreator(Clingo::PropagateControl &control, ThreadStatistics &stats)
+    ControlClauseCreator(Clingo::PropagateControl &control, SolverStatistics &stats)
     : control_{control}
     , stats_{stats} {
     }
@@ -399,7 +399,7 @@ public:
 
 private:
     Clingo::PropagateControl &control_;
-    ThreadStatistics &stats_;
+    SolverStatistics &stats_;
 };
 
 } // namespace Clingcon

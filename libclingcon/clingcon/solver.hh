@@ -319,8 +319,45 @@ public:
     Solver& operator=(Solver &&) = delete;
     ~Solver();
 
+    VarState &var_state(var_t var);
+
 private:
     std::vector<Level> levels_;
+    SolverStatistics &stats_;
+    SolverConfig &config_;
+    std::vector<VarState> var_states_;
+    /*
+    statistics        -- A ThreadStatistics object holding statistics.
+    config            -- A StateConfig object holding thread specific configuration.
+
+    Private Members
+    ===============
+    _var_state        -- List of `VarState` objects.
+    _litmap           -- Map from order literals to a list of `VarState/value`
+                         pairs. If there is an order literal for `var<=value`,
+                         then the pair `(vs,value)` is contained in the map
+                         where `vs` is the VarState of `var`.
+    _levels           -- For each decision level propagated, there is a `Level`
+                         object in this list until `undo` is called.
+    _v2cs             -- Map from variable names to a list of
+                         integer/constraint state pairs. The meaning of the
+                         integer depends on the type of constraint.
+    _l2c              -- Map from literals to a list of constraints. The map
+                         contains a literal/constraint pair if the literal is
+                         associated with the constraint.
+    _todo             -- Set of constraints that have to be propagated on the
+                         current decision level.
+    _facts_integrated -- A tuple of integers storing how many true/false facts
+                         have already been integrated on the top level.
+    _lerp_last        -- Offset to speed up `check_full`.
+    _trail_offset     -- Offset to speed up `simplify`.
+    _minimize_bound   -- Current bound of the minimize constraint (if any).
+    _minimize_level   -- The minimize constraint might not have been fully
+                         propagated below this level. See `update_minimize`.
+    _cstate           -- A dictionary mapping constraints to their states.
+    _udiff, _ldiff    -- Changes to upper and lower bounds since the last call
+                         to check.
+    */
 };
 
 } // namespace Clingcon

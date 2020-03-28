@@ -35,7 +35,6 @@ struct Element {
     bool flag_unique{false};
 };
 
-
 TEST_CASE("util", "[util]") { // NOLINT
     SECTION("midpoint") {
         auto a = std::numeric_limits<int>::max();
@@ -56,29 +55,34 @@ TEST_CASE("util", "[util]") { // NOLINT
 
     SECTION("unique-vec") {
         std::vector<Element> elems{1, 2, 3, 4, 5};
-        UniqueVector<Element> uniq;
+        std::vector<Element*> ptrs;
+        UniqueVector<Element*> uniq;
+        ptrs.reserve(elems.size());
+        for (auto &x : elems) {
+            ptrs.emplace_back(&x);
+        }
 
         REQUIRE(uniq.empty());
-        REQUIRE(uniq.append(elems[0]));
-        REQUIRE(!uniq.append(elems[0]));
+        REQUIRE(uniq.append(&elems[0]));
+        REQUIRE(!uniq.append(&elems[0]));
         REQUIRE(uniq.size() == 1);
         REQUIRE(!uniq.empty());
-        REQUIRE(uniq.append(elems[1]));
-        REQUIRE(!uniq.append(elems[1]));
+        REQUIRE(uniq.append(&elems[1]));
+        REQUIRE(!uniq.append(&elems[1]));
         REQUIRE(uniq.size() == 2);
 
-        REQUIRE(uniq.extend(elems.begin(), elems.begin() + 4) == 2);
+        REQUIRE(uniq.extend(ptrs.begin(), ptrs.begin() + 4) == 2);
         for (auto const &x : uniq) {
             REQUIRE(uniq.contains(x));
         }
         REQUIRE(uniq.size() == 4);
 
-        REQUIRE(uniq.contains(elems[3]));
+        REQUIRE(uniq.contains(&elems[3]));
         auto it = std::find(uniq.begin(), uniq.end(), &elems[3]);
         REQUIRE(it != uniq.end());
         uniq.erase(it);
         REQUIRE(uniq.size() == 3);
-        REQUIRE(!uniq.contains(elems[3]));
+        REQUIRE(!uniq.contains(&elems[3]));
 
         uniq.clear();
         REQUIRE(uniq.empty());
