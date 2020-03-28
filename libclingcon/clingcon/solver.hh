@@ -68,6 +68,8 @@ public:
     AbstractConstraintState &operator=(AbstractConstraintState &&) = delete;
     virtual ~AbstractConstraintState() = default;
 
+    //! Get the associated constraint.
+    virtual AbstractConstraint* constraint();
     //! Get a refernce to the level on which the constraint became inactive.
     virtual level_t &inactive_level() = 0;
     //! Attach the constraint to a solver.
@@ -324,15 +326,6 @@ public:
     Solver& operator=(Solver &&) = delete;
     ~Solver();
 
-    //! Get the Clingcon::VarState object associated with the given variable.
-    [[nodiscard]] VarState &var_state(var_t var) {
-        return var_states_[var];
-    }
-    //! Get the Clingcon::VarState object associated with the given variable.
-    [[nodiscard]] VarState const &var_state(var_t var) const {
-        return var_states_[var];
-    }
-
     //! Get the solver's configuration.
     [[nodiscard]] SolverConfig const &config() const {
         return config_;
@@ -344,6 +337,20 @@ public:
     //! Get the solver's statistics.
     [[nodiscard]] SolverStatistics const &statistics() const {
         return stats_;
+    }
+
+    //! Get the Clingcon::VarState object associated with the given variable.
+    [[nodiscard]] VarState &var_state(var_t var) {
+        return var_states_[var];
+    }
+    //! Get the Clingcon::VarState object associated with the given variable.
+    [[nodiscard]] VarState const &var_state(var_t var) const {
+        return var_states_[var];
+    }
+
+    //! Get the Clingcon::ConstraintState object associated with the given constraint.
+    [[nodiscard]] AbstractConstraintState *constraint_state(AbstractConstraint *constraint) {
+        return cstate_.find(constraint)->second;
     }
 
 private:
@@ -360,6 +367,8 @@ private:
     //! If there is an order literal for `var<=value`, then the pair
     //! `(var,value)` is contained in the map
     std::unordered_multimap<lit_t, std::pair<var_t, val_t>> litmap_;
+    //! A mapping from constraint states to constraints.
+    std::unordered_map<AbstractConstraint*, AbstractConstraintState*> cstate_;
     /*
     _v2cs             -- Map from variable names to a list of
                          integer/constraint state pairs. The meaning of the

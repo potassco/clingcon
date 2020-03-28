@@ -27,114 +27,96 @@
 
 namespace Clingcon {
 
-namespace {
-
-struct FlagUndoLower {
-    [[nodiscard]] static bool get_flag_unique(var_t var, Solver &solver, level_t level) {
-        return solver.var_state(var).pushed_lower(level);
-    }
-    static bool set_flag_unique(var_t var, Solver &solver, level_t level) {
-        auto vs = solver.var_state(var);
-        if (vs.pushed_lower(level)) {
-            return true;
-        }
-        vs.push_lower(level);
-        return false;
-    }
-    static void unset_flag_unique(var_t var, Solver &solver) {
-        solver.var_state(var).pop_lower();
-    }
-};
-
-struct FlagUndoUpper {
-    [[nodiscard]] static bool get_flag_unique(var_t var, Solver const &solver, level_t level) {
-        return solver.var_state(var).pushed_upper(level);
-    }
-    static bool set_flag_unique(var_t var, Solver &solver, level_t level) {
-        auto vs = solver.var_state(var);
-        if (vs.pushed_upper(level)) {
-            return true;
-        }
-        vs.push_upper(level);
-        return false;
-    }
-    static void unset_flag_unique(var_t var, Solver &solver) {
-        solver.var_state(var).pop_upper();
-    }
-};
-
-struct FlagInactive {
-    [[nodiscard]] static bool get_flag_unique(AbstractConstraintState *state) {
-        return state->marked_inactive();
-    }
-    static bool set_flag_unique(AbstractConstraintState *state, int level) {
-        auto ret = state->marked_inactive();
-        if (ret) {
-            return true;
-        }
-        state->mark_inactive(level);
-        return false;
-    }
-    static void unset_flag_unique(AbstractConstraintState *state) {
-        state->mark_active();
-    }
-};
-
-
-} // namespace
-
 //! Simple class that captures state local to a decision level.
 struct Solver::Level {
+public:
     Level(level_t level)
-    : level{level} {
+    : level_{level} {
     }
+
+    //! Update the upper bound of a var state.
+    val_t update_upper(VarState &vs, val_t value) {
+        val_t diff = value - vs.upper_bound();
+        if (level_ > 0 && vs.pushed_upper(level_) ) {
+            vs.push_upper(level_);
+            undo_upper_.emplace_back(vs.var());
+        }
+        vs.upper_bound(value);
+        // TODO: this should also manage the solver's udiff
+        //       that the mapping is in the solver is just an optimization
+        //       we need two vectors
+        //       - var -> diff (where var is the index)
+        //       - var (where the vector contains all changed variables)
+        return diff;
+    }
+
+    //! Update the lower bound of a var state.
+    val_t update_lower(VarState &vs, val_t value) {
+        val_t diff = value - vs.lower_bound();
+        if (level_ > 0 && vs.pushed_lower(level_) ) {
+            vs.push_lower(level_);
+            undo_lower_.emplace_back(vs.var());
+        }
+        vs.lower_bound(value);
+        return diff;
+    }
+
+    //! Mark a constraint state as inactive.
+    void mark_inactive(AbstractConstraintState *cs) {
+        // TODO: consider handling the removable flag here too
+        if (!cs->marked_inactive()) {
+            inactive_.emplace_back(cs);
+            cs->mark_active();
+        }
+    }
+
+    // TODO: shoud have an undo function managing most of the work that was so
+    // far in Solver::undo.
+
+    // TODO: should have erase functions for constraint states to handle
+    // erasing during translation.
 
     //! Copy level from given state.
-    void copy(Solver &solver, Level const &lvl) {
-        assert(level == lvl.level);
+    //!
+    //! This function must only be called on the top level. It does not update
+    //! variable and constraint states. This has to happen in
+    //! Solver::copy_state.
+    void copy_state(Solver &solver, Level const &lvl) {
+        assert(level_ == 0 && lvl.level_ == 0);
 
-        undo_lower.clear(solver);
-        for (auto var : lvl.undo_lower) {
-            undo_lower.append(var, solver, level);
-        }
-        undo_upper.clear(solver);
-        for (auto var : lvl.undo_upper) {
-            undo_upper.append(var, solver, level);
+        undo_lower_.clear();
+        for (auto var : lvl.undo_lower_) {
+            undo_lower_.emplace_back(var);
         }
 
-        inactive.clear();
-        for (auto *cs : lvl.inactive) {
-            static_cast<void>(cs);
-            // TODO: this needs the cstate mapping
+        undo_upper_.clear();
+        for (auto var : lvl.undo_upper_) {
+            undo_upper_.emplace_back(var);
         }
-        /*
-        // Note: it really looks like inactive can be a unique vector as well
-        //       this will be interesting because containment will be over
-        //       multiple vectors (which is just the right thing)
-        del self.inactive[:]
-        for cs in lvl.inactive:
-            self.inactive.append(state.constraint_state(cs.constraint))
 
-        del self.removed_v2cs[:]
-        for var, co, cs in lvl.removed_v2cs:
-            self.removed_v2cs.append((var, co, state.constraint_state(cs.constraint)))
-        */
+        inactive_.clear();
+        for (auto *cs : lvl.inactive_) {
+            inactive_.emplace_back(solver.constraint_state(cs->constraint()));
+        }
+
+        removed_v2cs_.clear();
+        for (auto const &[var, val, cs] : lvl.removed_v2cs_) {
+            removed_v2cs_.emplace_back(var, val, solver.constraint_state(cs->constraint()));
+        }
     }
 
-    // TODO: think about not having the unique vectors and instead putting the
-    // intelligence into the level object.
-
+private:
     //! The associated decision level.
-    level_t level;
+    level_t level_;
     //! Set of Clingcon::VarState objects with a modified lower bound.
-    UniqueVector<var_t, FlagUndoLower> undo_lower;
+    std::vector<var_t> undo_lower_;
     //! Set of Clingcon::VarState objects that a modified upper bound.
-    UniqueVector<var_t, FlagUndoUpper> undo_upper;
+    std::vector<var_t> undo_upper_;
     //! List of constraint states that can become inactive on the next level.
-    UniqueVector<AbstractConstraintState*, FlagInactive> inactive;
+    std::vector<AbstractConstraintState*> inactive_;
     //! List of variable/coefficient/constraint triples that have been removed
     //! from the Solver::v2cs_ map.
-    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_v2cs;
+    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_v2cs_;
 };
 
 Solver::Solver(SolverConfig const &config, SolverStatistics &stats, ConstraintVec const &constraints)
