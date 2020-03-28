@@ -47,7 +47,7 @@ struct FlagUndoLower {
 };
 
 struct FlagUndoUpper {
-    [[nodiscard]] static bool get_flag_unique(var_t var, Solver &solver, level_t level) {
+    [[nodiscard]] static bool get_flag_unique(var_t var, Solver const &solver, level_t level) {
         return solver.var_state(var).pushed_upper(level);
     }
     static bool set_flag_unique(var_t var, Solver &solver, level_t level) {
@@ -71,21 +71,23 @@ struct Solver::Level {
     : level{level} {
     }
 
-    /*
-    def copy_state(self, state, lvl):
-        """
-        Copy level from given state.
-        """
-        assert self.level == lvl.level
+    //! Copy level from given state.
+    void copy(Solver &solver, Level const &lvl) {
+        assert(level == lvl.level);
 
-        self.undo_lower.clear()
-        for vs in lvl.undo_lower:
-            self.undo_lower.add(state.var_state(vs.var))
+        undo_lower.clear(solver);
+        for (auto var : lvl.undo_lower) {
+            undo_lower.append(var, solver, level);
+        }
+        undo_upper.clear(solver);
+        for (auto var : lvl.undo_upper) {
+            undo_upper.append(var, solver, level);
+        }
 
-        self.undo_upper.clear()
-        for vs in lvl.undo_upper:
-            self.undo_upper.add(state.var_state(vs.var))
-
+        /*
+        // Note: it really looks like inactive can be a unique vector as well
+        //       this will be interesting because containment will be over
+        //       multiple vectors (which is just the right thing)
         del self.inactive[:]
         for cs in lvl.inactive:
             self.inactive.append(state.constraint_state(cs.constraint))
@@ -93,7 +95,8 @@ struct Solver::Level {
         del self.removed_v2cs[:]
         for var, co, cs in lvl.removed_v2cs:
             self.removed_v2cs.append((var, co, state.constraint_state(cs.constraint)))
-    */
+        */
+    }
 
     //! The associated decision level.
     level_t level;
@@ -107,6 +110,12 @@ struct Solver::Level {
     //! from the Solver::v2cs_ map.
     std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_v2cs;
 };
+
+Solver::Solver(SolverConfig const &config, SolverStatistics &stats, ConstraintVec const &constraints)
+: config_{config}
+, stats_{stats} {
+    static_cast<void>(constraints);
+}
 
 Solver::~Solver() = default;
 

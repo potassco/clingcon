@@ -27,6 +27,7 @@
 
 #include <clingo.hh>
 #include <optional>
+#include <forward_list>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -150,10 +151,15 @@ struct Statistics {
         translate_literals += stat.translate_literals;
         cost = stat.cost;
 
-        solver_stats.resize(stat.solver_stats.size());
-        auto it = stat.solver_stats.begin();
-        for (auto &tstat : solver_stats) {
-            tstat.accu(*it++);
+        auto it = solver_stats.before_begin();
+        for (auto &solver_stat : stat.solver_stats) {
+            auto jt = it++;
+            if (it != solver_stats.end()) {
+                it->accu(solver_stat);
+            }
+            else {
+                it = solver_stats.emplace_after(jt, solver_stat);
+            }
         }
     }
 
@@ -170,7 +176,7 @@ struct Statistics {
     uint64_t translate_wcs = 0;
     uint64_t translate_literals = 0;
     std::optional<uint64_t> cost;
-    std::vector<SolverStatistics> solver_stats;
+    std::forward_list<SolverStatistics> solver_stats;
 };
 
 
@@ -186,10 +192,16 @@ struct SolverConfig {
 struct Config {
     //! Get solver specific configuration.
     SolverConfig &solver_config(uint32_t thread_id) {
-        if (solver_configs.size() <= thread_id) {
-            solver_configs.resize(thread_id, default_solver_config);
+        auto it = solver_configs.before_begin();
+
+        for (uint32_t i = 0; i < thread_id; ++i) {
+            auto jt = it++;
+            if (it == solver_configs.end()) {
+                it = solver_configs.emplace_after(jt, default_solver_config);
+            }
         }
-        return solver_configs[thread_id];
+
+        return *it;
     }
 
     int32_t min_int{DEFAULT_MIN_INT};
@@ -203,7 +215,7 @@ struct Config {
     bool check_state{DEFAULT_CHECK_STATE};
     bool translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
     SolverConfig default_solver_config;
-    std::vector<SolverConfig> solver_configs;
+    std::forward_list<SolverConfig> solver_configs;
 };
 
 

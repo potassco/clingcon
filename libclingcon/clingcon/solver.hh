@@ -27,6 +27,7 @@
 
 #include <clingcon/base.hh>
 #include <map>
+#include <unordered_map>
 
 //! @file clingcon/solver.hh
 //! This module implements a CSP solver for thread-specific propagation and
@@ -308,10 +309,14 @@ private:
     OrderLiterals literals_;       //!< map from values to literals
 };
 
+using ConstraintVec = std::vector<std::pair<lit_t, AbstractConstraint*>>;
+
 class Solver {
     struct Level;
 
 public:
+    Solver(SolverConfig const &config, SolverStatistics &stats, ConstraintVec const &constraints);
+
     Solver() = delete;
     Solver(Solver const &) = delete;
     Solver(Solver &&) = delete;
@@ -319,26 +324,43 @@ public:
     Solver& operator=(Solver &&) = delete;
     ~Solver();
 
-    VarState &var_state(var_t var);
+    //! Get the Clingcon::VarState object associated with the given variable.
+    [[nodiscard]] VarState &var_state(var_t var) {
+        return var_states_[var];
+    }
+    //! Get the Clingcon::VarState object associated with the given variable.
+    [[nodiscard]] VarState const &var_state(var_t var) const {
+        return var_states_[var];
+    }
+
+    //! Get the solver's configuration.
+    [[nodiscard]] SolverConfig const &config() const {
+        return config_;
+    }
+    //! Get the solver's statistics.
+    [[nodiscard]] SolverStatistics &statistics() {
+        return stats_;
+    }
+    //! Get the solver's statistics.
+    [[nodiscard]] SolverStatistics const &statistics() const {
+        return stats_;
+    }
 
 private:
-    std::vector<Level> levels_;
+    //! Solver configuration.
+    SolverConfig const &config_;
+    //! Solver statitstics;
     SolverStatistics &stats_;
-    SolverConfig &config_;
+    //! Vector of all VarState objects.
     std::vector<VarState> var_states_;
+    //! Vector for per decision level state.
+    std::vector<Level> levels_;
+    //! Map from order literals to a list of var_t, val_t pairs.
+    //!
+    //! If there is an order literal for `var<=value`, then the pair
+    //! `(var,value)` is contained in the map
+    std::unordered_multimap<lit_t, std::pair<var_t, val_t>> litmap_;
     /*
-    statistics        -- A ThreadStatistics object holding statistics.
-    config            -- A StateConfig object holding thread specific configuration.
-
-    Private Members
-    ===============
-    _var_state        -- List of `VarState` objects.
-    _litmap           -- Map from order literals to a list of `VarState/value`
-                         pairs. If there is an order literal for `var<=value`,
-                         then the pair `(vs,value)` is contained in the map
-                         where `vs` is the VarState of `var`.
-    _levels           -- For each decision level propagated, there is a `Level`
-                         object in this list until `undo` is called.
     _v2cs             -- Map from variable names to a list of
                          integer/constraint state pairs. The meaning of the
                          integer depends on the type of constraint.
