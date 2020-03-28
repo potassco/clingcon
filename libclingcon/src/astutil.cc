@@ -28,6 +28,12 @@ namespace Clingcon {
 
 namespace {
 
+// Unpooling could still be improved. Since this is tricky, the current
+// implementation simply checks if there is a pool in a statement and only
+// unpools it in this case. To improve the implementation, a term in a tuple
+// resulting from a cross product can be moved if all other terms are the last
+// from their pool.
+
 struct TermUnpooler {
     using Ret = std::vector<Clingo::AST::Term>;
 
@@ -56,9 +62,11 @@ struct TermUnpooler {
 
     [[nodiscard]] static Ret visit(Clingo::AST::BinaryOperation &value, Clingo::AST::Term &node) {
         Ret ret;
-        for (auto &left : accept(value.left)) {
-            for (auto &right : accept(value.right)) {
-                ret.push_back({node.location, Clingo::AST::BinaryOperation{value.binary_operator, left, std::move(right)}});
+        auto pool_left = accept(value.left);
+        auto pool_right = accept(value.right);
+        for (auto &left : pool_left) {
+            for (auto &right : pool_right) {
+                ret.push_back({node.location, Clingo::AST::BinaryOperation{value.binary_operator, left, right}});
             }
         }
         return ret;
@@ -66,9 +74,11 @@ struct TermUnpooler {
 
     [[nodiscard]] static Ret visit(Clingo::AST::Interval &value, Clingo::AST::Term &node) {
         Ret ret;
-        for (auto &left : accept(value.left)) {
-            for (auto &right : accept(value.right)) {
-                ret.push_back({node.location, Clingo::AST::Interval{left, std::move(right)}});
+        auto pool_left = accept(value.left);
+        auto pool_right = accept(value.right);
+        for (auto &left : pool_left) {
+            for (auto &right : pool_right) {
+                ret.push_back({node.location, Clingo::AST::Interval{left, right}});
             }
         }
         return ret;
@@ -267,30 +277,63 @@ struct StatementUnpooler {
     Clingo::StatementCallback const &callback;
 };
 
+struct HasPool {
+    void visit(Clingo::AST::Term const &term, Clingo::AST::Pool const &pool) {
+        static_cast<void>(term);
+        static_cast<void>(pool);
+        has_pool = true;
+    }
+    bool has_pool{false};
+};
+
+template <class N>
+bool has_pool(N const &node) {
+    HasPool v;
+    visit_ast(v, node);
+    return v.has_pool;
+}
+
 } // namespace
 
 std::vector<Clingo::AST::Term> unpool(Clingo::AST::Term &&term) {
-    return TermUnpooler::accept(term);
+    if (has_pool(term)) {
+        return TermUnpooler::accept(term);
+    }
+    return {std::move(term)};
 }
 
 std::vector<Clingo::AST::Literal> unpool(Clingo::AST::Literal &&lit) {
-    LiteralUnpooler v;
-    return lit.data.accept(v, lit);
+    if (has_pool(lit)) {
+        LiteralUnpooler v;
+        return lit.data.accept(v, lit);
+    }
+    return {std::move(lit)};
 }
 
 std::vector<Clingo::AST::HeadLiteral> unpool(Clingo::AST::HeadLiteral &&lit) {
-    HeadBodyUnpooler v;
-    return lit.data.accept(v, lit);
+    if (has_pool(lit)) {
+        HeadBodyUnpooler v;
+        return lit.data.accept(v, lit);
+    }
+    return {std::move(lit)};
 }
 
 std::vector<Clingo::AST::BodyLiteral> unpool(Clingo::AST::BodyLiteral &&lit) {
-    HeadBodyUnpooler v;
-    return lit.data.accept(v, lit);
+    if (has_pool(lit)) {
+        HeadBodyUnpooler v;
+        return lit.data.accept(v, lit);
+    }
+    return {std::move(lit)};
 }
 
 void unpool(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb) {
-    StatementUnpooler v{cb};
-    stm.data.accept(v, stm);
+    if (has_pool(stm)) {
+        StatementUnpooler v{cb};
+        stm.data.accept(v, stm);
+    }
+    else {
+        cb(std::move(stm));
+    }
 }
 
 } // namespace Clingcon

@@ -236,6 +236,7 @@ struct Visitor {
 
     void visit(make_const_t<Const, Clingo::AST::TheoryAtom> &value, make_const_t<Const, Clingo::AST::HeadLiteral> &node) {
         if (call_visit(visitor, node, value)) {
+            accept(value.term);
             if (auto *guard = value.guard.get()) {
                 accept(guard->term);
             }
@@ -304,6 +305,7 @@ struct Visitor {
 
     void visit(make_const_t<Const, Clingo::AST::TheoryAtom> &value, make_const_t<Const, Clingo::AST::BodyLiteral> &node) {
         if (call_visit(visitor, node, value)) {
+            accept(value.term);
             if (auto *guard = value.guard.get()) {
                 accept(guard->term);
             }
