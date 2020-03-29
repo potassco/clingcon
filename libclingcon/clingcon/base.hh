@@ -53,6 +53,7 @@ constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max();
 constexpr val_t MIN_VAL = -MAX_VAL;
 
 // defaults for solver config
+constexpr bool DEFAULT_SPLIT_ALL{true};
 constexpr bool DEFAULT_PROPAGATE_CHAIN{true};
 constexpr bool DEFAULT_REFINE_REASONS{true};
 constexpr bool DEFAULT_REFINE_INTRODUCE{true};
@@ -182,6 +183,7 @@ struct Statistics {
 
 //! Per solver configuration.
 struct SolverConfig {
+    bool split_all{DEFAULT_SPLIT_ALL};
     bool propagate_chain{DEFAULT_PROPAGATE_CHAIN};
     bool refine_reasons{DEFAULT_REFINE_REASONS};
     bool refine_introduce{DEFAULT_REFINE_INTRODUCE};

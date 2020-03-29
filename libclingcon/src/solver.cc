@@ -271,7 +271,7 @@ Solver::~Solver() = default;
 
 void Solver::copy_state(Solver const &master) {
     // just to be thorough
-    lerp_last_ = master.lerp_last_;
+    split_last_ = master.split_last_;
     trail_offset_ = master.trail_offset_;
     minimize_level_ = master.minimize_level_;
     minimize_bound_ = master.minimize_bound_;
@@ -538,7 +538,7 @@ bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
             return true;
         }
 
-        if (!propagate(cc, trail.begin() + trail_offset_, trail.begin() + trail_offset)) {
+        if (!propagate_(cc, trail.begin() + trail_offset_, trail.begin() + trail_offset)) {
             return false;
         }
         trail_offset_ = trail_offset;
@@ -547,6 +547,29 @@ bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
             return false;
         }
     }
+}
+
+[[nodiscard]] bool Solver::propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes) {
+    return propagate_(cc, changes.begin(), changes.end());
+}
+
+template <class It>
+[[nodiscard]] bool Solver::propagate_(AbstractClauseCreator &cc, It begin, It end) {
+    Timer timer{stats_.time_propagate};
+
+    auto ass = cc.assignment();
+
+    // open a new decision level if necessary
+    push_level_(ass.decision_level());
+
+    // propagate order literals that became true/false
+    for (auto it = begin; it != end; ++it) {
+        if (!propagate_(cc, *it)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
@@ -737,31 +760,63 @@ void Solver::undo() {
     levels_.pop_back();
 }
 
+void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
+    auto split = [&](VarState &vs) {
+        if (!vs.is_assigned()) {
+            auto value = midpoint(vs.lower_bound(), vs.upper_bound());
+            static_cast<void>(get_literal(cc, vs, value));
+            return true;
+        }
+        return false;
+    };
+
+    if (config_.split_all) {
+        bool res{false};
+        for (auto &vs : var2vs_) {
+            res = split(vs) || res;
+        }
+        if (res) {
+            return;
+        }
+    }
+    else {
+        auto ib = var2vs_.begin();
+        auto im = ib + split_last_;
+        auto ie = var2vs_.end();
+
+        auto split_once = [&](auto it) {
+            if (split(*it)) {
+                split_last_ = it - ib;
+                return true;;
+            }
+            return false;
+        };
+
+        for (auto it = im; it != ie; ++it) {
+            if (split_once(it)) {
+                return;
+            }
+        }
+        for (auto it = ib; it != im; ++it) {
+            if (split_once(it)) {
+                return;
+            }
+        }
+    }
+
+    if (check_solution) {
+        auto ass = cc.assignment();
+        for (auto [lit, cs] : lit2cs_) {
+            if (ass.is_true(lit)) {
+                cs->check_full(*this);
+            }
+
+        }
+    }
+}
+
 /*
 class State(object):
-    def check_full(self, control, check_solution):
-        """
-        This function selects a variable that is not fully assigned w.r.t. the
-        current assignment and introduces an additional order literal for it.
-
-        This function should only be called total assignments.
-        """
-        post = range(self._lerp_last, len(self.var2vs_))
-        pre = range(0, self._lerp_last)
-        for i in chain(post, pre):
-            vs = self.var2vs_[i]
-            if not vs.is_assigned:
-                self._lerp_last = i
-                value = lerp(vs.lower_bound, vs.upper_bound)
-                self.get_literal(vs, value, control)
-                return
-
-        if check_solution:
-            for lit, constraints in self._l2c.items():
-                if control.assignment.is_true(lit):
-                    for c in constraints:
-                        assert self.constraint_state(c).check_full(self)
-
     def update(self, cc):
         """
         This function resets a state and should be called when a new solve step

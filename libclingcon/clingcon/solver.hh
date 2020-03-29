@@ -102,7 +102,7 @@ public:
     //! Prepagates the constraint.
     [[nodiscard]] virtual bool propagate(AbstractClauseCreator &cc, SolverConfig const &config, bool check_state) = 0;
     //! Check if the solver meets the state invariants.
-    [[nodiscard]] virtual bool check_full(Solver &solver);
+    virtual void check_full(Solver &solver);
 
     //! @}
 
@@ -444,22 +444,7 @@ public:
     //!
     //! Constraints that became true are added to the todo list and bounds of
     //! variables are adjusted according to the truth of order literals.
-    template <class It>
-    [[nodiscard]] bool propagate(AbstractClauseCreator &cc, It begin, It end) {
-        auto ass = cc.assignment();
-
-        // open a new decision level if necessary
-        push_level_(ass.decision_level());
-
-        // propagate order literals that became true/false
-        for (auto it = begin; it != end; ++it) {
-            if (!propagate_(cc, *it)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    [[nodiscard]] bool propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes);
 
     //! This functions propagates facts that have not been integrated on the
     //! current level and propagates constraints gathered during Solver::propagate.
@@ -470,6 +455,12 @@ public:
     //! This includes undoing changed bounds of variables clearing constraints
     //! that where not propagated on the current decision level.
     void undo();
+
+    //! This function selects a variable that is not fully assigned w.r.t. the
+    //! current assignment and introduces an additional order literal for it.
+    //!
+    //! This function should only be called total assignments.
+    void check_full(AbstractClauseCreator &cc, bool check_solution);
 
     //! @name Initialization
     //! @{
@@ -499,11 +490,9 @@ public:
     //! @}
 
 private:
-    //! Update watches and enque constraints.
-    //!
-    //! The parameters determine whether the lookup tables for lower or upper
-    //! bounds are used.
-    void update_constraints_(Level &lvl, var_t var, val_t diff);
+    //! See Solver::propagate.
+    template <class It>
+    [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, It begin, It end);
 
     //! Propagates the preceeding or succeeding order literal of lit.
     //!
@@ -588,7 +577,7 @@ private:
     //! Map from literals to corresponding constraint states.
     std::unordered_multimap<lit_t, AbstractConstraintState*> lit2cs_;
     //! Offset to speed up Solver::check_full.
-    uint32_t lerp_last_{0};
+    uint32_t split_last_{0};
     //! Offset to speed up Solver::simplify.
     uint32_t trail_offset_{0};
     //! The minimize constraint might not have been fully propagated below this
