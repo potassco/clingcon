@@ -69,7 +69,7 @@ public:
     virtual ~AbstractConstraintState() = default;
 
     //! Get the associated constraint.
-    virtual AbstractConstraint* constraint();
+    virtual AbstractConstraint& constraint();
 
     //! @name Initialization Functions
     //! @{
@@ -106,7 +106,7 @@ public:
     //! @{
 
     //! Mark the constraint state as todo item.
-    virtual void mark_todo(bool todo) = 0;
+    virtual bool mark_todo(bool todo) = 0;
     //! Returns true if the constraint is marked as todo item.
     [[nodiscard]] virtual bool marked_todo() const = 0;
 
@@ -267,6 +267,11 @@ public:
         return lower_bound_ == upper_bound_;
     }
 
+    //! Get a reference to an existing or newly created literal.
+    [[nodiscard]] lit_t &get_or_add_literal(val_t value) {
+        return literals_.emplace(value, 0).first->second;
+    }
+
     //! Determine if the given value is associated with an order literal.
     [[nodiscard]] bool has_literal(val_t value) const {
         return literals_.find(value) != literals_.end();
@@ -385,9 +390,46 @@ public:
     }
 
     //! Get the Clingcon::ConstraintState object associated with the given constraint.
-    [[nodiscard]] AbstractConstraintState *constraint_state(AbstractConstraint *constraint) {
-        return c2cs_.find(constraint)->second.get();
+    [[nodiscard]] AbstractConstraintState &constraint_state(AbstractConstraint &constraint) {
+        return *c2cs_.find(&constraint)->second;
     }
+
+    //! Get the current value of a variable.
+    //!
+    //! This function should be called on the solver corresponding to the thread
+    //! where a model has been found.
+    [[nodiscard]] val_t get_value(var_t var) const;
+
+    //! Get the current bound of the minimize constraint.
+    [[nodiscard]] std::optional<val_t> minimize_bound() const;
+    //! Updates the bound of the minimize constraint in this state.
+    void update_minimize(AbstractConstraint &constraint, level_t level, val_t bound);
+
+    //! Returns the literal associated with the `vs.var/value` pair.
+    //!
+    //! Values smaller below the smallest lower bound are associated with the
+    //! false literal and values greater or equal to the largest upper bound
+    //! with the true literal.
+    //!
+    //! This function creates a new literal using `cc` if there is no literal
+    //! for the given value.
+    [[nodiscard]] lit_t get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value);
+
+    //! This function is an extended version of Solver::get_literal that can
+    //! update the literal of an existing order literal on the top level.
+    //!
+    //! This function might fix the previous literal and can thus cause a top
+    //! level conflict, which is indicated by the first part of the return
+    //! value.
+    [[nodiscard]] std::pair<bool, lit_t> update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, std::optional<bool> truth);
+
+    //! Watch the given variable notifying given constraint state on changes.
+    //!
+    //! The integer `i` is additional information passed to the constraint
+    //! state upon notification.
+    void add_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
+    //! Remove a previously added watch.
+    void remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
 
     //! @name Initialization
     //! @{
@@ -401,8 +443,32 @@ public:
     //! Adds a new VarState object and returns its index;
     var_t add_variable(val_t min_int, val_t max_int);
 
+    //! Add the given constraint to the propagation queue and initialize its state.
+    AbstractConstraintState &add_constraint(AbstractConstraint &constraint);
+
+    //! Remove a constraint.
+    void remove_constraint(AbstractConstraint &constraint);
+
     //! @}
+
 private:
+    //! Add a new decision level specific state if necessary.
+    //!
+    //! Has to be called in Solver::propagate.
+    Level &push_level_(level_t level);
+
+    //! Get the state associated with the current decision level.
+    //!
+    //! Should only be used in propagate, undo, and check. When check is called,
+    //! the current decision level can be higher than that of the Level object
+    //! returned. This can only happen when backtracking from a model because the
+    //! bound of a minimize constraint changed. In this case, check will just
+    //! propagate the minimize constraint and return.
+    [[nodiscard]] Level &level_();
+
+    //! Removes order literal `lit` for `vs.var<=value` from Solver::litmap_.
+    void remove_literal_(var_t var, lit_t lit, val_t value);
+
     //! Solver configuration.
     SolverConfig const &config_;
     //! Solver statitstics;
@@ -420,7 +486,7 @@ private:
     std::unordered_map<AbstractConstraint*, UniqueConstraintState> c2cs_;
     //! Watches mapping variables to a constraint state and a constraint
     //! specific integer value.
-    std::vector<std::vector<std::pair<val_t, AbstractConstraintState*>>> watches_;
+    std::vector<std::vector<std::pair<val_t, AbstractConstraintState*>>> var_watches_;
     //! Upper bound changes to variables since last check call.
     std::vector<val_t> udiff_;
     //! Set of variables whose upper bounds changed since the last check call.

@@ -34,6 +34,10 @@ public:
     : level_{level} {
     }
 
+    [[nodiscard]] level_t level() const {
+        return level_;
+    }
+
     //! Update the lower bound of a var state.
     void update_lower(Solver &solver, var_t var, val_t value) {
         auto &vs = solver.var_state(var);
@@ -67,10 +71,18 @@ public:
     }
 
     //! Mark a constraint state as inactive.
-    void mark_inactive(AbstractConstraintState *cs) {
-        if (cs->removable() && !cs->marked_inactive()) {
-            inactive_.emplace_back(cs);
-            cs->mark_active();
+    void mark_inactive(AbstractConstraintState &cs) {
+        if (cs.removable() && !cs.marked_inactive()) {
+            inactive_.emplace_back(&cs);
+            cs.mark_active();
+        }
+    }
+
+    //! Add the given constraint state to the todo list if it is not yet
+    //! contained.
+    static void mark_todo(Solver &solver, AbstractConstraintState &cs) {
+        if (cs.mark_todo(true)) {
+            solver.todo_.emplace_back(&cs);
         }
     }
 
@@ -86,7 +98,7 @@ public:
             vs.pop_lower();
             auto diff = value - vs.lower_bound() - solver.ldiff_[var];
             if (diff != 0) {
-                for (auto &[co, cs] : solver.watches_[var]) {
+                for (auto &[co, cs] : solver.var_watches_[var]) {
                     cs->undo(co, diff);
                 }
             }
@@ -101,7 +113,7 @@ public:
             vs.pop_upper();
             auto diff = value - vs.upper_bound() - solver.udiff_[var];
             if (diff != 0) {
-                for (auto &[co, cs] : solver.watches_[var]) {
+                for (auto &[co, cs] : solver.var_watches_[var]) {
                     cs->undo(co, diff);
                 }
             }
@@ -116,7 +128,7 @@ public:
 
         // add removed watches
         for (auto &[var, val, cs] : removed_watches_) {
-            solver.watches_[var].emplace_back(val, cs);
+            solver.var_watches_[var].emplace_back(val, cs);
         }
 
         // clear remaining todo items
@@ -126,8 +138,17 @@ public:
         solver.todo_.clear();
     }
 
-    // TODO: should have erase functions for constraint states to handle
-    // erasing during translation.
+    //! Remove the constraint state from the propagation state.
+    void remove_constraint(Solver &solver, AbstractConstraintState &cs) {
+        if (cs.marked_inactive()) {
+            cs.mark_active();
+            inactive_.erase(std::find(inactive_.begin(), inactive_.end(), &cs));
+        }
+        if (cs.marked_todo()) {
+            solver.todo_.erase(std::find(solver.todo_.begin(), solver.todo_.end(), &cs));
+
+        }
+    }
 
     //! Copy the given level.
     //!
@@ -156,19 +177,19 @@ public:
 
         lvl.inactive_.clear();
         for (auto *cs : lvl_master.inactive_) {
-            lvl.inactive_.emplace_back(solver.constraint_state(cs->constraint()));
+            lvl.inactive_.emplace_back(&solver.constraint_state(cs->constraint()));
         }
 
         lvl.removed_watches_.clear();
         lvl.removed_watches_.reserve(lvl_master.removed_watches_.size());
         for (auto const &[var, val, cs] : lvl_master.removed_watches_) {
-            lvl.removed_watches_.emplace_back(var, val, solver.constraint_state(cs->constraint()));
+            lvl.removed_watches_.emplace_back(var, val, &solver.constraint_state(cs->constraint()));
         }
 
         solver.todo_.clear();
         solver.todo_.reserve(master.todo_.size());
         for (auto const &cs : master.todo_) {
-            solver.todo_.emplace_back(solver.constraint_state(cs->constraint()));
+            solver.todo_.emplace_back(&solver.constraint_state(cs->constraint()));
         }
     }
 
@@ -225,10 +246,10 @@ void Solver::copy_state(Solver const &master) {
     }
 
     // copy watches
-    watches_ = master.watches_;
-    for (auto &var_watches : watches_) {
+    var_watches_ = master.var_watches_;
+    for (auto &var_watches : var_watches_) {
         for (auto &watch : var_watches) {
-            watch.second = constraint_state(watch.second->constraint());
+            watch.second = &constraint_state(watch.second->constraint());
         }
     }
 
@@ -242,240 +263,145 @@ var_t Solver::add_variable(val_t min_int, val_t max_int) {
     return idx;
 }
 
+std::optional<val_t> Solver::minimize_bound() const {
+    return minimize_bound_;
+}
+
+void Solver::update_minimize(AbstractConstraint &constraint, level_t level, val_t bound) {
+    if (!minimize_bound_.has_value() || bound < *minimize_bound_) {
+        minimize_bound_ = bound;
+        minimize_level_ = level;
+        Level::mark_todo(*this, constraint_state(constraint));
+    }
+    else if (level < minimize_level_) {
+        minimize_level_ = level;
+        Level::mark_todo(*this, constraint_state(constraint));
+    }
+}
+
+val_t Solver::get_value(var_t var) const {
+    return var2vs_[var].lower_bound();
+}
+
+Solver::Level &Solver::level_() {
+    return levels_.back();
+}
+
+Solver::Level &Solver::push_level_(level_t level) {
+    assert(!levels_.empty());
+    if (levels_.back().level() < level) {
+        levels_.emplace_back(level);
+    }
+    return level_();
+}
+
+lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) {
+    if (value < vs.min_bound()) {
+        return -TRUE_LIT;
+    }
+    if (value >= vs.max_bound()) {
+        return TRUE_LIT;
+    }
+    auto &lit = vs.get_or_add_literal(value);
+    if (lit == 0) {
+        lit = cc.add_literal();
+        // Note: By default clasp's heuristic makes literals false. By flipping
+        // the literal for non-negative values, assignments close to zero are
+        // preferred. This way, we might get solutions with small numbers
+        // first.
+        if (value >= 0) {
+            lit = -lit;
+        }
+        litmap_.emplace(lit, std::pair(vs.var(), value));
+        cc.add_watch(lit);
+        cc.add_watch(-lit);
+    }
+    return lit;
+}
+
+void Solver::remove_literal_(var_t var, lit_t lit, val_t value) {
+    assert(lit != TRUE_LIT && lit != -TRUE_LIT);
+
+    for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
+        if (rng.first->second.first == var && rng.first->second.second == value) {
+            litmap_.erase(rng.first);
+            return;
+        }
+    }
+
+    assert(false && "could not remove literal");
+}
+
+std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, std::optional<bool> truth) {
+    // order literals can only be update on level 0
+    if (!truth.has_value() || cc.assignment().decision_level() > 0) {
+        return {true, get_literal(cc, vs, value)};
+    }
+    auto lit = *truth ? TRUE_LIT : -TRUE_LIT;
+    auto ret = true;
+    // the value is out of bounds
+    if (value < vs.min_bound()) {
+        auto old = -TRUE_LIT;
+        if (old != lit) {
+             ret = cc.add_clause({*truth ? old : -old});
+        }
+    }
+    else if (value >= vs.max_bound()) {
+        auto old = TRUE_LIT;
+        if (old != lit) {
+             ret = cc.add_clause({*truth ? old : -old});
+        }
+    }
+    // there was no literal yet
+    else if (auto &old = vs.get_or_add_literal(value); old == 0) {
+        old = lit;
+        litmap_.emplace(lit, std::pair(vs.var(), value));
+    }
+    // the old literal has to be replaced
+    else if (old != lit) {
+        old = lit;
+        remove_literal_(vs.var(), old, value);
+        litmap_.emplace(lit, std::pair(vs.var(), value));
+        ret = cc.add_clause({*truth ? old : -old});
+    }
+    return {ret, lit};
+}
+
+void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
+    // TODO: var_watches_ is not resized yet
+    assert(var < var_watches_.size());
+    var_watches_[var].emplace_back(i, cs);
+}
+
+void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
+    // TODO: var_watches_ is not resized yet
+    assert(var < var_watches_.size());
+    auto &watches = var_watches_[var];
+    watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, cs)));
+}
+
+AbstractConstraintState &Solver::add_constraint(AbstractConstraint &constraint) {
+    auto &cs = c2cs_.emplace(&constraint, std::unique_ptr<AbstractConstraintState>{nullptr}).first->second;
+
+    if (cs == nullptr) {
+        cs = constraint.create_state();
+        cs->attach(*this);
+        Level::mark_todo(*this, *cs);
+    }
+
+    return *cs;
+}
+
+void Solver::remove_constraint(AbstractConstraint &constraint) {
+    auto it = c2cs_.find(&constraint);
+    auto &cs = *it->second;
+    cs.detach(*this);
+    level_().remove_constraint(*this, cs);
+    c2cs_.erase(it);
+}
+
 /*
 class State(object):
-    @property
-    def minimize_bound(self):
-        """
-        Get the current bound of the minimize constraint.
-        """
-        return self._minimize_bound
-
-    def update_minimize(self, constraint, dl, bound):
-        """
-        Updates the bound of the minimize constraint in this state.
-        """
-        if self._minimize_bound is None or bound < self._minimize_bound:
-            self._minimize_bound = bound
-            self._minimize_level = dl
-            self._todo.add(self.constraint_state(constraint))
-        elif dl < self._minimize_level:
-            self._minimize_level = dl
-            self._todo.add(self.constraint_state(constraint))
-
-    def get_assignment(self, var_map):
-        """
-        Get the current assignment to all variables.
-
-        This function should be called on the state corresponding to the thread
-        where a model has been found.
-        """
-        return [(var, self.var2vs_[idx].lower_bound) for var, idx in var_map]
-
-    def get_value(self, var):
-        """
-        Get the current value of a variable.
-
-        This function should be called on the state corresponding to the thread
-        where a model has been found.
-        """
-        assert isinstance(var, int)
-        return self.var2vs_[var].lower_bound
-
-    def _push_level(self, level):
-        """
-        Add a new decision level specific state if necessary.
-
-        Has to be called in `propagate`.
-        """
-        assert self._levels
-        if self._levels[-1].level < level:
-            self._levels.append(Level(level))
-
-    def _pop_level(self):
-        """
-        Remove the decision level specific states added last.
-
-        Has to be called in `undo`.
-        """
-        assert len(self._levels) > 1
-        self._levels.pop()
-
-    def var_state(self, var):
-        """
-        Get the state associated with variable `var`.
-        """
-        return self.var2vs_[var]
-
-    def constraint_state(self, constraint):
-        """
-        Get the state associated with a constraint.
-        """
-        return self._cstate[constraint]
-
-    @property
-    def _level(self):
-        """
-        Get the state associated with the current decision level.
-
-        Should only be used in `propagate`, `undo`, and `check`. When `check`
-        is called, the current decision level can be higher than that of the
-        `Level` object returned. Hence, the decision level specific state can
-        only be modified for facts because only then changes also apply for
-        smaller decision levels.
-        """
-        return self._levels[-1]
-
-    def get_literal(self, vs, value, cc):
-        """
-        Returns the literal associated with the `vs.var/value` pair.
-
-        Values smaller below the smallest lower bound are associated with the
-        false literal and values greater or equal to the largest upper bound
-        with the true literal.
-
-        This function creates a new literal using `cc` if there is no literal
-        for the given value.
-        """
-        if value < vs.min_bound:
-            return -TRUE_LIT
-        if value >= vs.max_bound:
-            return TRUE_LIT
-        if not vs.has_literal(value):
-            lit = cc.add_literal()
-            # Note: By default clasp's heuristic makes literals false. By
-            # flipping the literal for non-negative values, assignments close
-            # to zero are preferred. This way, we might get solutions with
-            # small numbers first.
-            if value >= 0:
-                lit = -lit
-            vs.set_literal(value, lit)
-            self._litmap.setdefault(lit, []).append((vs, value))
-            cc.add_watch(lit)
-            cc.add_watch(-lit)
-        return vs.get_literal(value)
-
-    def _remove_literal(self, vs, lit, value):
-        """
-        Removes order literal `lit` for `vs.var<=value` from `_litmap`.
-        """
-        assert lit not in (TRUE_LIT, -TRUE_LIT)
-        vec = self._litmap[lit]
-        assert (vs, value) in vec
-        vec.remove((vs, value))
-        if not vec:
-            assert -lit not in self._litmap
-            del self._litmap[lit]
-
-    def update_literal(self, vs, value, cc, truth):
-        """
-        This function is an extended version of `get_literal` that can update
-        an existing order literal for `vs.var/value` if truth is either true or
-        false.
-
-        The return value is best explained with pseudo code:
-        ```
-        # literal is not updated
-        if truth is None:
-          return True, get_literal(vs, value, control)
-        lit = TRUE_LIT if truth else -TRUE_LIT
-        if value < vs.min_bound:
-          old = -TRUE_LIT
-        elif value >= vs.max_bound:
-          old = TRUE_LIT
-        elif vs.has_literal(value):
-          old = vs.get_literal(value)
-        else:
-          old = None
-        # literal has not been updated
-        if old == lit:
-          return True, lit
-        # set the new literal
-        vs.set_literal(value, lit)
-        # fix the old literal and return new literal
-        return cc.add_literal([old if truth else -old]), lit
-        ```
-
-        Additionally, if the the order literal is updated (`old` is not
-        `None`), then the replaced value is also removed from `_litmap`.
-        """
-        if truth is None or cc.assignment.decision_level > 0:
-            return True, self.get_literal(vs, value, cc)
-        lit = TRUE_LIT if truth else -TRUE_LIT
-        if value < vs.min_bound or value >= vs.max_bound:
-            old = self.get_literal(vs, value, cc)
-            if old == lit:
-                return True, lit
-            return cc.add_clause([old if truth else -old]), lit
-        if not vs.has_literal(value):
-            vs.set_literal(value, lit)
-            self._litmap.setdefault(lit, []).append((vs, value))
-            return True, lit
-        old = vs.get_literal(value)
-        if old == lit:
-            return True, lit
-        # Note: If a literal is associated with both true and false, then we
-        # get a top level conflict making further data structure updates
-        # unnecessary.
-        if old != -lit:
-            vs.set_literal(value, lit)
-            self._remove_literal(vs, old, value)
-            self._litmap.setdefault(lit, []).append((vs, value))
-        return cc.add_clause([old if truth else -old]), lit
-
-    # initialization
-    def add_variable(self, min_int, max_int):
-        """
-        Adds `VarState` objects for each variable in `variables`.
-        """
-        idx = len(self.var2vs_)
-        self.var2vs_.append(VarState(idx, min_int, max_int))
-        return idx
-
-    def add_var_watch(self, var, co, cs):
-        """
-        Watch the given variable `var` notifying the given constraint state
-        `cs` on changes.
-
-        The integer `co` is additional information passed to the constraint
-        state upon notification.
-        """
-        self.watches_.setdefault(var, []).append((co, cs))
-
-    def remove_var_watch(self, var, co, cs):
-        """
-        Removes a previously added variable watch (see `add_var_watch`).
-        """
-        self.watches_[var].remove((co, cs))
-
-    def add_constraint(self, constraint):
-        """
-        Add the given constraint to the propagation queue and initialize its
-        state.
-        """
-        if constraint in self._cstate:
-            return self._cstate[constraint]
-
-        cs = constraint.create_state()
-
-        self._cstate[constraint] = cs
-        cs.attach(self)
-        self._todo.add(cs)
-
-        return cs
-
-    def remove_constraint(self, constraint):
-        """
-        Remove a constraint from the lookup lists.
-        """
-        cs = self._cstate[constraint]
-        cs.detach(self)
-        if cs in self._level.inactive:
-            self._level.inactive.remove(cs)
-        if constraint in self._todo:
-            self._todo.remove(constraint)
-        del self._cstate[constraint]
-
     def translate(self, cc, l2c, stats, config):
         """
         Translate constraints in the map l2c and return a list of constraint
@@ -517,20 +443,20 @@ class State(object):
         # has to be removed.
         if remove_cs:
             remove_vars = []
-            for var, css in self.watches_.items():
+            for var, css in self.var_watches_.items():
                 i = remove_if(css, lambda cs: cs[1] in remove_cs)
                 del css[i:]
                 if not css:
                     remove_vars.append(var)
             for var in remove_vars:
-                del self.watches_[var]
+                del self.var_watches_[var]
 
             # Note: In theory all inactive constraints should be remove on level 0.
             i = remove_if(self._level.inactive, lambda cs: cs in remove_cs)
             del self._level.inactive[i:]
 
             for cs in remove_cs:
-                del self._cstate[cs.constraint]
+                del self.c2cs_[cs.constraint]
 
             self._todo = TodoList(cs for cs in self._todo if cs not in remove_cs)
 
@@ -657,7 +583,7 @@ class State(object):
         """
         lvl = self._level
 
-        l = self.watches_.get(var, [])
+        l = self.var_watches_.get(var, [])
         i = 0
         for j, (co, cs) in enumerate(l):
             if not cs.removable(lvl.level):
@@ -771,7 +697,7 @@ class State(object):
 
     def add_simple(self, cc, clit, co, var, rhs, strict):
         """
-        This function integrates singleton constraints into the state.
+        This function integrates singleton constraints intwatches_o the state.
 
         We explicitely handle the strict case here to avoid introducing
         unnecessary literals.
@@ -837,7 +763,7 @@ class State(object):
             vs.pop_lower()
             diff = value - vs.lower_bound - self._ldiff.get(vs.var, 0)
             if diff != 0:
-                for co, cs in self.watches_.get(vs.var, []):
+                for co, cs in self.var_watches_.get(vs.var, []):
                     cs.undo(co, diff)
         self._ldiff.clear()
 
@@ -846,7 +772,7 @@ class State(object):
             vs.pop_upper()
             diff = value - vs.upper_bound - self._udiff.get(vs.var, 0)
             if diff != 0:
-                for co, cs in self.watches_.get(vs.var, []):
+                for co, cs in self.var_watches_.get(vs.var, []):
                     cs.undo(co, diff)
         self._udiff.clear()
 
@@ -854,9 +780,10 @@ class State(object):
             cs.mark_active()
 
         for var, co, cs in lvl.removed_v2cs:
-            self.watches_[var].append((co, cs))
+            self.var_watches_[var].append((co, cs))
 
-        self._pop_level()
+        assert len(self._levels) > 1
+        self._levels.pop()
         # Note: To make sure that the todo list is cleared when there is
         #       already a conflict during propagate.
         self._todo.clear()
