@@ -309,7 +309,7 @@ public:
     }
     //! Return an iterator after the last order literal.
     [[nodiscard]] Iterator end() const {
-        return literals_.begin();
+        return literals_.end();
     }
 
     //! Return a reverse iterator to the last order literal.
@@ -317,8 +317,8 @@ public:
         return literals_.rbegin();
     }
     //! Return a reverse iterator before the first order literal.
-    [[nodiscard]] Iterator rend() const {
-        return literals_.begin();
+    [[nodiscard]] ReverseIterator rend() const {
+        return literals_.rend();
     }
 
     //! Return a reverse iterator to the first order literal with a value less
@@ -433,6 +433,38 @@ public:
     //! Remove a previously added watch.
     void remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
 
+    //! Simplify the state using fixed literals in the trail up to the given
+    //! offset and the enqued constraints in the todo list.
+    //!
+    //! Note that this functions assumes that newly added constraints have been
+    //! enqueued before.
+    [[nodiscard]] bool simplify(AbstractClauseCreator &cc, bool check_state);
+
+    //! Propagates constraints and order literals.
+    //!
+    //! Constraints that became true are added to the todo list and bounds of
+    //! variables are adjusted according to the truth of order literals.
+    template <class It>
+    [[nodiscard]] bool propagate(AbstractClauseCreator &cc, It begin, It end) {
+        auto ass = cc.assignment();
+
+        // open a new decision level if necessary
+        push_level_(ass.decision_level());
+
+        // propagate order literals that became true/false
+        for (auto it = begin; it != end; ++it) {
+            if (!propagate_(cc, *it)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    //! This functions propagates facts that have not been integrated on the
+    //! current level and propagates constraints gathered during Solver::propagate.
+    [[nodiscard]] bool check(AbstractClauseCreator &cc, bool check_state);
+
     //! @name Initialization
     //! @{
 
@@ -443,7 +475,7 @@ public:
     void copy_state(Solver const &master);
 
     //! Adds a new VarState object and returns its index;
-    var_t add_variable(val_t min_int, val_t max_int);
+    [[nodiscard]] var_t add_variable(val_t min_int, val_t max_int);
 
     //! Add the given constraint to the propagation queue and initialize its state.
     AbstractConstraintState &add_constraint(AbstractConstraint &constraint);
@@ -461,10 +493,43 @@ public:
     //! @}
 
 private:
+    //! Propagates the preceeding or succeeding order literal of lit.
+    //!
+    //! Whether the target literal is a preceeding or succeeding literal is
+    //! determined by `sign`. The target order literal is given by
+    //! `(vs.var,value)` and must exist.
+    //!
+    //! For example, if `sign==1`, then lit is an order literal for some
+    //! integer value smaller than `value`. The function propagates the clause
+    //! `lit` implies `vs.get_literal(value)`.
+    //!
+    //! Furthermore, if `lit` is a fact, the target literal is simplified to a
+    //! fact, too.
+    template <int sign>
+    [[nodiscard]] bool propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t value, lit_t lit);
+
+    //! Update and propgate the given variable due to a lower bound change.
+    [[nodiscard]] bool update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);
+    //! Update and propgate the given variable due to an upper bound change.
+    [[nodiscard]] bool update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);
+
+
+    //! See Solver::propagate_variable_.
+    template <int sign, class It>
+    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end);
+
+    //! See Solver::propagate.
+    [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, lit_t lit);
+
+    //! If the given literal is an order literal, this function updates the lower
+    //! or upper bound of the corresponding variables. Furthermore, the preceeding
+    //! or succeeding order literals are propagated.
+    [[nodiscard]] bool update_domain_(AbstractClauseCreator &cc, lit_t lit);
+
     //! Add a new decision level specific state if necessary.
     //!
     //! Has to be called in Solver::propagate.
-    Level &push_level_(level_t level);
+    void push_level_(level_t level);
 
     //! Get the state associated with the current decision level.
     //!
@@ -491,6 +556,8 @@ private:
     //! If there is an order literal for `var<=value`, then the pair
     //! `(var,value)` is contained in the map
     std::unordered_multimap<lit_t, std::pair<var_t, val_t>> litmap_;
+    //! Like litmap but for facts only.
+    std::vector<std::tuple<lit_t, var_t, val_t>> factmap_;
     //! A mapping from constraint states to constraints.
     std::unordered_map<AbstractConstraint*, UniqueConstraintState> c2cs_;
     //! Watches mapping variables to a constraint state and a constraint
@@ -509,7 +576,7 @@ private:
     //! Map from literals to corresponding constraint states.
     std::unordered_multimap<lit_t, AbstractConstraintState*> lit2cs_;
     //! The number of true/false factual literals that have been integrated.
-    std::pair<uint32_t, uint32_t> facts_integrated_{0, 0};
+    size_t facts_integrated_{0};
     //! Offset to speed up Solver::check_full.
     uint32_t lerp_last_{0};
     //! Offset to speed up Solver::simplify.

@@ -41,36 +41,34 @@ public:
     }
 
     //! Update the lower bound of a var state.
-    void update_lower(Solver &solver, var_t var, val_t value) {
-        auto &vs = solver.var_state(var);
+    void update_lower(Solver &solver, VarState &vs, val_t value) {
         val_t diff = value + 1 - vs.lower_bound();
         if (level_ > 0 && vs.pushed_lower(level_) ) {
             vs.push_lower(level_);
-            undo_lower_.emplace_back(var);
+            undo_lower_.emplace_back(vs.var());
         }
         vs.lower_bound(value + 1);
 
         if (solver.ldiff_[vs.var()] == 0) {
-            solver.in_ldiff_.emplace_back(var);
+            solver.in_ldiff_.emplace_back(vs.var());
         }
-        solver.ldiff_[var] += diff;
+        solver.ldiff_[vs.var()] += diff;
     }
 
     //! Update the upper bound of a var state.
-    void update_upper(Solver &solver, var_t var, val_t value) {
-        auto &vs = solver.var_state(var);
+    void update_upper(Solver &solver, VarState &vs, val_t value) {
         val_t diff = value - vs.upper_bound();
 
         if (level_ > 0 && vs.pushed_upper(level_) ) {
             vs.push_upper(level_);
-            undo_upper_.emplace_back(var);
+            undo_upper_.emplace_back(vs.var());
         }
         vs.upper_bound(value);
 
-        if (solver.udiff_[var] == 0) {
-            solver.in_udiff_.emplace_back(var);
+        if (solver.udiff_[vs.var()] == 0) {
+            solver.in_udiff_.emplace_back(vs.var());
         }
-        solver.udiff_[var] += diff;
+        solver.udiff_[vs.var()] += diff;
     }
 
     //! Mark a constraint state as inactive.
@@ -240,7 +238,7 @@ void Solver::copy_state(Solver const &master) {
     var2vs_.reserve(master.var2vs_.size());
     for (auto const &vs_master : master.var2vs_) {
         if (var2vs_.size() <= var) {
-            add_variable(vs_master.min_bound(), vs_master.max_bound());
+            static_cast<void>(add_variable(vs_master.min_bound(), vs_master.max_bound()));
         }
         else {
             auto &vs = var2vs_[var];
@@ -249,7 +247,13 @@ void Solver::copy_state(Solver const &master) {
         ++var;
     }
 
-    // copy the map from literals to var states
+    // copy the fact map
+    factmap_ = master.factmap_;
+    for (auto const &[lit, var, val] : factmap_) {
+        var_state(var).set_literal(val, lit);
+    }
+
+    // copy the order literal map
     litmap_ = master.litmap_;
     for (auto const &[lit, var_val] : litmap_) {
         var_state(var_val.first).set_literal(var_val.second, lit);
@@ -302,12 +306,11 @@ Solver::Level &Solver::level_() {
     return levels_.back();
 }
 
-Solver::Level &Solver::push_level_(level_t level) {
+void Solver::push_level_(level_t level) {
     assert(!levels_.empty());
     if (levels_.back().level() < level) {
         levels_.emplace_back(level);
     }
-    return level_();
 }
 
 lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) {
@@ -370,13 +373,13 @@ std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarStat
     // there was no literal yet
     else if (auto &old = vs.get_or_add_literal(value); old == 0) {
         old = lit;
-        litmap_.emplace(lit, std::pair(vs.var(), value));
+        factmap_.emplace_back(lit, vs.var(), value);
     }
     // the old literal has to be replaced
     else if (old != lit) {
         old = lit;
         remove_literal_(vs.var(), old, value);
-        litmap_.emplace(lit, std::pair(vs.var(), value));
+        factmap_.emplace_back(lit, vs.var(), value);
         ret = cc.add_clause({*truth ? old : -old});
     }
     return {ret, lit};
@@ -486,119 +489,151 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config &con
     return true;
 }
 
+bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
+    auto ass = cc.assignment();
+    auto trail = ass.trail();
+
+    // Note: The initial propagation below, will not introduce any order
+    // literals other than true or false.
+    while (true) {
+        if (!cc.propagate()) {
+            return false;
+        }
+
+        auto trail_offset = trail.size();
+        if (trail_offset_ == trail_offset && todo_.empty()) {
+            return true;
+        }
+
+        if (!propagate(cc, trail.begin() + trail_offset_, trail.begin() + trail_offset)) {
+            return false;
+        }
+        trail_offset_ = trail_offset;
+
+        if (!check(cc, check_state)) {
+            return false;
+        }
+    }
+}
+
+bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
+    for (auto &[lit, cs] : lit2cs_) {
+        Level::mark_todo(*this, *cs);
+    }
+    return update_domain_(cc, lit);
+}
+
+template <int sign>
+bool Solver::propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t value, lit_t lit) {
+    auto ass = cc.assignment();
+    assert(ass.is_true(lit));
+    assert(vs.has_literal(value));
+
+    // get the literal to propagate
+    // Note: this explicetly does not use get_literal
+    auto con = sign * *vs.get_literal(value);
+
+    // on-the-fly simplify
+    if (ass.is_fixed(lit) && !ass.is_fixed(con)) {
+        auto [ret, con] = update_literal(cc, vs, value, sign > 0);
+        if (!ret) {
+            return false;
+        }
+        con = sign*con;
+    }
+
+    // propagate the literal
+    if (!ass.is_true(con)) {
+        if (!cc.add_clause({-lit, con})) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//! See Solver::propagate_variable_.
+template <int sign, class It>
+bool Solver::propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end) {
+    auto ass = cc.assignment();
+
+    for (auto it = begin; it != end; ++it) {
+        auto [value, lit] = *it;
+        if (ass.is_true(sign * lit)) {
+            break;
+        }
+        if (!propagate_variable_<sign>(cc, vs, value, reason_lit)) {
+            return false;
+        }
+        // Note: Literals might be uppdated on level 0 and the reason_lit is
+        // already guaranteed to be a fact on level 0.
+        if (config_.propagate_chain && ass.decision_level() > 0) {
+            reason_lit = sign * lit;
+        }
+    }
+
+    return true;
+}
+
+bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
+    auto vs = var_state(var);
+    if (vs.upper_bound() > value) {
+        lvl.update_upper(*this, vs, value);
+    }
+    return propagate_variables_<1>(cc, vs, lit, vs.lit_gt(value), vs.end());
+}
+
+bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
+    auto vs = var_state(var);
+    if (vs.lower_bound() < value + 1) {
+        lvl.update_lower(*this, vs, value);
+    }
+    return propagate_variables_<-1>(cc, vs, lit, vs.lit_lt(value), vs.rend());
+}
+
+bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
+    auto &lvl = level_();
+
+    assert(lit != -TRUE_LIT);
+    if (lit == TRUE_LIT) {
+        for (auto it = factmap_.begin() + facts_integrated_, ie = factmap_.end(); it != ie; ++it) {
+            auto [fact_lit, var, value] = *it;
+            auto vs = var_state(var);
+            if (fact_lit == TRUE_LIT && !update_upper_(lvl, cc, var, lit, value)) {
+                return false;
+            }
+            if (fact_lit != TRUE_LIT && !update_lower_(lvl, cc, var, lit, value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
+        auto [var, value] = rng.first->second;
+        if (!update_upper_(lvl, cc, var, lit, value)) {
+            return false;
+        }
+    }
+
+    for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
+        auto [var, value] = rng.first->second;
+        if (!update_lower_(lvl, cc, var, lit, value)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Solver::check(AbstractClauseCreator &cc, bool check_state) { // NOLINT
+    static_cast<void>(cc);
+    static_cast<void>(check_state);
+    throw std::runtime_error("implement me!!!");
+}
+
 /*
 class State(object):
-    def simplify(self, cc, check_state):
-        """
-        Simplify the state using fixed literals in the trail up to the given
-        offset and the enqued constraints in the todo list.
-
-        Note that this functions assumes that newly added constraints have been
-        enqueued before.
-        """
-        # Note: Propagation won't add anything to the trail because atm
-        # there are no order literals which could be propagated. This
-        # might change in the multi-shot case when order literals have
-        # been added in a previous step which are then implied by the
-        # newly added constraints.
-        ass = cc.assignment
-        trail = ass.trail
-
-        # Note: The initial propagation below, will not introduce any order
-        # literals other than true or false.
-        while True:
-            if not cc.propagate():
-                return False
-
-            trail_offset = len(trail)
-            if self._trail_offset == trail_offset and not self._todo:
-                return True
-
-            if not self.propagate(cc, trail[self._trail_offset:trail_offset]):
-                return False
-            self._trail_offset = trail_offset
-
-            if not self.check(cc, check_state):
-                return False
-
-    # propagation
-    @measure_time_decorator("statistics.time_propagate")
-    def propagate(self, cc, changes):
-        """
-        Propagates constraints and order literals.
-
-        Constraints that became true are added to the todo list and bounds of
-        variables are adjusted according to the truth of order literals.
-        """
-        # Note: This function has to be as fast as possible. In C++ we can try
-        # to put all relevant data into the litmap to make the function as
-        # cache-friendly as possible. Max also noted that it might help to
-        # propagate all order literals affected by an assignment and not just
-        # the neighboring one to avoid "rippling" propagate calls.
-        ass = cc.assignment
-
-        # open a new decision level if necessary
-        self._push_level(ass.decision_level)
-
-        # propagate order literals that became true/false
-        for lit in changes:
-            self._todo.extend(map(self.constraint_state, self._l2c.get(lit, [])))
-            if not self._update_domain(cc, lit):
-                return False
-
-        return True
-
-    def _propagate_variable(self, cc, vs, value, lit, sign):
-        """
-        Propagates the preceeding or succeeding order literal of lit.
-
-        Whether the target literal is a preceeding or succeeding literal is
-        determined by `sign`. The target order literal is given by
-        `(vs.var,value)` and must exist.
-
-        For example, if `sign==1`, then lit is an order literal for some
-        integer value smaller than `value`. The function propagates the clause
-        `lit` implies `vs.get_literal(value)`.
-
-        Furthermore, if `lit` is a fact, the target literal is simplified to a
-        fact, too.
-        """
-
-        ass = cc.assignment
-        assert ass.is_true(lit)
-        assert vs.has_literal(value)
-
-        # get the literal to propagate
-        # Note: this explicetly does not use get_literal
-        con = sign*vs.get_literal(value)
-
-        # on-the-fly simplify
-        if ass.is_fixed(lit) and not ass.is_fixed(con):
-            ret, con = self.update_literal(vs, value, cc, sign > 0)
-            if not ret:
-                return False
-            con = sign*con
-
-        # propagate the literal
-        if not ass.is_true(con):
-            if not cc.add_clause([-lit, con]):
-                return False
-
-        return True
-
-    def _propagate_variables(self, cc, vs, reason_lit, consequences, sign):
-        for value, lit in consequences:
-            if cc.assignment.is_true(sign*lit):
-                break
-            if not self._propagate_variable(cc, vs, value, reason_lit, sign):
-                return False
-            # Note: Literals might be uppdated on level 0 and the reason_lit is
-            # already guaranteed to be a fact on level 0.
-            if self.config.propagate_chain and cc.assignment.decision_level > 0:
-                reason_lit = sign*lit
-
-        return True
-
     def _update_constraints(self, var, diff):
         """
         Traverses the lookup tables for constraints removing inactive
@@ -621,63 +656,6 @@ class State(object):
             else:
                 lvl.removed_v2cs.append((var, co, cs))
         del l[i:]
-
-    def _update_domain(self, cc, lit):
-        """
-        If `lit` is an order literal, this function updates the lower or upper
-        bound associated to the variable of the literal (if necessary).
-        Furthermore, the preceeding or succeeding order literal is propagated
-        if it exists.
-        """
-        ass = cc.assignment
-        assert ass.is_true(lit)
-
-        lvl = self._level
-
-        # update and propagate upper bound
-        if lit in self._litmap:
-            start = self._facts_integrated[0] if lit == TRUE_LIT else None
-            for vs, value in self._litmap[lit][start:]:
-                # update upper bound
-                if vs.upper_bound > value:
-                    diff = value - vs.upper_bound
-                    if ass.decision_level > 0 and lvl.undo_upper.add(vs):
-                        vs.push_upper()
-                    vs.upper_bound = value
-                    self._udiff.setdefault(vs.var, 0)
-                    self._udiff[vs.var] += diff
-
-                # make succeeding literals true
-                if not self._propagate_variables(cc, vs, lit, vs.succ_values(value), 1):
-                    return False
-
-        # update and propagate lower bound
-        if -lit in self._litmap:
-            start = self._facts_integrated[1] if lit == TRUE_LIT else None
-            for vs, value in self._litmap[-lit][start:]:
-                # update lower bound
-                if vs.lower_bound < value+1:
-                    diff = value+1-vs.lower_bound
-                    if ass.decision_level > 0 and lvl.undo_lower.add(vs):
-                        vs.push_lower()
-                    vs.lower_bound = value+1
-                    self._ldiff.setdefault(vs.var, 0)
-                    self._ldiff[vs.var] += diff
-
-                # make preceeding literals false
-                if not self._propagate_variables(cc, vs, lit, vs.prev_values(value), -1):
-                    return False
-
-        return True
-
-    def mark_inactive(self, cs):
-        """
-        Mark the given constraint inactive on the current level.
-        """
-        lvl = self._level
-        if cs.tagged_removable and not cs.marked_inactive:
-            cs.marked_inactive = lvl.level
-            lvl.inactive.append(cs)
 
     def add_dom(self, cc, literal, var, domain):
         """
@@ -758,7 +736,7 @@ class State(object):
             else:
                 lit = -TRUE_LIT
             vs.set_literal(value, lit)
-            self._litmap.setdefault(lit, []).append((vs, value))
+            self.litmap_.setdefault(lit, []).append((vs, value))
 
         # otherwise we just update the existing order literal
         else:
@@ -816,21 +794,17 @@ class State(object):
 
     # checking
     @property
-    def _num_facts(self):
+    def num_facts_(self):
         """
         The a pair of intergers corresponding to the numbers of order literals
         associated with the true and false literal.
         """
-        t = len(self._litmap.get(TRUE_LIT, []))
-        f = len(self._litmap.get(-TRUE_LIT, []))
+        t = len(self.litmap_.get(TRUE_LIT, []))
+        f = len(self.litmap_.get(-TRUE_LIT, []))
         return t, f
 
     @measure_time_decorator("statistics.time_check")
     def check(self, cc, check_state):
-        """
-        This functions propagates facts that have not been integrated on the
-        current level and propagates constraints gathered during `propagate`.
-        """
         ass = cc.assignment
         lvl = self._level
         # Note: Most of the time check has to be called only for levels that
@@ -844,11 +818,11 @@ class State(object):
         while True:
             # Note: This integrates any facts that have not been integrated yet
             # on the top level.
-            if self._facts_integrated != self._num_facts:
+            if self.facts_integrated_ != self.num_facts_:
                 assert ass.decision_level == 0
                 if not self._update_domain(cc, 1):
                     return False
-                self._facts_integrated = self._num_facts
+                self.facts_integrated_ = self.num_facts_
 
             # update the bounds of the constraints
             for var, diff in self._udiff.items():
@@ -867,7 +841,7 @@ class State(object):
                 else:
                     self.mark_inactive(cs)
 
-            if self._facts_integrated == self._num_facts:
+            if self.facts_integrated_ == self.num_facts_:
                 return True
 
     def check_full(self, control, check_solution):
@@ -910,7 +884,7 @@ class State(object):
 
         remove_invalid = []
         remove_fixed = []
-        for lit, vss in self._litmap.items():
+        for lit, vss in self.litmap_.items():
             if abs(lit) == TRUE_LIT:
                 continue
 
@@ -924,7 +898,7 @@ class State(object):
         for lit, vss in remove_invalid:
             for vs, value in vss:
                 vs.unset_literal(value)
-            del self._litmap[lit]
+            del self.litmap_[lit]
 
         # Note: Map bounds associated with top level facts to true/false.
         # Because we do not know if the facts have already been propagated, we
@@ -932,25 +906,25 @@ class State(object):
         for old, vss in sorted(remove_fixed):
             for vs, value in vss:
                 lit = TRUE_LIT if ass.is_true(old) else -TRUE_LIT
-                self._litmap.setdefault(lit, []).append((vs, value))
+                self.litmap_.setdefault(lit, []).append((vs, value))
                 vs.set_literal(value, lit)
-            del self._litmap[old]
+            del self.litmap_[old]
 
     def _cleanup_literals(self, cc, lit, pred):
         """
         Remove (var,value) pairs associated with `lit` that match `pred`.
         """
         assert lit in (TRUE_LIT, -TRUE_LIT)
-        if lit in self._litmap:
-            variables = self._litmap[lit]
+        if lit in self.litmap_:
+            variables = self.litmap_[lit]
 
             # adjust the number of facts that have been integrated
             idx = 0 if lit == TRUE_LIT else 1
-            nums = list(self._facts_integrated)
+            nums = list(self.facts_integrated_)
             for x in variables[:nums[idx]]:
                 if pred(x):
                     nums[idx] -= 1
-            self._facts_integrated = tuple(nums)
+            self.facts_integrated_ = tuple(nums)
 
             # remove values matching pred
             i = remove_if(variables, pred)
@@ -999,7 +973,7 @@ class State(object):
         # pylint: disable=protected-access
 
         # update upper bounds
-        for vs_b, _ in other._litmap.get(TRUE_LIT, []):
+        for vs_b, _ in other.litmap_.get(TRUE_LIT, []):
             vs_a = self.var2vs_[vs_b.var]
             if vs_b.upper_bound < vs_a.upper_bound:
                 ret, _ = self.update_literal(vs_a, vs_b.upper_bound, cc, True)
@@ -1007,7 +981,7 @@ class State(object):
                     return False
 
         # update lower bounds
-        for vs_b, _ in other._litmap.get(-TRUE_LIT, []):
+        for vs_b, _ in other.litmap_.get(-TRUE_LIT, []):
             vs_a = self.var2vs_[vs_b.var]
             if vs_a.lower_bound < vs_b.lower_bound:
                 ret, _ = self.update_literal(vs_a, vs_b.lower_bound-1, cc, False)
