@@ -49,6 +49,7 @@ public:
         }
         vs.lower_bound(value + 1);
 
+        // TODO: ldiff is not initialized yet
         if (solver.ldiff_[vs.var()] == 0) {
             solver.in_ldiff_.emplace_back(vs.var());
         }
@@ -65,10 +66,29 @@ public:
         }
         vs.upper_bound(value);
 
+        // TODO: udiff is not initialized yet
         if (solver.udiff_[vs.var()] == 0) {
             solver.in_udiff_.emplace_back(vs.var());
         }
         solver.udiff_[vs.var()] += diff;
+    }
+
+    //! Update watches and enque constraints.
+    //!
+    //! The parameters determine whether the lookup tables for lower or upper
+    //! bounds are used.
+    void update_constraints_(Solver &solver, var_t var, val_t diff) {
+        auto &watches = solver.var_watches_[var];
+        watches.erase(std::remove_if(watches.begin(), watches.end(), [&](auto const &value_cs) {
+            if (value_cs.second->removable(level_)) {
+                if (value_cs.second->update(value_cs.first, diff)) {
+                    Level::mark_todo(solver, *value_cs.second);
+                }
+                return false;
+            }
+            removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
+            return true;
+        }), watches.end());
     }
 
     //! Mark a constraint state as inactive.
@@ -128,7 +148,7 @@ public:
         }
 
         // add removed watches
-        for (auto &[var, val, cs] : removed_watches_) {
+        for (auto &[var, val, cs] : removed_var_watches_) {
             solver.var_watches_[var].emplace_back(val, cs);
         }
 
@@ -151,15 +171,23 @@ public:
         }
     }
 
-    void remove_constraints(Solver &solver, std::vector<AbstractConstraintState *> removed) {
-        inactive_.erase(std::remove_if(inactive_.begin(), inactive_.end(), [&](auto *cs) {
+    //! Remove a set of constraints from the propagation state.
+    template <class F>
+    void remove_constraints(Solver &solver, F in_removed) {
+        for (auto &watches : solver.var_watches_) {
+            watches.erase(std::remove_if(watches.begin(), watches.end(), [in_removed](auto &watch) {
+                return in_removed(*watch.second);
+            }), watches.end());
+        }
+
+        inactive_.erase(std::remove_if(inactive_.begin(), inactive_.end(), [in_removed](auto *cs) {
             cs->mark_active();
-            return std::binary_search(removed.begin(), removed.end(), cs);
+            return in_removed(*cs);
         }), inactive_.end());
 
-        solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(), [&](auto *cs) {
+        solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(), [in_removed](auto *cs) {
             cs->mark_todo(false);
-            return std::binary_search(removed.begin(), removed.end(), cs);
+            return in_removed(*cs);
         }), solver.todo_.end());
     }
 
@@ -174,6 +202,7 @@ public:
         auto &lvl = solver.levels_.front();
         auto const &lvl_master = master.levels_.front();
 
+        // copy bound changes
         lvl.undo_lower_.clear();
         for (auto var : lvl_master.undo_lower_) {
             lvl.undo_lower_.emplace_back(var);
@@ -188,17 +217,28 @@ public:
         solver.udiff_ = master.udiff_;
         solver.in_udiff_ = master.in_udiff_;
 
+        // copy inactive
         lvl.inactive_.clear();
         for (auto *cs : lvl_master.inactive_) {
             lvl.inactive_.emplace_back(&solver.constraint_state(cs->constraint()));
         }
 
-        lvl.removed_watches_.clear();
-        lvl.removed_watches_.reserve(lvl_master.removed_watches_.size());
-        for (auto const &[var, val, cs] : lvl_master.removed_watches_) {
-            lvl.removed_watches_.emplace_back(var, val, &solver.constraint_state(cs->constraint()));
+        // copy watches
+        solver.var_watches_ = master.var_watches_;
+        for (auto &var_watches : solver.var_watches_) {
+            for (auto &watch : var_watches) {
+                watch.second = &solver.constraint_state(watch.second->constraint());
+            }
         }
 
+        // copy removed watches
+        lvl.removed_var_watches_.clear();
+        lvl.removed_var_watches_.reserve(lvl_master.removed_var_watches_.size());
+        for (auto const &[var, val, cs] : lvl_master.removed_var_watches_) {
+            lvl.removed_var_watches_.emplace_back(var, val, &solver.constraint_state(cs->constraint()));
+        }
+
+        // copy todo queue
         solver.todo_.clear();
         solver.todo_.reserve(master.todo_.size());
         for (auto const &cs : master.todo_) {
@@ -217,7 +257,7 @@ private:
     std::vector<AbstractConstraintState*> inactive_;
     //! List of variable/coefficient/constraint triples that have been removed
     //! from the Solver::v2cs_ map.
-    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_watches_;
+    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_var_watches_;
 };
 
 Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
@@ -230,8 +270,11 @@ Solver::~Solver() = default;
 
 
 void Solver::copy_state(Solver const &master) {
-    // adjust integrated facts
-    facts_integrated_ = master.facts_integrated_;
+    // just to be thorough
+    lerp_last_ = master.lerp_last_;
+    trail_offset_ = master.trail_offset_;
+    minimize_level_ = master.minimize_level_;
+    minimize_bound_ = master.minimize_bound_;
 
     // make sure we have an empty var state for each variable
     var_t var = 0;
@@ -262,14 +305,6 @@ void Solver::copy_state(Solver const &master) {
     // copy the map from literals to var states
     for (auto const &[c, cs] : master.c2cs_) {
         c2cs_.emplace(c, cs->copy());
-    }
-
-    // copy watches
-    var_watches_ = master.var_watches_;
-    for (auto &var_watches : var_watches_) {
-        for (auto &watch : var_watches) {
-            watch.second = &constraint_state(watch.second->constraint());
-        }
     }
 
     // adjust levels
@@ -429,7 +464,7 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     c2cs_.erase(it);
 }
 
-bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config &conf, ConstraintVec &constraints) {
+bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints) {
     std::vector<AbstractConstraintState*> removed;
 
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
@@ -459,17 +494,15 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config &con
     // has to be removed.
     if (removed.empty()) {
         std::sort(removed.begin(), removed.end());
+        auto in_removed = [&removed] (AbstractConstraintState &cs) {
+            return std::binary_search(removed.begin(), removed.end(), &cs);
 
-        for (auto &watches : var_watches_) {
-            watches.erase(std::remove_if(watches.begin(), watches.end(), [&](auto &watch) {
-                return std::binary_search(removed.begin(), removed.end(), watch.second);
-            }), watches.end());
-        }
+        };
 
-        level_().remove_constraints(*this, removed);
+        level_().remove_constraints(*this, in_removed);
 
         for (auto it = lit2cs_.begin(); it != lit2cs_.end(); ) {
-            if (std::binary_search(removed.begin(), removed.end(), it->second)) {
+            if (in_removed(*it->second)) {
                 it = lit2cs_.erase(it);
             }
             else {
@@ -552,7 +585,6 @@ bool Solver::propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t 
     return true;
 }
 
-//! See Solver::propagate_variable_.
 template <int sign, class It>
 bool Solver::propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end) {
     auto ass = cc.assignment();
@@ -596,16 +628,22 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
 
     assert(lit != -TRUE_LIT);
     if (lit == TRUE_LIT) {
-        for (auto it = factmap_.begin() + facts_integrated_, ie = factmap_.end(); it != ie; ++it) {
-            auto [fact_lit, var, value] = *it;
+        for (auto [fact_lit, var, value] : factmap_) {
             auto vs = var_state(var);
-            if (fact_lit == TRUE_LIT && !update_upper_(lvl, cc, var, lit, value)) {
-                return false;
+            if (fact_lit == TRUE_LIT) {
+                if (!update_upper_(lvl, cc, var, lit, value)) {
+                    return false;
+                }
+                vs.unset_literal(value);
             }
-            if (fact_lit != TRUE_LIT && !update_lower_(lvl, cc, var, lit, value)) {
-                return false;
+            else {
+                if (!update_lower_(lvl, cc, var, lit, value)) {
+                    return false;
+                }
+                vs.unset_literal(value - 1);
             }
         }
+        factmap_.clear();
         return true;
     }
 
@@ -626,224 +664,81 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     return true;
 }
 
-bool Solver::check(AbstractClauseCreator &cc, bool check_state) { // NOLINT
-    static_cast<void>(cc);
-    static_cast<void>(check_state);
-    throw std::runtime_error("implement me!!!");
+bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
+    Timer timer(stats_.time_check);
+
+    auto ass = cc.assignment();
+    auto &lvl = level_();
+
+    // Note: Most of the time check has to be called only for levels that have
+    // also been propagated. The exception is if a minimize constraint has to
+    // be integrated when backtracking from a bound update.
+    if (ass.decision_level() != lvl.level() && lvl.level() >= minimize_level_) {
+        return true;
+    }
+
+    // Note: We have to loop here because watches for the true/false literals
+    // do not fire again.
+    while (true) {
+        // Note: This integrates any facts that have not been integrated yet on
+        // the top level.
+        if (!factmap_.empty()) {
+            assert(ass.decision_level() == 0);
+            if (!update_domain_(cc, TRUE_LIT)) {
+                return false;
+            }
+        }
+
+        // update the bounds of the constraints (this is the only place where
+        // the todo queue is filled after initializaton)
+        for (auto var : in_udiff_) {
+            lvl.update_constraints_(*this, var, udiff_[var]);
+            udiff_[var] = 0;
+        }
+        in_udiff_.clear();
+        for (auto var : in_ldiff_) {
+            lvl.update_constraints_(*this, var, ldiff_[var]);
+            ldiff_[var] = 0;
+        }
+        in_ldiff_.clear();
+
+        // propagate affected constraints
+        bool ret{true};
+        for (auto *cs : todo_) {
+            cs->mark_todo(false);
+            if (!ret) {
+                continue;
+            }
+
+            if (!ass.is_false(cs->constraint().literal())) {
+                if (!cs->propagate(cc, config_, check_state)) {
+                    ret = false;
+                }
+            }
+            else {
+                lvl.mark_inactive(*cs);
+            }
+        }
+        todo_.clear();
+
+        if (!ret || factmap_.empty()) {
+            return ret;
+        }
+    }
+}
+
+void Solver::undo() {
+    Timer timer{stats_.time_undo};
+
+    auto &lvl = level_();
+
+    lvl.undo(*this);
+
+    levels_.pop_back();
 }
 
 /*
 class State(object):
-    def _update_constraints(self, var, diff):
-        """
-        Traverses the lookup tables for constraints removing inactive
-        constraints.
-
-        The parameters determine whether the lookup tables for lower or upper
-        bounds are used.
-        """
-        lvl = self._level
-
-        l = self.var_watches_.get(var, [])
-        i = 0
-        for j, (co, cs) in enumerate(l):
-            if not cs.removable(lvl.level):
-                if cs.update(co, diff):
-                    self._todo.add(cs)
-                if i < j:
-                    l[i], l[j] = l[j], l[i]
-                i += 1
-            else:
-                lvl.removed_v2cs.append((var, co, cs))
-        del l[i:]
-
-    def add_dom(self, cc, literal, var, domain):
-        """
-        Integrates the given domain for varibale var.
-
-        Consider x in {[1,3), [4,6), [7,9)}. We can simply add the binary
-        constraints:
-        - right to left
-          - true => x < 9
-          - x < 7 => x < 6
-          - x < 4 => x < 3
-        - left to right
-          - true => x >= 1
-          - x >= 3 => x >= 4
-          - x >= 6 => x >= 7
-        """
-        ass = cc.assignment
-        if ass.is_false(literal):
-            return True
-        if ass.is_true(literal):
-            literal = TRUE_LIT
-        vs = self.var_state(var)
-
-        py = None
-        for x, y in domain:
-            ly = TRUE_LIT if py is None else -self.get_literal(vs, py-1, cc)
-            true = literal == TRUE_LIT and ass.is_true(ly)
-            ret, lx = self.update_literal(vs, x-1, cc, not true and None)
-            if not ret or not cc.add_clause([-literal, -ly, -lx]):
-                return False
-            py = y
-
-        px = None
-        for x, y in reversed(domain):
-            ly = TRUE_LIT if px is None else self.get_literal(vs, px-1, cc)
-            true = literal == TRUE_LIT and ass.is_true(ly)
-            ret, lx = self.update_literal(vs, y-1, cc, true or None)
-            if not ret or not cc.add_clause([-literal, -ly, lx]):
-                return False
-            px = x
-
-        return True
-
-    def add_simple(self, cc, clit, co, var, rhs, strict):
-        """
-        This function integrates singleton constraints intwatches_o the state.
-
-        We explicitely handle the strict case here to avoid introducing
-        unnecessary literals.
-        """
-        # pylint: disable=protected-access
-
-        ass = cc.assignment
-
-        # the constraint is never propagated
-        if not strict and ass.is_false(clit):
-            return True
-
-        vs = self.var_state(var)
-
-        if co > 0:
-            truth = ass.value(clit)
-            value = rhs//co
-        else:
-            truth = ass.value(-clit)
-            value = -(rhs//-co)-1
-
-        # in this case we can use the literal of the constraint as order variable
-        if strict and vs.min_bound <= value < vs.max_bound and not vs.has_literal(value):
-            lit = clit
-            if co < 0:
-                lit = -lit
-            if truth is None:
-                cc.add_watch(lit)
-                cc.add_watch(-lit)
-            elif truth:
-                lit = TRUE_LIT
-            else:
-                lit = -TRUE_LIT
-            vs.set_literal(value, lit)
-            self.litmap_.setdefault(lit, []).append((vs, value))
-
-        # otherwise we just update the existing order literal
-        else:
-            ret, lit = self.update_literal(vs, value, cc, truth)
-            if not ret:
-                return False
-            if co < 0:
-                lit = -lit
-            if not cc.add_clause([-clit, lit]):
-                return False
-            if strict and not cc.add_clause([-lit, clit]):
-                return False
-
-        return True
-
-    @measure_time_decorator("statistics.time_undo")
-    def undo(self):
-        """
-        This function undos decision level specific state.
-
-        This includes undoing changed bounds of variables clearing constraints
-        that where not propagated on the current decision level.
-        """
-        lvl = self._level
-
-        for vs in lvl.undo_lower:
-            value = vs.lower_bound
-            vs.pop_lower()
-            diff = value - vs.lower_bound - self._ldiff.get(vs.var, 0)
-            if diff != 0:
-                for co, cs in self.var_watches_.get(vs.var, []):
-                    cs.undo(co, diff)
-        self._ldiff.clear()
-
-        for vs in lvl.undo_upper:
-            value = vs.upper_bound
-            vs.pop_upper()
-            diff = value - vs.upper_bound - self._udiff.get(vs.var, 0)
-            if diff != 0:
-                for co, cs in self.var_watches_.get(vs.var, []):
-                    cs.undo(co, diff)
-        self._udiff.clear()
-
-        for cs in lvl.inactive:
-            cs.mark_active()
-
-        for var, co, cs in lvl.removed_v2cs:
-            self.var_watches_[var].append((co, cs))
-
-        assert len(self._levels) > 1
-        self._levels.pop()
-        # Note: To make sure that the todo list is cleared when there is
-        #       already a conflict during propagate.
-        self._todo.clear()
-
-    # checking
-    @property
-    def num_facts_(self):
-        """
-        The a pair of intergers corresponding to the numbers of order literals
-        associated with the true and false literal.
-        """
-        t = len(self.litmap_.get(TRUE_LIT, []))
-        f = len(self.litmap_.get(-TRUE_LIT, []))
-        return t, f
-
-    @measure_time_decorator("statistics.time_check")
-    def check(self, cc, check_state):
-        ass = cc.assignment
-        lvl = self._level
-        # Note: Most of the time check has to be called only for levels that
-        # have also been propagated. The exception is if a minimize constraint
-        # has to be integrated when backtracking from a bound update.
-        if ass.decision_level != lvl.level and lvl.level >= self._minimize_level:
-            return True
-
-        # Note: We have to loop here because watches for the true/false
-        # literals do not fire again.
-        while True:
-            # Note: This integrates any facts that have not been integrated yet
-            # on the top level.
-            if self.facts_integrated_ != self.num_facts_:
-                assert ass.decision_level == 0
-                if not self._update_domain(cc, 1):
-                    return False
-                self.facts_integrated_ = self.num_facts_
-
-            # update the bounds of the constraints
-            for var, diff in self._udiff.items():
-                self._update_constraints(var, diff)
-            self._udiff.clear()
-            for var, diff in self._ldiff.items():
-                self._update_constraints(var, diff)
-            self._ldiff.clear()
-
-            # propagate affected constraints
-            todo, self._todo = self._todo, TodoList()
-            for cs in todo:
-                if not ass.is_false(cs.literal):
-                    if not cs.propagate(self, cc, self.config, check_state):
-                        return False
-                else:
-                    self.mark_inactive(cs)
-
-            if self.facts_integrated_ == self.num_facts_:
-                return True
-
     def check_full(self, control, check_solution):
         """
         This function selects a variable that is not fully assigned w.r.t. the
@@ -867,7 +762,6 @@ class State(object):
                     for c in constraints:
                         assert self.constraint_state(c).check_full(self)
 
-    # reinitialization
     def update(self, cc):
         """
         This function resets a state and should be called when a new solve step
@@ -989,6 +883,101 @@ class State(object):
                     return False
 
         return self._update_domain(cc, 1)
+
+    def add_dom(self, cc, literal, var, domain):
+        """
+        Integrates the given domain for varibale var.
+
+        Consider x in {[1,3), [4,6), [7,9)}. We can simply add the binary
+        constraints:
+        - right to left
+          - true => x < 9
+          - x < 7 => x < 6
+          - x < 4 => x < 3
+        - left to right
+          - true => x >= 1
+          - x >= 3 => x >= 4
+          - x >= 6 => x >= 7
+        """
+        ass = cc.assignment
+        if ass.is_false(literal):
+            return True
+        if ass.is_true(literal):
+            literal = TRUE_LIT
+        vs = self.var_state(var)
+
+        py = None
+        for x, y in domain:
+            ly = TRUE_LIT if py is None else -self.get_literal(vs, py-1, cc)
+            true = literal == TRUE_LIT and ass.is_true(ly)
+            ret, lx = self.update_literal(vs, x-1, cc, not true and None)
+            if not ret or not cc.add_clause([-literal, -ly, -lx]):
+                return False
+            py = y
+
+        px = None
+        for x, y in reversed(domain):
+            ly = TRUE_LIT if px is None else self.get_literal(vs, px-1, cc)
+            true = literal == TRUE_LIT and ass.is_true(ly)
+            ret, lx = self.update_literal(vs, y-1, cc, true or None)
+            if not ret or not cc.add_clause([-literal, -ly, lx]):
+                return False
+            px = x
+
+        return True
+
+    def add_simple(self, cc, clit, co, var, rhs, strict):
+        """
+        This function integrates singleton constraints intwatches_o the state.
+
+        We explicitely handle the strict case here to avoid introducing
+        unnecessary literals.
+        """
+        # pylint: disable=protected-access
+
+        ass = cc.assignment
+
+        # the constraint is never propagated
+        if not strict and ass.is_false(clit):
+            return True
+
+        vs = self.var_state(var)
+
+        if co > 0:
+            truth = ass.value(clit)
+            value = rhs//co
+        else:
+            truth = ass.value(-clit)
+            value = -(rhs//-co)-1
+
+        # in this case we can use the literal of the constraint as order variable
+        if strict and vs.min_bound <= value < vs.max_bound and not vs.has_literal(value):
+            lit = clit
+            if co < 0:
+                lit = -lit
+            if truth is None:
+                cc.add_watch(lit)
+                cc.add_watch(-lit)
+            elif truth:
+                lit = TRUE_LIT
+            else:
+                lit = -TRUE_LIT
+            vs.set_literal(value, lit)
+            self.litmap_.setdefault(lit, []).append((vs, value))
+
+        # otherwise we just update the existing order literal
+        else:
+            ret, lit = self.update_literal(vs, value, cc, truth)
+            if not ret:
+                return False
+            if co < 0:
+                lit = -lit
+            if not cc.add_clause([-clit, lit]):
+                return False
+            if strict and not cc.add_clause([-lit, clit]):
+                return False
+
+        return True
 */
 
 } // namespace Clingcon

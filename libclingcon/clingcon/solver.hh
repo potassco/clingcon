@@ -83,7 +83,7 @@ public:
     //! Detach the constraint from a solver.
     virtual void detach(Solver &solver) = 0;
     //! Translate a constraint to simpler constraints.
-    [[nodiscard]] virtual std::pair<bool, bool> translate(AbstractClauseCreator &cc, Config &config, ConstraintVec &added) = 0;
+    [[nodiscard]] virtual std::pair<bool, bool> translate(AbstractClauseCreator &cc, Config const &config, ConstraintVec &added) = 0;
     //! Copy the constraint state (for another solver)
     [[nodiscard]] virtual UniqueConstraintState copy() const = 0;
 
@@ -96,11 +96,11 @@ public:
     //!
     //! Value i depends on the value passed when registering the watch and diff
     //! is the change to the bound of the watched variable.
-    virtual void update(val_t i, val_t diff) = 0;
+    [[nodiscard]] virtual bool update(val_t i, val_t diff) = 0;
     //! Similar to update but when the bound of a variable is backtracked.
     virtual void undo(val_t i, val_t diff) = 0;
     //! Prepagates the constraint.
-    [[nodiscard]] virtual bool propagate(Solver &solver, AbstractClauseCreator &cc, SolverConfig &config, bool check_state) = 0;
+    [[nodiscard]] virtual bool propagate(AbstractClauseCreator &cc, SolverConfig const &config, bool check_state) = 0;
     //! Check if the solver meets the state invariants.
     [[nodiscard]] virtual bool check_full(Solver &solver);
 
@@ -465,6 +465,12 @@ public:
     //! current level and propagates constraints gathered during Solver::propagate.
     [[nodiscard]] bool check(AbstractClauseCreator &cc, bool check_state);
 
+    //! This function undos decision level specific state.
+    //!
+    //! This includes undoing changed bounds of variables clearing constraints
+    //! that where not propagated on the current decision level.
+    void undo();
+
     //! @name Initialization
     //! @{
 
@@ -489,10 +495,16 @@ public:
     //! This functions removes translated constraints from the map and the
     //! state. Constraints added during the translation have to be added to the
     //! propagator as well.
-    bool translate(AbstractClauseCreator &cc, Statistics &stats, Config &conf, ConstraintVec &constraints);
+    bool translate(AbstractClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints);
     //! @}
 
 private:
+    //! Update watches and enque constraints.
+    //!
+    //! The parameters determine whether the lookup tables for lower or upper
+    //! bounds are used.
+    void update_constraints_(Level &lvl, var_t var, val_t diff);
+
     //! Propagates the preceeding or succeeding order literal of lit.
     //!
     //! Whether the target literal is a preceeding or succeeding literal is
@@ -575,8 +587,6 @@ private:
     std::vector<AbstractConstraintState*> todo_;
     //! Map from literals to corresponding constraint states.
     std::unordered_multimap<lit_t, AbstractConstraintState*> lit2cs_;
-    //! The number of true/false factual literals that have been integrated.
-    size_t facts_integrated_{0};
     //! Offset to speed up Solver::check_full.
     uint32_t lerp_last_{0};
     //! Offset to speed up Solver::simplify.
