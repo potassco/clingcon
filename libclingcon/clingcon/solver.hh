@@ -80,6 +80,8 @@ public:
     virtual void detach(Solver &solver) = 0;
     //! Translate a constraint to simpler constraints.
     [[nodiscard]] virtual bool translate(Solver &solver, AbstractClauseCreator &cc, Config &config, std::vector<UniqueConstraintState> &added) = 0;
+    //! Copy the constraint state (for another solver)
+    [[nodiscard]] virtual UniqueConstraintState copy() const = 0;
 
     //! @}
 
@@ -384,9 +386,22 @@ public:
 
     //! Get the Clingcon::ConstraintState object associated with the given constraint.
     [[nodiscard]] AbstractConstraintState *constraint_state(AbstractConstraint *constraint) {
-        return c2cs_.find(constraint)->second;
+        return c2cs_.find(constraint)->second.get();
     }
 
+    //! @name Initialization
+    //! @{
+
+    //! Copy order literals and propagation state from the given `master` state
+    //! to the current state.
+    //!
+    //! This function must be called on the top level.
+    void copy_state(Solver const &master);
+
+    //! Adds a new VarState object and returns its index;
+    var_t add_variable(val_t min_int, val_t max_int);
+
+    //! @}
 private:
     //! Solver configuration.
     SolverConfig const &config_;
@@ -402,7 +417,7 @@ private:
     //! `(var,value)` is contained in the map
     std::unordered_multimap<lit_t, std::pair<var_t, val_t>> litmap_;
     //! A mapping from constraint states to constraints.
-    std::unordered_map<AbstractConstraint*, AbstractConstraintState*> c2cs_;
+    std::unordered_map<AbstractConstraint*, UniqueConstraintState> c2cs_;
     //! Watches mapping variables to a constraint state and a constraint
     //! specific integer value.
     std::vector<std::vector<std::pair<val_t, AbstractConstraintState*>>> watches_;

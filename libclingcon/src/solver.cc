@@ -27,7 +27,7 @@
 
 namespace Clingcon {
 
-//! Class that helps to maintain pre decision level state.
+//! Class that helps to maintain per decision level state.
 class Solver::Level {
 public:
     Level(level_t level)
@@ -134,27 +134,41 @@ public:
     //! This function must only be called on the top level. It does not update
     //! variable and constraint states. This has to happen in
     //! Solver::copy_state.
-    void copy_state(Solver &solver, Level const &lvl) {
-        assert(level_ == 0 && lvl.level_ == 0);
+    static void copy_state(Solver &solver, Solver const &master) {
+        assert(solver.levels_.size() == 1 && master.levels_.size() == 1);
 
-        undo_lower_.clear();
-        for (auto var : lvl.undo_lower_) {
-            undo_lower_.emplace_back(var);
+        auto &lvl = solver.levels_.front();
+        auto const &lvl_master = master.levels_.front();
+
+        lvl.undo_lower_.clear();
+        for (auto var : lvl_master.undo_lower_) {
+            lvl.undo_lower_.emplace_back(var);
+        }
+        solver.ldiff_ = master.ldiff_;
+        solver.in_ldiff_ = master.in_ldiff_;
+
+        lvl.undo_upper_.clear();
+        for (auto var : lvl_master.undo_upper_) {
+            lvl.undo_upper_.emplace_back(var);
+        }
+        solver.udiff_ = master.udiff_;
+        solver.in_udiff_ = master.in_udiff_;
+
+        lvl.inactive_.clear();
+        for (auto *cs : lvl_master.inactive_) {
+            lvl.inactive_.emplace_back(solver.constraint_state(cs->constraint()));
         }
 
-        undo_upper_.clear();
-        for (auto var : lvl.undo_upper_) {
-            undo_upper_.emplace_back(var);
+        lvl.removed_watches_.clear();
+        lvl.removed_watches_.reserve(lvl_master.removed_watches_.size());
+        for (auto const &[var, val, cs] : lvl_master.removed_watches_) {
+            lvl.removed_watches_.emplace_back(var, val, solver.constraint_state(cs->constraint()));
         }
 
-        inactive_.clear();
-        for (auto *cs : lvl.inactive_) {
-            inactive_.emplace_back(solver.constraint_state(cs->constraint()));
-        }
-
-        removed_watches_.clear();
-        for (auto const &[var, val, cs] : lvl.removed_watches_) {
-            removed_watches_.emplace_back(var, val, solver.constraint_state(cs->constraint()));
+        solver.todo_.clear();
+        solver.todo_.reserve(master.todo_.size());
+        for (auto const &cs : master.todo_) {
+            solver.todo_.emplace_back(solver.constraint_state(cs->constraint()));
         }
     }
 
@@ -180,51 +194,56 @@ Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
 
 Solver::~Solver() = default;
 
+
+void Solver::copy_state(Solver const &master) {
+    // adjust integrated facts
+    facts_integrated_ = master.facts_integrated_;
+
+    // make sure we have an empty var state for each variable
+    var_t var = 0;
+    var2vs_.reserve(master.var2vs_.size());
+    for (auto const &vs_master : master.var2vs_) {
+        if (var2vs_.size() <= var) {
+            add_variable(vs_master.min_bound(), vs_master.max_bound());
+        }
+        else {
+            auto &vs = var2vs_[var];
+            vs.reset(vs_master.min_bound(), vs_master.max_bound());
+        }
+        ++var;
+    }
+
+    // copy the map from literals to var states
+    litmap_ = master.litmap_;
+    for (auto const &[lit, var_val] : litmap_) {
+        var_state(var_val.first).set_literal(var_val.second, lit);
+    }
+
+    // copy the map from literals to var states
+    for (auto const &[c, cs] : master.c2cs_) {
+        c2cs_.emplace(c, cs->copy());
+    }
+
+    // copy watches
+    watches_ = master.watches_;
+    for (auto &var_watches : watches_) {
+        for (auto &watch : var_watches) {
+            watch.second = constraint_state(watch.second->constraint());
+        }
+    }
+
+    // adjust levels
+    Level::copy_state(*this, master);
+}
+
+var_t Solver::add_variable(val_t min_int, val_t max_int) {
+    var_t idx = var2vs_.size();
+    var2vs_.emplace_back(idx, min_int, max_int);
+    return idx;
+}
+
 /*
 class State(object):
-    def copy_state(self, master):
-        """
-        Copy order literals and propagation state from the given `master` state
-        to the current state.
-        """
-        # pylint: disable=protected-access
-
-        # adjust integrated facts
-        self._facts_integrated = master._facts_integrated
-
-        # make sure we have an empty var state for each variable
-        for vs in master._var_state[len(self._var_state):]:
-            self.add_variable(vs.min_bound, vs.max_bound)
-        for vs, vs_master in zip(self._var_state, master._var_state):
-            assert vs.var == vs_master.var
-            vs.reset(vs_master.min_bound, vs_master.max_bound)
-
-        # copy the map from literals to var states
-        self._litmap.clear()
-        for lit, vss in master._litmap.items():
-            for vs_master, value in vss:
-                vs = self.var_state(vs_master.var)
-                vs.set_literal(value, lit)
-                self._litmap.setdefault(lit, []).append((vs, value))
-
-        # copy constraint state
-        for c, cs in master._cstate.items():
-            self._cstate[c] = cs.copy()
-
-        # copy lookup maps
-        self._v2cs.clear()
-        for var, css in master._v2cs.items():
-            self._v2cs[var] = [(co, self.constraint_state(cs.constraint)) for co, cs in css]
-
-        # adjust levels
-        self._level.copy_state(self, master._level)
-        self._ldiff = master._ldiff.copy()
-        self._udiff = master._udiff.copy()
-
-        # copy todo queues
-        for cs in master._todo:
-            self._todo.add(self.constraint_state(cs.constraint))
-
     @property
     def minimize_bound(self):
         """
@@ -251,7 +270,7 @@ class State(object):
         This function should be called on the state corresponding to the thread
         where a model has been found.
         """
-        return [(var, self._var_state[idx].lower_bound) for var, idx in var_map]
+        return [(var, self.var2vs_[idx].lower_bound) for var, idx in var_map]
 
     def get_value(self, var):
         """
@@ -261,7 +280,7 @@ class State(object):
         where a model has been found.
         """
         assert isinstance(var, int)
-        return self._var_state[var].lower_bound
+        return self.var2vs_[var].lower_bound
 
     def _push_level(self, level):
         """
@@ -286,7 +305,7 @@ class State(object):
         """
         Get the state associated with variable `var`.
         """
-        return self._var_state[var]
+        return self.var2vs_[var]
 
     def constraint_state(self, constraint):
         """
@@ -409,8 +428,8 @@ class State(object):
         """
         Adds `VarState` objects for each variable in `variables`.
         """
-        idx = len(self._var_state)
-        self._var_state.append(VarState(idx, min_int, max_int))
+        idx = len(self.var2vs_)
+        self.var2vs_.append(VarState(idx, min_int, max_int))
         return idx
 
     def add_var_watch(self, var, co, cs):
@@ -421,13 +440,13 @@ class State(object):
         The integer `co` is additional information passed to the constraint
         state upon notification.
         """
-        self._v2cs.setdefault(var, []).append((co, cs))
+        self.watches_.setdefault(var, []).append((co, cs))
 
     def remove_var_watch(self, var, co, cs):
         """
         Removes a previously added variable watch (see `add_var_watch`).
         """
-        self._v2cs[var].remove((co, cs))
+        self.watches_[var].remove((co, cs))
 
     def add_constraint(self, constraint):
         """
@@ -498,13 +517,13 @@ class State(object):
         # has to be removed.
         if remove_cs:
             remove_vars = []
-            for var, css in self._v2cs.items():
+            for var, css in self.watches_.items():
                 i = remove_if(css, lambda cs: cs[1] in remove_cs)
                 del css[i:]
                 if not css:
                     remove_vars.append(var)
             for var in remove_vars:
-                del self._v2cs[var]
+                del self.watches_[var]
 
             # Note: In theory all inactive constraints should be remove on level 0.
             i = remove_if(self._level.inactive, lambda cs: cs in remove_cs)
@@ -638,7 +657,7 @@ class State(object):
         """
         lvl = self._level
 
-        l = self._v2cs.get(var, [])
+        l = self.watches_.get(var, [])
         i = 0
         for j, (co, cs) in enumerate(l):
             if not cs.removable(lvl.level):
@@ -818,7 +837,7 @@ class State(object):
             vs.pop_lower()
             diff = value - vs.lower_bound - self._ldiff.get(vs.var, 0)
             if diff != 0:
-                for co, cs in self._v2cs.get(vs.var, []):
+                for co, cs in self.watches_.get(vs.var, []):
                     cs.undo(co, diff)
         self._ldiff.clear()
 
@@ -827,7 +846,7 @@ class State(object):
             vs.pop_upper()
             diff = value - vs.upper_bound - self._udiff.get(vs.var, 0)
             if diff != 0:
-                for co, cs in self._v2cs.get(vs.var, []):
+                for co, cs in self.watches_.get(vs.var, []):
                     cs.undo(co, diff)
         self._udiff.clear()
 
@@ -835,7 +854,7 @@ class State(object):
             cs.mark_active()
 
         for var, co, cs in lvl.removed_v2cs:
-            self._v2cs[var].append((co, cs))
+            self.watches_[var].append((co, cs))
 
         self._pop_level()
         # Note: To make sure that the todo list is cleared when there is
@@ -905,10 +924,10 @@ class State(object):
 
         This function should only be called total assignments.
         """
-        post = range(self._lerp_last, len(self._var_state))
+        post = range(self._lerp_last, len(self.var2vs_))
         pre = range(0, self._lerp_last)
         for i in chain(post, pre):
-            vs = self._var_state[i]
+            vs = self.var2vs_[i]
             if not vs.is_assigned:
                 self._lerp_last = i
                 value = lerp(vs.lower_bound, vs.upper_bound)
@@ -1028,7 +1047,7 @@ class State(object):
 
         # update upper bounds
         for vs_b, _ in other._litmap.get(TRUE_LIT, []):
-            vs_a = self._var_state[vs_b.var]
+            vs_a = self.var2vs_[vs_b.var]
             if vs_b.upper_bound < vs_a.upper_bound:
                 ret, _ = self.update_literal(vs_a, vs_b.upper_bound, cc, True)
                 if not ret:
@@ -1036,7 +1055,7 @@ class State(object):
 
         # update lower bounds
         for vs_b, _ in other._litmap.get(-TRUE_LIT, []):
-            vs_a = self._var_state[vs_b.var]
+            vs_a = self.var2vs_[vs_b.var]
             if vs_a.lower_bound < vs_b.lower_bound:
                 ret, _ = self.update_literal(vs_a, vs_b.lower_bound-1, cc, False)
                 if not ret:
