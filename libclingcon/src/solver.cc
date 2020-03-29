@@ -25,6 +25,8 @@
 #include "clingcon/solver.hh"
 #include "clingcon/util.hh"
 
+#include <unordered_set>
+
 namespace Clingcon {
 
 //! Class that helps to maintain per decision level state.
@@ -58,6 +60,7 @@ public:
     void update_upper(Solver &solver, var_t var, val_t value) {
         auto &vs = solver.var_state(var);
         val_t diff = value - vs.upper_bound();
+
         if (level_ > 0 && vs.pushed_upper(level_) ) {
             vs.push_upper(level_);
             undo_upper_.emplace_back(var);
@@ -145,9 +148,21 @@ public:
             inactive_.erase(std::find(inactive_.begin(), inactive_.end(), &cs));
         }
         if (cs.marked_todo()) {
+            cs.mark_todo(false);
             solver.todo_.erase(std::find(solver.todo_.begin(), solver.todo_.end(), &cs));
-
         }
+    }
+
+    void remove_constraints(Solver &solver, std::vector<AbstractConstraintState *> removed) {
+        inactive_.erase(std::remove_if(inactive_.begin(), inactive_.end(), [&](auto *cs) {
+            cs->mark_active();
+            return std::binary_search(removed.begin(), removed.end(), cs);
+        }), inactive_.end());
+
+        solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(), [&](auto *cs) {
+            cs->mark_todo(false);
+            return std::binary_search(removed.begin(), removed.end(), cs);
+        }), solver.todo_.end());
     }
 
     //! Copy the given level.
@@ -385,6 +400,7 @@ AbstractConstraintState &Solver::add_constraint(AbstractConstraint &constraint) 
 
     if (cs == nullptr) {
         cs = constraint.create_state();
+        lit2cs_.emplace(constraint.literal(), cs.get());
         cs->attach(*this);
         Level::mark_todo(*this, *cs);
     }
@@ -396,72 +412,82 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     auto it = c2cs_.find(&constraint);
     auto &cs = *it->second;
     cs.detach(*this);
+
+    for (auto rng = lit2cs_.equal_range(constraint.literal()); rng.first != rng.second; ) {
+        if (rng.first->second == &cs) {
+            lit2cs_.erase(rng.first);
+        }
+        else {
+            ++rng.first;
+        }
+    }
+
     level_().remove_constraint(*this, cs);
     c2cs_.erase(it);
 }
 
+bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config &conf, ConstraintVec &constraints) {
+    std::vector<AbstractConstraintState*> removed;
+
+    size_t jdx = 0, kdx = constraints.size(); // NOLINT
+    for (size_t idx = jdx; idx < constraints.size(); ++idx) {
+        auto &cs = add_constraint(*constraints[idx]);
+        if (idx >= kdx) {
+            ++stats.num_constraints;
+            ++stats.translate_added;
+        }
+        auto ret = cs.translate(cc, conf, constraints);
+        if (!ret.first) {
+            return false;
+        }
+        if (ret.second) {
+            --stats.num_constraints;
+            ++stats.translate_removed;
+            removed.emplace_back(&cs);
+            if (idx != jdx) {
+                std::swap(constraints[idx], constraints[jdx]);
+            }
+            ++jdx;
+        }
+    }
+
+    // Note: Constraints are removed by traversing the whole lookup table to
+    // avoid potentially quadratic overhead if a large number of constraints
+    // has to be removed.
+    if (removed.empty()) {
+        std::sort(removed.begin(), removed.end());
+
+        for (auto &watches : var_watches_) {
+            watches.erase(std::remove_if(watches.begin(), watches.end(), [&](auto &watch) {
+                return std::binary_search(removed.begin(), removed.end(), watch.second);
+            }), watches.end());
+        }
+
+        level_().remove_constraints(*this, removed);
+
+        for (auto it = lit2cs_.begin(); it != lit2cs_.end(); ) {
+            if (std::binary_search(removed.begin(), removed.end(), it->second)) {
+                it = lit2cs_.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
+
+        for (auto *cs : removed) {
+            c2cs_.erase(&cs->constraint());
+        }
+    }
+
+    // Note: even though it is not strictly necessary this keeps the
+    // constraints valid until all constraint states have been removed
+    constraints.resize(jdx);
+
+    return true;
+}
+
 /*
 class State(object):
-    def translate(self, cc, l2c, stats, config):
-        """
-        Translate constraints in the map l2c and return a list of constraint
-        added during translation.
-
-        This functions removes translated constraints from the map and the
-        state. Constraints added during the translation have to be added to the
-        propagator as well.
-        """
-        remove_cs = set()
-        added = []
-
-        def _translate(constraints, count):
-            i = j = 0
-            while i < len(constraints):
-                i, cs = i+1, self.add_constraint(constraints[i])
-                if count:
-                    stats.num_constraints += 1
-                    stats.translate_added += 1
-                ret, rem = cs.translate(cc, self, config, added)
-                if not ret:
-                    return False
-                if rem:
-                    stats.num_constraints -= 1
-                    stats.translate_removed += 1
-                    remove_cs.add(cs)
-                    continue
-                if i-1 != j:
-                    constraints[i-1], constraints[j] = constraints[j], constraints[i-1]
-                j += 1
-            del constraints[j:]
-
-        for lit in sorted(l2c):
-            _translate(l2c[lit], False)
-        _translate(added, True)
-
-        # Note: Constraints are removed by traversing the whole lookup table to
-        # avoid potentially quadratic overhead if a large number of constraints
-        # has to be removed.
-        if remove_cs:
-            remove_vars = []
-            for var, css in self.var_watches_.items():
-                i = remove_if(css, lambda cs: cs[1] in remove_cs)
-                del css[i:]
-                if not css:
-                    remove_vars.append(var)
-            for var in remove_vars:
-                del self.var_watches_[var]
-
-            # Note: In theory all inactive constraints should be remove on level 0.
-            i = remove_if(self._level.inactive, lambda cs: cs in remove_cs)
-            del self._level.inactive[i:]
-
-            for cs in remove_cs:
-                del self.c2cs_[cs.constraint]
-
-            self._todo = TodoList(cs for cs in self._todo if cs not in remove_cs)
-
-        return cc.commit(), added
-
     def simplify(self, cc, check_state):
         """
         Simplify the state using fixed literals in the trail up to the given

@@ -41,6 +41,7 @@ class Solver;
 class AbstractConstraint;
 class AbstractConstraintState;
 using UniqueConstraint = std::unique_ptr<AbstractConstraint>;
+using ConstraintVec = std::vector<UniqueConstraint>;
 using UniqueConstraintState = std::unique_ptr<AbstractConstraintState>;
 
 //! Base class of all constraints.
@@ -55,6 +56,9 @@ public:
 
     //! Create thread specific state for the constraint.
     [[nodiscard]] virtual UniqueConstraintState create_state() = 0;
+
+    //! Get the literal associated with the constraint.
+    [[nodiscard]] virtual lit_t literal() const = 0;
 };
 
 
@@ -79,7 +83,7 @@ public:
     //! Detach the constraint from a solver.
     virtual void detach(Solver &solver) = 0;
     //! Translate a constraint to simpler constraints.
-    [[nodiscard]] virtual bool translate(Solver &solver, AbstractClauseCreator &cc, Config &config, std::vector<UniqueConstraintState> &added) = 0;
+    [[nodiscard]] virtual std::pair<bool, bool> translate(AbstractClauseCreator &cc, Config &config, ConstraintVec &added) = 0;
     //! Copy the constraint state (for another solver)
     [[nodiscard]] virtual UniqueConstraintState copy() const = 0;
 
@@ -352,8 +356,6 @@ private:
     OrderLiterals literals_;       //!< map from values to literals
 };
 
-using ConstraintVec = std::vector<std::pair<lit_t, AbstractConstraint*>>;
-
 class Solver {
     class Level;
 
@@ -449,6 +451,13 @@ public:
     //! Remove a constraint.
     void remove_constraint(AbstractConstraint &constraint);
 
+    //! Translate constraints in the map l2c and return a list of constraint
+    //! added during translation.
+    //!
+    //! This functions removes translated constraints from the map and the
+    //! state. Constraints added during the translation have to be added to the
+    //! propagator as well.
+    bool translate(AbstractClauseCreator &cc, Statistics &stats, Config &conf, ConstraintVec &constraints);
     //! @}
 
 private:
