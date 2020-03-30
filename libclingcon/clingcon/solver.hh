@@ -370,11 +370,6 @@ public:
     Solver& operator=(Solver &&) = delete;
     ~Solver();
 
-    //! Optimize internal data structures.
-    //!
-    //! Should be called before solving.
-    void shrink_to_fit();
-
     //! Get the solver's configuration.
     [[nodiscard]] SolverConfig const &config() const {
         return config_;
@@ -402,17 +397,6 @@ public:
         return *c2cs_.find(&constraint)->second;
     }
 
-    //! Get the current value of a variable.
-    //!
-    //! This function should be called on the solver corresponding to the thread
-    //! where a model has been found.
-    [[nodiscard]] val_t get_value(var_t var) const;
-
-    //! Get the current bound of the minimize constraint.
-    [[nodiscard]] std::optional<val_t> minimize_bound() const;
-    //! Updates the bound of the minimize constraint in this state.
-    void update_minimize(AbstractConstraint &constraint, level_t level, val_t bound);
-
     //! Returns the literal associated with the `vs.var/value` pair.
     //!
     //! Values smaller below the smallest lower bound are associated with the
@@ -431,42 +415,29 @@ public:
     //! value.
     [[nodiscard]] std::pair<bool, lit_t> update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth);
 
+    //! Get the current value of a variable.
+    //!
+    //! This function should be called on the solver corresponding to the thread
+    //! where a model has been found.
+    [[nodiscard]] val_t get_value(var_t var) const;
+
+    //! Get the current bound of the minimize constraint.
+    [[nodiscard]] std::optional<val_t> minimize_bound() const;
+
+    //! Updates the bound of the minimize constraint in this state.
+    void update_minimize(AbstractConstraint &constraint, level_t level, val_t bound);
+
     //! Watch the given variable notifying given constraint state on changes.
     //!
     //! The integer `i` is additional information passed to the constraint
     //! state upon notification.
     void add_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
+
     //! Remove a previously added watch.
     void remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
 
-    //! Simplify the state using fixed literals in the trail up to the given
-    //! offset and the enqued constraints in the todo list.
-    //!
-    //! Note that this functions assumes that newly added constraints have been
-    //! enqueued before.
-    [[nodiscard]] bool simplify(AbstractClauseCreator &cc, bool check_state);
-
-    //! Propagates constraints and order literals.
-    //!
-    //! Constraints that became true are added to the todo list and bounds of
-    //! variables are adjusted according to the truth of order literals.
-    [[nodiscard]] bool propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes);
-
-    //! This functions propagates facts that have not been integrated on the
-    //! current level and propagates constraints gathered during Solver::propagate.
-    [[nodiscard]] bool check(AbstractClauseCreator &cc, bool check_state);
-
-    //! This function undos decision level specific state.
-    //!
-    //! This includes undoing changed bounds of variables clearing constraints
-    //! that where not propagated on the current decision level.
-    void undo();
-
-    //! This function selects a variable that is not fully assigned w.r.t. the
-    //! current assignment and introduces an additional order literal for it.
-    //!
-    //! This function should only be called total assignments.
-    void check_full(AbstractClauseCreator &cc, bool check_solution);
+    //! @name Initialization
+    //! @{
 
     //! This function resets a state and should be called when a new solve step is
     //! started.
@@ -475,10 +446,6 @@ public:
     //! fixed global literals to the true/false literal, and resets the minimize
     //! constraint.
     void update(AbstractClauseCreator &cc);
-
-    //! Remove all order literals associated with facts that are above the upper or
-    //! below the lower bound.
-    [[nodiscard]] bool cleanup_literals(AbstractClauseCreator &cc, bool check_state);
 
     //! Integrate the lower and upper bounds from State `other`.
     //!
@@ -490,23 +457,12 @@ public:
     //! integrate all bounds.
     [[nodiscard]] bool update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state);
 
-    //! @name Initialization
-    //! @{
-
-    //! Copy order literals and propagation state from the given `master` state
-    //! to the current state.
-    //!
-    //! This function must be called on the top level.
-    void copy_state(Solver const &master);
+    //! Remove all order literals associated with facts that are above the upper or
+    //! below the lower bound.
+    [[nodiscard]] bool cleanup_literals(AbstractClauseCreator &cc, bool check_state);
 
     //! Adds a new VarState object and returns its index;
     [[nodiscard]] var_t add_variable(val_t min_int, val_t max_int);
-
-    //! Add the given constraint to the propagation queue and initialize its state.
-    AbstractConstraintState &add_constraint(AbstractConstraint &constraint);
-
-    //! Remove a constraint.
-    void remove_constraint(AbstractConstraint &constraint);
 
     //! Integrates the given domain for varibale var.
     //!
@@ -528,6 +484,19 @@ public:
     //! unnecessary literals.
     bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
 
+    //! Add the given constraint to the propagation queue and initialize its state.
+    AbstractConstraintState &add_constraint(AbstractConstraint &constraint);
+
+    //! Remove a constraint.
+    void remove_constraint(AbstractConstraint &constraint);
+
+    //! Simplify the state using fixed literals in the trail up to the given
+    //! offset and the enqued constraints in the todo list.
+    //!
+    //! Note that this functions assumes that newly added constraints have been
+    //! enqueued before.
+    [[nodiscard]] bool simplify(AbstractClauseCreator &cc, bool check_state);
+
     //! Translate constraints in the map l2c and return a list of constraint
     //! added during translation.
     //!
@@ -535,12 +504,58 @@ public:
     //! state. Constraints added during the translation have to be added to the
     //! propagator as well.
     bool translate(AbstractClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints);
+
+    //! Optimize internal data structures.
+    //!
+    //! Should be called before solving/copying states.
+    void shrink_to_fit();
+
+    //! Copy order literals and propagation state from the given `master` state
+    //! to the current state.
+    //!
+    //! This function must be called on the top level.
+    void copy_state(Solver const &master);
+
+    //! @}
+
+    //! @name Propagation
+    //! @{
+
+    //! Propagates constraints and order literals.
+    //!
+    //! Constraints that became true are added to the todo list and bounds of
+    //! variables are adjusted according to the truth of order literals.
+    [[nodiscard]] bool propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes);
+
+    //! This functions propagates facts that have not been integrated on the
+    //! current level and propagates constraints gathered during Solver::propagate.
+    [[nodiscard]] bool check(AbstractClauseCreator &cc, bool check_state);
+
+    //! This function selects a variable that is not fully assigned w.r.t. the
+    //! current assignment and introduces an additional order literal for it.
+    //!
+    //! This function should only be called total assignments.
+    void check_full(AbstractClauseCreator &cc, bool check_solution);
+
+    //! This function undos decision level specific state.
+    //!
+    //! This includes undoing changed bounds of variables clearing constraints
+    //! that where not propagated on the current decision level.
+    void undo();
+
     //! @}
 
 private:
     //! See Solver::propagate.
     template <class It>
     [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, It begin, It end);
+
+    //! See Solver::propagate.
+    [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, lit_t lit);
+
+    //! See Solver::propagate_variable_.
+    template <int sign, class It>
+    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end);
 
     //! Propagates the preceeding or succeeding order literal of lit.
     //!
@@ -559,16 +574,9 @@ private:
 
     //! Update and propgate the given variable due to a lower bound change.
     [[nodiscard]] bool update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);
+
     //! Update and propgate the given variable due to an upper bound change.
     [[nodiscard]] bool update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);
-
-
-    //! See Solver::propagate_variable_.
-    template <int sign, class It>
-    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end);
-
-    //! See Solver::propagate.
-    [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, lit_t lit);
 
     //! If the given literal is an order literal, this function updates the lower
     //! or upper bound of the corresponding variables. Furthermore, the preceeding
