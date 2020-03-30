@@ -49,7 +49,6 @@ public:
         }
         vs.lower_bound(value + 1);
 
-        // TODO: ldiff is not initialized yet
         if (solver.ldiff_[vs.var()] == 0) {
             solver.in_ldiff_.emplace_back(vs.var());
         }
@@ -66,7 +65,6 @@ public:
         }
         vs.upper_bound(value);
 
-        // TODO: udiff is not initialized yet
         if (solver.udiff_[vs.var()] == 0) {
             solver.in_udiff_.emplace_back(vs.var());
         }
@@ -268,6 +266,19 @@ Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
 
 Solver::~Solver() = default;
 
+void Solver::shrink_to_fit() {
+    var2vs_.shrink_to_fit();
+    litmap_.rehash(0);
+    factmap_.shrink_to_fit();
+    c2cs_.rehash(0);
+    for (auto &watches : var_watches_) {
+        watches.shrink_to_fit();
+    }
+    var_watches_.shrink_to_fit();
+    udiff_.shrink_to_fit();
+    ldiff_.shrink_to_fit();
+    lit2cs_.rehash(0);
+}
 
 void Solver::copy_state(Solver const &master) {
     // just to be thorough
@@ -314,6 +325,9 @@ void Solver::copy_state(Solver const &master) {
 var_t Solver::add_variable(val_t min_int, val_t max_int) {
     var_t idx = var2vs_.size();
     var2vs_.emplace_back(idx, min_int, max_int);
+    var_watches_.emplace_back();
+    ldiff_.emplace_back(0);
+    udiff_.emplace_back(0);
     return idx;
 }
 
@@ -385,24 +399,24 @@ void Solver::remove_literal_(var_t var, lit_t lit, val_t value) {
     assert(false && "could not remove literal");
 }
 
-std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, std::optional<bool> truth) {
+std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) {
     // order literals can only be update on level 0
-    if (!truth.has_value() || cc.assignment().decision_level() > 0) {
+    if (truth == Clingo::TruthValue::Free || cc.assignment().decision_level() > 0) {
         return {true, get_literal(cc, vs, value)};
     }
-    auto lit = *truth ? TRUE_LIT : -TRUE_LIT;
+    auto lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
     auto ret = true;
     // the value is out of bounds
     if (value < vs.min_bound()) {
         auto old = -TRUE_LIT;
         if (old != lit) {
-             ret = cc.add_clause({*truth ? old : -old});
+             ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
         }
     }
     else if (value >= vs.max_bound()) {
         auto old = TRUE_LIT;
         if (old != lit) {
-             ret = cc.add_clause({*truth ? old : -old});
+             ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
         }
     }
     // there was no literal yet
@@ -415,19 +429,17 @@ std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarStat
         old = lit;
         remove_literal_(vs.var(), old, value);
         factmap_.emplace_back(lit, vs.var(), value);
-        ret = cc.add_clause({*truth ? old : -old});
+        ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
     }
     return {ret, lit};
 }
 
 void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
-    // TODO: var_watches_ is not resized yet
     assert(var < var_watches_.size());
     var_watches_[var].emplace_back(i, cs);
 }
 
 void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
-    // TODO: var_watches_ is not resized yet
     assert(var < var_watches_.size());
     auto &watches = var_watches_[var];
     watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, cs)));
@@ -591,7 +603,7 @@ bool Solver::propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t 
 
     // on-the-fly simplify
     if (ass.is_fixed(lit) && !ass.is_fixed(con)) {
-        auto [ret, con] = update_literal(cc, vs, value, sign > 0);
+        auto [ret, con] = update_literal(cc, vs, value, sign > 0 ? Clingo::TruthValue::True : Clingo::TruthValue::False);
         if (!ret) {
             return false;
         }
@@ -849,7 +861,7 @@ void Solver::update(AbstractClauseCreator &cc) {
 }
 
 bool Solver::cleanup_literals(AbstractClauseCreator &cc, bool check_state) {
-    // make sure that all top level literals are assigned to the fact literal
+    // make sure that all top level literals are mapped to the fact literal
     update(cc);
 
     // update_domain_ in check makes sure that unnecassary facts are removed
@@ -863,14 +875,14 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
 
         // update upper bounds
         if (vs_other.upper_bound() < vs.upper_bound()) {
-            if (!update_literal(cc, vs, vs_other.upper_bound(), true).first) {
+            if (!update_literal(cc, vs, vs_other.upper_bound(), Clingo::TruthValue::True).first) {
                 return false;
             }
         }
 
         // update lower bounds
         if (vs.lower_bound() < vs_other.lower_bound()) {
-            if (!update_literal(cc, vs, vs_other.lower_bound()-1, false).first) {
+            if (!update_literal(cc, vs, vs_other.lower_bound()-1, Clingo::TruthValue::False).first) {
                 return false;
             }
         }
@@ -880,102 +892,104 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
     return check(cc, check_state);
 }
 
-/*
-class State(object):
-    def add_dom(self, cc, literal, var, domain):
-        """
-        Integrates the given domain for varibale var.
+bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
+    auto ass = cc.assignment();
+    if (ass.is_false(lit)) {
+        return true;
+    }
+    if (ass.is_true(lit)) {
+        lit = TRUE_LIT;
+    }
+    auto &vs = var_state(var);
 
-        Consider x in {[1,3), [4,6), [7,9)}. We can simply add the binary
-        constraints:
-        - right to left
-          - true => x < 9
-          - x < 7 => x < 6
-          - x < 4 => x < 3
-        - left to right
-          - true => x >= 1
-          - x >= 3 => x >= 4
-          - x >= 6 => x >= 7
-        """
-        ass = cc.assignment
-        if ass.is_false(literal):
-            return True
-        if ass.is_true(literal):
-            literal = TRUE_LIT
-        vs = self.var_state(var)
+    std::optional<val_t> py;
+    for (auto [x, y] : domain) {
+        auto ly = py.has_value() ? -get_literal(cc, vs, *py - 1) : TRUE_LIT;
+        auto truth = Clingo::TruthValue::Free;
+        if (lit == TRUE_LIT && ass.is_true(ly)) {
+            truth = Clingo::TruthValue::False;
+        }
+        auto [ret, lx] = update_literal(cc, vs, x-1, truth);
+        if (!ret || !cc.add_clause({-lit, -ly, -lx})) {
+            return false;
+        }
+        py = y;
+    }
 
-        py = None
-        for x, y in domain:
-            ly = TRUE_LIT if py is None else -self.get_literal(vs, py-1, cc)
-            true = literal == TRUE_LIT and ass.is_true(ly)
-            ret, lx = self.update_literal(vs, x-1, cc, not true and None)
-            if not ret or not cc.add_clause([-literal, -ly, -lx]):
-                return False
-            py = y
+    std::optional<val_t> px;
+    for (auto it = domain.rbegin(), ie = domain.rend(); it != ie; ++it) {
+        auto [x, y] = *it;
+        auto lx = px.has_value() ? -get_literal(cc, vs, *px - 1) : TRUE_LIT;
+        auto truth = Clingo::TruthValue::Free;
+        if (lit == TRUE_LIT && ass.is_true(lx)) {
+            truth = Clingo::TruthValue::True;
+        }
+        auto [ret, ly] = update_literal(cc, vs, y-1, truth);
+        if (!ret || !cc.add_clause({-lit, -lx, ly})) {
+            return false;
+        }
+        px = x;
+    }
 
-        px = None
-        for x, y in reversed(domain):
-            ly = TRUE_LIT if px is None else self.get_literal(vs, px-1, cc)
-            true = literal == TRUE_LIT and ass.is_true(ly)
-            ret, lx = self.update_literal(vs, y-1, cc, true or None)
-            if not ret or not cc.add_clause([-literal, -ly, lx]):
-                return False
-            px = x
+    return true;
+}
 
-        return True
+bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict) {
+    auto ass = cc.assignment();
 
-    def add_simple(self, cc, clit, co, var, rhs, strict):
-        """
-        This function integrates singleton constraints intwatches_o the state.
+    // the constraint is never propagated
+    if (!strict && ass.is_false(clit)) {
+        return true;
+    }
 
-        We explicitely handle the strict case here to avoid introducing
-        unnecessary literals.
-        """
-        # pylint: disable=protected-access
+    auto vs = var_state(var);
 
-        ass = cc.assignment
+    Clingo::TruthValue truth;
+    val_t value{0};
+    if (co > 0) {
+        truth = ass.truth_value(clit);
+        value = modulo(rhs, co);
+    }
+    else {
+        truth = ass.truth_value(-clit);
+        value = -modulo(rhs, -co) - 1;
+    }
 
-        # the constraint is never propagated
-        if not strict and ass.is_false(clit):
-            return True
+    // in this case we can use the literal of the constraint as order variable
+    if (strict && vs.min_bound() <= value && value < vs.max_bound() && !vs.has_literal(value)) {
+        auto lit = clit;
+        if (co < 0) {
+            lit = -lit;
+        }
+        if (truth == Clingo::TruthValue::Free) {
+            cc.add_watch(lit);
+            cc.add_watch(-lit);
+            litmap_.emplace(lit, std::pair(vs.var(), value));
+        }
+        else {
+            lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;;
+            factmap_.emplace_back(lit, vs.var(), value);
+        }
+        vs.set_literal(value, lit);
+    }
+    // otherwise we just update the existing order literal
+    else {
+        auto [ret, lit] = update_literal(cc, vs, value, truth);
+        if (!ret) {
+            return false;
+        }
+        if (co < 0) {
+            lit = -lit;
+        }
+        if (!cc.add_clause({-clit, lit})) {
+            return false;
+        }
+        if (strict && !cc.add_clause({-lit, clit})) {
+            return false;
+        }
+    }
 
-        vs = self.var_state(var)
-
-        if co > 0:
-            truth = ass.value(clit)
-            value = rhs//co
-        else:
-            truth = ass.value(-clit)
-            value = -(rhs//-co)-1
-
-        # in this case we can use the literal of the constraint as order variable
-        if strict and vs.min_bound <= value < vs.max_bound and not vs.has_literal(value):
-            lit = clit
-            if co < 0:
-                lit = -lit
-            if truth is None:
-                cc.add_watch(lit)
-                cc.add_watch(-lit)
-            elif truth:
-                lit = TRUE_LIT
-            else:
-                lit = -TRUE_LIT
-            vs.set_literal(value, lit)
-            self.litmap_.setdefault(lit, []).append((vs, value))
-
-        # otherwise we just update the existing order literal
-        else:
-            ret, lit = self.update_literal(vs, value, cc, truth)
-            if not ret:
-                return False
-            if co < 0:
-                lit = -lit
-            if not cc.add_clause([-clit, lit]):
-                return False
-            if strict and not cc.add_clause([-lit, clit]):
-                return False
-
-        return True
-*/
+    return true;
+}
 
 } // namespace Clingcon

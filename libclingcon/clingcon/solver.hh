@@ -26,6 +26,7 @@
 #define CLINGCON_SOLVER_H
 
 #include <clingcon/base.hh>
+#include <clingcon/util.hh>
 #include <map>
 #include <unordered_map>
 
@@ -369,6 +370,11 @@ public:
     Solver& operator=(Solver &&) = delete;
     ~Solver();
 
+    //! Optimize internal data structures.
+    //!
+    //! Should be called before solving.
+    void shrink_to_fit();
+
     //! Get the solver's configuration.
     [[nodiscard]] SolverConfig const &config() const {
         return config_;
@@ -423,7 +429,7 @@ public:
     //! This function might fix the previous literal and can thus cause a top
     //! level conflict, which is indicated by the first part of the return
     //! value.
-    [[nodiscard]] std::pair<bool, lit_t> update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, std::optional<bool> truth);
+    [[nodiscard]] std::pair<bool, lit_t> update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth);
 
     //! Watch the given variable notifying given constraint state on changes.
     //!
@@ -501,6 +507,26 @@ public:
 
     //! Remove a constraint.
     void remove_constraint(AbstractConstraint &constraint);
+
+    //! Integrates the given domain for varibale var.
+    //!
+    //! Consider x in {[1,3), [4,6), [7,9)}. We can simply add the binary
+    //! constraints:
+    //! - right to left
+    //!   - true => x < 9
+    //!   - x < 7 => x < 6
+    //!   - x < 4 => x < 3
+    //! - left to right
+    //!   - true => x >= 1
+    //!   - x >= 3 => x >= 4
+    //!   - x >= 6 => x >= 7
+    bool add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain);
+
+    //! This function integrates singleton constraints intwatches_o the state.
+    //!
+    //! We explicitely handle the strict case here to avoid introducing
+    //! unnecessary literals.
+    bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
 
     //! Translate constraints in the map l2c and return a list of constraint
     //! added during translation.

@@ -43,6 +43,16 @@ I midpoint(I a, I b) noexcept {
     return static_cast<I>(static_cast<U>(a) + (static_cast<U>(b) - static_cast<U>(a)) / 2);
 }
 
+template<typename I>
+I modulo(I n, I m) {
+    m = std::abs(m);
+    auto ret = n % m;
+    if (n < 0) {
+        ret += m;
+    }
+    return ret;
+}
+
 //! Simple timer that adds the elapsed time to the given `double` upon
 //! destruction.
 class Timer {
@@ -211,6 +221,7 @@ class IntervalSet {
 public:
     using Map = typename std::map<T, T>;
     using Iterator = typename Map::const_iterator;
+    using ReverseIterator = typename Map::const_reverse_iterator;
 
     //! Create an empty interval set.
     IntervalSet() = default;
@@ -229,6 +240,16 @@ public:
     //! Iterator to the end of the set.
     [[nodiscard]] Iterator end() const {
         return map_.end();
+    }
+
+    //! Iterator to the last element in the set.
+    [[nodiscard]] ReverseIterator rbegin() const {
+        return map_.rbegin();
+    }
+
+    //! Iterator to pointing before the first element.
+    [[nodiscard]] ReverseIterator rend() const {
+        return map_.rend();
     }
 
     //! Check if the set is empty.
