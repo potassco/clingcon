@@ -138,7 +138,6 @@ public:
         sum_t lhs = 0;
         for (auto [co, var] : T::constraint_) {
             auto &vs = solver.var_state(var);
-            vs = solver.var_state(var);
             if (!vs.is_assigned()) {
                 throw std::logic_error("variable is not assigned");
             }

@@ -177,9 +177,9 @@ public:
     , upper_bound_{upper_bound} {
     }
     VarState() = delete;
-    VarState(VarState const &) = default;
+    VarState(VarState const &) = delete;
     VarState(VarState &&) noexcept = default;
-    VarState &operator=(VarState const &) = default;
+    VarState &operator=(VarState const &) = delete;
     VarState &operator=(VarState &&) noexcept = default;
     ~VarState() = default;
 
@@ -392,10 +392,12 @@ public:
 
     //! Get the Clingcon::VarState object associated with the given variable.
     [[nodiscard]] VarState &var_state(var_t var) {
+        assert(var < var2vs_.size());
         return var2vs_[var];
     }
     //! Get the Clingcon::VarState object associated with the given variable.
     [[nodiscard]] VarState const &var_state(var_t var) const {
+        assert(var < var2vs_.size());
         return var2vs_[var];
     }
 

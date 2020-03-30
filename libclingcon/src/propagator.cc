@@ -237,7 +237,7 @@ void Propagator::add_statistics_(Clingo::UserStatistics &stats_map, Statistics &
 var_t Propagator::add_variable(Clingo::Symbol sym) {
     auto [it, ret] = var_map_.emplace(sym, 0);
 
-    if (!ret) {
+    if (ret) {
         it->second = master_().add_variable(config_.min_int, config_.max_int);
         ++stats_step_.num_variables;
     }

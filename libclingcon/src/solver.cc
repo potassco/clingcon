@@ -112,7 +112,7 @@ public:
     void undo(Solver &solver) {
         // undo lower bound changes
         for (auto var : undo_lower_) {
-            auto vs = solver.var_state(var);
+            auto &vs = solver.var_state(var);
             auto value = vs.lower_bound();
             vs.pop_lower();
             auto diff = value - vs.lower_bound() - solver.ldiff_[var];
@@ -127,7 +127,7 @@ public:
 
         // undo upper bound changes
         for (auto var : undo_upper_) {
-            auto vs = solver.var_state(var);
+            auto &vs = solver.var_state(var);
             auto value = vs.upper_bound();
             vs.pop_upper();
             auto diff = value - vs.upper_bound() - solver.udiff_[var];
@@ -651,7 +651,7 @@ bool Solver::propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t
 }
 
 bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
-    auto vs = var_state(var);
+    auto &vs = var_state(var);
     if (vs.upper_bound() > value) {
         lvl.update_upper(*this, vs, value);
     }
@@ -659,7 +659,7 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
 }
 
 bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
-    auto vs = var_state(var);
+    auto &vs = var_state(var);
     if (vs.lower_bound() < value + 1) {
         lvl.update_lower(*this, vs, value);
     }
@@ -672,7 +672,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     assert(lit != -TRUE_LIT);
     if (lit == TRUE_LIT) {
         for (auto [fact_lit, var, value] : factmap_) {
-            auto vs = var_state(var);
+            auto &vs = var_state(var);
             if (fact_lit == TRUE_LIT) {
                 if (!update_upper_(lvl, cc, var, lit, value)) {
                     return false;
@@ -845,7 +845,7 @@ void Solver::update(AbstractClauseCreator &cc) {
     // remove solve step local variables from litmap_
     for (auto it = litmap_.begin(), ie = litmap_.end(); it != ie; ) {
         if (!ass.has_literal(it->first)) {
-            auto vs = var_state(it->second.first);
+            auto &vs = var_state(it->second.first);
             vs.unset_literal(it->second.second);
             it = litmap_.erase(it);
         }
@@ -853,7 +853,7 @@ void Solver::update(AbstractClauseCreator &cc) {
             // Note: It might also be possible to just unset factual literals.
             // Adding them to the factmap_ should definitely work because check
             // will clear its values later.
-            auto vs = var_state(it->second.first);
+            auto &vs = var_state(it->second.first);
             auto lit = ass.is_true(it->first) ? TRUE_LIT : -TRUE_LIT;
             factmap_.emplace_back(lit, it->second.first, it->second.second);
             vs.set_literal(it->second.second, lit);
@@ -950,7 +950,7 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
         return true;
     }
 
-    auto vs = var_state(var);
+    auto &vs = var_state(var);
 
     Clingo::TruthValue truth;
     val_t value{0};
