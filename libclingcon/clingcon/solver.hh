@@ -462,6 +462,28 @@ public:
     //! This function should only be called total assignments.
     void check_full(AbstractClauseCreator &cc, bool check_solution);
 
+    //! This function resets a state and should be called when a new solve step is
+    //! started.
+    //!
+    //! This function removes all solve step local variables from the state, maps
+    //! fixed global literals to the true/false literal, and resets the minimize
+    //! constraint.
+    void update(AbstractClauseCreator &cc);
+
+    //! Remove all order literals associated with facts that are above the upper or
+    //! below the lower bound.
+    [[nodiscard]] bool cleanup_literals(AbstractClauseCreator &cc, bool check_state);
+
+    //! Integrate the lower and upper bounds from State `other`.
+    //!
+    //! The function might add clauses to fix literals that have to be updated.
+    //! This can lead to a conflict if states have conflicting lower/upper
+    //! bounds.
+    //!
+    //! Precondition: update should be called before this function to really
+    //! integrate all bounds.
+    [[nodiscard]] bool update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state);
+
     //! @name Initialization
     //! @{
 

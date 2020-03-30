@@ -815,130 +815,73 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
     }
 }
 
+void Solver::update(AbstractClauseCreator &cc) {
+    auto ass = cc.assignment();
+
+    // reset minimize state
+    minimize_bound_.reset();
+    minimize_level_ = 0;
+
+    // remove solve step local variables from litmap_
+    for (auto it = litmap_.begin(), ie = litmap_.end(); it != ie; ) {
+        if (!ass.has_literal(it->first)) {
+            auto vs = var_state(it->second.first);
+            vs.unset_literal(it->second.second);
+            it = litmap_.erase(it);
+        }
+        else if (auto truth = ass.truth_value(it->first); truth != Clingo::TruthValue::Free) {
+            // Note: It might also be possible to just unset factual literals.
+            // Adding them to the factmap_ should definitely work because check
+            // will clear its values later.
+            auto vs = var_state(it->second.first);
+            auto lit = ass.is_true(it->first) ? TRUE_LIT : -TRUE_LIT;
+            factmap_.emplace_back(lit, it->second.first, it->second.second);
+            vs.set_literal(it->second.second, lit);
+            it = litmap_.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+
+    // we sort here because the above iteration order is unspecified
+    std::sort(factmap_.begin(), factmap_.end());
+}
+
+bool Solver::cleanup_literals(AbstractClauseCreator &cc, bool check_state) {
+    // make sure that all top level literals are assigned to the fact literal
+    update(cc);
+
+    // update_domain_ in check makes sure that unnecassary facts are removed
+    return check(cc, check_state);
+}
+
+bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state) {
+    auto it = var2vs_.begin();
+    for (auto &vs_other : other.var2vs_) {
+        auto &vs = *it++;
+
+        // update upper bounds
+        if (vs_other.upper_bound() < vs.upper_bound()) {
+            if (!update_literal(cc, vs, vs_other.upper_bound(), true).first) {
+                return false;
+            }
+        }
+
+        // update lower bounds
+        if (vs.lower_bound() < vs_other.lower_bound()) {
+            if (!update_literal(cc, vs, vs_other.lower_bound()-1, false).first) {
+                return false;
+            }
+        }
+    }
+
+    // update_domain_ in check makes sure that unnecassary facts are removed
+    return check(cc, check_state);
+}
+
 /*
 class State(object):
-    def update(self, cc):
-        """
-        This function resets a state and should be called when a new solve step
-        is started.
-
-        This function removes all solve step local variables from the state,
-        maps fixed global literals to the true/false literal, and resets the
-        minimize constraint.
-        """
-        ass = cc.assignment
-
-        self._minimize_bound = None
-        self._minimize_level = 0
-
-        remove_invalid = []
-        remove_fixed = []
-        for lit, vss in self.litmap_.items():
-            if abs(lit) == TRUE_LIT:
-                continue
-
-            if not ass.has_literal(lit):
-                remove_invalid.append((lit, vss))
-            elif ass.is_fixed(lit):
-                remove_fixed.append((lit, vss))
-
-        # remove solve step local variables
-        # Note: Iteration order does not matter.
-        for lit, vss in remove_invalid:
-            for vs, value in vss:
-                vs.unset_literal(value)
-            del self.litmap_[lit]
-
-        # Note: Map bounds associated with top level facts to true/false.
-        # Because we do not know if the facts have already been propagated, we
-        # simply append them and do not touch the counts for integrated facts.
-        for old, vss in sorted(remove_fixed):
-            for vs, value in vss:
-                lit = TRUE_LIT if ass.is_true(old) else -TRUE_LIT
-                self.litmap_.setdefault(lit, []).append((vs, value))
-                vs.set_literal(value, lit)
-            del self.litmap_[old]
-
-    def _cleanup_literals(self, cc, lit, pred):
-        """
-        Remove (var,value) pairs associated with `lit` that match `pred`.
-        """
-        assert lit in (TRUE_LIT, -TRUE_LIT)
-        if lit in self.litmap_:
-            variables = self.litmap_[lit]
-
-            # adjust the number of facts that have been integrated
-            idx = 0 if lit == TRUE_LIT else 1
-            nums = list(self.facts_integrated_)
-            for x in variables[:nums[idx]]:
-                if pred(x):
-                    nums[idx] -= 1
-            self.facts_integrated_ = tuple(nums)
-
-            # remove values matching pred
-            i = remove_if(variables, pred)
-            assert i > 0
-            for vs, value in variables[i:]:
-                old = vs.get_literal(value)
-                if old != lit:
-                    # Note: This case cannot be triggered if propagation works
-                    # correctly because facts can only be propagated on level
-                    # 0. But to be on the safe side in view of theory
-                    # extensions, this makes the old literal equal to lit
-                    # before removing the old literal.
-                    if not cc.add_clause([-lit, old], lock=True):
-                        return False
-                    if not cc.add_clause([-old, lit], lock=True):
-                        return False
-                    self._remove_literal(vs, old, value)
-                vs.unset_literal(value)
-            del variables[i:]
-
-        return True
-
-    def cleanup_literals(self, cc):
-        """
-        Remove all order literals associated with facts that are above the
-        upper or below the lower bound.
-        """
-        # make sure that all top level literals are assigned to the fact literal
-        self.update(cc)
-
-        # cleanup
-        return (self._cleanup_literals(cc, TRUE_LIT, lambda x: x[1] != x[0].upper_bound) and
-                self._cleanup_literals(cc, -TRUE_LIT, lambda x: x[1] != x[0].lower_bound-1))
-
-    def update_bounds(self, cc, other):
-        """
-        Integrate the lower and upper bounds from State `other`.
-
-        The function might add clauses via `cc` to fix literals that have to be
-        updated. This can lead to a conflict if states have conflicting
-        lower/upper bounds.
-
-        Precondition: update should be called before this function to really
-                      integrate all bounds.
-        """
-        # pylint: disable=protected-access
-
-        # update upper bounds
-        for vs_b, _ in other.litmap_.get(TRUE_LIT, []):
-            vs_a = self.var2vs_[vs_b.var]
-            if vs_b.upper_bound < vs_a.upper_bound:
-                ret, _ = self.update_literal(vs_a, vs_b.upper_bound, cc, True)
-                if not ret:
-                    return False
-
-        # update lower bounds
-        for vs_b, _ in other.litmap_.get(-TRUE_LIT, []):
-            vs_a = self.var2vs_[vs_b.var]
-            if vs_a.lower_bound < vs_b.lower_bound:
-                ret, _ = self.update_literal(vs_a, vs_b.lower_bound-1, cc, False)
-                if not ret:
-                    return False
-
-        return self._update_domain(cc, 1)
-
     def add_dom(self, cc, literal, var, domain):
         """
         Integrates the given domain for varibale var.
