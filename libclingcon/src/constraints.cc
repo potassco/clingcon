@@ -40,8 +40,8 @@ public:
         return T::constraint_;
     }
 
-    [[nodiscard]] lit_t literal() const {
-        return T::constraint()->literal();
+    [[nodiscard]] lit_t literal() {
+        return T::constraint().literal();
     }
 
     bool mark_todo(bool todo) override {
@@ -63,97 +63,121 @@ public:
     }
 
     void attach(Solver &solver) override {
-        static_cast<void>(solver);
-        throw std::runtime_error("implement me!!!");
-        /*
-        self.lower_bound = self.upper_bound = 0
-        for co, var in self.elements:
-            vs = state.var_state(var)
-            state.add_var_watch(var, co, self)
-            if co > 0:
-                self.lower_bound += vs.lower_bound*co
-                self.upper_bound += vs.upper_bound*co
-            else:
-                self.lower_bound += vs.upper_bound*co
-                self.upper_bound += vs.lower_bound*co
-        */
+        T::lower_bound_ = T::upper_bound_ = 0;
+        for (auto [co, var] : T::constraint_) {
+            auto &vs = solver.var_state(var);
+            if (co > 0) {
+                T::lower_bound_ += static_cast<sum_t>(vs.lower_bound()) * co;
+                T::upper_bound_ += static_cast<sum_t>(vs.upper_bound()) * co;
+            }
+            else {
+                T::lower_bound_ += static_cast<sum_t>(vs.upper_bound()) * co;
+                T::upper_bound_ += static_cast<sum_t>(vs.lower_bound()) * co;
+            }
+        }
     }
 
     void detach(Solver &solver) override {
-        static_cast<void>(solver);
-        throw std::runtime_error("implement me!!!");
-        /*
-        for co, var in self.elements:
-            state.remove_var_watch(var, co, self)
-        */
+        for (auto [co, var] : T::constraint_) {
+            solver.remove_var_watch(var, co, this);
+        }
     }
 
     void undo(val_t i, val_t diff) override {
-        static_cast<void>(i);
-        static_cast<void>(diff);
-        throw std::runtime_error("implement me!!!");
-        /*
-        if i*diff > 0:
-            self.lower_bound -= i*diff
-        else:
-            self.upper_bound -= i*diff
-        */
+        sum_t x = static_cast<sum_t>(i) * diff;
+        if (x > 0) {
+            T::lower_bound_ -= x;
+        }
+        else {
+            T::upper_bound_ -= x;
+        }
     }
 
     [[nodiscard]] bool update(val_t i, val_t diff) override {
-        static_cast<void>(i);
-        static_cast<void>(diff);
-        throw std::runtime_error("implement me!!!");
-        /*
-        assert i*diff != 0
-        if i*diff < 0:
-            self.upper_bound += i*diff
-            return False
-        self.lower_bound += i*diff
-        return True
-        */
+        sum_t x = static_cast<sum_t>(i) * diff;
+        assert(x != 0);
+        if (x < 0) {
+            T::upper_bound_ += x;
+            return false;
+        }
+        T::lower_bound_ += x;
+        return true;
     }
 
     void check_state(Solver &solver) {
-        static_cast<void>(solver);
-        throw std::runtime_error("implement me!!!");
-        /*
-        lower = upper = 0
-        for co, var in self.elements:
-            vs = state.var_state(var)
-            if co > 0:
-                lower += co*vs.lower_bound
-                upper += co*vs.upper_bound
-            else:
-                lower += co*vs.upper_bound
-                upper += co*vs.lower_bound
-
-        assert lower <= upper
-        assert lower == self.lower_bound
-        assert upper == self.upper_bound
-        */
+        sum_t lower = 0;
+        sum_t upper = 0;
+        for (auto [co, var] : T::constraint_) {
+            auto &vs = solver.var_state(var);
+            if (co > 0) {
+                lower += static_cast<sum_t>(co) * vs.lower_bound();
+                upper += static_cast<sum_t>(co) * vs.upper_bound();
+            }
+            else {
+                lower += static_cast<sum_t>(co) * vs.upper_bound();
+                upper += static_cast<sum_t>(co) * vs.lower_bound();
+            }
+        }
+        if (lower != T::lower_bound_) {
+            throw std::logic_error("invalid lower bound");
+        }
+        if (upper != T::upper_bound_) {
+            throw std::logic_error("invalid lower bound");
+        }
+        if (lower > upper) {
+            throw std::logic_error("lower bound exceeds upper bound");
+        }
     }
 
-    std::tuple<bool, sum_t, lit_t> calculate_reason(Solver &solver, AbstractClauseCreator &cc, sum_t slack, VarState &vs, val_t co) {
-        // NOTE: slack can probably be passed by reference
-        static_cast<void>(solver);
-        static_cast<void>(cc);
-        static_cast<void>(slack);
-        static_cast<void>(vs);
-        static_cast<void>(co);
-        throw std::runtime_error("implement me!!!");
-        /*
-        # pylint: disable=bad-option-value,chained-comparison
-        ass = cc.assignment
-        ret = True
-        found = 0
+    void check_full(Solver &solver) override {
+        if (!T::has_rhs(solver)) {
+            return;
+        }
+        auto rhs = T::rhs(solver);
 
-        if co > 0:
-            current = vs.lower_bound
-            # the direct reason literal
-            lit = state.get_literal(vs, current-1, cc)
-            assert ass.is_false(lit)
-            if config.refine_reasons and slack+co < 0 and ass.decision_level > 0:
+        sum_t lhs = 0;
+        for (auto [co, var] : T::constraint_) {
+            auto &vs = solver.var_state(var);
+            vs = solver.var_state(var);
+            if (!vs.is_assigned()) {
+                throw std::logic_error("variable is not assigned");
+            }
+            lhs += static_cast<sum_t>(co) * vs.lower_bound();
+        }
+
+        if (T::marked_inactive()) {
+            if (lhs > T::upper_bound_) {
+                throw std::logic_error("invalid solution");
+            }
+        }
+        else {
+            if (lhs != T::upper_bound_) {
+                throw std::logic_error("invalid solution");
+            }
+            if (lhs > T::lower_bound_) {
+                throw std::logic_error("invalid solution");
+            }
+        }
+
+        if (lhs > rhs) {
+            throw std::logic_error("invalid solution");
+        }
+    }
+
+    std::pair<bool, lit_t> calculate_reason(Solver &solver, AbstractClauseCreator &cc, sum_t &slack, VarState &vs, val_t co) {
+        auto ass = cc.assignment();
+        uint32_t found = 0;
+        lit_t lit{0};
+        bool ret = true;
+
+        if (co > 0) {
+            auto current = vs.lower_bound();
+            // the direct reason literal
+            lit = solver.get_literal(cc, vs, current-1);
+            assert (ass.is_false(lit));
+            if (solver.config().refine_reasons && slack + co < 0 && ass.decision_level() > 0) {
+                throw std::runtime_error("implement me!!!");
+                /*
                 delta = -((slack+1)//-co)
                 value = max(current+delta, vs.min_bound)
                 if value < current:
@@ -181,12 +205,17 @@ public:
                         assert not ass.is_true(refined)
                         ret = ass.is_false(refined) or cc.add_clause([lit, -refined])
                         lit = refined
-        else:
-            # symmetric case
-            current = vs.upper_bound
-            lit = -state.get_literal(vs, current, cc)
-            assert ass.is_false(lit)
-            if config.refine_reasons and slack-co < 0 and ass.decision_level > 0:
+                */
+            }
+        }
+        else {
+            // symmetric case
+            auto current = vs.upper_bound();
+            lit = -solver.get_literal(cc, vs, current);
+            assert(ass.is_false(lit));
+            if (solver.config().refine_reasons && slack - co < 0 && ass.decision_level() > 0) {
+                throw std::runtime_error("implement me!!!");
+                /*
                 delta = (slack+1)//co
                 value = min(current+delta, vs.max_bound)
                 if value > current:
@@ -208,11 +237,13 @@ public:
                         assert not ass.is_true(refined)
                         ret = ass.is_false(refined) or cc.add_clause([lit, -refined])
                         lit = refined
+                */
+            }
+        }
 
-        state.statistics.refined_reason += found
-        assert not ret or ass.is_false(lit)
-        return ret, slack, lit
-        */
+        solver.statistics().refined_reason += found;
+        assert(!ret || ass.is_false(lit));
+        return {ret, lit};
     }
 
     //! This function propagates a constraint that became active because its
@@ -233,144 +264,146 @@ public:
         static_cast<void>(cc);
         static_cast<void>(check_state);
         throw std::runtime_error("implement me!!!");
-        /*
-        ass = cc.assignment
-        rhs = self.rhs(state)
 
-        # Note: this has a noticible cost because of the shortcuts below
-        if check_state and not self.marked_inactive:
-            self._check_state(state)
-        assert not ass.is_false(self.literal)
+        if (!T::has_rhs(solver)) {
+            return true;
+        }
+        auto ass = cc.assignment();
+        auto rhs = T::rhs(solver);
+        auto clit = literal();
 
-        # skip constraints that cannot become false
-        if rhs is None or self.upper_bound <= rhs:
-            state.mark_inactive(self)
-            return True
-        slack = rhs-self.lower_bound
+        // Note: this has a noticible cost because of the shortcuts below
+        if (check_state) {
+            this->check_state(solver);
+        }
+        assert(!ass.is_false(clit));
 
-        # this is necessary to correctly handle empty constraints (and do
-        # propagation of false constraints)
-        if slack < 0:
-            reason = []
+        // skip constraints that cannot become false
+        if (T::upper_bound_ <= rhs) {
+            solver.mark_inactive(*this);
+            return true;
+        }
+        auto slack = rhs - T::lower_bound_;
 
-            # add reason literals
-            for co, var in self.elements:
-                vs = state.var_state(var)
+        // this is necessary to correctly handle empty constraints (and do
+        // propagation of false constraints)
+        if (slack < 0) {
+            auto &reason = solver.temp_reason();
 
-                # calculate reason literal
-                ret, slack, lit = self._calculate_reason(state, cc, slack, vs, co, config)
-                if not ret:
-                    return False
+            // add reason literals
+            for (auto [co, var] : T::constraint_) {
+                auto &vs = solver.var_state(var);
 
-                # append the reason literal
-                if not ass.is_fixed(lit):
-                    reason.append(lit)
+                // calculate reason literal
+                auto [ret, lit] = calculate_reason(solver, cc, slack, vs, co);
+                if (!ret) {
+                    return false;
+                }
 
-            # append the consequence
-            reason.append(-self.literal)
+                // append the reason literal
+                if (!ass.is_fixed(lit)) {
+                    reason.emplace_back(lit);
+                }
+            }
 
-            state.mark_inactive(self)
-            return cc.add_clause(reason, tag=self.tagged)
+            // append the consequence
+            reason.emplace_back(-clit);
 
-        if not ass.is_true(self.literal):
-            return True
+            solver.mark_inactive(*this);
+            return cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt);
+        }
 
-        for co_r, var_r in self.elements:
-            vs_r = state.var_state(var_r)
-            lit_r = 0
+        if (!ass.is_true(clit)) {
+            return true;
+        }
+        for (auto [co_r, var_r] : T::constraint_) {
+            auto &vs_r = solver.var_state(var_r);
+            lit_t lit_r = 0;
+            sum_t delta_r = 0;
+            sum_t value_r = 0;
 
-            # calculate the firet value that would violate the constraint
-            if co_r > 0:
-                delta_r = -((slack+1)//-co_r)
-                value_r = vs_r.lower_bound+delta_r
-                assert slack-co_r*delta_r < 0 <= slack-co_r*(delta_r-1)
-                # values above the upper bound are already true
-                if value_r > vs_r.upper_bound:
-                    continue
-                # get the literal of the value
-                if vs_r.has_literal(value_r-1):
-                    lit_r = state.get_literal(vs_r, value_r-1, cc)
-            else:
-                delta_r = (slack+1)//co_r
-                value_r = vs_r.upper_bound+delta_r
-                assert slack-co_r*delta_r < 0 <= slack-co_r*(delta_r+1)
-                # values below the lower bound are already false
-                if value_r < vs_r.lower_bound:
-                    continue
-                # get the literal of the value
-                if vs_r.has_literal(value_r):
-                    lit_r = -state.get_literal(vs_r, value_r, cc)
+            // calculate the first value that would violate the constraint
+            if (co_r > 0) {
+                delta_r = -modulo<sum_t>(slack + 1, -co_r);
+                value_r = vs_r.lower_bound() + delta_r;
+                assert (slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r - 1));
+                // values above the upper bound are already true;
+                if (value_r > vs_r.upper_bound()) {
+                    continue;
+                }
+                // get the literal of the value;
+                if (vs_r.has_literal(value_r - 1)) {
+                    lit_r = solver.get_literal(cc, vs_r, value_r - 1);
+                }
+            }
+            else {
+                delta_r = modulo<sum_t>(slack + 1, co_r);
+                value_r = vs_r.upper_bound() + delta_r;
+                assert (slack-co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r + 1));
+                // values below the lower bound are already false
+                if (value_r < vs_r.lower_bound()) {
+                    continue;
+                }
+                // get the literal of the value
+                if (vs_r.has_literal(value_r)) {
+                    lit_r = -solver.get_literal(cc, vs_r, value_r);
+                }
+            }
 
-            # build the reason if the literal has not already been propagated
-            if lit_r == 0 or not ass.is_true(lit_r):
-                slack_r = slack-co_r*delta_r
-                assert slack_r < 0
-                reason = []
-                # add the constraint itself
-                if not ass.is_fixed(-self.literal):
-                    reason.append(-self.literal)
-                for co_a, var_a in self.elements:
-                    if var_a == var_r:
-                        continue
-                    vs_a = state.var_state(var_a)
+            // build the reason if the literal has not already been propagated
+            if (lit_r == 0 or not ass.is_true(lit_r)) {
+                auto slack_r = slack - co_r * delta_r;
+                assert (slack_r < 0);
+                auto &reason = solver.temp_reason();
+                // add the constraint itself
+                if (not ass.is_fixed(-clit)) {
+                    reason.emplace_back(-clit);
+                }
+                for (auto [co_a, var_a] : T::constraint_) {
+                    if (var_a == var_r) {
+                        continue;
+                    }
+                    auto &vs_a = solver.var_state(var_a);
 
-                    # calculate reason literal
-                    ret, slack_r, lit_a = self._calculate_reason(state, cc, slack_r, vs_a, co_a, config)
-                    if not ret:
-                        return False
+                    // calculate reason literal
+                    auto [ret, lit_a] = calculate_reason(solver, cc, slack_r, vs_a, co_a);
+                    if (!ret) {
+                        return false;
+                    }
 
-                    # append the reason literal
-                    if not ass.is_fixed(lit_a):
-                        reason.append(lit_a)
+                    // append the reason literal
+                    if (!ass.is_fixed(lit_a)) {
+                        reason.emplace_back(lit_a);
+                    }
+                }
 
-                # append the consequence
-                guess = reason or self.tagged
-                if co_r > 0:
-                    ret, lit_r = state.update_literal(vs_r, value_r-1, cc, not guess or None)
-                    if not ret:
-                        return False
-                else:
-                    ret, lit_r = state.update_literal(vs_r, value_r, cc, guess and None)
-                    if not ret:
-                        return False
-                    lit_r = -lit_r
-                reason.append(lit_r)
+                // append the consequence
+                bool guess = !reason.empty() || tagged;
+                if (co_r > 0) {
+                    auto [ret, lit_r] = solver.update_literal(cc, vs_r, value_r-1, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::True);
+                    if (!ret) {
+                        return false;
+                    }
+                    reason.emplace_back(lit_r);
+                }
+                else {
+                    auto [ret, lit_r] = solver.update_literal(cc, vs_r, value_r, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::False);
+                    if (!ret) {
+                        return false;
+                    }
+                    reason.emplace_back(-lit_r);
+                }
 
-                # propagate the clause
-                if not cc.add_clause(reason, tag=self.tagged):
-                    return False
+                // propagate the clause
+                if (not cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt)) {
+                    return false;
+                }
 
-                # minimize constraints cannot be propagated on decision level 0
-                assert ass.is_true(lit_r) or self.tagged and ass.decision_level == 0
-
-        return True
-        */
-    }
-
-    void check_full(Solver &solver) override {
-        static_cast<void>(solver);
-        throw std::runtime_error("implement me!!!");
-        /*
-        """
-        rhs = self.rhs(state)
-
-        if rhs is None:
-            return True
-
-        lhs = 0
-        for co, var in self.elements:
-            vs = state.var_state(var)
-            assert vs.is_assigned
-            lhs += co*vs.lower_bound
-
-        if self.marked_inactive:
-            assert lhs <= self.upper_bound
-        else:
-            assert lhs == self.lower_bound
-            assert lhs == self.upper_bound
-
-        return lhs <= rhs
-        */
+                // minimize constraints cannot be propagated on decision level 0
+                assert(ass.is_true(lit_r) || (tagged && ass.decision_level() == 0));
+            }
+        }
+        return true;
     }
 };
 
@@ -381,6 +414,11 @@ class SumConstraintState : public AbstractConstraintState {
 
     SumConstraintState(SumConstraint &constraint)
     : constraint_{constraint} {
+    }
+
+    [[nodiscard]] static constexpr bool has_rhs(Solver &solver) {
+        static_cast<void>(solver);
+        return true;
     }
 
     [[nodiscard]] val_t rhs(Solver &solver) const {
@@ -606,15 +644,14 @@ class SumConstraintState : public AbstractConstraintState {
         static_cast<void>(cc);
         static_cast<void>(added);
         throw std::runtime_error("implement me");
+        auto ass = cc.assignment();
+
+        auto rhs = this->rhs(solver);
+        if (ass.is_false(constraint_.literal()) or upper_bound_ <= rhs) {
+            return {true, true};
+        }
+
         /*
-        """
-        """
-        ass = cc.assignment
-
-        rhs = self.rhs(state)
-        if ass.is_false(self.literal) or self.upper_bound <= rhs:
-            return True, True
-
         lower = rhs-self.lower_bound
         upper = rhs-self.upper_bound
 
@@ -634,9 +671,9 @@ class SumConstraintState : public AbstractConstraintState {
         # translation to weight constraints
         if self._weight_estimate(state) < config.weight_constraint_limit:
             return self._weight_translate(cc, state, lower)
-
-        return True, False
         */
+
+        return {true, false};
     }
 private:
     SumConstraint &constraint_;
@@ -1059,6 +1096,7 @@ class DistinctState(AbstractConstraintState):
 
         return True
 */
+
 } // namespace
 
 UniqueConstraintState SumConstraint::create_state() {

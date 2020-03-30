@@ -445,6 +445,10 @@ void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
     watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, cs)));
 }
 
+void Solver::mark_inactive(AbstractConstraintState &cs) {
+    level_().mark_inactive(cs);
+}
+
 AbstractConstraintState &Solver::add_constraint(AbstractConstraint &constraint) {
     auto &cs = c2cs_.emplace(&constraint, std::unique_ptr<AbstractConstraintState>{nullptr}).first->second;
 

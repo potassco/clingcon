@@ -378,6 +378,13 @@ public:
     [[nodiscard]] SolverStatistics &statistics() {
         return stats_;
     }
+
+    //! Get temporary reason valid until the next call to this function.
+    [[nodiscard]] std::vector<lit_t> &temp_reason() {
+        temp_reason_.clear();
+        return temp_reason_;
+    }
+
     //! Get the solver's statistics.
     [[nodiscard]] SolverStatistics const &statistics() const {
         return stats_;
@@ -435,6 +442,9 @@ public:
 
     //! Remove a previously added watch.
     void remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
+
+    //! Mark a constraint state as inactive.
+    void mark_inactive(AbstractConstraintState &cs);
 
     //! @name Initialization
     //! @{
@@ -641,6 +651,8 @@ private:
     level_t minimize_level_{0};
     //! Current bound of the minimize constraint (if any).
     std::optional<val_t> minimize_bound_;
+    //! Reason vector to avoid unnecessary allocations.
+    std::vector<lit_t> temp_reason_;
 };
 
 } // namespace Clingcon
