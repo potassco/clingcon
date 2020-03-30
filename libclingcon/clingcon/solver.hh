@@ -74,7 +74,7 @@ public:
     virtual ~AbstractConstraintState() = default;
 
     //! Get the associated constraint.
-    virtual AbstractConstraint& constraint();
+    virtual AbstractConstraint& constraint() = 0;
 
     //! @name Initialization Functions
     //! @{
@@ -84,7 +84,7 @@ public:
     //! Detach the constraint from a solver.
     virtual void detach(Solver &solver) = 0;
     //! Translate a constraint to simpler constraints.
-    [[nodiscard]] virtual std::pair<bool, bool> translate(AbstractClauseCreator &cc, Config const &config, ConstraintVec &added) = 0;
+    [[nodiscard]] virtual std::pair<bool, bool> translate(Config const &config, Solver &solver, AbstractClauseCreator &cc, ConstraintVec &added) = 0;
     //! Copy the constraint state (for another solver)
     [[nodiscard]] virtual UniqueConstraintState copy() const = 0;
 
@@ -101,9 +101,9 @@ public:
     //! Similar to update but when the bound of a variable is backtracked.
     virtual void undo(val_t i, val_t diff) = 0;
     //! Prepagates the constraint.
-    [[nodiscard]] virtual bool propagate(AbstractClauseCreator &cc, SolverConfig const &config, bool check_state) = 0;
+    [[nodiscard]] virtual bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) = 0;
     //! Check if the solver meets the state invariants.
-    virtual void check_full(Solver &solver);
+    virtual void check_full(Solver &solver) = 0;
 
     //! @}
 

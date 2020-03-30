@@ -486,7 +486,7 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config cons
             ++stats.num_constraints;
             ++stats.translate_added;
         }
-        auto ret = cs.translate(cc, conf, constraints);
+        auto ret = cs.translate(conf, *this, cc, constraints);
         if (!ret.first) {
             return false;
         }
@@ -746,7 +746,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
             }
 
             if (!ass.is_false(cs->constraint().literal())) {
-                if (!cs->propagate(cc, config_, check_state)) {
+                if (!cs->propagate(*this, cc, check_state)) {
                     ret = false;
                 }
             }

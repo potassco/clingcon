@@ -23,117 +23,49 @@
 // }}}
 
 #include "clingcon/constraints.hh"
-/*
-"""
-Module implementing constraints.
-"""
 
-import abc
+namespace Clingcon {
 
-from .solver import AbstractConstraint, AbstractConstraintState
-from .base import TRUE_LIT
-from .util import TodoList, IntervalSet, abstractproperty
+namespace {
 
+//! Implements propagation for sum and minimize constraints.
+template <bool tagged, typename T, typename C>
+class SumConstraintStateImpl final : public T {
+public:
+    SumConstraintStateImpl(C &constraint)
+    : T{constraint} {
+    }
 
-class SumConstraint(AbstractConstraint):
-    """
-    Class to capture sum constraints of form `a_0*x_0 + ... + a_n * x_n <= rhs`.
+    C &constraint() override {
+        return T::constraint_;
+    }
 
-    Members
-    =======
-    literal  -- Solver literal associated with the constraint.
-    elements -- List of integer/string pairs representing coefficient and
-                variable.
-    rhs      -- Integer bound of the constraint.
-    """
+    [[nodiscard]] lit_t literal() const {
+        return T::constraint()->literal();
+    }
 
-    def __init__(self, literal, elements, rhs):
-        self.literal = literal
-        self.elements = elements
-        self.rhs = rhs
+    bool mark_todo(bool todo) override {
+        auto ret = T::todo_;
+        T::todo_ = todo;
+        return ret;
+    }
 
-    def create_state(self):
-        """
-        Create thread specific state for the constraint.
-        """
-        return SumConstraintState(self)
+    [[nodiscard]] bool marked_todo() const override {
+        return T::todo_;
+    }
 
+    [[nodiscard]] level_t inactive_level() const override {
+        return T::inactive_level_;
+    }
 
-class MinimizeConstraint(AbstractConstraint):
-    """
-    Class to capture minimize constraints of form `a_0*x_0 + ... + a_n * x_n <= rhs`.
+    void inactive_level(level_t level) override {
+        T::inactive_level_ = level;
+    }
 
-    Members
-    =======
-    literal  -- Solver literal associated with the constraint.
-    elements -- List of integer/string pairs representing coefficient and
-                variable.
-    """
-
-    def __init__(self):
-        self.literal = TRUE_LIT
-        self.elements = []
-        self.adjust = 0
-
-    def create_state(self):
-        """
-        Create thread specific state for the constraint.
-        """
-        return MinimizeConstraintState(self)
-
-
-class DistinctConstraint(AbstractConstraint):
-    """
-    Record holding a distinct constraint.
-    """
-    def __init__(self, literal, elements):
-        self.literal = literal
-        self.elements = elements
-
-    def create_state(self):
-        """
-        Create thread specific state for the constraint.
-        """
-        return DistinctState(self)
-
-
-class AbstractSumConstraintState(AbstractConstraintState):
-    """
-    Implements propagation for sum and minimize constraints.
-    """
-    def __init__(self):
-        AbstractConstraintState.__init__(self)
-        self.lower_bound = 0
-        self.upper_bound = 0
-
-    @abstractproperty
-    def elements(self):
-        """
-        The elements of the constraint.
-        """
-
-    @abstractproperty
-    def literal(self):
-        """
-        The literal of the constraint.
-        """
-
-    @abstractproperty
-    def tagged(self):
-        """
-        Whether clauses have to be tagged.
-        """
-
-    @abc.abstractmethod
-    def rhs(self, state):
-        """
-        The bound of the constraint.
-        """
-
-    def attach(self, state):
-        """
-        Attach the constraint state to the given state.
-        """
+    void attach(Solver &solver) override {
+        static_cast<void>(solver);
+        throw std::runtime_error("implement me!!!");
+        /*
         self.lower_bound = self.upper_bound = 0
         for co, var in self.elements:
             vs = state.var_state(var)
@@ -144,36 +76,48 @@ class AbstractSumConstraintState(AbstractConstraintState):
             else:
                 self.lower_bound += vs.upper_bound*co
                 self.upper_bound += vs.lower_bound*co
+        */
+    }
 
-    def detach(self, state):
-        """
-        Detach the constraint frow the given state.
-        """
+    void detach(Solver &solver) override {
+        static_cast<void>(solver);
+        throw std::runtime_error("implement me!!!");
+        /*
         for co, var in self.elements:
             state.remove_var_watch(var, co, self)
+        */
+    }
 
-    def undo(self, i, diff):
-        """
-        Undo the last updates of the bounds of the constraint by the given
-        difference.
-        """
+    void undo(val_t i, val_t diff) override {
+        static_cast<void>(i);
+        static_cast<void>(diff);
+        throw std::runtime_error("implement me!!!");
+        /*
         if i*diff > 0:
             self.lower_bound -= i*diff
         else:
             self.upper_bound -= i*diff
+        */
+    }
 
-    def update(self, i, diff):
-        """
-        Update the bounds of the constraint by the given difference.
-        """
+    [[nodiscard]] bool update(val_t i, val_t diff) override {
+        static_cast<void>(i);
+        static_cast<void>(diff);
+        throw std::runtime_error("implement me!!!");
+        /*
         assert i*diff != 0
         if i*diff < 0:
             self.upper_bound += i*diff
             return False
         self.lower_bound += i*diff
         return True
+        */
+    }
 
-    def _check_state(self, state):
+    void check_state(Solver &solver) {
+        static_cast<void>(solver);
+        throw std::runtime_error("implement me!!!");
+        /*
         lower = upper = 0
         for co, var in self.elements:
             vs = state.var_state(var)
@@ -187,8 +131,18 @@ class AbstractSumConstraintState(AbstractConstraintState):
         assert lower <= upper
         assert lower == self.lower_bound
         assert upper == self.upper_bound
+        */
+    }
 
-    def _calculate_reason(self, state, cc, slack, vs, co, config):
+    std::tuple<bool, sum_t, lit_t> calculate_reason(Solver &solver, AbstractClauseCreator &cc, sum_t slack, VarState &vs, val_t co) {
+        // NOTE: slack can probably be passed by reference
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(slack);
+        static_cast<void>(vs);
+        static_cast<void>(co);
+        throw std::runtime_error("implement me!!!");
+        /*
         # pylint: disable=bad-option-value,chained-comparison
         ass = cc.assignment
         ret = True
@@ -258,23 +212,28 @@ class AbstractSumConstraintState(AbstractConstraintState):
         state.statistics.refined_reason += found
         assert not ret or ass.is_false(lit)
         return ret, slack, lit
+        */
+    }
 
-    def propagate(self, state, cc, config, check_state):
-        """
-        This function propagates a constraint that became active because its
-        associated literal became true or because the bound of one of its
-        variables changed.
-
-        The function calculates the slack of the constraint w.r.t. to the
-        lower/upper bounds of its values. The order values are then propagated
-        in such a way that the slack is non-negative. The trick here is that we
-        can use the ordering of variables to restrict the number of
-        propagations. For example, for positive coefficients, we just have to
-        enforce the smallest order variable that would make the slack
-        non-negative.
-
-        The function returns False if propagation fails, True otherwise.
-        """
+    //! This function propagates a constraint that became active because its
+    //! associated literal became true or because the bound of one of its
+    //! variables changed.
+    //!
+    //! The function calculates the slack of the constraint w.r.t. to the
+    //! lower/upper bounds of its values. The order values are then propagated
+    //! in such a way that the slack is non-negative. The trick here is that we
+    //! can use the ordering of variables to restrict the number of
+    //! propagations. For example, for positive coefficients, we just have to
+    //! enforce the smallest order variable that would make the slack
+    //! non-negative.
+    //!
+    //! The function returns False if propagation fails, True otherwise.
+    [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(check_state);
+        throw std::runtime_error("implement me!!!");
+        /*
         ass = cc.assignment
         rhs = self.rhs(state)
 
@@ -385,13 +344,13 @@ class AbstractSumConstraintState(AbstractConstraintState):
                 assert ass.is_true(lit_r) or self.tagged and ass.decision_level == 0
 
         return True
+        */
+    }
 
-    def check_full(self, state):
-        """
-        This function checks if a constraint is satisfied w.r.t. the final
-        values of its integer variables.
-
-        This function should only be called total assignments.
+    void check_full(Solver &solver) override {
+        static_cast<void>(solver);
+        throw std::runtime_error("implement me!!!");
+        /*
         """
         rhs = self.rhs(state)
 
@@ -411,60 +370,45 @@ class AbstractSumConstraintState(AbstractConstraintState):
             assert lhs == self.upper_bound
 
         return lhs <= rhs
+        */
+    }
+};
 
 
-class SumConstraintState(AbstractSumConstraintState):
-    """
-    A translateable constraint state.
+//! A translateable constraint state.
+class SumConstraintState : public AbstractConstraintState {
+    friend class SumConstraintStateImpl<false, SumConstraintState, SumConstraint>;
 
-    Class Variables
-    ======
-    tagged           -- True if constraint applies only during current solving step.
-    tagged_removable -- True if the constraint can be temporarily removed.
-    """
+    SumConstraintState(SumConstraint &constraint)
+    : constraint_{constraint} {
+    }
 
-    tagged = False
-    tagged_removable = True
+    [[nodiscard]] val_t rhs(Solver &solver) const {
+        static_cast<void>(solver);
+        return constraint_.rhs();
+    }
 
-    def __init__(self, constraint):
-        AbstractSumConstraintState.__init__(self)
-        self.constraint = constraint
+    [[nodiscard]] bool removable() final {
+        return true;
+    }
 
-    def copy(self):
-        """
-        Return a copy of the constraint state to be used with another state.
-        """
+    [[nodiscard]] UniqueConstraintState copy() const final {
+        throw std::runtime_error("implement me");
+        /*
         cs = SumConstraintState(self.constraint)
         cs.inactive_level = self.inactive_level
         cs.lower_bound = self.lower_bound
         cs.upper_bound = self.upper_bound
         return cs
+        */
+    }
 
-    @property
-    def literal(self):
-        """
-        Return the literal of the associated constraint.
-        """
-        return self.constraint.literal
-
-    @property
-    def elements(self):
-        """
-        Return the elements of the constraint.
-        """
-        return self.constraint.elements
-
-    def rhs(self, state):
-        """
-        Return the bound of the constraint
-        """
-        return self.constraint.rhs
-
-    def _weight_estimate(self, state):
-        """
-        Estimate the size of the translation in terms of the number of literals
-        necessary for the weight constraint.
-        """
+    //! Estimate the size of the translation in terms of the number of literals
+    //! necessary for the weight constraint.
+    size_t weight_estimate(Solver &solver) const { // NOLINT
+        static_cast<void>(solver);
+        throw std::runtime_error("implement me");
+        /*
         estimate = 0
         slack = self.rhs(state)-self.lower_bound
         for co, var in self.elements:
@@ -480,11 +424,16 @@ class SumConstraintState(AbstractSumConstraintState):
                 assert value <= vs.upper_bound
                 estimate += vs.upper_bound-max(value-1, vs.lower_bound)
         return estimate
+        */
+    }
 
-    def _weight_translate(self, cc, state, slack):
-        """
-        Translate the constraint to weight a constraint.
-        """
+    //! Translate the constraint to weight a constraint.
+    std::pair<bool, bool> weight_translate_(Solver &solver, AbstractClauseCreator &cc, sum_t slack) { // NOLINT
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(slack);
+        throw std::runtime_error("implement me");
+        /*
         # translate small enough constraint
         # Note: this magic number can be dangerous if there is a huge number of
         # variables.
@@ -514,8 +463,16 @@ class SumConstraintState(AbstractSumConstraintState):
         ret = cc.add_weight_constraint(self.literal, wlits, slack, 1)
 
         return ret, True
+        */
+    }
 
-    def _clause_estimate(self, state, elements, lower, upper, maximum):
+    bool clause_estimate(Solver &solver, sum_t lower, sum_t upper, size_t maximum) { // NOLINT
+        static_cast<void>(solver);
+        static_cast<void>(lower);
+        static_cast<void>(upper);
+        static_cast<void>(maximum);
+        throw std::runtime_error("implement me");
+        /*
         todo = [(0, 1, lower, upper)]
         estimate = 0
 
@@ -571,8 +528,17 @@ class SumConstraintState(AbstractSumConstraintState):
             todo.append((i+1, n, lower, upper))
 
         return True
+        */
+    }
 
-    def _clause_translate(self, cc, state, elements, lower, upper, config):
+    bool clause_translate(Config &config, Solver &solver, AbstractClauseCreator &cc, sum_t lower, sum_t upper) { // NOLINT
+        static_cast<void>(config);
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(lower);
+        static_cast<void>(upper);
+        throw std::runtime_error("implement me");
+        /*
         todo = [(0, 0, 0, 0, lower, upper)]
         clause = [0] * (len(elements) + 1)
 
@@ -630,15 +596,20 @@ class SumConstraintState(AbstractSumConstraintState):
             todo.append((i+1, j, value_lower, value_upper, lower, upper))
 
         return True
+        */
+    }
 
-    def translate(self, cc, state, config, added):
+    //! Translate a constraint to clauses or weight constraints.
+    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, AbstractClauseCreator &cc, ConstraintVec &added) final {
+        static_cast<void>(config);
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(added);
+        throw std::runtime_error("implement me");
+        /*
         """
-        Translate a constraint to clauses or weight constraints.
         """
         ass = cc.assignment
-
-        if self.tagged:
-            return True, False
 
         rhs = self.rhs(state)
         if ass.is_false(self.literal) or self.upper_bound <= rhs:
@@ -665,8 +636,17 @@ class SumConstraintState(AbstractSumConstraintState):
             return self._weight_translate(cc, state, lower)
 
         return True, False
+        */
+    }
+private:
+    SumConstraint &constraint_;
+    sum_t lower_bound_{0};
+    sum_t upper_bound_{0};
+    level_t inactive_level_{0};
+    bool todo_{false};
+};
 
-
+/*
 class MinimizeConstraintState(AbstractSumConstraintState):
     """
     A translateable minimize constraint state.
@@ -1079,3 +1059,18 @@ class DistinctState(AbstractConstraintState):
 
         return True
 */
+} // namespace
+
+UniqueConstraintState SumConstraint::create_state() {
+    return std::make_unique<SumConstraintStateImpl<false, SumConstraintState, SumConstraint>>(*this);
+}
+
+UniqueConstraintState MinimizeConstraint::create_state() {
+    throw std::runtime_error("implement me!!!");
+}
+
+UniqueConstraintState DistinctConstraint::create_state() {
+    throw std::runtime_error("implement me!!!");
+}
+
+} // namespace Clingcon
