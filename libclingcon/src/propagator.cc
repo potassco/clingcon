@@ -23,97 +23,78 @@
 // }}}
 
 #include "clingcon/propagator.hh"
+#include "clingcon/parsing.hh"
 
-/*
-"""
-Propagator for CSP constraints.
-"""
+namespace Clingcon {
 
-from collections import OrderedDict
+namespace {
 
-import clingo
-from .parsing import AbstractConstraintBuilder, simplify, parse_theory
-from .util import measure_time_decorator, IntervalSet
-from .base import Config, Statistics, InitClauseCreator, ControlClauseCreator
-from .solver import State
-from .constraints import SumConstraint, DistinctConstraint, MinimizeConstraint
+//! CSP builder to use with the parse_theory function.
+class ConstraintBuilder final : public AbstractConstraintBuilder {
+public:
+    ConstraintBuilder(Propagator &propgator, InitClauseCreator &cc, UniqueMinimizeConstraint minimize)
+    : propagator_{propgator}
+    , cc_{cc}
+    , minimize_{std::move(minimize)} {
+    }
 
+    ConstraintBuilder(ConstraintBuilder const &) = delete;
+    ConstraintBuilder(ConstraintBuilder &&) noexcept = delete;
+    ConstraintBuilder& operator=(ConstraintBuilder const &) = delete;
+    ConstraintBuilder& operator=(ConstraintBuilder &&) noexcept = delete;
+    ~ConstraintBuilder() override = default;
 
-class ConstraintBuilder(AbstractConstraintBuilder):
-    """
-    CSP builder to use with the parse_theory function.
-    """
-    def __init__(self, cc, propagator, minimize):
-        self._cc = cc
-        self._propagator = propagator
-        self._minimize = minimize
+    [[nodiscard]] lit_t solver_literal(lit_t literal) override {
+        return cc_.solver_literal(literal);
+    }
+    [[nodiscard]] lit_t add_literal() override {
+        return cc_.add_literal();
+    }
+    [[nodiscard]] bool is_true(lit_t literal) override {
+        return cc_.assignment().is_true(literal);
+    }
+    [[nodiscard]] bool add_clause(Clingo::LiteralSpan clause) override {
+        return cc_.add_clause(clause);
+    }
+    void add_show() override {
+        propagator_.show();
+    }
+    void show_signature(char const *name, size_t arity) override {
+        propagator_.show_signature(name, arity);
+    }
+    void show_variable(var_t var) override {
+        propagator_.show_variable(var);
+    }
+    [[nodiscard]] var_t add_variable(Clingo::Symbol sym) override {
+        return propagator_.add_variable(sym);
+    }
+    void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
+        if (!strict && cc_.assignment().is_false(lit)) {
+            return;
+        }
 
-    @property
-    def cc(self):
-        """
-        Return a ClauseCreator.
-        """
-        return self._cc
+        if (elems.size() == 1) {
+            auto [co, var] = elems.front();
+            propagator_.add_simple(cc_, lit, co, var, rhs, strict);
+        }
+        else {
+            assert (!strict);
+            propagator_.add_constraint(SumConstraint::create(lit, rhs, elems, propagator_.config().sort_constraints));
+        }
 
-    def add_show(self):
-        """
-        Inform the builder that there is a show statement.
-        """
-        self._propagator.show()
+    }
+    void add_minimize(val_t co, var_t var) override {
+        minimize_elems_.emplace_back(co, var);
+    }
 
-    def show_signature(self, name, arity):
-        """
-        Show variables with the given signature.
-        """
-        self._propagator.show_signature(name, arity)
-
-    def show_variable(self, var):
-        """
-        Show the given variable.
-        """
-        self._propagator.show_variable(var)
-
-    def add_variable(self, var):
-        """
-        Get the integer representing a variable.
-        """
-        assert isinstance(var, clingo.Symbol)
-        return self._propagator.add_variable(var)
-
-    def add_constraint(self, lit, elems, rhs, strict):
-        """
-        Add a constraint.
-        """
-        if not strict and self.cc.assignment.is_false(lit):
-            return
-
-        if len(elems) == 1:
-            co, var = elems[0]
-            self._propagator.add_simple(self.cc, lit, co, var, rhs, strict)
-        else:
-            assert not strict
-            if self._propagator.config.sort_constraints:
-                elems.sort(key=lambda cv: -abs(cv[0]))
-            self._propagator.add_constraint(self.cc, SumConstraint(lit, elems, rhs))
-
-    def add_minimize(self, co, var):
-        """
-        Add a term to the minimize constraint.
-        """
-        if self._minimize is None:
-            self._minimize = MinimizeConstraint()
-
-        if co == 0:
-            return
-
-        self._minimize.elements.append((co, var))
-
-    def add_distinct(self, literal, elems):
-        """
-        Add a distinct constraint.
-
-        Binary distinct constraints will be represented with a sum constraint.
-        """
+    //! Add a distinct constraint.
+    //!
+    //! Binary distinct constraints will be represented with a sum constraint.
+    void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
+        static_cast<void>(lit);
+        static_cast<void>(elems);
+        throw std::runtime_error("implement me");
+        /*
         if self.cc.assignment.is_false(literal):
             return
 
@@ -143,392 +124,372 @@ class ConstraintBuilder(AbstractConstraintBuilder):
 
                 self.add_constraint(a, celems, rhs-1, False)
                 self.add_constraint(b, [(-co, var) for co, var in celems], -rhs-1, False)
+        */
+    }
+    void add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
+        if (!cc_.assignment().is_false(lit)) {
+            propagator_.add_dom(cc_, lit, var, elems);
+        }
+    }
 
-    def add_dom(self, literal, var, elements):
-        """
-        Add a domain for the given variable.
+    //! Prepare the minimize constraint.
+    UniqueMinimizeConstraint prepare_minimize() {
+        // copy values of old minimize constraint
+        if (minimize_ != nullptr) {
+            for (auto elem : *minimize_) {
+                minimize_elems_.emplace_back(elem);
+            }
+            minimize_elems_.emplace_back(minimize_->adjust(), INVALID_VAR);
+        }
+        // simplify minimize
+        if (!minimize_elems_.empty()) {
+            auto adjust = simplify(minimize_elems_, true);
+            minimize_ = MinimizeConstraint::create(adjust, minimize_elems_, propagator_.config().sort_constraints);
+        }
 
-        The domain is represented as a set of left-closed intervals.
-        """
-        if self.cc.assignment.is_false(literal):
-            return
+        return nullptr;
+    }
+private:
+    Propagator &propagator_;
+    InitClauseCreator &cc_;
+    UniqueMinimizeConstraint minimize_;
+    CoVarVec minimize_elems_;
+};
 
-        intervals = IntervalSet(elements)
-        self._propagator.add_dom(self.cc, literal, var, list(intervals))
+} // namespace
 
-    def prepare_minimize(self):
-        """
-        Prepare the minimize constraint.
-        """
+Propagator::Propagator() {
+    solvers_.emplace_back(config_.solver_config(0), stats_step_.solver_stats(0));
+}
 
-        # simplify minimize
-        if self._minimize is not None:
-            adjust, self._minimize.elements = simplify(self._minimize.elements, True)
-            self._minimize.adjust += adjust
-            if self._propagator.config.sort_constraints:
-                self._minimize.elements.sort(key=lambda cv: -abs(cv[0]))
+void Propagator::on_model(Clingo::Model const &model) { // NOLINT
+    static_cast<void>(model);
+    throw std::runtime_error("implement me!!!");
+    /*
+    shown = (var for var in self._var_map.items() if self.shown(var))
+    assignment = self._state(model.thread_id).get_assignment(shown)
+    model.extend(
+        clingo.Function("__csp", [var, value])
+        for var, value in assignment if self.shown(var))
 
-        return self._minimize
+    if self.has_minimize:
+        bound = self.get_minimize_value(model.thread_id)
+        model.extend([clingo.Function("__csp_cost", [bound])])
+        if self._minimize_bound is None or bound-1 < self._minimize_bound:
+            self.statistics.cost = bound
+            self.update_minimize(bound-1)
+    */
+}
 
+void Propagator::on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu) { // NOLINT
+    static_cast<void>(step);
+    static_cast<void>(accu);
+    throw std::runtime_error("implement me!!!");
+    /*
+    for s in self._states:
+        self._stats_step.tstats.append(s.statistics)
+    self._stats_accu.accu(self._stats_step)
+    self.add_statistics(step, self._stats_step)
+    self.add_statistics(accu, self._stats_accu)
+    self._stats_step.reset()
+    */
+}
 
-class Propagator(object):
-    """
-    A propagator for CSP constraints.
-    """
-    def __init__(self):
-        self._l2c = {}                     # map literals to constraints
-        self._states = []                  # map thread id to states
-        self._var_map = OrderedDict()      # map from variable names to indices
-        self._minimize = None              # minimize constraint
-        self._minimize_bound = None        # bound of the minimize constraint
-        self._stats_step = Statistics()    # statistics of the current call
-        self._stats_accu = Statistics()    # accumulated statistics
-        self._translated_minimize = False  # whether a minimize constraint has been translated
-        self.config = Config()             # configuration
-        self._show = False                 # whether there is a show statement
-        self._show_variable = set()        # variables to show
-        self._show_signature = set()       # signatures to show
+void Propagator::add_statistics_(Clingo::UserStatistics &stats_map, Statistics &stats) { // NOLINT
+    static_cast<void>(stats_map);
+    static_cast<void>(stats);
+    throw std::runtime_error("implement me!!!");
+    /*
+    def thread_stats(tstat):  # pylint: disable=missing-docstring
+        p, c, u = tstat.time_propagate, tstat.time_check, tstat.time_undo
+        return OrderedDict([
+            ("Time in seconds", OrderedDict([
+                ("Total", p+c+u),
+                ("Propagation", p),
+                ("Check", c),
+                ("Undo", u)])),
+            ("Refined reason", tstat.refined_reason),
+            ("Introduced reason", tstat.introduced_reason),
+            ("Literals introduced ", tstat.literals)])
+    cost = []
+    if stats.cost is not None:
+        cost.append(("Cost", stats.cost))
+    stats_map["Clingcon"] = OrderedDict(cost + [
+        ("Init time in seconds", OrderedDict([
+            ("Total", stats.time_init),
+            ("Simplify", stats.time_simplify),
+            ("Translate", stats.time_translate)])),
+        ("Problem", OrderedDict([
+            ("Constraints", stats.num_constraints),
+            ("Variables", stats.num_variables),
+            ("Clauses", stats.num_clauses),
+            ("Literals", stats.num_literals)])),
+        ("Translate", OrderedDict([
+            ("Constraints removed", stats.translate_removed),
+            ("Constraints added", stats.translate_added),
+            ("Clauses", stats.translate_clauses),
+            ("Weight constraints", stats.translate_wcs),
+            ("Literals", stats.translate_literals)])),
+        ("Thread", map(thread_stats, stats.tstats[:len(self._states)]))])
+    */
+}
 
-    def _state(self, thread_id):
-        """
-        Get the state associated with the given `thread_id`.
-        """
-        while len(self._states) <= thread_id:
-            self._states.append(State(self._l2c, self.config.state_config(thread_id)))
-        return self._states[thread_id]
+var_t Propagator::add_variable(Clingo::Symbol sym) {
+    auto [it, ret] = var_map_.emplace(sym, 0);
 
-    def on_model(self, model):
-        """
-        Extend the model with the assignment and take care of minimization.
-        """
-        shown = (var for var in self._var_map.items() if self.shown(var))
-        assignment = self._state(model.thread_id).get_assignment(shown)
-        model.extend(
-            clingo.Function("__csp", [var, value])
-            for var, value in assignment if self.shown(var))
+    if (!ret) {
+        it->second = master_().add_variable(config_.min_int, config_.max_int);
+        ++stats_step_.num_variables;
+    }
 
-        if self.has_minimize:
-            bound = self.get_minimize_value(model.thread_id)
-            model.extend([clingo.Function("__csp_cost", [bound])])
-            if self._minimize_bound is None or bound-1 < self._minimize_bound:
-                self.statistics.cost = bound
-                self.update_minimize(bound-1)
+    return it->second;
+}
 
-    @property
-    def statistics(self):
-        """
-        Return statistics object.
-        """
-        return self._stats_step
+void Propagator::show_variable(var_t var) {
+    show_variable_.emplace(var);
+}
 
-    def on_statistics(self, step, akku):
-        """
-        Callback to update `step` and `akku`mulated statistics.
-        """
-        for s in self._states:
-            self._stats_step.tstats.append(s.statistics)
-        self._stats_accu.accu(self._stats_step)
-        self.add_statistics(step, self._stats_step)
-        self.add_statistics(akku, self._stats_accu)
-        self._stats_step.reset()
+void Propagator::show_signature(char const *name, size_t arity) {
+    auto it = show_signature_.emplace(Clingo::Signature(name, arity));
+    if (it.second) {
+        show_offset_ = 0;
+    }
+}
 
-    def add_statistics(self, stats_map, stats):
-        """
-        Add collected statistics in `stats` to the clingo.StatisticsMap `stats_map`.
-        """
-        def thread_stats(tstat):  # pylint: disable=missing-docstring
-            p, c, u = tstat.time_propagate, tstat.time_check, tstat.time_undo
-            return OrderedDict([
-                ("Time in seconds", OrderedDict([
-                    ("Total", p+c+u),
-                    ("Propagation", p),
-                    ("Check", c),
-                    ("Undo", u)])),
-                ("Refined reason", tstat.refined_reason),
-                ("Introduced reason", tstat.introduced_reason),
-                ("Literals introduced ", tstat.literals)])
-        cost = []
-        if stats.cost is not None:
-            cost.append(("Cost", stats.cost))
-        stats_map["Clingcon"] = OrderedDict(cost + [
-            ("Init time in seconds", OrderedDict([
-                ("Total", stats.time_init),
-                ("Simplify", stats.time_simplify),
-                ("Translate", stats.time_translate)])),
-            ("Problem", OrderedDict([
-                ("Constraints", stats.num_constraints),
-                ("Variables", stats.num_variables),
-                ("Clauses", stats.num_clauses),
-                ("Literals", stats.num_literals)])),
-            ("Translate", OrderedDict([
-                ("Constraints removed", stats.translate_removed),
-                ("Constraints added", stats.translate_added),
-                ("Clauses", stats.translate_clauses),
-                ("Weight constraints", stats.translate_wcs),
-                ("Literals", stats.translate_literals)])),
-            ("Thread", map(thread_stats, stats.tstats[:len(self._states)]))])
+bool Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
+    return master_().add_dom(cc, lit, var, domain);
+}
 
-    def add_variable(self, var):
-        """
-        Add a variable to the program.
-        """
-        assert isinstance(var, clingo.Symbol)
-        if var not in self._var_map:
-            idx = self._state(0).add_variable(self.config.min_int, self.config.max_int)
-            self._var_map[var] = idx
-            self._stats_step.num_variables += 1
-        return self._var_map[var]
+bool Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict) {
+    return master_().add_simple(cc, clit, co, var, rhs, strict);
+}
 
-    def show(self):
-        """
-        Enable show statement.
+void Propagator::add_constraint_(UniqueConstraint constraint) {
+    constraints_.emplace_back(std::move(constraint));
+}
 
-        If the show statement has not been enabled, then all variables are
-        shown.
-        """
-        self._show = True
+void Propagator::add_constraint(UniqueConstraint constraint) {
+    ++stats_step_.num_constraints;
+    master_().add_constraint(*constraint);
+    add_constraint_(std::move(constraint));
+}
 
-    def show_variable(self, var):
-        """
-        Show the given variable.
-        """
-        self._show_variable.add(var)
+void Propagator::init(Clingo::PropagateInit &init) {
+    Timer timer{stats_step_.time_init};
+    InitClauseCreator cc{init, stats_step_};
 
-    def show_signature(self, name, arity):
-        """
-        Show variables with the given signature.
-        """
-        self._show_signature.add((name, arity))
+    // remove minimize constraint
+    UniqueMinimizeConstraint minimize{remove_minimize_()};
 
-    def add_dom(self, cc, literal, var, domain):
-        """
-        Add a domain for the given variable.
-        """
-        return self._state(0).add_dom(cc, literal, var, domain)
+    // remove solve step local and fixed literals
+    for (auto &solver : solvers_) {
+        solver.update(cc);
+    }
 
-    def add_simple(self, cc, clit, co, var, rhs, strict):
-        """
-        Add a constraint that can be represented by an order literal.
-        """
-        return self._state(0).add_simple(cc, clit, co, var, rhs, strict)
+    // add constraints
+    ConstraintBuilder builder{*this, cc, std::move(minimize)};
+    parse(builder, init.theory_atoms());
 
-    def _add_constraint(self, cc, constraint):
-        """
-        Add a constraint to the program that has already been added to the
-        master state.
-        """
-        lit = constraint.literal
-        cc.add_watch(lit)
-        self._l2c.setdefault(lit, []).append(constraint)
+    // gather bounds of states in master
+    auto &master = master_();
+    for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
+        if (!master.update_bounds(cc, *it, config_.check_state)) {
+            return;
+        }
+    }
 
-    def add_constraint(self, cc, constraint):
-        """
-        Add a constraint to the program.
-        """
-        self._state(0).add_constraint(constraint)
-        self._stats_step.num_constraints += 1
-        self._add_constraint(cc, constraint)
+    // propagate the newly added constraints
+    if (!simplify_(cc)) {
+        return;
+    }
 
-    @measure_time_decorator("statistics.time_init")
-    def init(self, init):
-        """
-        Initializes the propagator extracting constraints from the theory data.
+    // remove unnecessary literals after simplification
+    if (!master.cleanup_literals(cc, config_.check_state)) {
+        return;
+    }
 
-        The function handles reinitialization for multi-shot solving and
-        multi-threaded solving.
-        """
-        init.check_mode = clingo.PropagatorCheckMode.Fixpoint
-        cc = InitClauseCreator(init, self.statistics)
+    // translate (simple enough) constraints
+    if (!translate_(cc, builder.prepare_minimize())) {
+        return;
+    }
 
-        # remove minimize constraint
-        minimize = self.remove_minimize()
+    // copy order literals from master to other states
+    auto n = static_cast<size_t>(init.number_of_threads());
+    for (size_t i = solvers_.size(); i < n; ++i) {
+        solvers_.emplace_back(config_.solver_config(i), stats_step_.solver_stats(i));
+    }
+    while (solvers_.size() > n) {
+        solvers_.pop_back();
+    }
+    for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
+        it->copy_state(master);
+    }
 
-        # remove solve step local and fixed literals
-        for state in self._states:
-            state.update(cc)
+    // watch all the remaining constraints
+    for (auto &constraint : constraints_) {
+        cc.add_watch(constraint->literal());
+    }
+}
 
-        # add constraints
-        builder = ConstraintBuilder(cc, self, minimize)
-        parse_theory(builder, init.theory_atoms)
+bool Propagator::simplify_(AbstractClauseCreator &cc) {
+    Timer timer{stats_step_.time_simplify};
+    struct Reset{ // NOLINT
+        ~Reset() {
+            master.statistics().time_propagate = 0;
+            master.statistics().time_check = 0;
+        }
+        Solver &master;
+    } reset{master_()};
+    return master_().simplify(cc, config_.check_state);
+}
 
-        # gather bounds of states in master
-        master = self._state(0)
-        for state in self._states[1:]:
-            if not master.update_bounds(cc, state):
-                return
+bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint minimize ) {
+    Timer timer{stats_step_.time_translate};
 
-        # propagate the newly added constraints
-        if not self._simplify(cc, master):
-            return
+    // add minimize constraint
+    // Note: the minimize constraint is added after simplification to avoid
+    // propagating tagged clauses, which is not supported at the moment.
+    if (minimize != nullptr) {
+        // Note: fail if translation was requested earlier
+        if (translated_minimize_ && !config_.translate_minimize) {
+            throw std::runtime_error("translation of minimize constraints is disabled but was enabled before");
+        }
+        add_minimize_(std::move(minimize));
+    }
 
-        # remove unnecessary literals after simplification
-        if not master.cleanup_literals(cc):
-            return
+    // translate (simple enough) constraints
+    cc.set_state(InitClauseCreator::StateTranslate);
+    bool ret = master_().translate(cc, stats_step_, config_, constraints_);
+    if (!ret) {
+        return false;
+    }
+    cc.set_state(InitClauseCreator::StateInit);
 
-        # translate (simple enough) constraints
-        if not self._translate(cc, master, builder.prepare_minimize()):
-            return
+    // mark minimize constraint as translated if necessary
+    if (config_.translate_minimize && minimize_ != nullptr) {
+        translated_minimize_ = true;
+        minimize_ = nullptr;
+    }
 
-        # copy order literals from master to other states
-        del self._states[init.number_of_threads:]
-        for i in range(1, init.number_of_threads):
-            self._state(i).copy_state(master)
+    return true;
 
-    @measure_time_decorator("statistics.time_simplify")
-    def _simplify(self, cc, master):
-        """
-        Propagate constraints refining bounds.
-        """
-        try:
-            return master.simplify(cc, self.config.check_state)
-        finally:
-            # Note: During simplify propagate and check are called, which can
-            # produce large timings for the master thread.
-            master.statistics.time_propagate = 0
-            master.statistics.time_check = 0
+}
 
-    @measure_time_decorator("statistics.time_translate")
-    def _translate(self, cc, master, minimize):
-        """
-        Translates constraints and take care of handling the minimize
-        constraint.
-        """
-        # add minimize constraint
-        # Note: the minimize constraint is added after simplification to avoid
-        # propagating tagged clauses, which is not supported at the moment.
-        if minimize is not None:
-            # Note: fail if translation was requested earlier
-            if self._translated_minimize and not self.config.translate_minimize:
-                raise RuntimeError("translation of minimize constraints is disabled but was enabled before")
-            self.add_minimize(cc, minimize)
+void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) {
+    auto &solver = solver_(control.thread_id());
+    ControlClauseCreator cc{control, solver.statistics()};
+    static_cast<void>(solver.propagate(cc, changes));
+}
 
-        # translate (simple enough) constraints
-        cc.set_state(InitClauseCreator.StateTranslate)
-        ret, added = master.translate(cc, self._l2c, self.statistics, self.config)
-        if not ret:
-            return False
-        for constraint in added:
-            self._add_constraint(cc, constraint)
-        cc.set_state(InitClauseCreator.StateInit)
+void Propagator::check(Clingo::PropagateControl &control) {
+    auto ass = control.assignment();
+    auto size = ass.size();
+    auto &solver = solver_(control.thread_id());
+    auto dl = ass.decision_level();
 
-        # mark minimize constraint as translated if necessary
-        if self.config.translate_minimize and self._minimize is not None:
-            self._translated_minimize = True
-            self._minimize = None
+    if (minimize_ != nullptr && minimize_bound_.has_value()) {
+        auto bound = *minimize_bound_ + minimize_->adjust();
+        solver.update_minimize(*minimize_, dl, bound);
+    }
 
-        return True
+    ControlClauseCreator cc{control, solver.statistics()};
 
-    def propagate(self, control, changes):
-        """
-        Delegates propagation to the respective state.
-        """
-        state = self._state(control.thread_id)
-        state.propagate(ControlClauseCreator(control, state.statistics), changes)
+    if (!solver.check(cc, config_.check_state)) {
+        return;
+    }
 
-    def check(self, control):
-        """
-        Delegates checking to the respective state and makes sure that all
-        order variables are assigned if the assigment is total.
-        """
-        size = len(control.assignment)
-        state = self._state(control.thread_id)
-        dl = control.assignment.decision_level
-        if self.has_minimize and self._minimize_bound is not None:
-            bound = self._minimize_bound + self._minimize.adjust
-            state.update_minimize(self._minimize, dl, bound)
+    // Note: Makes sure that all variables are assigned in the end. But even if
+    // the assignment is total, we do not have to introduce fresh variables if
+    // variables have been introduced during check. In this case, there is a
+    // guaranteed follow-up propagate call because all newly introduced
+    // variables are watched.
+    if (size == ass.size() && ass.is_total()) {
+        solver.check_full(cc, config_.check_solution);
+    }
+}
 
-        if not state.check(ControlClauseCreator(control, state.statistics), self.config.check_state):
-            return
+void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept {
+    static_cast<void>(changes);
+    solver_(control.thread_id()).undo();
+}
 
-        # Note: Makes sure that all variables are assigned in the end. But even
-        # if the assignment is total, we do not have to introduce fresh
-        # variables if variables have been introduced during check. In this
-        # case, there is a guaranteed follow-up propagate call because all
-        # newly introduced variables are watched.
-        if size == len(control.assignment) and control.assignment.is_total:
-            state.check_full(control, self.config.check_solution)
+bool Propagator::shown(var_t var) {
+    if (!show_) {
+        return true;
+    }
 
-    def undo(self, thread_id, assign, changes):
-        # pylint: disable=unused-argument
-        """
-        Delegates undoing to the respective state.
-        """
-        self._state(thread_id).undo()
+    if (var >= show_offset_) {
+        for (auto sym_var : var_map_) {
+            auto sym = sym_var.first;
+            if (sym.type() == Clingo::SymbolType::Function && show_signature_.find(Clingo::Signature(sym.name(), sym.arguments().size())) != show_signature_.end()) {
+                show_variable_.emplace(sym_var.second);
+            }
+        }
+        show_offset_ = var_map_.size();
+    }
 
-    def shown(self, var):
-        """
-        Determine if the given variable should be shown.
-        """
-        if not self._show:
-            return True
+    if (show_variable_.find(var) != show_variable_.end()) {
+        return true;
+    }
 
-        if var in self._show_variable:
-            return True
+    return false;
+}
 
-        if var.type == clingo.SymbolType.Function and (var.name, len(var.arguments)) in self._show_signature:
-            return True
+std::optional<val_t> Propagator::get_value(Clingo::Symbol sym, uint32_t thread_id) const {
+    auto it = var_map_.find(sym);
+    if (it != var_map_.end()) {
+        return solver_(thread_id).get_value(it->second);
+    }
+    return {};
+}
 
-        return False
+val_t Propagator::get_value(var_t var, uint32_t thread_id) const {
+    return solver_(thread_id).get_value(var);
+}
 
-    def get_assignment(self, thread_id, show_all=False):
-        """
-        Get the assigment from the state associated with `thread_id`.
+uint32_t Propagator::num_variables() const {
+    return var_map_.size();
+}
 
-        Should be called on total assignments.
-        """
-        return self._state(thread_id).get_assignment((var, idx) for var, idx in self._var_map.items() if show_all or self.shown(var))
+void Propagator::add_minimize_(UniqueMinimizeConstraint minimize) {
+    assert(minimize_ == nullptr);
+    minimize_ = minimize.get();
+    add_constraint(std::move(minimize));
+}
 
-    def get_value(self, var, thread_id):
-        """
-        Get the value of the given variable in the state associated with
-        `thread_id`.
+UniqueMinimizeConstraint Propagator::remove_minimize_() {
+    if (minimize_ == nullptr) {
+        return nullptr;
+    }
 
-        Should be called on total assignments.
-        """
-        return self._state(thread_id).get_value(self._var_map[var])
+    --stats_step_.num_constraints;
 
-    @property
-    def has_minimize(self):
-        """
-        Check if the propagator has a minimize constraint.
-        """
-        return self._minimize is not None
+    auto it = std::find_if(constraints_.begin(), constraints_.end(), [this](UniqueConstraint const &x) {
+        return x.get() == minimize_;
+    });
+    assert(it != constraints_.end());
 
-    def add_minimize(self, cc, minimize):
-        """
-        Add a minimize constraint to the program.
-        """
-        self._minimize = minimize
-        self.add_constraint(cc, minimize)
+    UniqueMinimizeConstraint minimize{(it->release(), minimize_)};
+    master_().remove_constraint(*minimize_);
+    constraints_.erase(it);
+    minimize_ = nullptr;
+    return minimize;
+}
 
-    def remove_minimize(self):
-        """
-        Removes the minimize constraint from the lookup lists.
-        """
-        minimize, self._minimize = self._minimize, None
-        if minimize is not None:
-            lit = minimize.literal
-            self._l2c[lit].remove(minimize)
-            self._state(0).remove_constraint(minimize)
-            self._stats_step.num_constraints -= 1
-        return minimize
+sum_t Propagator::get_minimize_value(uint32_t thread_id) {
+    assert (has_minimize());
+    auto &solver = solver_(thread_id);
 
-    def get_minimize_value(self, thread_id):
-        """
-        Evaluates the minimize constraint w.r.t. the given thread.
+    sum_t bound = 0;
+    for (auto [co, var] : *minimize_) {
+        bound += static_cast<sum_t>(co) * solver.get_value(var);
+    }
+    return bound - minimize_->adjust();
+}
 
-        Should be called on total assignments.
-        """
-        assert self.has_minimize
-        bound = 0
-        for co, var in self._minimize.elements:
-            bound += co * self._state(thread_id).get_value(var)
-        return bound - self._minimize.adjust
+void Propagator::update_minimize(sum_t bound) {
+    assert (has_minimize());
+    minimize_bound_ = bound;
+}
 
-    def update_minimize(self, bound):
-        """
-        Set the `bound` of the minimize constraint.
-        """
-        assert self.has_minimize
-        self._minimize_bound = bound
-*/
+} // namespace Clingcon

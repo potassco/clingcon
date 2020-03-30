@@ -131,7 +131,7 @@ struct Statistics {
         translate_wcs = 0;
         translate_literals = 0;
         cost.reset();
-        for (auto &s : solver_stats) {
+        for (auto &s : solver_statistics) {
             s.reset();
         }
     }
@@ -152,16 +152,29 @@ struct Statistics {
         translate_literals += stat.translate_literals;
         cost = stat.cost;
 
-        auto it = solver_stats.before_begin();
-        for (auto &solver_stat : stat.solver_stats) {
+        auto it = solver_statistics.before_begin();
+        for (auto &solver_stat : stat.solver_statistics) {
             auto jt = it++;
-            if (it != solver_stats.end()) {
+            if (it != solver_statistics.end()) {
                 it->accu(solver_stat);
             }
             else {
-                it = solver_stats.emplace_after(jt, solver_stat);
+                it = solver_statistics.emplace_after(jt, solver_stat);
             }
         }
+    }
+
+    SolverStatistics &solver_stats(uint32_t thread_id) {
+        auto it = solver_statistics.before_begin();
+
+        for (uint32_t i = 0; i < thread_id; ++i) {
+            auto jt = it++;
+            if (it == solver_statistics.end()) {
+                it = solver_statistics.emplace_after(jt);
+            }
+        }
+
+        return *it;
     }
 
     double time_init = 0;
@@ -177,7 +190,7 @@ struct Statistics {
     uint64_t translate_wcs = 0;
     uint64_t translate_literals = 0;
     std::optional<uint64_t> cost;
-    std::forward_list<SolverStatistics> solver_stats;
+    std::forward_list<SolverStatistics> solver_statistics;
 };
 
 

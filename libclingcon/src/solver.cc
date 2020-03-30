@@ -264,6 +264,8 @@ Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
     levels_.emplace_back(0);
 }
 
+Solver::Solver(Solver &&x) noexcept = default;
+
 Solver::~Solver() = default;
 
 void Solver::shrink_to_fit() {
@@ -331,11 +333,11 @@ var_t Solver::add_variable(val_t min_int, val_t max_int) {
     return idx;
 }
 
-std::optional<val_t> Solver::minimize_bound() const {
+std::optional<sum_t> Solver::minimize_bound() const {
     return minimize_bound_;
 }
 
-void Solver::update_minimize(AbstractConstraint &constraint, level_t level, val_t bound) {
+void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound) {
     if (!minimize_bound_.has_value() || bound < *minimize_bound_) {
         minimize_bound_ = bound;
         minimize_level_ = level;
@@ -498,6 +500,8 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config cons
             --stats.num_constraints;
             ++stats.translate_removed;
             removed.emplace_back(&cs);
+        }
+        else {
             if (idx != jdx) {
                 std::swap(constraints[idx], constraints[jdx]);
             }

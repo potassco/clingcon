@@ -587,7 +587,7 @@ std::pair<val_t, val_t> parse_dom_elem(Clingo::TheoryTerm const &term) {
 }
 
 void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
-    std::vector<std::pair<val_t, val_t>> elements;
+    IntervalSet<val_t> elements;
     for (auto elem : atom.elements()) {
         auto tuple = elem.tuple();
         check_syntax(tuple.size() == 1 && elem.condition().empty(), "Invalid Syntax: invalid dom statement");
@@ -595,7 +595,7 @@ void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &ato
         if (l < r) {
             check_valid_value(l);
             check_valid_value(safe_sub(r, 1));
-            elements.emplace_back(l, r);
+            elements.add(l, r);
         }
     }
 

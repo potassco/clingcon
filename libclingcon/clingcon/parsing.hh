@@ -26,6 +26,7 @@
 #define CLINGCON_PARSING_H
 
 #include "clingcon/base.hh"
+#include "clingcon/util.hh"
 
 //! @file clingcon/parsing.hh
 //! This module contains functions for parsing and normalizing constraints.
@@ -80,13 +81,13 @@ public:
     virtual ~AbstractConstraintBuilder() = default;
 
     //! Map a program to a solver literal.
-    virtual lit_t solver_literal(lit_t literal) = 0;
+    [[nodiscard]] virtual lit_t solver_literal(lit_t literal) = 0;
     //! Add a new solver literal.
-    virtual lit_t add_literal() = 0;
+    [[nodiscard]] virtual lit_t add_literal() = 0;
     //! Check whether the given solver literal is true.
-    virtual bool is_true(lit_t literal) = 0;
+    [[nodiscard]] virtual bool is_true(lit_t literal) = 0;
     //! Add a clause over solver literals.
-    virtual bool add_clause(Clingo::LiteralSpan clause) = 0;
+    [[nodiscard]] virtual bool add_clause(Clingo::LiteralSpan clause) = 0;
     //! Inform the builder that there is a show statement.
     virtual void add_show() = 0;
     //! Show variables with the given signature.
@@ -94,7 +95,7 @@ public:
     //! Show the given variable.
     virtual void show_variable(var_t idx) = 0;
     //! Get the integer representing a variable.
-    virtual var_t add_variable(Clingo::Symbol var) = 0;
+    [[nodiscard]] virtual var_t add_variable(Clingo::Symbol var) = 0;
     //! Add a constraint.
     virtual void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) = 0;
     //! Extend the minimize constraint.
@@ -102,7 +103,7 @@ public:
     //! Add a distinct constraint.
     virtual void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
     //! Add a domain for the given variable.
-    virtual void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) = 0;
+    virtual void add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) = 0;
 };
 
 //! Combine coefficients of terms with the same variable and optionally drop

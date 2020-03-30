@@ -40,8 +40,8 @@ public:
         return T::constraint_;
     }
 
-    [[nodiscard]] lit_t literal() {
-        return T::constraint().literal();
+    [[nodiscard]] lit_t literal() const {
+        return T::constraint_.literal();
     }
 
     bool mark_todo(bool todo) override {

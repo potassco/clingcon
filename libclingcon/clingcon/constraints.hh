@@ -47,9 +47,9 @@ public:
     ~SumConstraint() override = default;
 
     //! Create a new sum constraint.
-    [[nodiscard]] static std::unique_ptr<SumConstraint> create(lit_t lit, val_t rhs, CoVarVec &elems) {
+    [[nodiscard]] static std::unique_ptr<SumConstraint> create(lit_t lit, val_t rhs, CoVarVec const &elems, bool sort) {
         auto size = sizeof(SumConstraint) + elems.size() * sizeof(std::pair<val_t, var_t>);
-        return std::unique_ptr<SumConstraint>{new (operator new(size)) SumConstraint(lit, rhs, elems)};
+        return std::unique_ptr<SumConstraint>{new (operator new(size)) SumConstraint(lit, rhs, elems, sort)};
     }
 
     //! Create thread specific state for the constraint.
@@ -86,11 +86,14 @@ public:
     }
 
 private:
-    SumConstraint(lit_t lit, val_t rhs, CoVarVec &elems)
+    SumConstraint(lit_t lit, val_t rhs, CoVarVec const &elems, bool sort)
     : lit_{lit}
     , rhs_{rhs}
     , size_{elems.size()} {
         std::copy(elems.begin(), elems.end(), elements_);
+        if (sort) {
+            std::sort(elements_, elements_ + size_, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); } ); // NOLINT
+        }
     }
 
     //! Solver literal associated with the constraint.
@@ -118,9 +121,9 @@ public:
     ~MinimizeConstraint() override = default;
 
     //! Create a new sum constraint.
-    [[nodiscard]] static std::unique_ptr<MinimizeConstraint> create(lit_t lit, val_t adjust, CoVarVec &elems) {
+    [[nodiscard]] static std::unique_ptr<MinimizeConstraint> create(val_t adjust, CoVarVec const &elems, bool sort) {
         auto size = sizeof(MinimizeConstraint) + elems.size() * sizeof(std::pair<val_t, var_t>);
-        return std::unique_ptr<MinimizeConstraint>{new (operator new(size)) MinimizeConstraint(lit, adjust, elems)};
+        return std::unique_ptr<MinimizeConstraint>{new (operator new(size)) MinimizeConstraint(adjust, elems, sort)};
     }
 
     //! Create thread specific state for the constraint.
@@ -128,11 +131,11 @@ public:
 
     //! Get the literal associated with the constraint.
     [[nodiscard]] lit_t literal() const override {
-        return lit_;
+        return TRUE_LIT;
     }
 
     //! Get the adjustment of the consraint.
-    [[nodiscard]] val_t rhs() const {
+    [[nodiscard]] val_t adjust() const {
         return adjust_;
     }
 
@@ -157,19 +160,19 @@ public:
     }
 
 private:
-    MinimizeConstraint(lit_t lit, val_t adjust, CoVarVec &elems)
-    : lit_{lit}
-    , adjust_{adjust}
-    , size_{elems.size()} {
+    MinimizeConstraint(val_t adjust, CoVarVec const &elems, bool sort)
+    : adjust_{adjust}
+    , size_{static_cast<uint32_t>(elems.size())} {
         std::copy(elems.begin(), elems.end(), elements_);
+        if (sort) {
+            std::sort(elements_, elements_ + size_, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); } ); // NOLINT
+        }
     }
 
-    //! Solver literal associated with the constraint.
-    lit_t lit_;
-    //! Integer bound of the constraint.
-    val_t adjust_;
+    //! Integer adjustment of the constraint.
+    lit_t adjust_;
     //! Number of elements in the constraint.
-    size_t size_;
+    uint32_t size_;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"

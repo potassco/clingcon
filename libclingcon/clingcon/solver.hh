@@ -364,10 +364,10 @@ public:
     Solver(SolverConfig const &config, SolverStatistics &stats);
 
     Solver() = delete;
-    Solver(Solver const &) = delete;
-    Solver(Solver &&) = delete;
-    Solver& operator=(Solver const &) = delete;
-    Solver& operator=(Solver &&) = delete;
+    Solver(Solver const &x) = delete;
+    Solver(Solver && x) noexcept;
+    Solver& operator=(Solver const &x) = delete;
+    Solver& operator=(Solver &&x) = delete;
     ~Solver();
 
     //! Get the solver's configuration.
@@ -429,10 +429,10 @@ public:
     [[nodiscard]] val_t get_value(var_t var) const;
 
     //! Get the current bound of the minimize constraint.
-    [[nodiscard]] std::optional<val_t> minimize_bound() const;
+    [[nodiscard]] std::optional<sum_t> minimize_bound() const;
 
     //! Updates the bound of the minimize constraint in this state.
-    void update_minimize(AbstractConstraint &constraint, level_t level, val_t bound);
+    void update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound);
 
     //! Watch the given variable notifying given constraint state on changes.
     //!
@@ -646,11 +646,11 @@ private:
     uint32_t split_last_{0};
     //! Offset to speed up Solver::simplify.
     uint32_t trail_offset_{0};
+    //! Current bound of the minimize constraint (if any).
+    std::optional<sum_t> minimize_bound_;
     //! The minimize constraint might not have been fully propagated below this
     //! level. See Solver::update_minimize.
     level_t minimize_level_{0};
-    //! Current bound of the minimize constraint (if any).
-    std::optional<val_t> minimize_bound_;
     //! Reason vector to avoid unnecessary allocations.
     std::vector<lit_t> temp_reason_;
 };

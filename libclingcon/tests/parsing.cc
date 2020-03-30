@@ -148,7 +148,7 @@ public:
         oss_ << ".";
     }
 
-    void add_dom(lit_t lit, var_t var, std::vector<std::pair<val_t, val_t>> const &elems) override {
+    void add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
         oss_ << lit << " -> " << vars_[var] << " = { ";
         bool sep{false};
         for (auto const &[l, r] : elems) {
@@ -297,8 +297,8 @@ TEST_CASE("parsing", "[parsing]") {
                 "#show y.");
         }
         SECTION("dom") {
-            REQUIRE(parse("&dom { 1..2; 5; 2..7 } = x.") ==
-                "2 -> x = { 1..3, 5..6, 2..8}."
+            REQUIRE(parse("&dom { 1..2; 5; 10..12 } = x.") ==
+                "2 -> x = { 1..3, 5..6, 10..13}."
                 );
         }
         SECTION("optimize") {
