@@ -60,7 +60,7 @@ char const *negate_relation(char const *op) {
         return ">";
     }
     if (std::strcmp(op, ">") == 0) {
-        return ">=";
+        return "<=";
     }
     if (std::strcmp(op, ">=") == 0) {
         return "<";

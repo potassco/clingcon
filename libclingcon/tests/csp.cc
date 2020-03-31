@@ -93,11 +93,6 @@ S solve(char const *prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_in
     return handler.models;
 }
 
-TEST_CASE("fixme", "[solving]") {
-    REQUIRE(solve("{a}. :- a, &sum { x } < 3. :- not a, &sum { x } > 0.", 0, 3) == S({"a x=3", "x=0"}));
-    REQUIRE(solve("&sum { v(X) } = X :- X=1..3. &sum { v(X) : X=1..2; v(X) : X=2..3 } = x.") == S({
-        "v(1)=1 v(2)=2 v(3)=3 x=8"}));
-}
 TEST_CASE("solving", "[solving]") {
     SECTION("simple") {
         REQUIRE(solve("&sum{ x } > 0. &sum{ x } < 3. &sum { x } = y.") == S({
@@ -147,6 +142,7 @@ TEST_CASE("solving", "[solving]") {
                 "a x=-6",
                 "x=5",
                 "x=6"}));
+        REQUIRE(solve("{a}. &sum { x } >= 3 :- a. &sum { x } <= 0 :- not a.", 0, 3) == S({"a x=3", "x=0"}));
     }
     SECTION("parse") {
         REQUIRE(solve("&sum { x(f(1+2)) } <= 0.", 0, 0) == S({"x(f(3))=0"}));
@@ -207,7 +203,7 @@ TEST_CASE("solving", "[solving]") {
         REQUIRE(solve("&sum { 1 : X=(1;2;3) } = x.") == S({"x=3"}));
         REQUIRE(solve("&sum { 1 : 1=(X;Y;Z) } = x.") == S({"x=3"}));
         REQUIRE(solve("&sum { v(X) } = X :- X=1..3. &sum { v(X) : X=1..2; v(X) : X=2..3 } = x.") == S({
-            "v(1)=1 v(2)=2 v(3)=3 x=8"}));
+            "x=8 v(1)=1 v(2)=2 v(3)=3"}));
     }
     /*
     def test_optimize_bound(self):
