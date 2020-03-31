@@ -49,7 +49,7 @@ using CoVarVec = std::vector<co_var_t>;
 //! This is the largest supported integer value. It is chosen like this so that
 //! MAX_VAL-MIN_VAL does not overflow and we can always add 1 even to the
 //! difference.
-constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max()/2-1;
+constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max()/2;
 //! The minimum value for variables/coefficionts in clingcon.
 //!
 //! The minimum is chosen so that the product of two values will always fit

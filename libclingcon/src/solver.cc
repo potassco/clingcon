@@ -426,12 +426,16 @@ std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarStat
         old = lit;
         factmap_.emplace_back(lit, vs.var(), value);
     }
+    // the literal is already a fact or is protected
+    else if (old != -lit || old == protected_lit_) {
+        lit = old;
+    }
     // the old literal has to be replaced
     else if (old != lit) {
-        old = lit;
-        remove_literal_(vs.var(), old, value);
-        factmap_.emplace_back(lit, vs.var(), value);
         ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
+        remove_literal_(vs.var(), old, value);
+        old = lit;
+        factmap_.emplace_back(lit, vs.var(), value);
     }
     return {ret, lit};
 }
@@ -483,8 +487,6 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
 }
 
 bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints) {
-    std::vector<AbstractConstraintState*> removed;
-
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
     for (size_t idx = jdx; idx < constraints.size(); ++idx) {
         auto &cs = add_constraint(*constraints[idx]);
@@ -499,7 +501,6 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config cons
         if (ret.second) {
             --stats.num_constraints;
             ++stats.translate_removed;
-            removed.emplace_back(&cs);
         }
         else {
             if (idx != jdx) {
@@ -512,11 +513,18 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config cons
     // Note: Constraints are removed by traversing the whole lookup table to
     // avoid potentially quadratic overhead if a large number of constraints
     // has to be removed.
-    if (removed.empty()) {
-        std::sort(removed.begin(), removed.end());
-        auto in_removed = [&removed] (AbstractConstraintState &cs) {
-            return std::binary_search(removed.begin(), removed.end(), &cs);
-
+    if (jdx < constraints.size()) {
+        std::sort(constraints.begin() + jdx, constraints.end());
+        auto in_removed = [jdx, &constraints] (AbstractConstraintState &cs) {
+            struct {
+                bool operator()(UniqueConstraint const &a, AbstractConstraint const *b) {
+                    return a.get() < b;
+                }
+                bool operator()(AbstractConstraint const *b, UniqueConstraint const &a) {
+                    return b < a.get();
+                }
+            } pred;
+            return std::binary_search(constraints.begin() + jdx, constraints.end(), &cs.constraint(), pred);
         };
 
         level_().remove_constraints(*this, in_removed);
@@ -529,15 +537,12 @@ bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config cons
                 ++it;
             }
         }
-
-        for (auto *cs : removed) {
-            c2cs_.erase(&cs->constraint());
+        for (auto it = constraints.begin() + jdx, ie = constraints.end(); it != ie; ++it) {
+            c2cs_.erase(it->get());
         }
     }
 
-    // Note: even though it is not strictly necessary this keeps the
-    // constraints valid until all constraint states have been removed
-    constraints.resize(jdx);
+    constraints.erase(constraints.begin() + jdx, constraints.end());
 
     return true;
 }
@@ -690,20 +695,29 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         return true;
     }
 
+    // Note: Update literal might add/remove literals from the lit_map_. It
+    // must not remove the literal we are currently propagating. Furthermore
+    // note that iterators of unordered_multimap's are guaranteed to stay valid
+    // even for insertion.
+    protected_lit_ = lit;
     for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
         auto [var, value] = rng.first->second;
         if (!update_upper_(lvl, cc, var, lit, value)) {
+            protected_lit_ = 0;
             return false;
         }
     }
 
+    protected_lit_ = -lit;
     for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
         auto [var, value] = rng.first->second;
         if (!update_lower_(lvl, cc, var, lit, value)) {
+            protected_lit_ = 0;
             return false;
         }
     }
 
+    protected_lit_ = 0;
     return true;
 }
 

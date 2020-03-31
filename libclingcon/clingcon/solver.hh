@@ -655,6 +655,8 @@ private:
     level_t minimize_level_{0};
     //! Reason vector to avoid unnecessary allocations.
     std::vector<lit_t> temp_reason_;
+    //! A literal that is propagated at the moment and should not be removed.
+    lit_t protected_lit_{0};
 };
 
 } // namespace Clingcon

@@ -22,76 +22,12 @@
 //
 // }}}
 
-#include <clingcon/propagator.hh>
-#include <clingcon/parsing.hh>
+#include "solve.hh"
 #include "catch.hpp"
 
 #include <iostream>
 
 using namespace Clingcon;
-
-using S = std::vector<std::string>;
-
-class SolveEventHandler : public Clingo::SolveEventHandler {
-public:
-    SolveEventHandler(Propagator &p) : p{p} { }
-    bool on_model(Clingo::Model &model) override {
-        std::ostringstream oss;
-        bool sep = false;
-        std::vector<Clingo::Symbol> symbols = model.symbols();
-        std::sort(symbols.begin(), symbols.end());
-        for (auto &sym : symbols) {
-            if (sep) {
-                oss << " ";
-            }
-            sep = true;
-            oss << sym;
-        }
-        std::vector<std::pair<Clingo::Symbol, val_t>> assignment;
-        for (auto [sym, var] : p.get_var_map()) {
-            if (p.shown(var)) {
-                assignment.emplace_back(sym, p.get_value(var, model.thread_id()));
-            }
-        }
-        std::sort(assignment.begin(), assignment.end());
-        for (auto [sym, val] : assignment) {
-            if (sep) {
-                oss << " ";
-            }
-            sep = true;
-            oss << sym << "=" << val;
-        }
-        models.emplace_back(oss.str());
-        return true;
-    }
-    S models;
-    Propagator &p;
-};
-
-S solve(char const *prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
-    Propagator p;
-    SolveEventHandler handler{p};
-    p.config().min_int = min_int;
-    p.config().max_int = max_int;
-    p.config().default_solver_config.refine_introduce = false;
-    p.config().default_solver_config.refine_reasons = false;
-    p.config().default_solver_config.propagate_chain = false;
-    Clingo::Control ctl{{"100"}};
-    ctl.add("base", {}, THEORY);
-    ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
-        Clingo::parse_program(prg, [&builder](Clingo::AST::Statement &&stm) {
-            transform(std::move(stm), [&builder](Clingo::AST::Statement &&stm) {
-                builder.add(stm);
-            }, true);
-        });
-    });
-    ctl.register_propagator(p);
-    ctl.ground({{"base", {}}});
-    ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
-    std::sort(handler.models.begin(), handler.models.end());
-
-    return handler.models;
-}
 
 TEST_CASE("solving", "[solving]") {
     SECTION("simple") {
