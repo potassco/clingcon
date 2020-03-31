@@ -417,12 +417,8 @@ public:
     [[nodiscard]] lit_t get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value);
 
     //! This function is an extended version of Solver::get_literal that can
-    //! update the literal of an existing order literal on the top level.
-    //!
-    //! This function might fix the previous literal and can thus cause a top
-    //! level conflict, which is indicated by the first part of the return
-    //! value.
-    [[nodiscard]] std::pair<bool, lit_t> update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth);
+    //! assign a fact literal if the value did not have a literal before.
+    [[nodiscard]] lit_t update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth);
 
     //! Get the current value of a variable.
     //!
@@ -609,9 +605,6 @@ private:
     //! propagate the minimize constraint and return.
     [[nodiscard]] Level &level_();
 
-    //! Removes order literal `lit` for `vs.var<=value` from Solver::litmap_.
-    void remove_literal_(var_t var, lit_t lit, val_t value);
-
     //! Solver configuration.
     SolverConfig const &config_;
     //! Solver statitstics;
@@ -655,8 +648,6 @@ private:
     level_t minimize_level_{0};
     //! Reason vector to avoid unnecessary allocations.
     std::vector<lit_t> temp_reason_;
-    //! A literal that is propagated at the moment and should not be removed.
-    lit_t protected_lit_{0};
 };
 
 } // namespace Clingcon

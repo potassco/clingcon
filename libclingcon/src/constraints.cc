@@ -375,19 +375,11 @@ public:
                 // append the consequence
                 bool guess = !reason.empty() || tagged;
                 if (co_r > 0) {
-                    auto [ret, lit_u] = solver.update_literal(cc, vs_r, value_r-1, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::True);
-                    if (!ret) {
-                        return false;
-                    }
-                    lit_r = lit_u;
+                    lit_r = solver.update_literal(cc, vs_r, value_r-1, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::True);
                     reason.emplace_back(lit_r);
                 }
                 else {
-                    auto [ret, lit_u] = solver.update_literal(cc, vs_r, value_r, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::False);
-                    if (!ret) {
-                        return false;
-                    }
-                    lit_r = -lit_u;
+                    lit_r = -solver.update_literal(cc, vs_r, value_r, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::False);
                     reason.emplace_back(lit_r);
                 }
 

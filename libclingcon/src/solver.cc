@@ -388,56 +388,26 @@ lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) 
     return lit;
 }
 
-void Solver::remove_literal_(var_t var, lit_t lit, val_t value) {
-    assert(lit != TRUE_LIT && lit != -TRUE_LIT);
-
-    for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
-        if (rng.first->second.first == var && rng.first->second.second == value) {
-            litmap_.erase(rng.first);
-            return;
-        }
-    }
-
-    assert(false && "could not remove literal");
-}
-
-std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) {
+lit_t Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) {
     // order literals can only be update on level 0
     if (truth == Clingo::TruthValue::Free || cc.assignment().decision_level() > 0) {
-        return {true, get_literal(cc, vs, value)};
+        return get_literal(cc, vs, value);
     }
-    auto lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
-    auto ret = true;
     // the value is out of bounds
     if (value < vs.min_bound()) {
-        auto old = -TRUE_LIT;
-        if (old != lit) {
-             ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
-        }
+        return -TRUE_LIT;
     }
-    else if (value >= vs.max_bound()) {
-        auto old = TRUE_LIT;
-        if (old != lit) {
-             ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
-        }
+    if (value >= vs.max_bound()) {
+        return TRUE_LIT;
     }
+    auto &old = vs.get_or_add_literal(value);
     // there was no literal yet
-    else if (auto &old = vs.get_or_add_literal(value); old == 0) {
-        old = lit;
-        factmap_.emplace_back(lit, vs.var(), value);
+    if (old == 0) {
+        old = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
+        factmap_.emplace_back(old, vs.var(), value);
     }
-    // the literal is already a fact or is protected
-    else if (old != -lit || old == protected_lit_) {
-        lit = old;
-    }
-    // the old literal has to be replaced
-    else if (old != lit) {
-        ret = cc.add_clause({truth == Clingo::TruthValue::True ? old : -old});
-        remove_literal_(vs.var(), old, value);
-        old = lit;
-        factmap_.emplace_back(lit, vs.var(), value);
-    }
-    return {ret, lit};
+    // we keep the literal
+    return old;
 }
 
 void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
@@ -614,15 +584,6 @@ bool Solver::propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t 
     // Note: this explicetly does not use get_literal
     auto con = sign * *vs.get_literal(value);
 
-    // on-the-fly simplify
-    if (ass.is_fixed(lit) && !ass.is_fixed(con)) {
-        auto [ret, con] = update_literal(cc, vs, value, sign > 0 ? Clingo::TruthValue::True : Clingo::TruthValue::False);
-        if (!ret) {
-            return false;
-        }
-        con = sign*con;
-    }
-
     // propagate the literal
     if (!ass.is_true(con)) {
         if (!cc.add_clause({-lit, con})) {
@@ -673,9 +634,25 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
 
 bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     auto &lvl = level_();
+    auto ass = cc.assignment();
+    assert(ass.is_true(lit));
 
-    assert(lit != -TRUE_LIT);
+    // On-the-fly simplification on the top-level.
+    if (lit != TRUE_LIT && ass.decision_level() == 0 && ass.is_fixed(lit)) {
+        for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
+            auto [var, value] = rng.first->second;
+            factmap_.emplace_back(TRUE_LIT, var, value);
+        }
+        for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
+            auto [var, value] = rng.first->second;
+            factmap_.emplace_back(-TRUE_LIT, var, value);
+        }
+        lit = TRUE_LIT;
+    }
+
+    // Fact propagation. (Could also be put in the litmap...)
     if (lit == TRUE_LIT) {
+        assert(ass.decision_level() == 0);
         for (auto [fact_lit, var, value] : factmap_) {
             auto &vs = var_state(var);
             if (fact_lit == TRUE_LIT) {
@@ -695,29 +672,22 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         return true;
     }
 
-    // Note: Update literal might add/remove literals from the lit_map_. It
-    // must not remove the literal we are currently propagating. Furthermore
-    // note that iterators of unordered_multimap's are guaranteed to stay valid
-    // even for insertion.
-    protected_lit_ = lit;
+    // Note: Note that iterators of unordered_multimap's are guaranteed to stay
+    // valid even for insertion.
     for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
         auto [var, value] = rng.first->second;
         if (!update_upper_(lvl, cc, var, lit, value)) {
-            protected_lit_ = 0;
             return false;
         }
     }
 
-    protected_lit_ = -lit;
     for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
         auto [var, value] = rng.first->second;
         if (!update_lower_(lvl, cc, var, lit, value)) {
-            protected_lit_ = 0;
             return false;
         }
     }
 
-    protected_lit_ = 0;
     return true;
 }
 
@@ -897,14 +867,16 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
 
         // update upper bounds
         if (vs_other.upper_bound() < vs.upper_bound()) {
-            if (!update_literal(cc, vs, vs_other.upper_bound(), Clingo::TruthValue::True).first) {
+            auto lit = update_literal(cc, vs, vs_other.upper_bound(), Clingo::TruthValue::True);
+            if (!cc.add_clause({lit})) {
                 return false;
             }
         }
 
         // update lower bounds
         if (vs.lower_bound() < vs_other.lower_bound()) {
-            if (!update_literal(cc, vs, vs_other.lower_bound()-1, Clingo::TruthValue::False).first) {
+            auto lit = update_literal(cc, vs, vs_other.lower_bound()-1, Clingo::TruthValue::False);
+            if (!cc.add_clause({-lit})) {
                 return false;
             }
         }
@@ -931,8 +903,8 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
         if (lit == TRUE_LIT && ass.is_true(ly)) {
             truth = Clingo::TruthValue::False;
         }
-        auto [ret, lx] = update_literal(cc, vs, x-1, truth);
-        if (!ret || !cc.add_clause({-lit, -ly, -lx})) {
+        auto lx = update_literal(cc, vs, x-1, truth);
+        if (!cc.add_clause({-lit, -ly, -lx})) {
             return false;
         }
         py = y;
@@ -946,8 +918,8 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
         if (lit == TRUE_LIT && ass.is_true(lx)) {
             truth = Clingo::TruthValue::True;
         }
-        auto [ret, ly] = update_literal(cc, vs, y-1, truth);
-        if (!ret || !cc.add_clause({-lit, -lx, ly})) {
+        auto ly = update_literal(cc, vs, y-1, truth);
+        if (!cc.add_clause({-lit, -lx, ly})) {
             return false;
         }
         px = x;
@@ -996,10 +968,7 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
     }
     // otherwise we just update the existing order literal
     else {
-        auto [ret, lit] = update_literal(cc, vs, value, truth);
-        if (!ret) {
-            return false;
-        }
+        auto lit = update_literal(cc, vs, value, truth);
         if (co < 0) {
             lit = -lit;
         }
