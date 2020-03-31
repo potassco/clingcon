@@ -230,7 +230,7 @@ public:
 
     //! Get current upper bound.
     [[nodiscard]] val_t upper_bound() const {
-        return lower_bound_;
+        return upper_bound_;
     }
     //! Set new upper bound.
     void upper_bound(val_t upper_bound) {

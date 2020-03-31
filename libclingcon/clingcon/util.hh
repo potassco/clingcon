@@ -28,6 +28,7 @@
 #include <chrono>
 #include <vector>
 #include <map>
+#include <cstdlib>
 
 //! @file clingcon/util.hh
 //! Very general utility functions.
@@ -44,13 +45,12 @@ I midpoint(I a, I b) noexcept {
 }
 
 template<typename I>
-I modulo(I n, I m) {
-    m = std::abs(m);
-    auto ret = n % m;
-    if (n < 0) {
-        ret += m;
+I floordiv(I n, I m) {
+    auto a = std::div(n, m);
+    if ((n < 0) ^ (m < 0) && a.rem != 0) {
+        return a.quot-1;
     }
-    return ret;
+    return a.quot;
 }
 
 //! Simple timer that adds the elapsed time to the given `double` upon

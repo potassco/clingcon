@@ -323,7 +323,7 @@ public:
 
             // calculate the first value that would violate the constraint
             if (co_r > 0) {
-                delta_r = -modulo<sum_t>(slack + 1, -co_r);
+                delta_r = -floordiv<sum_t>(slack + 1, -co_r);
                 value_r = vs_r.lower_bound() + delta_r;
                 assert (slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r - 1));
                 // values above the upper bound are already true;
@@ -336,7 +336,7 @@ public:
                 }
             }
             else {
-                delta_r = modulo<sum_t>(slack + 1, co_r);
+                delta_r = floordiv<sum_t>(slack + 1, co_r);
                 value_r = vs_r.upper_bound() + delta_r;
                 assert (slack-co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r + 1));
                 // values below the lower bound are already false

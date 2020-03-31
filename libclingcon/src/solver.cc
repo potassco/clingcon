@@ -956,11 +956,11 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
     val_t value{0};
     if (co > 0) {
         truth = ass.truth_value(clit);
-        value = modulo(rhs, co);
+        value = floordiv(rhs, co);
     }
     else {
         truth = ass.truth_value(-clit);
-        value = -modulo(rhs, -co) - 1;
+        value = -floordiv(rhs, -co) - 1;
     }
 
     // in this case we can use the literal of the constraint as order variable

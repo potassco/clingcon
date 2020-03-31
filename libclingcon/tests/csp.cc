@@ -32,16 +32,23 @@ using namespace Clingcon;
 
 class SolveEventHandler : public Clingo::SolveEventHandler {
 public:
+    SolveEventHandler(Propagator &p) : p{p} { }
     bool on_model(Clingo::Model &model) override {
         std::cerr << model << std::endl;
+        std::cerr << "assignment:";
+        for (var_t var = 0; var < p.num_variables(); ++var) {
+            std::cerr << " " << var << "=" << p.get_value(var, 0);
+        }
+        std::cerr << std::endl;
         return true;
     }
+    Propagator &p;
 };
 
 TEST_CASE("solving", "[solving]") {
     SECTION("simple") {
-        SolveEventHandler handler;
         Propagator p;
+        SolveEventHandler handler{p};
         p.config().default_solver_config.refine_introduce = false;
         p.config().default_solver_config.refine_reasons = false;
         p.config().default_solver_config.propagate_chain = false;
