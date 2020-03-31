@@ -55,7 +55,7 @@ TEST_CASE("solving", "[solving]") {
         Clingo::Control ctl{{"10"}};
         ctl.add("base", {}, THEORY);
         ctl.with_builder([](Clingo::ProgramBuilder &builder) {
-            Clingo::parse_program("&sum{ x } > 0. &sum{ x } < 3.", [&builder](Clingo::AST::Statement &&stm) {
+            Clingo::parse_program("&sum{ x } > 0. &sum{ x } < 3. &sum { x } = y.", [&builder](Clingo::AST::Statement &&stm) {
                 transform(std::move(stm), [&builder](Clingo::AST::Statement &&stm) {
                     builder.add(stm);
                 }, true);

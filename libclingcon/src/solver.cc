@@ -43,7 +43,7 @@ public:
     //! Update the lower bound of a var state.
     void update_lower(Solver &solver, VarState &vs, val_t value) {
         val_t diff = value + 1 - vs.lower_bound();
-        if (level_ > 0 && vs.pushed_lower(level_) ) {
+        if (level_ > 0 && !vs.pushed_lower(level_) ) {
             vs.push_lower(level_);
             undo_lower_.emplace_back(vs.var());
         }
@@ -59,7 +59,7 @@ public:
     void update_upper(Solver &solver, VarState &vs, val_t value) {
         val_t diff = value - vs.upper_bound();
 
-        if (level_ > 0 && vs.pushed_upper(level_) ) {
+        if (level_ > 0 && !vs.pushed_upper(level_) ) {
             vs.push_upper(level_);
             undo_upper_.emplace_back(vs.var());
         }
@@ -78,7 +78,7 @@ public:
     void update_constraints_(Solver &solver, var_t var, val_t diff) {
         auto &watches = solver.var_watches_[var];
         watches.erase(std::remove_if(watches.begin(), watches.end(), [&](auto const &value_cs) {
-            if (value_cs.second->removable(level_)) {
+            if (!value_cs.second->removable(level_)) {
                 if (value_cs.second->update(value_cs.first, diff)) {
                     Level::mark_todo(solver, *value_cs.second);
                 }
@@ -100,7 +100,7 @@ public:
     //! Add the given constraint state to the todo list if it is not yet
     //! contained.
     static void mark_todo(Solver &solver, AbstractConstraintState &cs) {
-        if (cs.mark_todo(true)) {
+        if (!cs.mark_todo(true)) {
             solver.todo_.emplace_back(&cs);
         }
     }
@@ -436,15 +436,15 @@ std::pair<bool, lit_t> Solver::update_literal(AbstractClauseCreator &cc, VarStat
     return {ret, lit};
 }
 
-void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
+void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
     assert(var < var_watches_.size());
-    var_watches_[var].emplace_back(i, cs);
+    var_watches_[var].emplace_back(i, &cs);
 }
 
-void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs) {
+void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
     assert(var < var_watches_.size());
     auto &watches = var_watches_[var];
-    watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, cs)));
+    watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, &cs)));
 }
 
 void Solver::mark_inactive(AbstractConstraintState &cs) {
@@ -593,8 +593,8 @@ template <class It>
 }
 
 bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
-    for (auto &[lit, cs] : lit2cs_) {
-        Level::mark_todo(*this, *cs);
+    for (auto rng = lit2cs_.equal_range(lit); rng.first != rng.second; ++rng.first) {
+        Level::mark_todo(*this, *rng.first->second);
     }
     return update_domain_(cc, lit);
 }

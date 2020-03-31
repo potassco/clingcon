@@ -158,10 +158,6 @@ private:
 
 } // namespace
 
-Propagator::Propagator() {
-    solvers_.emplace_back(config_.solver_config(0), stats_step_.solver_stats(0));
-}
-
 void Propagator::on_model(Clingo::Model const &model) { // NOLINT
     static_cast<void>(model);
     throw std::runtime_error("implement me!!!");
@@ -275,6 +271,8 @@ void Propagator::add_constraint(UniqueConstraint constraint) {
 }
 
 void Propagator::init(Clingo::PropagateInit &init) {
+    init.set_check_mode(Clingo::PropagatorCheckMode::Partial);
+
     Timer timer{stats_step_.time_init};
     InitClauseCreator cc{init, stats_step_};
 

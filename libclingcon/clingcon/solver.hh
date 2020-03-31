@@ -440,10 +440,10 @@ public:
     //!
     //! The integer `i` is additional information passed to the constraint
     //! state upon notification.
-    void add_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
+    void add_var_watch(var_t var, val_t i, AbstractConstraintState &cs);
 
     //! Remove a previously added watch.
-    void remove_var_watch(var_t var, val_t i, AbstractConstraintState *cs);
+    void remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs);
 
     //! Mark a constraint state as inactive.
     void mark_inactive(AbstractConstraintState &cs);

@@ -66,6 +66,7 @@ public:
         T::lower_bound_ = T::upper_bound_ = 0;
         for (auto [co, var] : T::constraint_) {
             auto &vs = solver.var_state(var);
+            solver.add_var_watch(var, co, *this);
             if (co > 0) {
                 T::lower_bound_ += static_cast<sum_t>(vs.lower_bound()) * co;
                 T::upper_bound_ += static_cast<sum_t>(vs.upper_bound()) * co;
@@ -79,7 +80,7 @@ public:
 
     void detach(Solver &solver) override {
         for (auto [co, var] : T::constraint_) {
-            solver.remove_var_watch(var, co, this);
+            solver.remove_var_watch(var, co, *this);
         }
     }
 
@@ -259,11 +260,6 @@ public:
     //!
     //! The function returns False if propagation fails, True otherwise.
     [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
-        static_cast<void>(solver);
-        static_cast<void>(cc);
-        static_cast<void>(check_state);
-        throw std::runtime_error("implement me!!!");
-
         if (!T::has_rhs(solver)) {
             return true;
         }
@@ -350,12 +346,12 @@ public:
             }
 
             // build the reason if the literal has not already been propagated
-            if (lit_r == 0 or not ass.is_true(lit_r)) {
+            if (lit_r == 0 || !ass.is_true(lit_r)) {
                 auto slack_r = slack - co_r * delta_r;
                 assert (slack_r < 0);
                 auto &reason = solver.temp_reason();
                 // add the constraint itself
-                if (not ass.is_fixed(-clit)) {
+                if (!ass.is_fixed(-clit)) {
                     reason.emplace_back(-clit);
                 }
                 for (auto [co_a, var_a] : T::constraint_) {
@@ -379,22 +375,24 @@ public:
                 // append the consequence
                 bool guess = !reason.empty() || tagged;
                 if (co_r > 0) {
-                    auto [ret, lit_r] = solver.update_literal(cc, vs_r, value_r-1, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::True);
+                    auto [ret, lit_u] = solver.update_literal(cc, vs_r, value_r-1, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::True);
                     if (!ret) {
                         return false;
                     }
+                    lit_r = lit_u;
                     reason.emplace_back(lit_r);
                 }
                 else {
-                    auto [ret, lit_r] = solver.update_literal(cc, vs_r, value_r, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::False);
+                    auto [ret, lit_u] = solver.update_literal(cc, vs_r, value_r, guess ? Clingo::TruthValue::Free : Clingo::TruthValue::False);
                     if (!ret) {
                         return false;
                     }
-                    reason.emplace_back(-lit_r);
+                    lit_r = -lit_u;
+                    reason.emplace_back(lit_r);
                 }
 
                 // propagate the clause
-                if (not cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt)) {
+                if (!cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt)) {
                     return false;
                 }
 
@@ -638,11 +636,6 @@ class SumConstraintState : public AbstractConstraintState {
 
     //! Translate a constraint to clauses or weight constraints.
     [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, AbstractClauseCreator &cc, ConstraintVec &added) final {
-        static_cast<void>(config);
-        static_cast<void>(solver);
-        static_cast<void>(cc);
-        static_cast<void>(added);
-        throw std::runtime_error("implement me");
         auto ass = cc.assignment();
 
         auto rhs = this->rhs(solver);
@@ -650,6 +643,8 @@ class SumConstraintState : public AbstractConstraintState {
             return {true, true};
         }
 
+        static_cast<void>(config);
+        static_cast<void>(added);
         /*
         lower = rhs-self.lower_bound
         upper = rhs-self.upper_bound

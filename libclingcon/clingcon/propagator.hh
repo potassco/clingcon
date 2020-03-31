@@ -43,7 +43,12 @@ using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Propagator {
 public:
-    Propagator();
+    Propagator() = default;
+    Propagator(Propagator const &) = delete;
+    Propagator(Propagator &&) = delete;
+    Propagator& operator=(Propagator const &) = delete;
+    Propagator& operator=(Propagator &&) = delete;
+    ~Propagator() override = default;
 
     //! Return statistics object.
     Statistics const &statistics() {
@@ -140,7 +145,15 @@ private:
         return solvers_[thread_id];
     }
 
+    //! Get the master config.
+    //!
+    //! Upon first use this will also apply the default config to the master.
+    //! This means that the default config should be modified before the first
+    //! functions in this class are accessed.
     Solver &master_() {
+        if (solvers_.empty()) {
+            solvers_.emplace_back(config_.solver_config(0), stats_step_.solver_stats(0));
+        }
         return solver_(0);
     }
 

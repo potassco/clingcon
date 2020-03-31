@@ -45,7 +45,10 @@ using co_var_t = std::pair<val_t, var_t>; //!< coeffcient/variable pair
 using CoVarVec = std::vector<co_var_t>;
 
 //! The maximum value for variables/coefficients in clingcon.
-constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max();
+//!
+//! This is the largest supported integer value. It is chosen like this so that
+//! we can still add one without getting an overflow.
+constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max()-1;
 //! The minimum value for variables/coefficionts in clingcon.
 //!
 //! The minimum is chosen so that the product of two values will always fit
@@ -53,7 +56,7 @@ constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max();
 constexpr val_t MIN_VAL = -MAX_VAL;
 
 // defaults for solver config
-constexpr bool DEFAULT_SPLIT_ALL{true};
+constexpr bool DEFAULT_SPLIT_ALL{false};
 constexpr bool DEFAULT_PROPAGATE_CHAIN{true};
 constexpr bool DEFAULT_REFINE_REASONS{true};
 constexpr bool DEFAULT_REFINE_INTRODUCE{true};
@@ -167,7 +170,7 @@ struct Statistics {
     SolverStatistics &solver_stats(uint32_t thread_id) {
         auto it = solver_statistics.before_begin();
 
-        for (uint32_t i = 0; i < thread_id; ++i) {
+        for (uint32_t i = 0; i <= thread_id; ++i) {
             auto jt = it++;
             if (it == solver_statistics.end()) {
                 it = solver_statistics.emplace_after(jt);
@@ -209,7 +212,7 @@ struct Config {
     SolverConfig &solver_config(uint32_t thread_id) {
         auto it = solver_configs.before_begin();
 
-        for (uint32_t i = 0; i < thread_id; ++i) {
+        for (uint32_t i = 0; i <= thread_id; ++i) {
             auto jt = it++;
             if (it == solver_configs.end()) {
                 it = solver_configs.emplace_after(jt, default_solver_config);
