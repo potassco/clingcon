@@ -225,12 +225,12 @@ struct TheoryRewriter {
 [[nodiscard]] Clingo::Symbol evaluate(Clingo::TheoryTerm const &term);
 
 template <class F>
-Clingo::Symbol evaluate(Clingo::TheoryTerm const &a, Clingo::TheoryTerm const &b, F f) {
+[[nodiscard]] Clingo::Symbol evaluate(Clingo::TheoryTerm const &a, Clingo::TheoryTerm const &b, F f) {
     auto ea = evaluate(a);
     check_syntax(ea.type() == Clingo::SymbolType::Number);
     auto eb = evaluate(b);
     check_syntax(eb.type() == Clingo::SymbolType::Number);
-    return Clingo::Symbol(f(ea.number(), eb.number()));
+    return Clingo::Number(f(ea.number(), eb.number()));
 }
 
 val_t safe_pow(val_t a, val_t b) {
@@ -263,13 +263,13 @@ Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
         return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
     }
     if (match(term, "*", 2)) {
-        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_mul<val_t>);
     }
     if (match(term, "/", 2)) {
-        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_div<val_t>);
     }
     if (match(term, "\\", 2)) {
-        return evaluate(term.arguments().front(), term.arguments().back(), safe_sub<val_t>);
+        return evaluate(term.arguments().front(), term.arguments().back(), safe_mod<val_t>);
     }
     if (match(term, "**", 2)) {
         return evaluate(term.arguments().front(), term.arguments().back(), safe_pow);
@@ -278,7 +278,7 @@ Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
     if (match(term, "-", 1)) {
         auto ea = evaluate(term.arguments().front());
         if (ea.type() == Clingo::SymbolType::Number) {
-            return Clingo::Symbol(safe_inv(ea.number()));
+            return Clingo::Number(safe_inv(ea.number()));
         }
         if (ea.type() == Clingo::SymbolType::Function && std::strlen(ea.name()) > 0) {
             return Clingo::Function(ea.name(), ea.arguments(), !ea.is_positive());
@@ -288,7 +288,7 @@ Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
 
     check_syntax(!match(term, "..", 2));
 
-    if (term.type() == Clingo::TheoryTermType::Function || term.type() == Clingo::TheoryTermType::Function) {
+    if (term.type() == Clingo::TheoryTermType::Tuple || term.type() == Clingo::TheoryTermType::Function) {
         std::vector<Clingo::Symbol> args;
         args.reserve(term.arguments().size());
         for (auto const &arg : term.arguments()) {
@@ -405,7 +405,7 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
     }
 }
 
-void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec const &elements, char const *op, val_t rhs, bool strict) {
+[[nodiscard]] bool normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec const &elements, char const *op, val_t rhs, bool strict) {
     CoVarVec copy;
     CoVarVec const *elems = &elements;
 
@@ -432,7 +432,7 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
     if (std::strcmp(op, "<=") == 0) {
         if (strict && elems->size() == 1) {
             builder.add_constraint(literal, *elems, rhs, true);
-            return;
+            return true;
         }
         if (!builder.is_true(-literal)) {
             builder.add_constraint(literal, *elems, rhs, false);
@@ -450,36 +450,52 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
             }
 
             // Note: this cannot fail because constraint normalization does not propagate
-            builder.add_clause({-literal, a});
-            builder.add_clause({-literal, b});
-            builder.add_clause({-a, -b, literal});
+            if (!builder.add_clause({-literal, a})) {
+                return false;
+            }
+            if (!builder.add_clause({-literal, b})) {
+                return false;
+            }
+            if (!builder.add_clause({-a, -b, literal})) {
+                return false;
+            }
         }
         else {
             a = b = literal;
         }
 
-        normalize_constraint(builder, a, *elems, "<=", rhs, strict);
-        normalize_constraint(builder, b, *elems, ">=", rhs, strict);
+        if (!normalize_constraint(builder, a, *elems, "<=", rhs, strict)) {
+            return false;
+        }
+        if (!normalize_constraint(builder, b, *elems, ">=", rhs, strict)) {
+            return false;
+        }
 
         if (strict) {
-            return;
+            return true;
         }
     }
     else if (std::strcmp(op, "!=") == 0) {
         if (strict) {
-            normalize_constraint(builder, -literal, *elems, "=", rhs, true);
-            return;
+            return normalize_constraint(builder, -literal, *elems, "=", rhs, true);
         }
 
         auto a = builder.add_literal();
         auto b = builder.add_literal();
 
-        // Note: this cannot fail
-        builder.add_clause({a, b, -literal});
-        builder.add_clause({-a, -b});
+        if (!builder.add_clause({a, b, -literal})) {
+            return false;
+        }
+        if (!builder.add_clause({-a, -b})) {
+            return false;
+        }
 
-        normalize_constraint(builder, a, *elems, "<", rhs, false);
-        normalize_constraint(builder, b, *elems, ">", rhs, false);
+        if (!normalize_constraint(builder, a, *elems, "<", rhs, false)) {
+            return false;
+        }
+        if (!normalize_constraint(builder, b, *elems, ">", rhs, false)) {
+            return false;
+        }
     }
 
     if (strict) {
@@ -492,8 +508,12 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
             op = "=";
         }
 
-        normalize_constraint(builder, -literal, *elems, op, rhs, false);
+        if (!normalize_constraint(builder, -literal, *elems, op, rhs, false)) {
+            return false;
+        }
     }
+
+    return true;
 }
 
 // Adds constraints from the given theory atom to the builder.
@@ -503,7 +523,7 @@ void normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoV
 //
 // Contraints are represented as a triple of a literal, its elements, and an
 // upper bound.
-void parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool is_sum, bool strict) {
+[[nodiscard]] bool parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool is_sum, bool strict) {
     check_syntax(atom.has_guard());
 
     CoVarVec elements;
@@ -527,7 +547,7 @@ void parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom con
         rhs /= d;
     }
 
-    normalize_constraint(builder, literal, elements, guard.first, rhs, strict);
+    return normalize_constraint(builder, literal, elements, guard.first, rhs, strict);
 }
 
 // Parses minimize and maximize directives.
@@ -567,7 +587,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     }
 }
 
-std::pair<val_t, val_t> parse_dom_elem(Clingo::TheoryTerm const &term) {
+[[nodiscard]] std::pair<val_t, val_t> parse_dom_elem(Clingo::TheoryTerm const &term) {
     if (match(term, "..", 2)) {
         auto args = term.arguments();
 
@@ -681,14 +701,16 @@ void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb
     });
 }
 
-void parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) {
+bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) {
     for (auto const &atom : theory_atoms) {
         bool is_sum_b = match(atom.term(), "__sum_b", 0);
         bool is_sum_h = match(atom.term(), "__sum_h", 0);
         bool is_diff_b = match(atom.term(), "__diff_b", 0);
         bool is_diff_h = match(atom.term(), "__diff_h", 0);
         if (is_sum_b || is_diff_b || is_sum_h || is_diff_h) {
-            parse_constraint(builder, atom, is_sum_b || is_sum_h, is_sum_b || is_diff_b);
+            if (!parse_constraint(builder, atom, is_sum_b || is_sum_h, is_sum_b || is_diff_b)) {
+                return false;
+            }
         }
         else if(match(atom.term(), "distinct", 0)) {
             parse_distinct(builder, atom);
@@ -706,6 +728,7 @@ void parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
             parse_objective(builder, atom, -1);
         }
     }
+    return true;
 }
 
 } // namespace Clingcon

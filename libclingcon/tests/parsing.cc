@@ -79,7 +79,7 @@ public:
             sep = true;
         }
         oss_ << " }.";
-        return false;
+        return true;
     }
 
     void add_show() override {
@@ -194,7 +194,7 @@ std::string parse(char const *prg) {
 
     std::ostringstream oss;
     TestBuilder builder{oss};
-    parse(builder, ctl.theory_atoms());
+    static_cast<void>(parse(builder, ctl.theory_atoms()));
     builder.commit();
     return oss.str();
 }

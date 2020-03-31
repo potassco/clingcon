@@ -286,7 +286,9 @@ void Propagator::init(Clingo::PropagateInit &init) {
 
     // add constraints
     ConstraintBuilder builder{*this, cc, std::move(minimize)};
-    parse(builder, init.theory_atoms());
+    if (!parse(builder, init.theory_atoms())) {
+        return;
+    }
 
     // gather bounds of states in master
     auto &master = master_();
@@ -431,14 +433,6 @@ bool Propagator::shown(var_t var) {
     }
 
     return false;
-}
-
-std::optional<val_t> Propagator::get_value(Clingo::Symbol sym, uint32_t thread_id) const {
-    auto it = var_map_.find(sym);
-    if (it != var_map_.end()) {
-        return solver_(thread_id).get_value(it->second);
-    }
-    return {};
 }
 
 val_t Propagator::get_value(var_t var, uint32_t thread_id) const {

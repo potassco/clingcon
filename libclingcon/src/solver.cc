@@ -927,7 +927,7 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
     std::optional<val_t> px;
     for (auto it = domain.rbegin(), ie = domain.rend(); it != ie; ++it) {
         auto [x, y] = *it;
-        auto lx = px.has_value() ? -get_literal(cc, vs, *px - 1) : TRUE_LIT;
+        auto lx = px.has_value() ? get_literal(cc, vs, *px - 1) : TRUE_LIT;
         auto truth = Clingo::TruthValue::Free;
         if (lit == TRUE_LIT && ass.is_true(lx)) {
             truth = Clingo::TruthValue::True;

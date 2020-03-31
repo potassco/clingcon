@@ -43,6 +43,8 @@ using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Propagator {
 public:
+    using VarMap = std::unordered_map<Clingo::Symbol, var_t>;
+
     Propagator() = default;
     Propagator(Propagator const &) = delete;
     Propagator(Propagator &&) = delete;
@@ -108,11 +110,8 @@ public:
     //! Determine if the given variable should be shown.
     [[nodiscard]] bool shown(var_t var);
 
-    //! Get the value of the given variable in the solver associated with
-    //! `thread_id`.
-    //!
-    //! Should be called on total assignments.
-    [[nodiscard]] std::optional<val_t> get_value(Clingo::Symbol sym, uint32_t thread_id) const;
+    //! Get the map from variables to their indexes.
+    [[nodiscard]] VarMap const &get_var_map() const { return var_map_; }
 
     //! Get the value of the variable with the given index in the solver
     //! associated with `thread_id`.

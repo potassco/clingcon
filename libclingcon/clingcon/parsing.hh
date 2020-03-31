@@ -44,7 +44,7 @@ constexpr char const *THEORY = R"(
     ** : 2, binary, right;
     *  : 1, binary, left;
     /  : 1, binary, left;
-    \\ : 1, binary, left;
+    \  : 1, binary, left;
     +  : 0, binary, left;
     -  : 0, binary, left
     };
@@ -53,7 +53,7 @@ constexpr char const *THEORY = R"(
     ** : 3, binary, right;
     *  : 2, binary, left;
     /  : 2, binary, left;
-    \\ : 2, binary, left;
+    \  : 2, binary, left;
     +  : 1, binary, left;
     -  : 1, binary, left;
     .. : 0, binary, left
@@ -122,7 +122,7 @@ void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.
-void parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms);
+[[nodiscard]] bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms);
 
 } // namespace Clingcon
 
