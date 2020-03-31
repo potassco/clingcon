@@ -287,7 +287,7 @@ public:
         if (it != literals_.end()) {
             return it->second;
         }
-        return {};
+        return std::nullopt;
     }
 
     //! Set the literal of the given value.
