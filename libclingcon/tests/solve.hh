@@ -75,6 +75,8 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     Propagator p;
     SolveEventHandler handler{p};
 
+    p.config().weight_constraint_limit = 0;
+    p.config().clause_limit = 0;
     p.config().check_state = true;
     p.config().check_solution = true;
     p.config().min_int = min_int;

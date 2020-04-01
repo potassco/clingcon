@@ -424,244 +424,243 @@ class SumConstraintState : public AbstractConstraintState {
     }
 
     [[nodiscard]] UniqueConstraintState copy() const final {
-        throw std::runtime_error("implement me");
-        /*
-        cs = SumConstraintState(self.constraint)
-        cs.inactive_level = self.inactive_level
-        cs.lower_bound = self.lower_bound
-        cs.upper_bound = self.upper_bound
-        return cs
-        */
+        auto ret = std::make_unique<SumConstraintStateImpl<false, SumConstraintState, SumConstraint>>(constraint_);
+        ret->lower_bound_ = lower_bound_;
+        ret->upper_bound_ = upper_bound_;
+        ret->inactive_level_ = inactive_level_;
+        ret->todo_ = todo_;
+        return ret;
     }
 
     //! Estimate the size of the translation in terms of the number of literals
     //! necessary for the weight constraint.
-    size_t weight_estimate(Solver &solver) const { // NOLINT
-        static_cast<void>(solver);
-        throw std::runtime_error("implement me");
-        /*
-        estimate = 0
-        slack = self.rhs(state)-self.lower_bound
-        for co, var in self.elements:
-            vs = state.var_state(var)
-            if co > 0:
-                diff = slack+co*vs.lower_bound
-                value = diff//co
-                assert value >= vs.lower_bound
-                estimate += min(value+1, vs.upper_bound)-vs.lower_bound
-            else:
-                diff = slack+co*vs.upper_bound
-                value = -(diff//-co)
-                assert value <= vs.upper_bound
-                estimate += vs.upper_bound-max(value-1, vs.lower_bound)
-        return estimate
-        */
+    sum_t weight_estimate_(Solver &solver) const {
+        sum_t estimate = 0;
+        sum_t slack = rhs(solver) - lower_bound_;
+        for (auto [co, var] : constraint_) {
+            auto &vs = solver.var_state(var);
+            if (co > 0) {
+                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto value = floordiv<sum_t>(diff, co);
+                assert (value >= vs.lower_bound());
+                estimate += std::min<sum_t>(value + 1, vs.upper_bound()) - vs.lower_bound();
+            }
+            else {
+                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto value = -floordiv<sum_t>(diff, -co);
+                assert(value <= vs.upper_bound());
+                estimate += vs.upper_bound()-std::max<sum_t>(value - 1, vs.lower_bound());
+            }
+        }
+        return estimate;
     }
 
     //! Translate the constraint to weight a constraint.
-    std::pair<bool, bool> weight_translate_(Solver &solver, AbstractClauseCreator &cc, sum_t slack) { // NOLINT
-        static_cast<void>(solver);
-        static_cast<void>(cc);
-        static_cast<void>(slack);
-        throw std::runtime_error("implement me");
-        /*
-        # translate small enough constraint
-        # Note: this magic number can be dangerous if there is a huge number of
-        # variables.
-        wlits = []
-        for co, var in self.elements:
-            vs = state.var_state(var)
-            if co > 0:
-                diff = slack+co*vs.lower_bound
-                value = diff//co
-                assert value >= vs.lower_bound
-                for i in range(vs.lower_bound, min(value+1, vs.upper_bound)):
-                    wlits.append((-state.get_literal(vs, i, cc), co))
-            else:
-                diff = slack+co*vs.upper_bound
-                value = -(diff//-co)
-                assert value <= vs.upper_bound
-                for i in range(max(value-1, vs.lower_bound), vs.upper_bound):
-                    wlits.append((state.get_literal(vs, i, cc), -co))
-
-        # Note: For strict constraints, we can actually use the equivalence
-        # here and only add one weight constraint instead of two. In the
-        # current system design, this requires storing the weight
-        # constraints and detect complementary constraints. It might be a
-        # good idea in general to add translation constraints later because
-        # we can run into the problem of successivly adding variables and
-        # constraints here.
-        ret = cc.add_weight_constraint(self.literal, wlits, slack, 1)
-
-        return ret, True
-        */
+    std::pair<bool, bool> weight_translate_(Solver &solver, InitClauseCreator &cc, sum_t slack) { // NOLINT
+        // translate small enough constraint
+        // Note: this magic number can be dangerous if there is a huge number of
+        // variables.
+        std::vector<Clingo::WeightedLiteral> wlits;
+        for (auto [co, var] : constraint_) {
+            auto &vs = solver.var_state(var);
+            if (co > 0) {
+                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto value = floordiv<sum_t>(diff, co);
+                assert (value >= vs.lower_bound());
+                for (sum_t i = vs.lower_bound(), e = std::min<sum_t>(value + 1, vs.upper_bound()); i != e; ++i) {
+                    wlits.emplace_back(-solver.get_literal(cc, vs, i), co);
+                }
+            }
+            else {
+                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto value = -floordiv<sum_t>(diff, -co);
+                assert(value <= vs.upper_bound());
+                for (sum_t i = std::max<sum_t>(value - 1, vs.lower_bound()), e = vs.upper_bound(); i != e; ++i) {
+                    wlits.emplace_back(solver.get_literal(cc, vs, i), -co);
+                }
+            }
+        }
+        if (std::numeric_limits<val_t>::min() < slack && slack < std::numeric_limits<val_t>::max()) {
+            // Note: For strict constraints, we can actually use the
+            // equivalence here and only add one weight constraint instead of
+            // two. In the current system design, this requires storing the
+            // weight constraints and detect complementary constraints. It
+            // might be a good idea in general to add translation constraints
+            // later because we can run into the problem of successivly adding
+            // variables and constraints here.
+            return {cc.add_weight_constraint(constraint_.literal(), wlits, slack, Clingo::WeightConstraintType::RightImplication), false};
+        }
+        return {true, false};
     }
 
-    bool clause_estimate(Solver &solver, sum_t lower, sum_t upper, size_t maximum) { // NOLINT
-        static_cast<void>(solver);
-        static_cast<void>(lower);
-        static_cast<void>(upper);
-        static_cast<void>(maximum);
-        throw std::runtime_error("implement me");
-        /*
-        todo = [(0, 1, lower, upper)]
-        estimate = 0
+    bool clause_estimate_(Solver &solver, sum_t lower, sum_t upper, sum_t maximum) {
+        std::vector<std::tuple<size_t, sum_t, sum_t, sum_t>> todo{{0, 1, lower, upper}};
+        sum_t estimate{0};
 
-        while todo:
-            i, n, lower, upper = todo[-1]
+        while (!todo.empty()) {
+            auto [i, n, lower, upper] = todo.back();
 
-            if n <= 0:
-                todo.pop()
-                continue
+            if (n <= 0) {
+                todo.pop_back();
+                continue;
+            }
 
-            if i > 0:
-                co, var = elements[i-1]
+            if (i > 0) {
+                auto [co, var] = constraint_[i - 1];
+                if (co > 0) {
+                    todo.back() = std::tuple(i, n - 1, lower + co, upper + co);
+                }
+                else {
+                    todo.back() = std::tuple(i, n - 1, lower - co, upper - co);
+                }
+                estimate -= 1;
+            }
+            else {
+                todo.pop_back();
+            }
 
-                if co > 0:
-                    todo[-1] = (i, n-1, lower+co, upper+co)
-                else:
-                    todo[-1] = (i, n-1, lower-co, upper-co)
+            if (lower < 0) {
+                estimate += 1;
+                if (estimate >= maximum) {
+                    return false;
+                }
+                continue;
+            }
 
-                estimate -= 1
-            else:
-                todo.pop()
+            assert (upper < 0 && i < constraint_.size());
 
-            if lower < 0:
-                estimate += 1
-                if estimate >= maximum:
-                    return False
-                continue
+            auto [co, var] = constraint_[i];
+            auto &vs = solver.var_state(var);
 
-            assert upper < 0 and i < len(elements)
+            sum_t value_lower{0};
+            sum_t value_upper{0};
+            if (co > 0) {
+                auto diff_lower = upper + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff_upper = lower + static_cast<sum_t>(co) * vs.lower_bound();
+                value_lower = std::max<sum_t>(vs.lower_bound(), floordiv<sum_t>(diff_lower, co) + 1);
+                value_upper = std::min<sum_t>(vs.upper_bound(), floordiv<sum_t>(diff_upper, co) + 1);
+                lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound());
+                upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper);
+            }
+            else {
+                auto diff_upper = upper + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff_lower = lower + static_cast<sum_t>(co) * vs.upper_bound();
+                value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
+                value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
+                lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
+                upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
+            }
 
-            co, var = elements[i]
-            vs = state.var_state(var)
+            n = value_upper - value_lower + 1;
+            estimate += n;
+            if (estimate >= maximum) {
+                return false;
+            }
+            todo.emplace_back(i+1, n, lower, upper);
+        }
 
-            if co > 0:
-                diff_lower = upper+co*vs.upper_bound
-                diff_upper = lower+co*vs.lower_bound
-                value_lower = max(vs.lower_bound, diff_lower//co+1)
-                value_upper = min(vs.upper_bound, diff_upper//co+1)
-                lower = lower-co*(value_upper-vs.lower_bound)
-                upper = upper+co*(vs.upper_bound-value_upper)
-            else:
-                diff_upper = upper+co*vs.lower_bound
-                diff_lower = lower+co*vs.upper_bound
-                value_lower = max(vs.lower_bound, -(diff_lower//-co)-1)
-                value_upper = min(vs.upper_bound, -(diff_upper//-co)-1)
-                lower = lower-co*(value_lower-vs.upper_bound)
-                upper = upper+co*(vs.lower_bound-value_lower)
-
-            n = value_upper-value_lower+1
-            estimate += n
-            if estimate >= maximum:
-                return False
-            todo.append((i+1, n, lower, upper))
-
-        return True
-        */
+        return true;
     }
 
-    bool clause_translate(Config &config, Solver &solver, AbstractClauseCreator &cc, sum_t lower, sum_t upper) { // NOLINT
-        static_cast<void>(config);
-        static_cast<void>(solver);
-        static_cast<void>(cc);
-        static_cast<void>(lower);
-        static_cast<void>(upper);
-        throw std::runtime_error("implement me");
-        /*
-        todo = [(0, 0, 0, 0, lower, upper)]
-        clause = [0] * (len(elements) + 1)
+    bool clause_translate_(Solver &solver, AbstractClauseCreator &cc, sum_t lower, sum_t upper, bool literals_only) { // NOLINT
+        auto clit = cc.assignment().is_false(-constraint_.literal()) ? -TRUE_LIT : -constraint_.literal();
+        std::vector<std::tuple<size_t, size_t, sum_t, sum_t, sum_t, sum_t>> todo{{0, 0, 0, 0, lower, upper}};
+        std::vector<lit_t> clause(constraint_.size() + 1, 0);
 
-        while todo:
-            i, j, value_lower, value_upper, lower, upper = todo[-1]
+        while (!todo.empty()) {
+            auto [i, j, value_lower, value_upper, lower, upper] = todo.back();
 
-            if value_lower > value_upper:
-                todo.pop()
-                continue
+            if (value_lower > value_upper) {
+                todo.pop_back();
+                continue;
+            }
 
-            if i > 0:
-                co, var = elements[i-1]
-                vs = state.var_state(var)
-                if co > 0:
-                    todo[-1] = (i, j, value_lower, value_upper-1, lower+co, upper+co)
-                    lit = state.get_literal(vs, value_upper, cc)
-                else:
-                    todo[-1] = (i, j, value_lower+1, value_upper, lower-co, upper-co)
-                    lit = -state.get_literal(vs, value_lower, cc)
-            else:
-                todo.pop()
-                lit = -TRUE_LIT if cc.assignment.is_false(-self.literal) else -self.literal
+            lit_t lit{0};
 
-            if lit != -TRUE_LIT:
-                clause[j] = lit
-                j += 1
+            if (i > 0) {
+                auto [co, var] = constraint_[i-1];
+                auto &vs = solver.var_state(var);
+                if (co > 0) {
+                    todo.back() = std::tuple(i, j, value_lower, value_upper - 1, lower+co, upper + co);
+                    lit = solver.get_literal(cc, vs, value_upper);
+                }
+                else {
+                    todo.back() = std::tuple(i, j, value_lower+1, value_upper, lower-co, upper-co);
+                    lit = -solver.get_literal(cc, vs, value_lower);
+                }
+            }
+            else {
+                todo.pop_back();
+                lit = clit;
+            }
 
-            if lower < 0:
-                if not config.literals_only and not cc.add_clause(clause[:j]):
-                    return False
-                continue
+            if (lit != -TRUE_LIT) {
+                clause[j] = lit;
+                j += 1;
+            }
 
-            assert upper < 0 and i < len(elements)
+            if (lower < 0) {
+                if (!literals_only && !cc.add_clause({clause.data(), clause.data() + j})) { // NOLINT
+                    return false;
+                }
+                continue;
+            }
 
-            co, var = elements[i]
-            vs = state.var_state(var)
+            assert(upper < 0 && i < constraint_.size());
 
-            if co > 0:
-                diff_lower = upper+co*vs.upper_bound
-                diff_upper = lower+co*vs.lower_bound
-                value_lower = max(vs.lower_bound-1, diff_lower//co)
-                value_upper = min(vs.upper_bound-1, diff_upper//co)
-                lower = lower-co*(value_upper-vs.lower_bound+1)
-                upper = upper+co*(vs.upper_bound-value_upper-1)
-            else:
-                diff_lower = lower+co*vs.upper_bound
-                diff_upper = upper+co*vs.lower_bound
-                value_lower = max(vs.lower_bound, -(diff_lower//-co)-1)
-                value_upper = min(vs.upper_bound, -(diff_upper//-co)-1)
-                upper = upper+co*(vs.lower_bound-value_lower)
-                lower = lower-co*(value_lower-vs.upper_bound)
+            auto [co, var] = constraint_[i];
+            auto &vs = solver.var_state(var);
 
-            assert vs.lower_bound <= value_upper+1
-            assert value_lower <= vs.upper_bound
-            todo.append((i+1, j, value_lower, value_upper, lower, upper))
+            if (co > 0) {
+                auto diff_lower = upper + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff_upper = lower + static_cast<sum_t>(co) * vs.lower_bound();
+                value_lower = std::max<sum_t>(vs.lower_bound() - 1, floordiv<sum_t>(diff_lower, co));
+                value_upper = std::min<sum_t>(vs.upper_bound() - 1, floordiv<sum_t>(diff_upper, co));
+                lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound() + 1);
+                upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper - 1);
+            }
+            else {
+                auto diff_upper = upper + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff_lower = lower + static_cast<sum_t>(co) * vs.upper_bound();
+                value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
+                value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
+                upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
+                lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
+            }
 
-        return True
-        */
+            assert (vs.lower_bound() <= value_upper + 1);
+            assert (value_lower <= vs.upper_bound());
+            todo.emplace_back(i + 1, j, value_lower, value_upper, lower, upper);
+        }
+
+        return true;
     }
 
     //! Translate a constraint to clauses or weight constraints.
-    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, AbstractClauseCreator &cc, ConstraintVec &added) final {
+    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) final {
+        static_cast<void>(added);
         auto ass = cc.assignment();
 
-        auto rhs = this->rhs(solver);
-        if (ass.is_false(constraint_.literal()) or upper_bound_ <= rhs) {
+        sum_t rhs = this->rhs(solver);
+        if (ass.is_false(constraint_.literal()) || upper_bound_ <= rhs) {
             return {true, true};
         }
 
-        static_cast<void>(config);
-        static_cast<void>(added);
-        /*
-        lower = rhs-self.lower_bound
-        upper = rhs-self.upper_bound
+        auto lower = rhs - lower_bound_;
+        auto upper = rhs - upper_bound_;
 
-        # Note: otherwise propagation is broken
-        assert lower >= 0
+        // Note: otherwise propagation is broken
+        assert(lower >= 0);
 
-        # translation to clauses
-        if not config.sort_constraints:
-            elements = sorted(self.elements, key=lambda x: -abs(x[0]))
-        else:
-            elements = self.elements
+        if (clause_estimate_(solver, lower, upper, config.clause_limit)) {
+            auto ret = clause_translate_(solver, cc, lower, upper, config.literals_only);
+            return {ret, !config.literals_only};
+        }
 
-        if self._clause_estimate(state, elements, lower, upper, config.clause_limit):
-            ret = self._clause_translate(cc, state, elements, lower, upper, config)
-            return ret, not config.literals_only
-
-        # translation to weight constraints
-        if self._weight_estimate(state) < config.weight_constraint_limit:
-            return self._weight_translate(cc, state, lower)
-        */
+        // translation to weight constraints
+        if (weight_estimate_(solver) < config.weight_constraint_limit) {
+            return weight_translate_(solver, cc, lower);
+        }
 
         return {true, false};
     }

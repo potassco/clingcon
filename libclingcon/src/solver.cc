@@ -456,7 +456,7 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     c2cs_.erase(it);
 }
 
-bool Solver::translate(AbstractClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints) {
+bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints) {
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
     for (size_t idx = jdx; idx < constraints.size(); ++idx) {
         auto &cs = add_constraint(*constraints[idx]);

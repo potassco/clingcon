@@ -84,7 +84,7 @@ public:
     //! Detach the constraint from a solver.
     virtual void detach(Solver &solver) = 0;
     //! Translate a constraint to simpler constraints.
-    [[nodiscard]] virtual std::pair<bool, bool> translate(Config const &config, Solver &solver, AbstractClauseCreator &cc, ConstraintVec &added) = 0;
+    [[nodiscard]] virtual std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) = 0;
     //! Copy the constraint state (for another solver)
     [[nodiscard]] virtual UniqueConstraintState copy() const = 0;
 
@@ -511,7 +511,7 @@ public:
     //! This functions removes translated constraints from the map and the
     //! state. Constraints added during the translation have to be added to the
     //! propagator as well.
-    bool translate(AbstractClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints);
+    bool translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints);
 
     //! Optimize internal data structures.
     //!
