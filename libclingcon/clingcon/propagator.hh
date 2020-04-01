@@ -157,7 +157,7 @@ private:
     }
 
     //! Add collected statistics in stats to the clingo's statistics.
-    void add_statistics_(Clingo::UserStatistics &stats_map, Statistics &stats);
+    static void add_statistics_(Clingo::UserStatistics &stats_map, Statistics &stats);
 
     //! Add a constraint to the program that has already been added to the
     //! master solver.

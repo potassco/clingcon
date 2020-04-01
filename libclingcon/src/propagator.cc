@@ -197,43 +197,50 @@ void Propagator::on_statistics(Clingo::UserStatistics &step, Clingo::UserStatist
     stats_step_.reset();
 }
 
-void Propagator::add_statistics_(Clingo::UserStatistics &stats_map, Statistics &stats) { // NOLINT
-    static_cast<void>(stats_map);
-    static_cast<void>(stats);
-    throw std::runtime_error("implement me!!!");
-    /*
-    def thread_stats(tstat):  # pylint: disable=missing-docstring
-        p, c, u = tstat.time_propagate, tstat.time_check, tstat.time_undo
-        return OrderedDict([
-            ("Time in seconds", OrderedDict([
-                ("Total", p+c+u),
-                ("Propagation", p),
-                ("Check", c),
-                ("Undo", u)])),
-            ("Refined reason", tstat.refined_reason),
-            ("Introduced reason", tstat.introduced_reason),
-            ("Literals introduced ", tstat.literals)])
-    cost = []
-    if stats.cost is not None:
-        cost.append(("Cost", stats.cost))
-    stats_map["Clingcon"] = OrderedDict(cost + [
-        ("Init time in seconds", OrderedDict([
-            ("Total", stats.time_init),
-            ("Simplify", stats.time_simplify),
-            ("Translate", stats.time_translate)])),
-        ("Problem", OrderedDict([
-            ("Constraints", stats.num_constraints),
-            ("Variables", stats.num_variables),
-            ("Clauses", stats.num_clauses),
-            ("Literals", stats.num_literals)])),
-        ("Translate", OrderedDict([
-            ("Constraints removed", stats.translate_removed),
-            ("Constraints added", stats.translate_added),
-            ("Clauses", stats.translate_clauses),
-            ("Weight constraints", stats.translate_wcs),
-            ("Literals", stats.translate_literals)])),
-        ("Thread", map(thread_stats, stats.tstats[:len(self._states)]))])
-    */
+void Propagator::add_statistics_(Clingo::UserStatistics &root, Statistics &stats) {
+    using namespace Clingo;
+
+    UserStatistics clingcon = root.add_subkey("Clingcon", StatisticsType::Map);
+
+    if (stats.cost.has_value()) {
+        clingcon.add_subkey("Cost", StatisticsType::Value).set_value(*stats.cost);
+    }
+
+    auto init_time = clingcon.add_subkey("Init time in seconds", StatisticsType::Map);
+    init_time.add_subkey("Total", StatisticsType::Value).set_value(stats.time_init);
+    init_time.add_subkey("Simplify", StatisticsType::Value).set_value(stats.time_simplify);
+    init_time.add_subkey("Translate", StatisticsType::Value).set_value(stats.time_translate);
+
+    auto problem = clingcon.add_subkey("Problem", StatisticsType::Map);
+    problem.add_subkey("Constraints", StatisticsType::Value).set_value(stats.num_constraints);
+    problem.add_subkey("Variables", StatisticsType::Value).set_value(stats.num_variables);
+    problem.add_subkey("Clauses", StatisticsType::Value).set_value(stats.num_clauses);
+    problem.add_subkey("Literals", StatisticsType::Value).set_value(stats.num_literals);
+
+    auto translate = clingcon.add_subkey("Translate", StatisticsType::Map);
+    translate.add_subkey("Constraints removed", StatisticsType::Value).set_value(stats.translate_removed);
+    translate.add_subkey("Constraints added", StatisticsType::Value).set_value(stats.translate_added);
+    translate.add_subkey("Clauses", StatisticsType::Value).set_value(stats.translate_clauses);
+    translate.add_subkey("Weight constraints", StatisticsType::Value).set_value(stats.translate_wcs);
+    translate.add_subkey("Literals", StatisticsType::Value).set_value(stats.translate_literals);
+
+    UserStatistics threads = clingcon.add_subkey("Thread", StatisticsType::Array);
+    threads.ensure_size(std::distance(stats.solver_statistics.begin(), stats.solver_statistics.end()), StatisticsType::Map);
+    size_t i = 0;
+    for (auto &solver_stat : stats.solver_statistics) {
+        auto thread = threads[i++];
+
+        auto time = thread.add_subkey("Time in seconds", StatisticsType::Map);
+        auto total = solver_stat.time_propagate + solver_stat.time_check + solver_stat.time_undo;
+        time.add_subkey("Total", StatisticsType::Value).set_value(total);
+        time.add_subkey("Propagation", StatisticsType::Value).set_value(solver_stat.time_propagate);
+        time.add_subkey("Check", StatisticsType::Value).set_value(solver_stat.time_check);
+        time.add_subkey("Undo", StatisticsType::Value).set_value(solver_stat.time_undo);
+
+        thread.add_subkey("Refined reason", StatisticsType::Value).set_value(solver_stat.refined_reason);
+        thread.add_subkey("Introduced reason", StatisticsType::Value).set_value(solver_stat.introduced_reason);
+        thread.add_subkey("Literals introduced", StatisticsType::Value).set_value(solver_stat.literals);
+    }
 }
 
 var_t Propagator::add_variable(Clingo::Symbol sym) {
