@@ -561,24 +561,10 @@ private:
     //! See Solver::propagate.
     [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, lit_t lit);
 
-    //! See Solver::propagate_variable_.
+    //! Propagates the preceeding or succeeding order literals of lit until a
+    //! true literal is found or the end is reached.
     template <int sign, class It>
-    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end);
-
-    //! Propagates the preceeding or succeeding order literal of lit.
-    //!
-    //! Whether the target literal is a preceeding or succeeding literal is
-    //! determined by `sign`. The target order literal is given by
-    //! `(vs.var,value)` and must exist.
-    //!
-    //! For example, if `sign==1`, then lit is an order literal for some
-    //! integer value smaller than `value`. The function propagates the clause
-    //! `lit` implies `vs.get_literal(value)`.
-    //!
-    //! Furthermore, if `lit` is a fact, the target literal is simplified to a
-    //! fact, too.
-    template <int sign>
-    [[nodiscard]] bool propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t value, lit_t lit);
+    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end);
 
     //! Update and propgate the given variable due to a lower bound change.
     [[nodiscard]] bool update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);

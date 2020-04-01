@@ -574,42 +574,21 @@ bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
     return update_domain_(cc, lit);
 }
 
-template <int sign>
-bool Solver::propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t value, lit_t lit) {
-    auto ass = cc.assignment();
-    assert(ass.is_true(lit));
-    assert(vs.has_literal(value));
-
-    // get the literal to propagate
-    // Note: this explicitly does not use get_literal
-    auto con = sign * *vs.get_literal(value);
-
-    // propagate the literal
-    if (!ass.is_true(con)) {
-        if (!cc.add_clause({-lit, con})) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 template <int sign, class It>
-bool Solver::propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t reason_lit, It begin, It end) {
+bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end) {
     auto ass = cc.assignment();
 
     for (auto it = begin; it != end; ++it) {
-        auto [value, lit] = *it;
-        if (ass.is_true(sign * lit)) {
+        auto lit = sign * it->second;
+        if (ass.is_true(lit)) {
             break;
         }
-        if (!propagate_variable_<sign>(cc, vs, value, reason_lit)) {
+        if (!cc.add_clause({-reason_lit, lit}, reason_lit != TRUE_LIT ? Clingo::ClauseType::Learnt : Clingo::ClauseType::Static)) {
             return false;
         }
-        // Note: Literals might be updated on level 0 and the reason_lit is
-        // already guaranteed to be a fact on level 0.
+        // Note: Literal reason_lit is already guaranteed to be a fact on level 0.
         if (config_.propagate_chain && ass.decision_level() > 0) {
-            reason_lit = sign * lit;
+            reason_lit = lit;
         }
     }
 
@@ -621,7 +600,7 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     if (vs.upper_bound() > value) {
         lvl.update_upper(*this, vs, value);
     }
-    return propagate_variables_<1>(cc, vs, lit, vs.lit_gt(value), vs.end());
+    return propagate_variables_<1>(cc, lit, vs.lit_gt(value), vs.end());
 }
 
 bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
@@ -629,7 +608,7 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     if (vs.lower_bound() < value + 1) {
         lvl.update_lower(*this, vs, value);
     }
-    return propagate_variables_<-1>(cc, vs, lit, vs.lit_lt(value), vs.rend());
+    return propagate_variables_<-1>(cc, lit, vs.lit_lt(value), vs.rend());
 }
 
 bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
