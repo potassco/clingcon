@@ -202,7 +202,7 @@ public:
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
                         auto refined = solver.get_literal(cc, vs, value-1);
-                        assert(!ass.is_true(refined));
+                        assert(!ass.is_true(refined) || ass.decision_level() == 0);
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
                     }
@@ -237,7 +237,7 @@ public:
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
                         auto refined = -solver.get_literal(cc, vs, value);
-                        assert(!ass.is_true(refined));
+                        assert(!ass.is_true(refined) || ass.decision_level() == 0);
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
                     }
@@ -392,8 +392,8 @@ public:
                     return false;
                 }
 
-                // minimize constraints cannot be propagated on decision level 0
-                assert(ass.is_true(lit_r) || (tagged && ass.decision_level() == 0));
+                // Literals might not be propagated on level 0.
+                assert(ass.is_true(lit_r) || ass.decision_level() == 0);
             }
         }
         return true;
@@ -449,7 +449,7 @@ class SumConstraintState : public AbstractConstraintState {
                 auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
                 auto value = -floordiv<sum_t>(diff, -co);
                 assert(value <= vs.upper_bound());
-                estimate += vs.upper_bound()-std::max<sum_t>(value - 1, vs.lower_bound());
+                estimate += vs.upper_bound() - std::max<sum_t>(value - 1, vs.lower_bound());
             }
         }
         return estimate;
@@ -488,7 +488,7 @@ class SumConstraintState : public AbstractConstraintState {
             // might be a good idea in general to add translation constraints
             // later because we can run into the problem of successivly adding
             // variables and constraints here.
-            return {cc.add_weight_constraint(constraint_.literal(), wlits, slack, Clingo::WeightConstraintType::RightImplication), false};
+            return {cc.add_weight_constraint(constraint_.literal(), wlits, slack, Clingo::WeightConstraintType::RightImplication), true};
         }
         return {true, false};
     }

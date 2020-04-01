@@ -342,7 +342,6 @@ void Propagator::init(Clingo::PropagateInit &init) {
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
         it->copy_state(master);
     }
-
 }
 
 bool Propagator::simplify_(AbstractClauseCreator &cc) {
