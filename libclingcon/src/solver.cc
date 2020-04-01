@@ -581,7 +581,7 @@ bool Solver::propagate_variable_(AbstractClauseCreator &cc, VarState &vs, val_t 
     assert(vs.has_literal(value));
 
     // get the literal to propagate
-    // Note: this explicetly does not use get_literal
+    // Note: this explicitly does not use get_literal
     auto con = sign * *vs.get_literal(value);
 
     // propagate the literal
@@ -606,7 +606,7 @@ bool Solver::propagate_variables_(AbstractClauseCreator &cc, VarState &vs, lit_t
         if (!propagate_variable_<sign>(cc, vs, value, reason_lit)) {
             return false;
         }
-        // Note: Literals might be uppdated on level 0 and the reason_lit is
+        // Note: Literals might be updated on level 0 and the reason_lit is
         // already guaranteed to be a fact on level 0.
         if (config_.propagate_chain && ass.decision_level() > 0) {
             reason_lit = sign * lit;
@@ -649,6 +649,9 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         }
         lit = TRUE_LIT;
     }
+
+    // Note: Neither factmap_ nor litmap_ will be modified by update_lower_ /
+    // update_upper_.
 
     // Fact propagation. (Could also be put in the litmap...)
     if (lit == TRUE_LIT) {
