@@ -202,7 +202,7 @@ public:
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
                         auto refined = solver.get_literal(cc, vs, value-1);
-                        assert(!ass.is_true(refined) || ass.decision_level() == 0);
+                        assert(!ass.is_true(refined));
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
                     }
@@ -237,7 +237,7 @@ public:
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
                         auto refined = -solver.get_literal(cc, vs, value);
-                        assert(!ass.is_true(refined) || ass.decision_level() == 0);
+                        assert(!ass.is_true(refined));
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
                     }
