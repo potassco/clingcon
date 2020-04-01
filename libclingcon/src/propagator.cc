@@ -68,7 +68,7 @@ public:
     [[nodiscard]] var_t add_variable(Clingo::Symbol sym) override {
         return propagator_.add_variable(sym);
     }
-    bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
+    [[nodiscard]] bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
         if (!strict && cc_.assignment().is_false(lit)) {
             return true;
         }
@@ -122,18 +122,23 @@ public:
                     return false;
                 }
 
-                add_constraint(a, celems, check_valid_value(rhs-1), false);
+                if (!add_constraint(a, celems, check_valid_value(rhs-1), false)) {
+                    return false;
+                }
                 for (auto &co_var : celems) {
                     co_var.first = -co_var.first;
                 }
-                add_constraint(b, celems, check_valid_value(-rhs-1), false);
+                if (!add_constraint(b, celems, check_valid_value(-rhs-1), false)) {
+                    return false;
+                }
             }
         }
 
         return true;
 
     }
-    bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
+
+    [[nodiscard]] bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
 
