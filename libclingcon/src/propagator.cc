@@ -304,9 +304,8 @@ void Propagator::init(Clingo::PropagateInit &init) {
     }
 
     // gather bounds of states in master
-    auto &master = master_();
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
-        if (!master.update_bounds(cc, *it, config_.check_state)) {
+        if (!master_().update_bounds(cc, *it, config_.check_state)) {
             return;
         }
     }
@@ -317,7 +316,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
     }
 
     // remove unnecessary literals after simplification
-    if (!master.cleanup_literals(cc, config_.check_state)) {
+    if (!master_().cleanup_literals(cc, config_.check_state)) {
         return;
     }
 
@@ -343,7 +342,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
         solvers_.pop_back();
     }
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
-        it->copy_state(master);
+        it->copy_state(master_());
     }
 }
 
