@@ -68,20 +68,19 @@ public:
     [[nodiscard]] var_t add_variable(Clingo::Symbol sym) override {
         return propagator_.add_variable(sym);
     }
-    void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
+    bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
         if (!strict && cc_.assignment().is_false(lit)) {
-            return;
+            return true;
         }
 
         if (elems.size() == 1) {
             auto [co, var] = elems.front();
-            propagator_.add_simple(cc_, lit, co, var, rhs, strict);
-        }
-        else {
-            assert (!strict);
-            propagator_.add_constraint(SumConstraint::create(lit, rhs, elems, propagator_.config().sort_constraints));
+            return propagator_.add_simple(cc_, lit, co, var, rhs, strict);
         }
 
+        assert (!strict);
+        propagator_.add_constraint(SumConstraint::create(lit, rhs, elems, propagator_.config().sort_constraints));
+        return true;
     }
     void add_minimize(val_t co, var_t var) override {
         minimize_elems_.emplace_back(co, var);
@@ -90,46 +89,52 @@ public:
     //! Add a distinct constraint.
     //!
     //! Binary distinct constraints will be represented with a sum constraint.
-    void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
-        static_cast<void>(lit);
-        static_cast<void>(elems);
-        throw std::runtime_error("implement me");
-        /*
-        if self.cc.assignment.is_false(literal):
-            return
-
-        if len(elems) > 2:
-            self._propagator.add_constraint(self.cc, DistinctConstraint(literal, elems))
-            return
-
-        for i, (rhs_i, elems_i) in enumerate(elems):
-            for rhs_j, elems_j in elems[i+1:]:
-                rhs = rhs_i - rhs_j
-
-                celems = []
-                celems.extend(elems_i)
-                celems.extend((-co_j, var_j) for co_j, var_j in elems_j)
-
-                if not celems:
-                    if rhs == 0:
-                        self.cc.add_clause([-literal])
-                        return
-                    continue
-
-                a = self.cc.add_literal()
-                b = self.cc.add_literal()
-
-                self.cc.add_clause([a, b, -literal])
-                self.cc.add_clause([-a, -b])
-
-                self.add_constraint(a, celems, rhs-1, False)
-                self.add_constraint(b, [(-co, var) for co, var in celems], -rhs-1, False)
-        */
-    }
-    void add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
-        if (!cc_.assignment().is_false(lit)) {
-            propagator_.add_dom(cc_, lit, var, elems);
+    [[nodiscard]] bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
+        if (cc_.assignment().is_false(lit)) {
+            return true;
         }
+
+        if (elems.size() > 2) {
+            propagator_.add_constraint(std::make_unique<DistinctConstraint>(lit, elems));
+            return true;
+        }
+
+        CoVarVec celems;
+        for (auto it = elems.begin(), ie = elems.end(); it != ie; ++it) {
+            for (auto jt = it + 1; jt != ie; ++jt) {
+                auto rhs = it->second - jt->second;
+                celems.assign(it->first.begin(), it->first.end());
+                for (auto [co, var] : jt->first) {
+                    celems.emplace_back(-co, var);
+                }
+                rhs += simplify(celems, true);
+
+                if (celems.empty()) {
+                    return rhs != 0 || cc_.add_clause({-lit});
+                }
+
+                auto a = cc_.add_literal();
+                auto b = cc_.add_literal();
+                if (!cc_.add_clause({a, b, -lit})) {
+                    return false;
+                }
+                if (!cc_.add_clause({-a, -b})) {
+                    return false;
+                }
+
+                add_constraint(a, celems, check_valid_value(rhs-1), false);
+                for (auto &co_var : celems) {
+                    co_var.first = -co_var.first;
+                }
+                add_constraint(b, celems, check_valid_value(-rhs-1), false);
+            }
+        }
+
+        return true;
+
+    }
+    bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
+        return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
 
     //! Prepare the minimize constraint.

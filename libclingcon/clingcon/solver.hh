@@ -484,13 +484,13 @@ public:
     //!   - true => x >= 1
     //!   - x >= 3 => x >= 4
     //!   - x >= 6 => x >= 7
-    bool add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain);
+    [[nodiscard]] bool add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain);
 
     //! This function integrates singleton constraints intwatches_o the state.
     //!
     //! We explicitely handle the strict case here to avoid introducing
     //! unnecessary literals.
-    bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
+    [[nodiscard]] bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
 
     //! Add the given constraint to the propagation queue and initialize its state.
     AbstractConstraintState &add_constraint(AbstractConstraint &constraint);

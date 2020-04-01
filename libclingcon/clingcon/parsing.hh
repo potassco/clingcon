@@ -97,13 +97,13 @@ public:
     //! Get the integer representing a variable.
     [[nodiscard]] virtual var_t add_variable(Clingo::Symbol var) = 0;
     //! Add a constraint.
-    virtual void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) = 0;
+    [[nodiscard]] virtual bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) = 0;
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
-    virtual void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
+    [[nodiscard]] virtual bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
     //! Add a domain for the given variable.
-    virtual void add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) = 0;
+    [[nodiscard]] virtual bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) = 0;
 };
 
 //! Combine coefficients of terms with the same variable and optionally drop

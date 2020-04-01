@@ -431,11 +431,10 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
     // hanle remainig '<=', '=', and '!='
     if (std::strcmp(op, "<=") == 0) {
         if (strict && elems->size() == 1) {
-            builder.add_constraint(literal, *elems, rhs, true);
-            return true;
+            return builder.add_constraint(literal, *elems, rhs, true);
         }
-        if (!builder.is_true(-literal)) {
-            builder.add_constraint(literal, *elems, rhs, false);
+        if (!builder.is_true(-literal) && !builder.add_constraint(literal, *elems, rhs, false)) {
+            return false;
         }
     }
     else if (std::strcmp(op, "=") == 0) {
@@ -606,7 +605,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     return {a.number(), safe_add(a.number(), 1)};
 }
 
-void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+[[nodiscard]] bool parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
     IntervalSet<val_t> elements;
     for (auto elem : atom.elements()) {
         auto tuple = elem.tuple();
@@ -622,12 +621,12 @@ void parse_dom(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &ato
     check_syntax(atom.has_guard(), "Invalid Syntax: invalid dom statement");
     auto var = evaluate(atom.guard().second);
 
-    builder.add_dom(builder.solver_literal(atom.literal()), builder.add_variable(var), elements);
+    return builder.add_dom(builder.solver_literal(atom.literal()), builder.add_variable(var), elements);
 }
 
 // Currently only distinct constraints in the head are supported. Supporting
 // them in the body would also be possible where they should be strict.
-void parse_distinct(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+[[nodiscard]] bool parse_distinct(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
     std::vector<std::pair<CoVarVec,val_t>> elements;
 
     for (auto elem : atom.elements()) {
@@ -639,7 +638,7 @@ void parse_distinct(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const
         term.second = safe_inv(simplify(term.first));
     }
 
-    builder.add_distinct(builder.solver_literal(atom.literal()), elements);
+    return builder.add_distinct(builder.solver_literal(atom.literal()), elements);
 }
 
 } // namespace
@@ -713,13 +712,17 @@ bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
             }
         }
         else if(match(atom.term(), "distinct", 0)) {
-            parse_distinct(builder, atom);
+            if (!parse_distinct(builder, atom)) {
+                return false;
+            }
         }
         else if(match(atom.term(), "show", 0)) {
             parse_show(builder, atom);
         }
         else if(match(atom.term(), "dom", 0)) {
-            parse_dom(builder, atom);
+            if (!parse_dom(builder, atom)) {
+                return false;
+            }
         }
         else if(match(atom.term(), "minimize", 0)) {
             parse_objective(builder, atom, 1);

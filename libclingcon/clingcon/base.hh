@@ -82,13 +82,15 @@ inline bool is_valid_var(var_t var) {
     return var < INVALID_VAR;
 }
 
-inline void check_valid_value(val_t val) {
+template <class I>
+inline val_t check_valid_value(I val) {
     if (val < MIN_VAL) {
         throw std::underflow_error("value too small");
     }
     if (val > MAX_VAL) {
         throw std::underflow_error("value too large");
     }
+    return val;
 }
 static_assert(std::is_same<Clingo::weight_t, val_t>::value);
 

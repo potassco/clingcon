@@ -83,10 +83,10 @@ public:
     void show_signature(char const *name, size_t arity);
 
     //! Add a domain for the given variable.
-    bool add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain);
+    [[nodiscard]] bool add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain);
 
     //! Add a constraint that can be represented by an order literal.
-    bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
+    [[nodiscard]] bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
 
     //! Add a constraint to the program.
     void add_constraint(UniqueConstraint constraint);

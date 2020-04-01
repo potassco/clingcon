@@ -106,7 +106,7 @@ public:
         return it - vars_.begin();
     }
 
-    void add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
+    bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
         oss_ << lit << (strict ? " <> " : " -> ");
         bool sep{false};
         for (auto const &[co, var] : elems) {
@@ -117,13 +117,14 @@ public:
             oss_ << "0";
         }
         oss_ << " <= " << rhs << ".";
+        return true;
     }
 
     void add_minimize(val_t co, var_t var) override {
         minimize_.emplace_back(co, var);
     }
 
-    void add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
+    bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
         oss_ << lit << " -> ";
         bool sep{false};
         if (elems.size() > 1) {
@@ -146,9 +147,10 @@ public:
             oss_ << "true";
         }
         oss_ << ".";
+        return true;
     }
 
-    void add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
+    bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
         oss_ << lit << " -> " << vars_[var] << " = { ";
         bool sep{false};
         for (auto const &[l, r] : elems) {
@@ -156,6 +158,7 @@ public:
             sep = true;
         }
         oss_ << "}.";
+        return true;
     }
 
     void commit() {
