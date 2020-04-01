@@ -313,6 +313,14 @@ void Propagator::init(Clingo::PropagateInit &init) {
         return;
     }
 
+    // watch all the remaining constraints
+    for (auto &constraint : constraints_) {
+        cc.add_watch(constraint->literal());
+    }
+    if (!cc.commit()) {
+        return;
+    }
+
     // copy order literals from master to other states
     auto n = static_cast<size_t>(init.number_of_threads());
     for (size_t i = solvers_.size(); i < n; ++i) {
@@ -325,10 +333,6 @@ void Propagator::init(Clingo::PropagateInit &init) {
         it->copy_state(master);
     }
 
-    // watch all the remaining constraints
-    for (auto &constraint : constraints_) {
-        cc.add_watch(constraint->literal());
-    }
 }
 
 bool Propagator::simplify_(AbstractClauseCreator &cc) {

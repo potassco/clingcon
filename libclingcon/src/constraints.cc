@@ -581,11 +581,11 @@ class SumConstraintState : public AbstractConstraintState {
                 auto [co, var] = constraint_[i-1];
                 auto &vs = solver.var_state(var);
                 if (co > 0) {
-                    todo.back() = std::tuple(i, j, value_lower, value_upper - 1, lower+co, upper + co);
+                    todo.back() = std::tuple(i, j, value_lower, value_upper - 1, lower + co, upper + co);
                     lit = solver.get_literal(cc, vs, value_upper);
                 }
                 else {
-                    todo.back() = std::tuple(i, j, value_lower+1, value_upper, lower-co, upper-co);
+                    todo.back() = std::tuple(i, j, value_lower + 1, value_upper, lower - co, upper - co);
                     lit = -solver.get_literal(cc, vs, value_lower);
                 }
             }
