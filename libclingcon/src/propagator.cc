@@ -168,37 +168,33 @@ private:
 
 } // namespace
 
-void Propagator::on_model(Clingo::Model const &model) { // NOLINT
-    static_cast<void>(model);
-    throw std::runtime_error("implement me!!!");
-    /*
-    shown = (var for var in self._var_map.items() if self.shown(var))
-    assignment = self._state(model.thread_id).get_assignment(shown)
-    model.extend(
-        clingo.Function("__csp", [var, value])
-        for var, value in assignment if self.shown(var))
+void Propagator::on_model(Clingo::Model &model) {
+    std::vector<Clingo::Symbol> symbols_;
+    for (auto [sym, var] : var_map_) {
+        if (shown(var)) {
+            auto value = Clingo::Number(get_value(var, model.thread_id()));
+            symbols_.emplace_back(Clingo::Function("__csp", {sym, value}));
+        }
+    }
 
-    if self.has_minimize:
-        bound = self.get_minimize_value(model.thread_id)
-        model.extend([clingo.Function("__csp_cost", [bound])])
-        if self._minimize_bound is None or bound-1 < self._minimize_bound:
-            self.statistics.cost = bound
-            self.update_minimize(bound-1)
-    */
+    if (has_minimize()) {
+        auto bound = get_minimize_value(model.thread_id());
+        auto value = Clingo::String(std::to_string(bound).c_str());
+        symbols_.emplace_back(value);
+        if (!minimize_bound_.has_value() || bound-1 < *minimize_bound_) {
+            stats_step_.cost = bound;
+            update_minimize(bound);
+        }
+    }
+
+    model.extend(symbols_);
 }
 
-void Propagator::on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu) { // NOLINT
-    static_cast<void>(step);
-    static_cast<void>(accu);
-    throw std::runtime_error("implement me!!!");
-    /*
-    for s in self._states:
-        self._stats_step.tstats.append(s.statistics)
-    self._stats_accu.accu(self._stats_step)
-    self.add_statistics(step, self._stats_step)
-    self.add_statistics(accu, self._stats_accu)
-    self._stats_step.reset()
-    */
+void Propagator::on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu) {
+    stats_accu_.accu(stats_step_);
+    add_statistics_(step, stats_step_);
+    add_statistics_(accu, stats_accu_);
+    stats_step_.reset();
 }
 
 void Propagator::add_statistics_(Clingo::UserStatistics &stats_map, Statistics &stats) { // NOLINT

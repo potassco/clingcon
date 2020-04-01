@@ -60,7 +60,7 @@ public:
     Config &config() { return config_; }
 
     //! Extend the model with the assignment and take care of minimization.
-    void on_model(Clingo::Model const &model);
+    void on_model(Clingo::Model &model);
 
     //! Callback to update step and accumulated statistics.
     void on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu);
