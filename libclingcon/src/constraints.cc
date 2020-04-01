@@ -166,46 +166,47 @@ public:
 
     std::pair<bool, lit_t> calculate_reason(Solver &solver, AbstractClauseCreator &cc, sum_t &slack, VarState &vs, val_t co) {
         auto ass = cc.assignment();
-        uint32_t found = 0;
+        uint64_t found = 0;
         lit_t lit{0};
         bool ret = true;
 
         if (co > 0) {
-            auto current = vs.lower_bound();
+            sum_t current = vs.lower_bound();
             // the direct reason literal
             lit = solver.get_literal(cc, vs, current-1);
             assert (ass.is_false(lit));
             if (solver.config().refine_reasons && slack + co < 0 && ass.decision_level() > 0) {
-                throw std::runtime_error("implement me!!!");
-                /*
-                delta = -((slack+1)//-co)
-                value = max(current+delta, vs.min_bound)
-                if value < current:
-                    # refine reason literal
-                    vl = vs.value_ge(value-1)
-                    if vl is not None and vl[0]+1 < current:
-                        found = 1
-                        slack -= co*(vl[0]+1-current)
-                        current = vl[0]+1
-                        assert slack < 0
-                        lit = vl[1]
-                        assert ass.is_false(lit)
+                auto delta = -floordiv<sum_t>(slack + 1, -co);
+                auto value = std::max<sum_t>(current + delta, vs.min_bound());
+                if (value < current) {
+                    // refine reason literal
+                    if (auto it = vs.lit_ge(value - 1); it != vs.end()) {
+                        if (auto [value_ge, lit_ge] = *it; value_ge + 1 < current) {
+                            found = 1;
+                            slack -= static_cast<sum_t>(co) * (value_ge + 1 - current);
+                            current = value_ge + 1;
+                            assert(slack < 0);
+                            lit = lit_ge;
+                            assert(ass.is_false(lit));
+                        }
 
-                    # introduce reason literal
-                    # Note: It is important to imply literals by the smallest
-                    # available literal to keep the state consistent.
-                    # Furthermore, we only introduce literals implied on the
-                    # current decision level to avoid backtracking.
-                    if config.refine_introduce and ass.level(lit) == ass.decision_level and value < current:
-                        state.statistics.introduced_reason += 1
-                        found = 1
-                        slack -= co*(value-current)
-                        assert slack < 0
-                        refined = state.get_literal(vs, value-1, cc)
-                        assert not ass.is_true(refined)
-                        ret = ass.is_false(refined) or cc.add_clause([lit, -refined])
-                        lit = refined
-                */
+                    }
+                    // introduce reason literal
+                    // Note: It is important to imply literals by the smallest
+                    // available literal to keep the state consistent.
+                    // Furthermore, we only introduce literals implied on the
+                    // current decision level to avoid backtracking.
+                    if (solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value < current) {
+                        ++solver.statistics().introduced_reason;
+                        found = 1;
+                        slack -= static_cast<sum_t>(co) * (value - current);
+                        assert(slack < 0);
+                        auto refined = solver.get_literal(cc, vs, value-1);
+                        assert(!ass.is_true(refined));
+                        ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
+                        lit = refined;
+                    }
+                }
             }
         }
         else {
@@ -214,30 +215,33 @@ public:
             lit = -solver.get_literal(cc, vs, current);
             assert(ass.is_false(lit));
             if (solver.config().refine_reasons && slack - co < 0 && ass.decision_level() > 0) {
-                throw std::runtime_error("implement me!!!");
-                /*
-                delta = (slack+1)//co
-                value = min(current+delta, vs.max_bound)
-                if value > current:
-                    vl = vs.value_le(value)
-                    if vl is not None and vl[0] > current:
-                        found = 1
-                        slack -= co*(vl[0]-current)
-                        current = vl[0]
-                        assert slack < 0
-                        lit = -vl[1]
-                        assert ass.is_false(lit)
+                auto delta = floordiv<sum_t>(slack + 1, co);
+                auto value = std::min<sum_t>(current + delta, vs.max_bound());
+                if (value > current) {
+                    // refine reason literal
+                    if (auto it = vs.lit_le(value); it != vs.rend()) {
+                        if (auto [value_le, lit_le] = *it; value_le > current) {
+                            found = 1;
+                            slack -= static_cast<sum_t>(co) * (value_le - current);
+                            current = value_le;
+                            assert(slack < 0);
+                            lit = -lit_le;
+                            assert(ass.is_false(lit));
+                        }
 
-                    if config.refine_introduce and ass.level(lit) == ass.decision_level and value > current:
-                        state.statistics.introduced_reason += 1
-                        found = 1
-                        slack -= co*(value-current)
-                        assert slack < 0
-                        refined = -state.get_literal(vs, value, cc)
-                        assert not ass.is_true(refined)
-                        ret = ass.is_false(refined) or cc.add_clause([lit, -refined])
-                        lit = refined
-                */
+                    }
+                    // introduce reason literal
+                    if (solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value > current) {
+                        ++solver.statistics().introduced_reason;
+                        found = 1;
+                        slack -= static_cast<sum_t>(co) * (value - current);
+                        assert(slack < 0);
+                        auto refined = -solver.get_literal(cc, vs, value);
+                        assert(!ass.is_true(refined));
+                        ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
+                        lit = refined;
+                    }
+                }
             }
         }
 

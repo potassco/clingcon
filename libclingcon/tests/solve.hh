@@ -29,6 +29,7 @@
 #include <clingcon/parsing.hh>
 
 #include <sstream>
+#include "catch.hpp"
 
 using namespace Clingcon;
 
@@ -73,11 +74,12 @@ public:
 inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
     Propagator p;
     SolveEventHandler handler{p};
+
+    p.config().check_state = true;
+    p.config().check_solution = true;
     p.config().min_int = min_int;
     p.config().max_int = max_int;
-    p.config().default_solver_config.refine_introduce = false;
-    p.config().default_solver_config.refine_reasons = false;
-    p.config().default_solver_config.propagate_chain = false;
+
     Clingo::Control ctl{{"100"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
@@ -89,8 +91,23 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     });
     ctl.register_propagator(p);
     ctl.ground({{"base", {}}});
+
     ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
     std::sort(handler.models.begin(), handler.models.end());
+
+    // NOTE: We test the reversed options using multi-shot solving.
+    S models = std::move(handler.models);
+    handler.models.clear();
+    for (auto &config : p.config().solver_configs) {
+        config.split_all = !config.split_all;
+        config.refine_introduce = !config.refine_introduce;
+        config.refine_reasons = !config.refine_reasons;
+        config.propagate_chain = !config.propagate_chain;
+    }
+    ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
+    std::sort(handler.models.begin(), handler.models.end());
+
+    REQUIRE(models == handler.models);
 
     return handler.models;
 }
