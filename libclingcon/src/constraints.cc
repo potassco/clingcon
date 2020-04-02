@@ -29,14 +29,14 @@ namespace Clingcon {
 namespace {
 
 //! Implements propagation for sum and minimize constraints.
-template <bool tagged, typename T, typename C>
+template <bool tagged, typename T>
 class SumConstraintStateImpl final : public T {
 public:
-    SumConstraintStateImpl(C &constraint)
+    SumConstraintStateImpl(decltype(T::constraint_) constraint)
     : T{constraint} {
     }
 
-    C &constraint() override {
+    decltype(T::constraint_) constraint() override {
         return T::constraint_;
     }
 
@@ -403,7 +403,7 @@ public:
 
 //! A translateable constraint state.
 class SumConstraintState : public AbstractConstraintState {
-    friend class SumConstraintStateImpl<false, SumConstraintState, SumConstraint>;
+    friend class SumConstraintStateImpl<false, SumConstraintState>;
 
     SumConstraintState(SumConstraint &constraint)
     : constraint_{constraint} {
@@ -424,7 +424,7 @@ class SumConstraintState : public AbstractConstraintState {
     }
 
     [[nodiscard]] UniqueConstraintState copy() const final {
-        auto ret = std::make_unique<SumConstraintStateImpl<false, SumConstraintState, SumConstraint>>(constraint_);
+        auto ret = std::make_unique<SumConstraintStateImpl<false, SumConstraintState>>(constraint_);
         ret->lower_bound_ = lower_bound_;
         ret->upper_bound_ = upper_bound_;
         ret->inactive_level_ = inactive_level_;
@@ -674,7 +674,7 @@ private:
 
 //! A translateable constraint state.
 class MinimizeConstraintState : public AbstractConstraintState {
-    friend class SumConstraintStateImpl<true, MinimizeConstraintState, MinimizeConstraint>;
+    friend class SumConstraintStateImpl<true, MinimizeConstraintState>;
 
     MinimizeConstraintState(MinimizeConstraint &constraint)
     : constraint_{constraint} {
@@ -693,7 +693,7 @@ class MinimizeConstraintState : public AbstractConstraintState {
     }
 
     [[nodiscard]] UniqueConstraintState copy() const final {
-        auto ret = std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState, MinimizeConstraint>>(constraint_);
+        auto ret = std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState>>(constraint_);
         ret->lower_bound_ = lower_bound_;
         ret->upper_bound_ = upper_bound_;
         ret->inactive_level_ = inactive_level_;
@@ -1082,11 +1082,11 @@ class DistinctState(AbstractConstraintState):
 } // namespace
 
 UniqueConstraintState SumConstraint::create_state() {
-    return std::make_unique<SumConstraintStateImpl<false, SumConstraintState, SumConstraint>>(*this);
+    return std::make_unique<SumConstraintStateImpl<false, SumConstraintState>>(*this);
 }
 
 UniqueConstraintState MinimizeConstraint::create_state() {
-    return std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState, MinimizeConstraint>>(*this);
+    return std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState>>(*this);
 }
 
 UniqueConstraintState DistinctConstraint::create_state() {
