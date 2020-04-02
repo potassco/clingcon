@@ -158,6 +158,7 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
         INFO(oss.str());
         auto current = solve(config, prg);
         if (last.has_value()) {
+            INFO(oss.str());
             REQUIRE(current == *last);
         }
         last = current;
