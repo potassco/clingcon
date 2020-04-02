@@ -51,7 +51,7 @@ public:
             oss << sym;
         }
         std::vector<std::pair<Clingo::Symbol, val_t>> assignment;
-        for (auto [sym, var] : p.get_var_map()) {
+        for (auto [var, sym] : p.var_map()) {
             if (p.shown(var)) {
                 assignment.emplace_back(sym, p.get_value(var, model.thread_id()));
             }

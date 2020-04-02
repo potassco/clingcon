@@ -170,7 +170,7 @@ private:
 
 void Propagator::on_model(Clingo::Model &model) {
     std::vector<Clingo::Symbol> symbols_;
-    for (auto [sym, var] : var_map_) {
+    for (auto [sym, var] : sym_map_) {
         if (shown(var)) {
             auto value = Clingo::Number(get_value(var, model.thread_id()));
             symbols_.emplace_back(Clingo::Function("__csp", {sym, value}));
@@ -244,10 +244,11 @@ void Propagator::add_statistics_(Clingo::UserStatistics &root, Statistics &stats
 }
 
 var_t Propagator::add_variable(Clingo::Symbol sym) {
-    auto [it, ret] = var_map_.emplace(sym, 0);
+    auto [it, ret] = sym_map_.emplace(sym, 0);
 
     if (ret) {
         it->second = master_().add_variable(config_.min_int, config_.max_int);
+        var_map_.emplace(it->second, sym);
         ++stats_step_.num_variables;
     }
 
@@ -259,10 +260,7 @@ void Propagator::show_variable(var_t var) {
 }
 
 void Propagator::show_signature(char const *name, size_t arity) {
-    auto it = show_signature_.emplace(Clingo::Signature(name, arity));
-    if (it.second) {
-        show_offset_ = 0;
-    }
+    show_signature_.emplace(Clingo::Signature(name, arity));
 }
 
 bool Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
@@ -433,33 +431,42 @@ void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSp
 }
 
 bool Propagator::shown(var_t var) {
-    if (!show_) {
-        return true;
+    auto sym = get_symbol(var);
+    if (!sym.has_value()) {
+        return false;
     }
 
-    if (var >= show_offset_) {
-        for (auto sym_var : var_map_) {
-            auto sym = sym_var.first;
-            if (sym.type() == Clingo::SymbolType::Function && show_signature_.find(Clingo::Signature(sym.name(), sym.arguments().size())) != show_signature_.end()) {
-                show_variable_.emplace(sym_var.second);
-            }
-        }
-        show_offset_ = var_map_.size();
+    if (!show_) {
+        return true;
     }
 
     if (show_variable_.find(var) != show_variable_.end()) {
         return true;
     }
 
-    return false;
+    return
+        sym->type() == Clingo::SymbolType::Function &&
+        show_signature_.find(Clingo::Signature(sym->name(), sym->arguments().size())) != show_signature_.end();
+}
+
+std::optional<var_t> Propagator::get_index(Clingo::Symbol sym) const {
+    auto it = sym_map_.find(sym);
+    if (it != sym_map_.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+std::optional<Clingo::Symbol> Propagator::get_symbol(var_t var) const {
+    auto it = var_map_.find(var);
+    if (it != var_map_.end()) {
+        return it->second;
+    }
+    return std::nullopt;
 }
 
 val_t Propagator::get_value(var_t var, uint32_t thread_id) const {
     return solver_(thread_id).get_value(var);
-}
-
-uint32_t Propagator::num_variables() const {
-    return var_map_.size();
 }
 
 void Propagator::add_minimize_(UniqueMinimizeConstraint minimize) {

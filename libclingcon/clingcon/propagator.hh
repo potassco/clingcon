@@ -110,17 +110,22 @@ public:
     //! Determine if the given variable should be shown.
     [[nodiscard]] bool shown(var_t var);
 
-    //! Get the map from variables to their indexes.
-    [[nodiscard]] VarMap const &get_var_map() const { return var_map_; }
+    //! Get the map from indices to variable names.
+    [[nodiscard]] std::map<var_t, Clingo::Symbol> const &var_map() const {
+        return var_map_;
+    }
+
+    //! Get the index associated with the given variable index.
+    [[nodiscard]] std::optional<var_t> get_index(Clingo::Symbol sym) const;
+
+    //! Get the symbol associated with the given variable index.
+    [[nodiscard]] std::optional<Clingo::Symbol> get_symbol(var_t var) const;
 
     //! Get the value of the variable with the given index in the solver
     //! associated with `thread_id`.
     //!
     //! Should be called on total assignments.
     [[nodiscard]] val_t get_value(var_t var, uint32_t thread_id) const;
-
-    //! Get the total number of variables.
-    [[nodiscard]] uint32_t num_variables() const;
 
     //! Check if the propagator has a minimize constraint.
     [[nodiscard]] bool has_minimize() const {
@@ -182,7 +187,8 @@ private:
     Config config_;                                        //!< configuration
     ConstraintVec constraints_;                            //!< the set of constraints
     std::vector<Solver> solvers_;                          //!< map thread id to solvers
-    std::unordered_map<Clingo::Symbol, var_t> var_map_;    //!< map from variable names to indices
+    std::unordered_map<Clingo::Symbol, var_t> sym_map_;    //!< map from variable names to indices
+    std::map<var_t, Clingo::Symbol> var_map_;              //!< map from indices to variable names;
     MinimizeConstraint *minimize_{nullptr};                //!< minimize constraint
     std::optional<sum_t> minimize_bound_;                  //!< bound of the minimize constraint
     Statistics stats_step_;                                //!< statistics of the current call

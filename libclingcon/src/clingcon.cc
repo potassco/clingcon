@@ -141,18 +141,17 @@ extern "C" bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t* mod
 }
 
 extern "C" bool clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_t symbol, size_t *index) {
-    static_cast<void>(theory);
-    static_cast<void>(symbol);
-    // TODO: with another vector in the propagator this can actually be implemented efficently
-    *index = 0;
-    throw std::runtime_error("implement me!!!");
+    if (auto var = theory->propagator.get_index(Clingo::Symbol{symbol}); var.has_value()) {
+        *index = *var + 1;
+        return true;
+    }
+    return false;
 }
 
 extern "C" clingo_symbol_t clingcon_get_symbol(clingcon_theory_t *theory, size_t index) {
-    static_cast<void>(theory);
-    static_cast<void>(index);
-    // TODO: with another vector in the propagator this can actually be implemented efficently
-    throw std::runtime_error("implement me!!!");
+    auto sym = theory->propagator.get_symbol(index - 1);
+    assert(sym.has_value());
+    return sym->to_c();
 }
 
 extern "C" void clingcon_assignment_begin(clingcon_theory_t *theory, uint32_t thread_id, size_t *index) {
@@ -163,18 +162,23 @@ extern "C" void clingcon_assignment_begin(clingcon_theory_t *theory, uint32_t th
 
 extern "C" bool clingcon_assignment_next(clingcon_theory_t *theory, uint32_t thread_id, size_t *index) {
     static_cast<void>(thread_id);
-    *index = *index + 1;
-    return *index <= theory->propagator.num_variables();
+    auto const &map = theory->propagator.var_map();
+    auto it = map.lower_bound(*index);
+    if (it != map.end()) {
+        *index = *index + 1;
+        return true;
+    }
+    return false;
 }
 
 extern "C" bool clingcon_assignment_has_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index) {
     static_cast<void>(thread_id);
-    return index <= theory->propagator.num_variables();
+    return theory->propagator.get_symbol(index - 1).has_value();
 }
 
 extern "C" void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index, clingcon_value_t *value) {
     value->type = clingcon_value_type_int; // NOLINT
-    value->int_number = theory->propagator.get_value(index-1, thread_id); // NOLINT
+    value->int_number = theory->propagator.get_value(index - 1, thread_id); // NOLINT
 }
 
 extern "C" bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t* step, clingo_statistics_t* accu) {
