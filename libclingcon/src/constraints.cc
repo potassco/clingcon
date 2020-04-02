@@ -506,7 +506,7 @@ class SumConstraintState : public AbstractConstraintState {
             }
 
             if (i > 0) {
-                auto [co, var] = constraint_[i - 1];
+                auto co = constraint_[i - 1].first;
                 if (co > 0) {
                     todo.back() = std::tuple(i, n - 1, lower + co, upper + co);
                 }

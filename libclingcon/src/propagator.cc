@@ -303,6 +303,9 @@ void Propagator::init(Clingo::PropagateInit &init) {
         return;
     }
 
+    // make sure we have a master solver
+    static_cast<void>(master_());
+
     // gather bounds of states in master
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
         if (!master_().update_bounds(cc, *it, config_.check_state)) {
