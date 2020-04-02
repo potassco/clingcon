@@ -672,70 +672,63 @@ private:
     bool todo_{false};
 };
 
+//! A translateable constraint state.
+class MinimizeConstraintState : public AbstractConstraintState {
+    friend class SumConstraintStateImpl<true, MinimizeConstraintState, MinimizeConstraint>;
+
+    MinimizeConstraintState(MinimizeConstraint &constraint)
+    : constraint_{constraint} {
+    }
+
+    [[nodiscard]] static bool has_rhs(Solver &solver) {
+        return solver.minimize_bound().has_value();
+    }
+
+    [[nodiscard]] static val_t rhs(Solver &solver) {
+        return *solver.minimize_bound();
+    }
+
+    [[nodiscard]] bool removable() final {
+        return false;
+    }
+
+    [[nodiscard]] UniqueConstraintState copy() const final {
+        auto ret = std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState, MinimizeConstraint>>(constraint_);
+        ret->lower_bound_ = lower_bound_;
+        ret->upper_bound_ = upper_bound_;
+        ret->inactive_level_ = inactive_level_;
+        ret->todo_ = todo_;
+        return ret;
+    }
+
+    //! Translate the minimize constraint into clasp's minimize constraint.
+    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) final {
+        static_cast<void>(added);
+        if (!config.translate_minimize) {
+            return {true, false};
+        }
+
+        cc.add_minimize(TRUE_LIT, -constraint_.adjust(), 0);
+        for (auto [co, var] : constraint_) {
+            auto &vs = solver.var_state(var);
+            cc.add_minimize(TRUE_LIT, safe_mul(co, vs.min_bound()), 0);
+            for (auto value = vs.min_bound(); value < vs.max_bound(); ++value) {
+                cc.add_minimize(-solver.get_literal(cc, vs, value), co, 0);
+            }
+        }
+
+        return {true, true};
+    }
+
+private:
+    MinimizeConstraint &constraint_;
+    sum_t lower_bound_{0};
+    sum_t upper_bound_{0};
+    level_t inactive_level_{0};
+    bool todo_{false};
+};
+
 /*
-class MinimizeConstraintState(AbstractSumConstraintState):
-    """
-    A translateable minimize constraint state.
-
-    Class Variables
-    ======
-    tagged           -- True if constraint applies only during current solving step.
-    tagged_removable -- True if the constraint can be temporarily removed.
-    """
-
-    tagged = True
-    tagged_removable = False
-
-    def __init__(self, constraint):
-        AbstractSumConstraintState.__init__(self)
-        self.constraint = constraint
-
-    def copy(self):
-        """
-        Return a copy of the constraint state to be used with another state.
-        """
-        cs = MinimizeConstraintState(self.constraint)
-        cs.inactive_level = self.inactive_level
-        cs.lower_bound = self.lower_bound
-        cs.upper_bound = self.upper_bound
-        return cs
-
-    @property
-    def literal(self):
-        """
-        Return the literal of the associated constraint.
-        """
-        return self.constraint.literal
-
-    @property
-    def elements(self):
-        """
-        Return the elements of the constraint.
-        """
-        return self.constraint.elements
-
-    def rhs(self, state):
-        """
-        Return the bound of the constraint
-        """
-        return state.minimize_bound
-
-    def translate(self, cc, state, config, added):
-        """
-        Translate the minimize constraint into clasp's minimize constraint.
-        """
-        if not config.translate_minimize:
-            return True, False
-
-        cc.add_minimize(TRUE_LIT, -self.constraint.adjust, 0)
-        for co, var in self.constraint.elements:
-            vs = state.var_state(var)
-            cc.add_minimize(TRUE_LIT, co*vs.min_bound, 0)
-            for v in range(vs.min_bound, vs.max_bound):
-                cc.add_minimize(-state.get_literal(vs, v, cc), co, 0)
-        return True, True
-
-
 class DistinctState(AbstractConstraintState):
     """
     Capture the state of a distinct constraint.
@@ -1093,7 +1086,7 @@ UniqueConstraintState SumConstraint::create_state() {
 }
 
 UniqueConstraintState MinimizeConstraint::create_state() {
-    throw std::runtime_error("implement me!!!");
+    return std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState, MinimizeConstraint>>(*this);
 }
 
 UniqueConstraintState DistinctConstraint::create_state() {

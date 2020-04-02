@@ -157,7 +157,7 @@ public:
             minimize_ = MinimizeConstraint::create(adjust, minimize_elems_, propagator_.config().sort_constraints);
         }
 
-        return nullptr;
+        return std::move(minimize_);
     }
 private:
     Propagator &propagator_;
@@ -288,7 +288,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
     InitClauseCreator cc{init, stats_step_};
 
     // remove minimize constraint
-    UniqueMinimizeConstraint minimize{remove_minimize_()};
+    UniqueMinimizeConstraint minimize{remove_minimize()};
 
     // remove solve step local and fixed literals
     for (auto &solver : solvers_) {
@@ -475,7 +475,7 @@ void Propagator::add_minimize_(UniqueMinimizeConstraint minimize) {
     add_constraint(std::move(minimize));
 }
 
-UniqueMinimizeConstraint Propagator::remove_minimize_() {
+UniqueMinimizeConstraint Propagator::remove_minimize() {
     if (minimize_ == nullptr) {
         return nullptr;
     }
@@ -488,7 +488,9 @@ UniqueMinimizeConstraint Propagator::remove_minimize_() {
     assert(it != constraints_.end());
 
     UniqueMinimizeConstraint minimize{(it->release(), minimize_)};
-    master_().remove_constraint(*minimize_);
+    for (auto &solver : solvers_) {
+        solver.remove_constraint(*minimize_);
+    }
     constraints_.erase(it);
     minimize_ = nullptr;
     return minimize;

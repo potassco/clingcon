@@ -29,7 +29,7 @@
 
 using namespace Clingcon;
 
-TEST_CASE("solving", "[solving]") {
+TEST_CASE("solving", "[solving]") { // NOLINT
     SECTION("simple") {
         REQUIRE(solve("&sum{ x } > 0. &sum{ x } < 3. &sum { x } = y.") == S({
             "x=1 y=1",
@@ -159,6 +159,25 @@ TEST_CASE("solving", "[solving]") {
             "x=0 y=0",
             "x=1 y=1"}));
     }
+    SECTION("minimize") {
+        REQUIRE(solve("&minimize { x }.", -3, 3) == S({"x=-3"}));
+        REQUIRE(solve("&minimize { x+6 }.", -3, 3) == S({"x=-3"}));
+        REQUIRE(solve("&minimize { 2*x }.", -3, 3) == S({"x=-3"}));
+        REQUIRE(solve("&minimize { x+y }.", -3, 3) == S({"x=-3 y=-3"}));
+        REQUIRE(solve("&minimize { x+y }. &sum{ x + y } >= 2.", -3, 3) == S({"x=-1 y=3", "x=0 y=2", "x=1 y=1", "x=2 y=0", "x=3 y=-1"}));
+        REQUIRE(solve("&minimize { x }. &sum{ x } >= 0 :- a. {a}.", -3, 3) == S({"x=-3"}));
+        REQUIRE(solve("&minimize { x }. a :- &sum{ x } <= 0.", -3, 3) == S({"a x=-3"}));
+    }
+
+    SECTION("maximize") {
+        REQUIRE(solve("&maximize { x }.", -3, 3) == S({"x=3"}));
+        REQUIRE(solve("&maximize { x+6 }.", -3, 3) == S({"x=3"}));
+        REQUIRE(solve("&maximize { 2*x }.", -3, 3) == S({"x=3"}));
+        REQUIRE(solve("&maximize { x+y }.", -3, 3) == S({"x=3 y=3"}));
+        REQUIRE(solve("&maximize { x+y }. &sum{ x + y } <= 5.", -3, 3) == S({"x=2 y=3", "x=3 y=2"}));
+        REQUIRE(solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}));
+        REQUIRE(solve("&maximize { x }. a :- &sum{ x } >= 0.", -3, 3) == S({"a x=3"}));
+    }
     /*
     def test_optimize_bound(self):
         sol = [[('x', 0), ('y', 2), ('z', 0)],
@@ -173,16 +192,6 @@ TEST_CASE("solving", "[solving]") {
             self.assertEqual(s.solve("", optimize=False, bound=9), sol)
             self.assertEqual(s.solve("&minimize { 6 }.", optimize=False, bound=9), [])
             self.assertEqual(s.solve("", optimize=False, bound=15), sol)
-
-    def test_optimize(self):
-        self.assertEqual(solve("&minimize { x }.", -3, 3), [[('x', -3)]])
-        self.assertEqual(solve("&minimize { x+6 }.", -3, 3), [[('x', -3)]])
-        self.assertEqual(solve("&maximize { 2*x }.", -3, 3), [[('x', 3)]])
-        self.assertEqual(solve("&maximize { x + y }. ", -3, 3), [[('x', 3), ('y', 3)]])
-        self.assertEqual(solve("&maximize { x + y }. &sum{ x + y} <= 5. ", -3, 3), [[('x', 2), ('y', 3)], [('x', 3), ('y', 2)]])
-        self.assertEqual(solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}. ", -3, 3), [[('x', 3)]])
-        self.assertEqual(solve("&minimize { x }. &sum{ x } <= 0 :- a. {a}. ", -3, 3), [[('x', -3)], [('a'), ('x', -3)]])
-        self.assertEqual(solve("&minimize { x }. a :- &sum{ x } <= 0. ", -3, 3), [[('a'), ('x', -3)]])
 
     def test_multishot(self):
         s = Solver(0, 3)

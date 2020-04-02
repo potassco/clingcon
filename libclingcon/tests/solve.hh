@@ -38,7 +38,11 @@ using S = std::vector<std::string>;
 class SolveEventHandler : public Clingo::SolveEventHandler {
 public:
     SolveEventHandler(Propagator &p) : p{p} { }
+    void on_statistics(Clingo::UserStatistics step, Clingo::UserStatistics accu) override {
+        p.on_statistics(step, accu);
+    }
     bool on_model(Clingo::Model &model) override {
+        p.on_model(model);
         std::ostringstream oss;
         bool sep = false;
         std::vector<Clingo::Symbol> symbols = model.symbols();
@@ -93,6 +97,18 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     ctl.ground({{"base", {}}});
 
     ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
+    bool has_minimize = p.has_minimize();
+    if (has_minimize && handler.models.size() > 1) {
+        auto minimize = p.remove_minimize();
+        CoVarVec elems;
+        elems.reserve(minimize->size());
+        for (auto [co, var] : *minimize) {
+            elems.emplace_back(co, var);
+        }
+        val_t bound = static_cast<val_t>(ctl.statistics()["user_step"]["Clingcon"]["Cost"].value());
+        p.add_constraint(SumConstraint::create(TRUE_LIT, bound + minimize->adjust(), elems, true));
+        handler.models.erase(handler.models.begin(), handler.models.end() - 1);
+    }
     std::sort(handler.models.begin(), handler.models.end());
 
     // NOTE: We test the reversed options using multi-shot solving.
@@ -107,7 +123,12 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
     std::sort(handler.models.begin(), handler.models.end());
 
-    REQUIRE(models == handler.models);
+    if (!has_minimize || models.empty()) {
+        REQUIRE(models == handler.models);
+    }
+    else {
+        REQUIRE(std::binary_search(handler.models.begin(), handler.models.end(), models.front()));
+    }
 
     return handler.models;
 }

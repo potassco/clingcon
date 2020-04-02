@@ -443,12 +443,10 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     auto &cs = *it->second;
     cs.detach(*this);
 
-    for (auto rng = lit2cs_.equal_range(constraint.literal()); rng.first != rng.second; ) {
+    for (auto rng = lit2cs_.equal_range(constraint.literal()); rng.first != rng.second; ++rng.first) {
         if (rng.first->second == &cs) {
             lit2cs_.erase(rng.first);
-        }
-        else {
-            ++rng.first;
+            break;
         }
     }
 

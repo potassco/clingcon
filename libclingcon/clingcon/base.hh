@@ -195,7 +195,7 @@ struct Statistics {
     uint64_t translate_clauses = 0;
     uint64_t translate_wcs = 0;
     uint64_t translate_literals = 0;
-    std::optional<uint64_t> cost;
+    std::optional<sum_t> cost;
     std::forward_list<SolverStatistics> solver_statistics;
 };
 

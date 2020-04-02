@@ -142,6 +142,9 @@ public:
 
     //! Set the `bound` of the minimize constraint.
     void update_minimize(sum_t bound);
+
+    //! Removes the minimize constraint from the lookup lists.
+    UniqueMinimizeConstraint remove_minimize();
 private:
     //! Get the solver associated with the given `thread_id`.
     Solver &solver_(uint32_t thread_id) {
@@ -183,9 +186,6 @@ private:
     //! There must only be one active minimize constraints. Any previous
     //! minimize constraints have to be removed first.
     void add_minimize_(UniqueMinimizeConstraint minimize);
-
-    //! Removes the minimize constraint from the lookup lists.
-    UniqueMinimizeConstraint remove_minimize_();
 
     Config config_;                         //!< configuration
     ConstraintVec constraints_;             //!< the set of constraints
