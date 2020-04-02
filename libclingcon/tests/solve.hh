@@ -29,6 +29,7 @@
 #include <clingcon/parsing.hh>
 
 #include <sstream>
+#include <array>
 #include "catch.hpp"
 
 using namespace Clingcon;
@@ -42,6 +43,15 @@ public:
         p.on_statistics(step, accu);
     }
     bool on_model(Clingo::Model &model) override {
+        if (model.optimality_proven()) {
+            if (!proven) {
+                models.clear();
+                proven = true;
+            }
+        }
+        else {
+            proven = false;
+        }
         p.on_model(model);
         std::ostringstream oss;
         bool sep = false;
@@ -71,20 +81,17 @@ public:
         models.emplace_back(oss.str());
         return true;
     }
-    S models;
     Propagator &p;
+    S models;
+    bool proven = false;
 };
 
-inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+inline S solve(Config const &config, std::string const &prg) {
     Propagator p;
+    p.config() = config;
     SolveEventHandler handler{p};
 
-    p.config().check_state = true;
-    p.config().check_solution = true;
-    p.config().min_int = min_int;
-    p.config().max_int = max_int;
-
-    Clingo::Control ctl{{"100"}};
+    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
         Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
@@ -131,6 +138,27 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     }
 
     return handler.models;
+}
+inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+    SolverConfig sconfig{false, true, true, true};
+    constexpr uint32_t m = 1000;
+    auto configs = std::array{
+        Config{{}, min_int, max_int, 0, 0, 0, sconfig, false, false, false, true, true},  // basic
+        Config{{}, min_int, max_int, 0, 0, 0, sconfig, true,  false, false, true, true},  // sort constraints
+        Config{{}, min_int, max_int, m, 0, m, sconfig, true,  false, true,  true, true},  // translate
+        Config{{}, min_int, max_int, m, 0, m, sconfig, true,  true,  true,  true, true},  // translate literals only
+        Config{{}, min_int, max_int, 0, m, m, sconfig, true,  false, true,  true, true},  // translate weight constraints
+    };
+
+    std::optional<S> last = std::nullopt;
+    for (auto const &config : configs) {
+        auto current = solve(config, prg);
+        if (last.has_value()) {
+            REQUIRE(current == *last);
+        }
+        last = current;
+    }
+    return *last;
 }
 
 #endif // CLINGCON_TEST_SOLVE_H

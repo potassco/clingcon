@@ -225,18 +225,18 @@ struct Config {
         return *it;
     }
 
-    int32_t min_int{DEFAULT_MIN_INT};
-    int32_t max_int{DEFAULT_MAX_INT};
-    bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
+    std::forward_list<SolverConfig> solver_configs;
+    val_t min_int{DEFAULT_MIN_INT};
+    val_t max_int{DEFAULT_MAX_INT};
     uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
-    bool literals_only{DEFAULT_LITERALS_ONLY};
     uint32_t weight_constraint_limit{DEFAULT_WEIGHT_CONSTRAINT_LIMIT};
     uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
+    SolverConfig default_solver_config;
+    bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
+    bool literals_only{DEFAULT_LITERALS_ONLY};
+    bool translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
-    bool translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
-    SolverConfig default_solver_config;
-    std::forward_list<SolverConfig> solver_configs;
 };
 
 
