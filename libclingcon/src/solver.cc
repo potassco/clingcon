@@ -289,35 +289,17 @@ void Solver::copy_state(Solver const &master) {
     minimize_level_ = master.minimize_level_;
     minimize_bound_ = master.minimize_bound_;
 
-    // make sure we have an empty var state for each variable
-    var_t var = 0;
-    var2vs_.reserve(master.var2vs_.size());
-    for (auto const &vs_master : master.var2vs_) {
-        if (var2vs_.size() <= var) {
-            static_cast<void>(add_variable(vs_master.min_bound(), vs_master.max_bound()));
-        }
-        else {
-            auto &vs = var2vs_[var];
-            vs.reset(vs_master.min_bound(), vs_master.max_bound());
-        }
-        ++var;
-    }
-
-    // copy the fact map
+    // copy var states and lookups
+    var2vs_ = master.var2vs_;
     factmap_ = master.factmap_;
-    for (auto const &[lit, var, val] : factmap_) {
-        var_state(var).set_literal(val, lit);
-    }
-
-    // copy the order literal map
     litmap_ = master.litmap_;
-    for (auto const &[lit, var_val] : litmap_) {
-        var_state(var_val.first).set_literal(var_val.second, lit);
-    }
 
-    // copy the map from literals to var states
+    // copy constraint states and lookups
+    c2cs_.clear();
+    lit2cs_.clear();
     for (auto const &[c, cs] : master.c2cs_) {
-        c2cs_.emplace(c, cs->copy());
+        auto ret = c2cs_.emplace(c, cs->copy());
+        lit2cs_.emplace(c->literal(), ret.first->second.get());
     }
 
     // adjust levels

@@ -105,7 +105,7 @@ inline S solve(Config const &config, std::string const &prg) {
 
     ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
     bool has_minimize = p.has_minimize();
-    if (has_minimize && handler.models.size() > 1) {
+    if (has_minimize && !handler.models.empty()) {
         auto minimize = p.remove_minimize();
         CoVarVec elems;
         elems.reserve(minimize->size());
@@ -151,7 +151,11 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     };
 
     std::optional<S> last = std::nullopt;
+    int i = 0;
     for (auto const &config : configs) {
+        std::ostringstream oss;
+        oss << "configuration: " << i++ << "\nprogram: " << prg;
+        INFO(oss.str());
         auto current = solve(config, prg);
         if (last.has_value()) {
             REQUIRE(current == *last);

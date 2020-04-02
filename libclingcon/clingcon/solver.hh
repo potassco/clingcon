@@ -177,9 +177,9 @@ public:
     , upper_bound_{upper_bound} {
     }
     VarState() = delete;
-    VarState(VarState const &) = delete;
+    VarState(VarState const &) = default;
     VarState(VarState &&) noexcept = default;
-    VarState &operator=(VarState const &) = delete;
+    VarState &operator=(VarState const &) = default;
     VarState &operator=(VarState &&) noexcept = default;
     ~VarState() = default;
 
