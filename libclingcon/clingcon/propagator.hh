@@ -43,7 +43,10 @@ using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Propagator {
 public:
-    using VarMap = std::unordered_map<Clingo::Symbol, var_t>;
+    using VarMap = std::map<var_t, Clingo::Symbol>;
+    using SymMap = std::unordered_map<Clingo::Symbol, var_t>;
+    using VarSet = std::unordered_set<var_t>;
+    using SigSet = std::unordered_set<Clingo::Signature>;
 
     Propagator() = default;
     Propagator(Propagator const &) = delete;
@@ -111,7 +114,7 @@ public:
     [[nodiscard]] bool shown(var_t var);
 
     //! Get the map from indices to variable names.
-    [[nodiscard]] std::map<var_t, Clingo::Symbol> const &var_map() const {
+    [[nodiscard]] VarMap const &var_map() const {
         return var_map_;
     }
 
@@ -184,20 +187,19 @@ private:
     //! Removes the minimize constraint from the lookup lists.
     UniqueMinimizeConstraint remove_minimize_();
 
-    Config config_;                                        //!< configuration
-    ConstraintVec constraints_;                            //!< the set of constraints
-    std::vector<Solver> solvers_;                          //!< map thread id to solvers
-    std::unordered_map<Clingo::Symbol, var_t> sym_map_;    //!< map from variable names to indices
-    std::map<var_t, Clingo::Symbol> var_map_;              //!< map from indices to variable names;
-    MinimizeConstraint *minimize_{nullptr};                //!< minimize constraint
-    std::optional<sum_t> minimize_bound_;                  //!< bound of the minimize constraint
-    Statistics stats_step_;                                //!< statistics of the current call
-    Statistics stats_accu_;                                //!< accumulated statistics
-    std::unordered_set<var_t> show_variable_;              //!< variables to show
-    std::unordered_set<Clingo::Signature> show_signature_; //!< signatures to show
-    size_t show_offset_{0};                                //!< offset to efficently show signatures
-    bool translated_minimize_{false};                      //!< whether a minimize constraint has been translated
-    bool show_{false};                                     //!< whether there is a show statement
+    Config config_;                         //!< configuration
+    ConstraintVec constraints_;             //!< the set of constraints
+    std::vector<Solver> solvers_;           //!< map thread id to solvers
+    SymMap sym_map_;                        //!< map from variable names to indices
+    VarMap var_map_;                        //!< map from indices to variable names
+    Statistics stats_step_;                 //!< statistics of the current call
+    Statistics stats_accu_;                 //!< accumulated statistics
+    VarSet show_variable_;                  //!< variables to show
+    SigSet show_signature_;                 //!< signatures to show
+    MinimizeConstraint *minimize_{nullptr}; //!< minimize constraint
+    std::optional<sum_t> minimize_bound_;   //!< bound of the minimize constraint
+    bool translated_minimize_{false};       //!< whether a minimize constraint has been translated
+    bool show_{false};                      //!< whether there is a show statement
 };
 
 } // namespace Clingcon

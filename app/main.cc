@@ -68,14 +68,11 @@ public:
     }
 
     void register_options(Clingo::ClingoOptions &options) override {
-        static_cast<void>(options);
-        // TODO: has to be implemented!!!
-        //handle_error(clingcon_register_options(theory_, options.to_c()));
+        handle_error(clingcon_register_options(theory_, options.to_c()));
     }
 
     void validate_options() override {
-        // TODO: has to be implemented!!!
-        //handle_error(clingcon_validate_options(theory_));
+        handle_error(clingcon_validate_options(theory_));
     }
 
     bool on_model(Clingo::Model &model) override {
