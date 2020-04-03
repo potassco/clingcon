@@ -573,7 +573,7 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (value < vs.lower_bound()) {
-        static_cast<void>(cc.add_clause({get_literal(cc, vs, vs.lower_bound() - 1), -lit}));
+        static_cast<void>(cc.add_clause({get_literal(cc, vs, vs.lower_bound() - 1), -lit}) && cc.propagate());
         return false;
     }
     if (vs.upper_bound() > value) {
@@ -587,7 +587,7 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (vs.upper_bound() < value + 1) {
-        static_cast<void>(cc.add_clause({-get_literal(cc, vs, vs.upper_bound()), lit}));
+        static_cast<void>(cc.add_clause({-get_literal(cc, vs, vs.upper_bound()), lit}) && cc.propagate());
         return false;
     }
     if (vs.lower_bound() < value + 1) {
