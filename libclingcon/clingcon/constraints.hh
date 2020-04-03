@@ -181,17 +181,48 @@ private:
 #pragma GCC diagnostic pop
 };
 
+class DistinctElement {
+public:
+    DistinctElement(val_t fixed, size_t size, co_var_t *elements, bool sort);
+
+    //! Get the fixed part of the term.
+    [[nodiscard]] val_t fixed() const {
+        return fixed_;
+    }
+
+    //! Get the number of elements in the constraint.
+    [[nodiscard]] size_t size() const {
+        return size_;
+    }
+
+    //! Access the i-th element.
+    [[nodiscard]] co_var_t const &operator[](size_t i) const {
+        return elements_[i]; // NOLINT
+    }
+
+    //! Pointer to the first element of the constraint.
+    [[nodiscard]] co_var_t *begin() const {
+        return elements_;
+    }
+
+    //! Pointer after the last element of the constraint.
+    [[nodiscard]] co_var_t *end() const {
+        return elements_ + size_; // NOLINT
+    }
+
+private:
+    val_t fixed_;
+    uint32_t size_;
+    co_var_t *elements_;
+};
+
 //! Class to capture distinct constraints.
 class DistinctConstraint final : public AbstractConstraint {
 public:
-    using Term = std::pair<CoVarVec,val_t>;
-    using Elements = std::vector<Term>;
-    using Iterator = Elements::const_iterator;
+    using Elements = std::vector<std::pair<CoVarVec, val_t>>;
 
-    DistinctConstraint(lit_t lit, Elements elements)
-    : lit_{lit}
-    , elements_{std::move(elements)} {
-    }
+    //! Create a new distinct constraint.
+    [[nodiscard]] static std::unique_ptr<DistinctConstraint> create(lit_t lit, Elements const &elems, bool sort);
 
     DistinctConstraint() = delete;
     DistinctConstraint(DistinctConstraint &) = delete;
@@ -210,29 +241,36 @@ public:
 
     //! Get the number of elements in the constraint.
     [[nodiscard]] size_t size() const {
-        return elements_.size();
+        return size_;
     }
 
     //! Access the i-th element.
-    [[nodiscard]] Term const &operator[](size_t i) const {
-        return elements_[i];
+    [[nodiscard]] DistinctElement const &operator[](size_t i) const {
+        return elements_[i]; // NOLINT
     }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] Iterator begin() const {
-        return elements_.begin();
+    [[nodiscard]] DistinctElement const *begin() const {
+        return elements_;
     }
 
     //! Pointer after the last element of the constraint.
-    [[nodiscard]] Iterator end() const {
-        return elements_.end();
+    [[nodiscard]] DistinctElement const *end() const {
+        return elements_ + size_; // NOLINT
     }
 
 private:
+    DistinctConstraint(lit_t lit, Elements const &elements, bool sort);
+
     //! Solver literal associated with the constraint.
     lit_t lit_;
     //! The elements of the distinct constraint.
-    Elements elements_;
+    uint32_t size_;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+    //! List of integer/string pairs representing coefficient and variable.
+    DistinctElement elements_[]; // NOLINT
+#pragma GCC diagnostic pop
 };
 
 } // namespace

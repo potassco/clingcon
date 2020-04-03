@@ -95,7 +95,7 @@ public:
         }
 
         if (elems.size() > 2) {
-            propagator_.add_constraint(std::make_unique<DistinctConstraint>(lit, elems));
+            propagator_.add_constraint(DistinctConstraint::create(lit, elems, propagator_.config().sort_constraints));
             return true;
         }
 

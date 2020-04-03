@@ -1100,6 +1100,37 @@ UniqueConstraintState MinimizeConstraint::create_state() {
     return std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState>>(*this);
 }
 
+DistinctElement::DistinctElement(val_t fixed, size_t size, co_var_t *elements, bool sort)
+: fixed_{fixed}
+, size_{static_cast<uint32_t>(size)}
+, elements_{elements} {
+    if (sort) {
+        std::sort(elements_, elements_ + size_, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); } ); // NOLINT
+    }
+}
+
+DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool sort)
+: lit_{lit}
+, size_{static_cast<uint32_t>(elements.size())} {
+    auto *start = reinterpret_cast<unsigned char *>(elements_) + elements.size() * sizeof(DistinctElement); // NOLINT
+    auto *co_var_it = reinterpret_cast<co_var_t*>(start); // NOLINT
+    auto *element_it = elements_;
+    for (auto const &element : elements) {
+        new (element_it++) DistinctElement{element.second, element.first.size(), co_var_it, sort}; // NOLINT
+        for (auto const &co_var : element.first) {
+            new (co_var_it++) co_var_t{co_var}; // NOLINT
+        }
+    }
+}
+
+std::unique_ptr<DistinctConstraint> DistinctConstraint::create(lit_t lit, Elements const &elements, bool sort) {
+    size_t size = sizeof(DistinctConstraint) + elements.size() * sizeof(DistinctElement);
+    for (auto const &element : elements) {
+        size += element.first.size() * sizeof(co_var_t);
+    }
+    return std::unique_ptr<DistinctConstraint>{new (operator new(size)) DistinctConstraint(lit, elements, sort)};
+}
+
 UniqueConstraintState DistinctConstraint::create_state() {
     throw std::runtime_error("implement me!!!");
 }
