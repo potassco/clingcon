@@ -31,8 +31,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
-//! @file clingcon/base.hh
-//! This module implements a theory for CSP constraints.
+//! @file clingcon/propagator.hh
+//! This module implements a theory propagator for CSP constraints.
 //!
 //! @author Roland Kaminski
 
