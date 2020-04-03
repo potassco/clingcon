@@ -317,11 +317,6 @@ void Propagator::init(Clingo::PropagateInit &init) {
         return;
     }
 
-    // remove unnecessary literals after simplification
-    if (!master.cleanup_literals(cc, config_.check_state)) {
-        return;
-    }
-
     // translate (simple enough) constraints
     if (!translate_(cc, builder.prepare_minimize())) {
         return;

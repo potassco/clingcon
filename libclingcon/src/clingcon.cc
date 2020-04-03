@@ -155,7 +155,7 @@ void set_value(Target target, SolverConfig &config, bool value) {
     }
 }
 
-void set_value(Target target, Config &config, std::pair<bool, std::optional<uint32_t>> value) {
+void set_value(Target target, Config &config, std::pair<bool, std::optional<uint32_t>> const &value) {
     auto [flag, thread] = value;
     if (thread.has_value()) {
         set_value(target, config.solver_config(*thread), flag);

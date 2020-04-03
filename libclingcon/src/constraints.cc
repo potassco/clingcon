@@ -173,7 +173,8 @@ public:
         if (co > 0) {
             sum_t current = vs.lower_bound();
             // the direct reason literal
-            lit = solver.get_literal(cc, vs, current-1);
+            auto lit_reason = solver.get_literal(cc, vs, current-1);
+            lit = lit_reason;
             assert (ass.is_false(lit));
             if (solver.config().refine_reasons && slack + co < 0 && ass.decision_level() > 0) {
                 auto delta = -floordiv<sum_t>(slack + 1, -co);
@@ -187,6 +188,12 @@ public:
                             current = value_ge + 1;
                             assert(slack < 0);
                             lit = lit_ge;
+                            // Note: The literal might have been introduced and
+                            // made true during constraint propagation.
+                            if (!ass.is_false(lit)) {
+                                assert(ass.is_true(lit));
+                                ret = cc.add_clause({lit_reason, -lit});
+                            }
                             assert(ass.is_false(lit));
                         }
 
@@ -196,7 +203,7 @@ public:
                     // available literal to keep the state consistent.
                     // Furthermore, we only introduce literals implied on the
                     // current decision level to avoid backtracking.
-                    if (solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value < current) {
+                    if (ret && solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value < current) {
                         ++solver.statistics().introduced_reason;
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (value - current);
@@ -212,7 +219,8 @@ public:
         else {
             // symmetric case
             auto current = vs.upper_bound();
-            lit = -solver.get_literal(cc, vs, current);
+            auto lit_reason = -solver.get_literal(cc, vs, current);
+            lit = lit_reason;
             assert(ass.is_false(lit));
             if (solver.config().refine_reasons && slack - co < 0 && ass.decision_level() > 0) {
                 auto delta = floordiv<sum_t>(slack + 1, co);
@@ -226,12 +234,15 @@ public:
                             current = value_le;
                             assert(slack < 0);
                             lit = -lit_le;
-                            assert(ass.is_false(lit));
+                            if (!ass.is_false(lit)) {
+                                assert(ass.is_true(lit));
+                                ret = cc.add_clause({lit_reason, -lit});
+                            }
                         }
 
                     }
                     // introduce reason literal
-                    if (solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value > current) {
+                    if (ret && solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value > current) {
                         ++solver.statistics().introduced_reason;
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (value - current);
@@ -327,7 +338,7 @@ public:
                 value_r = vs_r.lower_bound() + delta_r;
                 assert (slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r - 1));
                 // values above the upper bound are already true;
-                if (value_r > vs_r.upper_bound()) {
+                if (value_r >= vs_r.upper_bound()) {
                     continue;
                 }
                 // get the literal of the value;

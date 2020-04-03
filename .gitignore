@@ -3,3 +3,4 @@ html
 latex
 .clangd/
 compile_commands.json
+*.swp

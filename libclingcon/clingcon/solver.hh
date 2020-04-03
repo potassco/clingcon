@@ -465,10 +465,6 @@ public:
     //! integrate all bounds.
     [[nodiscard]] bool update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state);
 
-    //! Remove all order literals associated with facts that are above the upper or
-    //! below the lower bound.
-    [[nodiscard]] bool cleanup_literals(AbstractClauseCreator &cc, bool check_state);
-
     //! Adds a new VarState object and returns its index;
     [[nodiscard]] var_t add_variable(val_t min_int, val_t max_int);
 

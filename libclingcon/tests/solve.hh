@@ -103,7 +103,9 @@ inline S solve(Config const &config, std::string const &prg) {
     ctl.register_propagator(p);
     ctl.ground({{"base", {}}});
 
-    ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
+    if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+        throw std::runtime_error("interrupted");
+    }
     bool has_minimize = p.has_minimize();
     if (has_minimize && !handler.models.empty()) {
         auto minimize = p.remove_minimize();
@@ -127,7 +129,9 @@ inline S solve(Config const &config, std::string const &prg) {
         config.refine_reasons = !config.refine_reasons;
         config.propagate_chain = !config.propagate_chain;
     }
-    ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
+    if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+        throw std::runtime_error("interrupted");
+    }
     std::sort(handler.models.begin(), handler.models.end());
 
     if (!has_minimize || models.empty()) {
@@ -147,7 +151,7 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
         Config{{}, min_int, max_int, 0, 0, 0, sconfig, true,  false, false, true, true},  // sort constraints
         Config{{}, min_int, max_int, m, 0, m, sconfig, true,  false, true,  true, true},  // translate
         Config{{}, min_int, max_int, m, 0, m, sconfig, true,  true,  true,  true, true},  // translate literals only
-        Config{{}, min_int, max_int, 0, m, m, sconfig, true,  false, true,  true, true},  // translate weight constraints
+        //Config{{}, min_int, max_int, 0, m, m, sconfig, true,  false, true,  true, true},  // translate weight constraints
     };
 
     std::optional<S> last = std::nullopt;

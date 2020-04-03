@@ -93,7 +93,7 @@ public:
     void mark_inactive(AbstractConstraintState &cs) {
         if (cs.removable() && !cs.marked_inactive()) {
             inactive_.emplace_back(&cs);
-            cs.mark_active();
+            cs.mark_inactive(level_);
         }
     }
 
@@ -201,17 +201,11 @@ public:
         auto const &lvl_master = master.levels_.front();
 
         // copy bound changes
-        lvl.undo_lower_.clear();
-        for (auto var : lvl_master.undo_lower_) {
-            lvl.undo_lower_.emplace_back(var);
-        }
+        lvl.undo_lower_ = lvl_master.undo_lower_;
         solver.ldiff_ = master.ldiff_;
         solver.in_ldiff_ = master.in_ldiff_;
 
-        lvl.undo_upper_.clear();
-        for (auto var : lvl_master.undo_upper_) {
-            lvl.undo_upper_.emplace_back(var);
-        }
+        lvl.undo_upper_ = lvl_master.undo_upper_;
         solver.udiff_ = master.udiff_;
         solver.in_udiff_ = master.in_udiff_;
 
@@ -577,17 +571,29 @@ bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
 
 bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
     auto &vs = var_state(var);
+    // Note: This keeps the state consistent.
+    if (value < vs.lower_bound()) {
+        static_cast<void>(cc.add_clause({get_literal(cc, vs, vs.lower_bound() - 1), -lit}));
+        return false;
+    }
     if (vs.upper_bound() > value) {
         lvl.update_upper(*this, vs, value);
     }
+    assert(vs.lower_bound() <= vs.upper_bound());
     return propagate_variables_<1>(cc, lit, vs.lit_gt(value), vs.end());
 }
 
 bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
     auto &vs = var_state(var);
+    // Note: This keeps the state consistent.
+    if (vs.upper_bound() < value + 1) {
+        static_cast<void>(cc.add_clause({-get_literal(cc, vs, vs.upper_bound()), lit}));
+        return false;
+    }
     if (vs.lower_bound() < value + 1) {
         lvl.update_lower(*this, vs, value);
     }
+    assert(vs.lower_bound() <= vs.upper_bound());
     return propagate_variables_<-1>(cc, lit, vs.lit_lt(value), vs.rend());
 }
 
@@ -600,12 +606,20 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     if (lit != TRUE_LIT && ass.decision_level() == 0 && ass.is_fixed(lit)) {
         for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
             auto [var, value] = rng.first->second;
+            auto &vs = var_state(var);
+            assert(vs.get_literal(value) == lit);
+            vs.set_literal(value, TRUE_LIT);
             factmap_.emplace_back(TRUE_LIT, var, value);
         }
+        litmap_.erase(lit);
         for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
             auto [var, value] = rng.first->second;
+            auto &vs = var_state(var);
+            assert(vs.get_literal(value) == -lit);
+            vs.set_literal(value, -TRUE_LIT);
             factmap_.emplace_back(-TRUE_LIT, var, value);
         }
+        litmap_.erase(-lit);
         lit = TRUE_LIT;
     }
 
@@ -621,13 +635,15 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
                 if (!update_upper_(lvl, cc, var, lit, value)) {
                     return false;
                 }
+                assert(vs.get_literal(value) == lit);
                 vs.unset_literal(value);
             }
             else {
                 if (!update_lower_(lvl, cc, var, lit, value)) {
                     return false;
                 }
-                vs.unset_literal(value - 1);
+                assert(vs.get_literal(value) == -lit);
+                vs.unset_literal(value);
             }
         }
         factmap_.clear();
@@ -795,31 +811,10 @@ void Solver::update(AbstractClauseCreator &cc) {
             vs.unset_literal(it->second.second);
             it = litmap_.erase(it);
         }
-        else if (auto truth = ass.truth_value(it->first); truth != Clingo::TruthValue::Free) {
-            // Note: It might also be possible to just unset factual literals.
-            // Adding them to the factmap_ should definitely work because check
-            // will clear its values later.
-            auto &vs = var_state(it->second.first);
-            auto lit = ass.is_true(it->first) ? TRUE_LIT : -TRUE_LIT;
-            factmap_.emplace_back(lit, it->second.first, it->second.second);
-            vs.set_literal(it->second.second, lit);
-            it = litmap_.erase(it);
-        }
         else {
             ++it;
         }
     }
-
-    // we sort here because the above iteration order is unspecified
-    std::sort(factmap_.begin(), factmap_.end());
-}
-
-bool Solver::cleanup_literals(AbstractClauseCreator &cc, bool check_state) {
-    // make sure that all top level literals are mapped to the fact literal
-    update(cc);
-
-    // update_domain_ in check makes sure that unnecassary facts are removed
-    return check(cc, check_state);
 }
 
 bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state) {
