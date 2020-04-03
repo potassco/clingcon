@@ -91,7 +91,7 @@ inline S solve(Config const &config, std::string const &prg) {
     p.config() = config;
     SolveEventHandler handler{p};
 
-    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
+    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t4"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
         Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
