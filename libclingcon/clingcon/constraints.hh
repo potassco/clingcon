@@ -222,7 +222,7 @@ public:
     using Elements = std::vector<std::pair<CoVarVec, val_t>>;
 
     //! Create a new distinct constraint.
-    [[nodiscard]] static std::unique_ptr<DistinctConstraint> create(lit_t lit, Elements const &elems, bool sort);
+    [[nodiscard]] static std::unique_ptr<DistinctConstraint> create(lit_t lit, Elements const &elements, bool sort);
 
     DistinctConstraint() = delete;
     DistinctConstraint(DistinctConstraint &) = delete;

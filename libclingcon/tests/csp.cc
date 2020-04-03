@@ -159,6 +159,62 @@ TEST_CASE("solving", "[solving]") { // NOLINT
             "x=0 y=0",
             "x=1 y=1"}));
     }
+    SECTION("distinct") {
+        REQUIRE(solve("&dom{1..1}=x. &dom{1..2}=y. &dom{1..3}=z. &distinct{x;y;z}.") == S({"x=1 y=2 z=3"}));
+        REQUIRE(solve("&dom{1..3}=x. &dom{2..3}=y. &dom{3..3}=z. &distinct{x;y;z}.") == S({"x=1 y=2 z=3"}));
+        REQUIRE(solve(
+            "&dom { 1..2 } = x. &dom { 1..2 } = y. &dom { 1..2 } = z. "
+            "&distinct { 2*x+3*y+5*z; 5*x+2*y+3*z; 3*x+5*y+2*z }.") == solve(
+                "&dom { 1..2 } = x. &dom { 1..2 } = y. &dom { 1..2 } = z. "
+                "&sum { 2*x+3*y+5*z } != 5*x+2*y+3*z. "
+                "&sum { 2*x+3*y+5*z } != 3*x+5*y+2*z. "
+                "&sum { 5*x+2*y+3*z } != 3*x+5*y+2*z. "));
+        REQUIRE(solve(
+            "&dom { 1..2 } = x. &dom { 1..2 } = y. &dom { 1..2 } = z. "
+            "&distinct { 2*x+3*y+5*z+1; 5*x+2*y+3*z; 3*x+5*y+2*z-1 }.") == solve(
+                "&dom { 1..2 } = x. &dom { 1..2 } = y. &dom { 1..2 } = z. "
+                "&sum { 2*x+3*y+5*z+1 } != 5*x+2*y+3*z+0. "
+                "&sum { 2*x+3*y+5*z+1 } != 3*x+5*y+2*z-1. "
+                "&sum { 5*x+2*y+3*z+0 } != 3*x+5*y+2*z-1. "));
+        REQUIRE(solve("&dom{1..2}=x. &dom{1..3}=y. &dom{1..4}=z. &distinct{1;x;y;z}.") == S({"x=2 y=3 z=4"}));
+        REQUIRE(solve("&dom{1..2}=x. &dom{1..4}=y. &dom{1..5}=z. &distinct{1;3;x;y;z}.") == S({"x=2 y=4 z=5"}));
+        REQUIRE(solve(
+            "#const l = 17. "
+            "#const o = 6. "
+            "&dom { 1..l } = p(P) :- P=1..o. "
+            "&sum { p(1) } = 1. "
+            "&sum { p(P) } < p(P+1) :- P=1..o-1. "
+            "&distinct{ p(Q) - p(P) : P < Q, P=1..o-1, Q=P+1..o }. ").empty());
+        // Note: We get twice a much as on wikipedia because we get them the
+        // other way round too.
+        REQUIRE(solve(
+            "#const l = 18. "
+            "#const o = 6. "
+            "&dom { 1..l } = p(P) :- P=1..o. "
+            "&sum { p(1) } = 1. "
+            "&sum { p(P) } < p(P+1) :- P=1..o-1. "
+            "&distinct{ p(Q) - p(P) : P < Q, P=1..o-1, Q=P+1..o }. ") == S({
+                "p(1)=1 p(2)=2 p(3)=5 p(4)=11 p(5)=13 p(6)=18",
+                "p(1)=1 p(2)=2 p(3)=5 p(4)=11 p(5)=16 p(6)=18",
+                "p(1)=1 p(2)=2 p(3)=9 p(4)=12 p(5)=14 p(6)=18",
+                "p(1)=1 p(2)=2 p(3)=9 p(4)=13 p(5)=15 p(6)=18",
+                "p(1)=1 p(2)=3 p(3)=8 p(4)=14 p(5)=17 p(6)=18",
+                "p(1)=1 p(2)=4 p(3)=6 p(4)=10 p(5)=17 p(6)=18",
+                "p(1)=1 p(2)=5 p(3)=7 p(4)=10 p(5)=17 p(6)=18",
+                "p(1)=1 p(2)=6 p(3)=8 p(4)=14 p(5)=17 p(6)=18"}));
+        REQUIRE(solve(
+            "#const n = 6. "
+            "#show."
+            "p(1..n). "
+            "&dom { 1..n } = q(N) :- p(N). "
+            "&distinct { q(N)+0 : p(N) }. "
+            "&distinct { q(N)-N : p(N) }. "
+            "&distinct { q(N)+N : p(N) }. ") == S({
+                "q(1)=2 q(2)=4 q(3)=6 q(4)=1 q(5)=3 q(6)=5",
+                "q(1)=3 q(2)=6 q(3)=2 q(4)=5 q(5)=1 q(6)=4",
+                "q(1)=4 q(2)=1 q(3)=5 q(4)=2 q(5)=6 q(6)=3",
+                "q(1)=5 q(2)=3 q(3)=1 q(4)=6 q(5)=4 q(6)=2"}));
+    }
     SECTION("minimize") {
         REQUIRE(solve("&minimize { x }.", -3, 3) == S({"x=-3"}));
         REQUIRE(solve("&minimize { x+6 }.", -3, 3) == S({"x=-3"}));
@@ -201,33 +257,5 @@ TEST_CASE("solving", "[solving]") { // NOLINT
         self.assertEqual(s.solve("&sum { x } <= 0."), [[('x', 0)]])
         self.assertEqual(s.solve("&sum { x } <= 1."), [[('x', 0)]])
         self.assertEqual(s.solve("&sum { x } <= 2."), [[('x', 0)]])
-
-    def test_distinct(self):
-        self.assertEqual(solve("&dom{1..1}=x. &dom{1..2}=y. &dom{1..3}=z. &distinct{x;y;z}."), [[('x', 1), ('y', 2), ('z', 3)]])
-        self.assertEqual(solve("&dom{1..3}=x. &dom{2..3}=y. &dom{3..3}=z. &distinct{x;y;z}."), [[('x', 1), ('y', 2), ('z', 3)]])
-        self.assertEqual(
-            solve("""\
-            &dom { 1..2 } = x.
-            &dom { 1..2 } = y.
-            &dom { 1..2 } = z.
-            &distinct { 2*x+3*y+5*z; 5*x+2*y+3*z; 3*x+5*y+2*z }.
-            """),
-            [[('x', 1), ('y', 1), ('z', 2)],
-             [('x', 1), ('y', 2), ('z', 1)],
-             [('x', 1), ('y', 2), ('z', 2)],
-             [('x', 2), ('y', 1), ('z', 1)],
-             [('x', 2), ('y', 1), ('z', 2)],
-             [('x', 2), ('y', 2), ('z', 1)]])
-        self.assertEqual(
-            solve("""\
-            &dom { 1..2 } = x.
-            &dom { 1..2 } = y.
-            &dom { 1..2 } = z.
-            &distinct { 2*x+3*y+5*z+1; 5*x+2*y+3*z; 3*x+5*y+2*z-1 }.
-            """),
-            [[('x', 1), ('y', 2), ('z', 2)],
-             [('x', 2), ('y', 1), ('z', 1)],
-             [('x', 2), ('y', 2), ('z', 1)]])
-
     */
 }

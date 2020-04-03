@@ -24,6 +24,8 @@
 
 #include "clingcon/constraints.hh"
 
+#include <set>
+
 namespace Clingcon {
 
 namespace {
@@ -739,115 +741,57 @@ private:
     bool todo_{false};
 };
 
-/*
-class DistinctState(AbstractConstraintState):
-    """
-    Capture the state of a distinct constraint.
+//! Capture the state of a distinct constraint.
+class DistinctConstraintState final : public AbstractConstraintState {
+public:
+    DistinctConstraintState(DistinctConstraint &constraint)
+    : constraint_{constraint} {
+        assigned_.resize(constraint_.size());
+        in_dirty_.resize(constraint_.size(), false);
+        in_todo_lower_.resize(constraint_.size(), false);
+        in_todo_upper_.resize(constraint_.size(), false);
+        dirty_.reserve(constraint_.size());
+        todo_lower_.reserve(constraint_.size());
+        todo_upper_.reserve(constraint_.size());
+    }
 
-    Class Variables
-    ======
-    tagged_removable -- True if the constraint can be temporarily removed.
-    """
+    DistinctConstraintState(DistinctConstraintState &&) = delete;
+    DistinctConstraintState &operator=(DistinctConstraintState const &) = delete;
+    DistinctConstraintState &operator=(DistinctConstraintState &&) = delete;
+    ~DistinctConstraintState() override = default;
 
-    tagged_removable = True
+    DistinctConstraint& constraint() override {
+        return constraint_;
+    }
 
-    def __init__(self, constraint):
-        AbstractConstraintState.__init__(self)
-        self.constraint = constraint
-        self.dirty = TodoList()
-        self.todo = TodoList()
-        self.map_upper = {}
-        self.map_lower = {}
-        self.assigned = {}
+    void attach(Solver &solver) override {
+        val_t i = 0;
+        for (auto const &element : constraint_) {
+            init_(solver, i);
+            for (auto [co, var] : element) {
+                solver.add_var_watch(var, co > 0 ? i+1 : -i-1, *this);
+            }
+            ++i;
+        }
+    }
 
-    def copy(self):
-        """
-        Return a copy of the constraint state to be used with another state.
-        """
-        ds = DistinctState(self.constraint)
-        ds.inactive_level = self.inactive_level
-        for value, indices in self.map_upper.items():
-            ds.map_upper[value] = indices[:]
-        for value, indices in self.map_lower.items():
-            ds.map_lower[value] = indices[:]
-        ds.assigned = self.assigned.copy()
-        ds.dirty = self.dirty.copy()
-        return ds
+    void detach(Solver &solver) override {
+        val_t i = 0;
+        for (auto const &element : constraint_) {
+            for (auto [co, var] : element) {
+                solver.remove_var_watch(var, co > 0 ? i+1 : -i-1, *this);
+            }
+            ++i;
+        }
+    }
 
-    @property
-    def literal(self):
-        """
-        Return the literal of the associated constraint.
-        """
-        return self.constraint.literal
-
-    def _init(self, state, i):
-        """
-        Recalculates the bounds of the i-th element of the constraint assuming
-        that the bounds of this element are not currently in the bound maps.
-        """
-        # calculate new values
-        value, elements = self.constraint.elements[i]
-        upper = lower = value
-        for co, var in elements:
-            if co > 0:
-                upper += co*state.var_state(var).upper_bound
-                lower += co*state.var_state(var).lower_bound
-            else:
-                upper += co*state.var_state(var).lower_bound
-                lower += co*state.var_state(var).upper_bound
-        # set new values
-        self.assigned[i] = (lower, upper)
-        self.map_upper.setdefault(upper, []).append(i)
-        self.map_lower.setdefault(lower, []).append(i)
-
-    def attach(self, state):
-        """
-        Attach the distinct constraint to the state.
-        """
-        for i, (_, elements) in enumerate(self.constraint.elements):
-            self._init(state, i)
-            for co, var in elements:
-                state.add_var_watch(var, i+1 if co > 0 else -i-1, self)
-
-    def detach(self, state):
-        """
-        Detach the constraint frow the given state.
-        """
-        for i, (_, elements) in enumerate(self.constraint.elements):
-            for co, var in elements:
-                state.remove_var_watch(var, i+1 if co > 0 else -i-1, self)
-
-    def update(self, i, _):
-        """
-        Add an element whose bound has changed to the todo list and mark it as
-        dirty.
-
-        If i is greater zero, than the lower bound changed; otherwise the upper
-        bound.
-        """
-        self.dirty.add(abs(i)-1)
-        self.todo.add(i)
-        return True
-
-    def undo(self, i, _):
-        """
-        Clear the todo list and mark the given element as dirty.
-        """
-        self.dirty.add(abs(i)-1)
-        self.todo.clear()
-
-    def _update(self, state):
-        """
-        Recalculate all elements marked dirty.
-        """
-        for i in self.dirty:
-            lower, upper = self.assigned[i]
-            self.map_lower[lower].remove(i)
-            self.map_upper[upper].remove(i)
-            self._init(state, i)
-        self.dirty.clear()
-
+    //! Translate small enough distinct constraints to weight constraints.
+    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) override {
+        static_cast<void>(config);
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(added);
+        /*
     def _estimate(self):
         """
         Estimate the translation cost of the constraint in terms of the
@@ -896,7 +840,6 @@ class DistinctState(AbstractConstraintState):
         added.append(SumConstraint(TRUE_LIT, [(-c, v) for c, v in elems], 0))
         return var
 
-    def translate(self, cc, state, config, added):
         """
         Translate small enough distinct constraints to weight constraints.
         """
@@ -956,139 +899,342 @@ class DistinctState(AbstractConstraintState):
             cc.add_weight_constraint(self.literal, wlits, 1, 1)
 
         return True, True
+        */
+        return {true, false};
+    }
 
-    def _propagate(self, cc, state, s, i, j):
-        """
-        Propagate a distinct constraint assuming that element i is assigned and
-        one of element element j's bounds as determined by s match the value of
-        element i.
+    [[nodiscard]] UniqueConstraintState copy() const override {
+        return std::unique_ptr<DistinctConstraintState>{new DistinctConstraintState(*this)};
+    }
 
-        The reasons generated by this function are not necessarily unit.
-        Implementing proper unit propagation for arbitrary linear terms would
-        be quite involved. This implementation still works because it
-        guarantees conflict detection and the added constraints might become
-        unit later. The whole situation could be simplified by restricting the
-        syntax of distinct constraints.
-        """
-        # case s > 0:
-        #   example: x != y+z
-        #     x <= 10 & not x <= 9 & y <= 5 & z <= 5 => y <= 4 | z <= 4
-        #   example: x != -y
-        #     x <= 9 & not x <= 8 &     y >= -9  =>     y >= -8
-        #     x <= 9 & not x <= 8 & not y <= -10 => not y <= -9
-        # case s < 0:
-        #   example: x != y
-        #     x = 9 & y >= 9 => y >= 10
-        #     x <= 9 & not x <= 8 & not y <= 8 => not y <= 9
-        #   example: x != -y
-        #     x <= 9 & not x <= 8 & y <= -9 => y <= -10
-        ass = cc.assignment
+    //! Add an element whose bound has changed to the todo list and mark it as
+    //! dirty.
+    //!
+    //! If i is greater zero, than the lower bound changed; otherwise the upper
+    //! bound.
+    [[nodiscard]] bool update(val_t i, val_t diff) override {
+        static_cast<void>(diff);
+        mark_dirty_(i);
+        mark_todo_(i);
+        return true;
+    }
 
-        reason = []
-        is_fact = len(self.constraint.elements[j][1]) == 1
+    //! Clear the todo list and mark the given element as dirty.
+    void undo(val_t i, val_t diff) override {
+        static_cast<void>(diff);
 
-        # assigned index
-        for _, var in self.constraint.elements[i][1]:
-            vs = state.var_state(var)
-            assert vs.is_assigned
-            reason.append(-state.get_literal(vs, vs.upper_bound, cc))
-            assert ass.is_false(reason[-1])
-            if not ass.is_fixed(reason[-1]):
-                is_fact = False
-            reason.append(state.get_literal(vs, vs.lower_bound-1, cc))
-            assert ass.is_false(reason[-1])
-            if not ass.is_fixed(reason[-1]):
-                is_fact = False
+        // mark given element as dirty
+        mark_dirty_(i);
 
-        # bounded index
-        for co, var in self.constraint.elements[j][1]:
-            vs = state.var_state(var)
-            if s*co > 0:
-                reason.append(-state.get_literal(vs, vs.upper_bound, cc))
-                assert ass.is_false(reason[-1])
-                if not ass.is_fixed(reason[-1]):
-                    is_fact = False
-                # add consequence
-                ret, lit = state.update_literal(vs, vs.upper_bound-1, cc, is_fact or None)
-                if not ret:
-                    return False
-                reason.append(lit)
-                if ass.is_true(reason[-1]):
-                    return True
-            else:
-                reason.append(state.get_literal(vs, vs.lower_bound-1, cc))
-                assert ass.is_false(reason[-1])
-                if not ass.is_fixed(reason[-1]):
-                    is_fact = False
-                # add consequence
-                ret, lit = state.update_literal(vs, vs.lower_bound, cc, not is_fact and None)
-                if not ret:
-                    return False
-                reason.append(-lit)
+        // clear todo lists
+        clear_todo_();
+    }
 
-                if ass.is_true(reason[-1]):
-                    return True
+    //! See `_propagate` for exmamples what is propagated.
+    [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
+        static_cast<void>(check_state); // TODO: the state could still be checked...
+        update_(solver);
 
-        return cc.add_clause(reason)
+        for (auto i : todo_lower_) {
+            auto [lower, upper] = assigned_[i];
+            if (lower == upper) {
+                if (!propagate_assigned_(solver, cc, lower, i)) {
+                    return false;
+                }
+            }
+            else {
+                for (auto it = lower_.lower_bound({lower, 0}), ie = lower_.lower_bound({lower+1, 0}); it != ie; ++it) {
+                    auto j = it->second;
+                    if (assigned_[j].first == assigned_[j].second) {
+                        if (in_todo_lower_[j] || in_todo_upper_[j]) {
+                            break;
+                        }
+                        if (!propagate_(solver, cc, -1, j, i)) {
+                            return false;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
 
-    def propagate(self, state, cc, config, check_state):
-        """
-        Prepagates the distinct constraint.
+        for (auto i : todo_upper_) {
+            auto [lower, upper] = assigned_[i];
+            if (lower == upper) {
+                if (!propagate_assigned_(solver, cc, lower, i)) {
+                    return false;
+                }
+            }
+            else {
+                for (auto it = upper_.lower_bound({upper, 0}), ie = upper_.lower_bound({upper+1, 0}); it != ie; ++it) {
+                    auto j = it->second;
+                    if (assigned_[j].first == assigned_[j].second) {
+                        if (in_todo_lower_[j] || in_todo_upper_[j]) {
+                            break;
+                        }
+                        if (!propagate_(solver, cc, 1, j, i)) {
+                            return false;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
 
-        See `_propagate` for exmamples what is propagated.
-        """
-        self._update(state)
+        clear_todo_();
 
-        for i in self.todo:
-            j = abs(i)-1
-            lower, upper = self.assigned[j]
-            if lower == upper:
-                for k in self.map_upper[upper]:
-                    if j != k and not self._propagate(cc, state, 1, j, k):
-                        return False
-                for k in self.map_lower[lower]:
-                    if j != k and not self._propagate(cc, state, -1, j, k):
-                        return False
-            elif i < 0:
-                for k in self.map_upper[upper]:
-                    if self.assigned[k][0] == self.assigned[k][1]:
-                        if k+1 in self.todo or -k-1 in self.todo:
-                            break
-                        if not self._propagate(cc, state, 1, k, j):
-                            return False
-                        break
-            else:
-                for k in self.map_lower[lower]:
-                    if self.assigned[k][0] == self.assigned[k][1]:
-                        if k+1 in self.todo or -k-1 in self.todo:
-                            break
-                        if not self._propagate(cc, state, -1, k, j):
-                            return False
-                        break
-        self.todo.clear()
+        return true;
+    }
 
-        return True
+    void check_full(Solver &solver) override {
+        std::set<sum_t> values;
+        for (auto const &element : constraint_)  {
+            sum_t value = element.fixed();
+            for (auto [co, var] : element) {
+                auto &vs = solver.var_state(var);
+                if (!vs.is_assigned()) {
+                    throw std::logic_error("variable is not fully assigned");
+                }
+                value += static_cast<sum_t>(co) * vs.lower_bound();
+            }
+            if (!values.emplace(value).second) {
+                throw std::logic_error("invalid distinct constraint");
+            }
+        }
+    }
 
-    def check_full(self, state):
-        """
-        This function checks if a constraint is satisfied w.r.t. the final
-        values of its integer variables.
+    [[nodiscard]] bool mark_todo(bool todo) override {
+        auto ret = todo_;
+        todo_ = todo;
+        return ret;
+    }
 
-        This function should only be called total assignments.
-        """
-        values = set()
-        for value, elements in self.constraint.elements:
-            for co, var in elements:
-                vs = state.var_state(var)
-                assert vs.is_assigned
-                value += co*vs.upper_bound
+    [[nodiscard]] bool marked_todo() const override {
+        return todo_;
+    }
 
-            if value in values:
-                return False
-            values.add(value)
+    [[nodiscard]] bool removable() override {
+        return true;
+    }
 
-        return True
-*/
+protected:
+    [[nodiscard]] level_t inactive_level() const override {
+        return inactive_level_;
+    }
+
+    void inactive_level(level_t level) override {
+        inactive_level_ = level;
+    }
+
+private:
+    bool propagate_assigned_(Solver &solver, AbstractClauseCreator &cc, sum_t value, val_t i) {
+        for (auto it = upper_.lower_bound({value, 0}), ie = upper_.lower_bound({value+1, 0}); it != ie; ++it) {
+            assert(value == it->first);
+            if (it->second != i && !propagate_(solver, cc, 1, i, it->second)) {
+                return false;
+            }
+        }
+        for (auto it = lower_.lower_bound({value, 0}), ie = lower_.lower_bound({value+1, 0}); it != ie; ++it) {
+            assert(value == it->first);
+            if (it->second != i && !propagate_(solver, cc, -1, i, it->second)) {
+                return false;
+            }
+        }
+        return true;
+
+    }
+
+    //! Propagate a distinct constraint assuming that element i is assigned and
+    //! one of element element j's bounds as determined by s match the value of
+    //! element i.
+    //!
+    //! The reasons generated by this function are not necessarily unit.
+    //! Implementing proper unit propagation for arbitrary linear terms would
+    //! be quite involved. This implementation still works because it
+    //! guarantees conflict detection and the added constraints might become
+    //! unit later. The whole situation could be simplified by restricting the
+    //! syntax of distinct constraints.
+    //!
+    //! case s > 0:
+    //!   example: x != y+z
+    //!     x <= 10 & not x <= 9 & y <= 5 & z <= 5 => y <= 4 | z <= 4
+    //!   example: x != -y
+    //!     x <= 9 & not x <= 8 &     y >= -9  =>     y >= -8
+    //!     x <= 9 & not x <= 8 & not y <= -10 => not y <= -9
+    //! case s < 0:
+    //!   example: x != y
+    //!     x = 9 & y >= 9 => y >= 10
+    //!     x <= 9 & not x <= 8 & not y <= 8 => not y <= 9
+    //!   example: x != -y
+    //!     x <= 9 & not x <= 8 & y <= -9 => y <= -10
+    bool propagate_(Solver &solver, AbstractClauseCreator &cc, int s, val_t i, val_t j) {
+        auto ass = cc.assignment();
+
+        auto &reason = solver.temp_reason();
+        auto const &elem_i = constraint_[i];
+        auto const &elem_j = constraint_[j];
+        bool is_fact = elem_j.size() == 1;
+
+        // assigned index
+        for (auto [co, var] : elem_i) {
+            static_cast<void>(co);
+            auto &vs = solver.var_state(var);
+            assert(vs.is_assigned());
+
+            reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
+            assert(ass.is_false(reason.back()));
+            if (!ass.is_fixed(reason.back())) {
+                is_fact = false;
+            }
+
+            reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
+            assert(ass.is_false(reason.back()));
+            if (!ass.is_fixed(reason.back())) {
+                is_fact = false;
+            }
+        }
+
+        // bounded index
+        for (auto [co, var] : elem_j) {
+            auto &vs = solver.var_state(var);
+            if (s * co > 0) {
+                reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
+                assert(ass.is_false(reason.back()));
+                if (!ass.is_fixed(reason.back())) {
+                    is_fact = false;
+                }
+
+                // add consequence
+                // Note: Observe that is_fact can only be true if elem_j.size() == 1
+                auto lit = solver.update_literal(cc, vs, vs.upper_bound() - 1, is_fact ? Clingo::TruthValue::True : Clingo::TruthValue::Free);
+                reason.emplace_back(lit);
+                if (ass.is_true(lit)) {
+                    return true;
+                }
+            }
+            else {
+                reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
+                assert(ass.is_false(reason.back()));
+                if (!ass.is_fixed(reason.back())) {
+                    is_fact = false;
+                }
+
+                auto lit = -solver.update_literal(cc, vs, vs.lower_bound(), is_fact ? Clingo::TruthValue::False : Clingo::TruthValue::Free);
+                reason.emplace_back(lit);
+                if (ass.is_true(lit)) {
+                    return true;
+                }
+            }
+        }
+
+        return cc.add_clause(reason);
+    }
+
+    void mark_dirty_(val_t i) {
+        val_t idx = std::abs(i) - 1;
+        if (!in_dirty_[idx]) {
+            in_dirty_[idx] = true;
+            dirty_.emplace_back(idx);
+        }
+    }
+
+    void mark_todo_(val_t i) {
+        val_t idx = std::abs(i) - 1;
+        if (i > 0) {
+            if (!in_todo_lower_[idx]) {
+                in_todo_lower_[idx] = true;
+                todo_lower_.emplace_back(idx);
+            }
+        }
+        else {
+            if (!in_todo_upper_[idx]) {
+                in_todo_upper_[idx] = true;
+                todo_upper_.emplace_back(idx);
+            }
+        }
+    }
+
+    void clear_todo_() {
+        for (auto j : todo_lower_) {
+            in_todo_lower_[j] = false;
+        }
+        todo_lower_.clear();
+
+        for (auto j : todo_upper_) {
+            in_todo_upper_[j] = false;
+        }
+        todo_upper_.clear();
+    }
+
+    //! Recalculates the bounds of the i-th element of the constraint assuming
+    //! that the bounds of this element are not currently in the bound maps.
+    void init_(Solver &solver, val_t i) {
+        // calculate new values
+        auto const &element = constraint_[i];
+        sum_t upper = element.fixed();
+        sum_t lower = element.fixed();
+        for (auto [co, var] : element) {
+            auto &vs = solver.var_state(var);
+            if (co > 0) {
+                upper += static_cast<sum_t>(co) * vs.upper_bound();
+                lower += static_cast<sum_t>(co) * vs.lower_bound();
+            }
+            else {
+                upper += static_cast<sum_t>(co) * vs.lower_bound();
+                lower += static_cast<sum_t>(co) * vs.upper_bound();
+            }
+        }
+        // set new values
+        assigned_[i] = {lower, upper};
+        lower_.emplace(lower, i);
+        upper_.emplace(upper, i);
+    }
+
+    //! Recalculate all elements marked dirty.
+    void update_(Solver &solver) {
+        for (auto i : dirty_) {
+            auto [lower, upper] = assigned_[i];
+            lower_.erase(std::pair{lower, i});
+            upper_.erase(std::pair{upper, i});
+            init_(solver, i);
+            in_dirty_[i] = false;
+        }
+        dirty_.clear();
+    }
+
+    DistinctConstraintState(DistinctConstraintState const &x)
+    : constraint_{x.constraint_}
+    , assigned_{x.assigned_}
+    , dirty_{x.dirty_}
+    , todo_upper_{x.todo_upper_}
+    , todo_lower_{x.todo_lower_}
+    , in_dirty_{x.in_dirty_}
+    , in_todo_upper_{x.in_todo_upper_}
+    , in_todo_lower_{x.in_todo_lower_}
+    , lower_{x.lower_}
+    , upper_{x.upper_}
+    , inactive_level_{x.inactive_level_}
+    , todo_{x.todo_} {
+    }
+
+    DistinctConstraint &constraint_;
+    // TODO: The members assigned_, dirty_, todo_upper_, todo_lower_,
+    // in_dirty_, in_todo_upper_, in_todo_lower_ all have predetermined sizes
+    // and can be packed into contiguous memory. Maybe even the sets can be
+    // avoided. The best data structures and algorithms for distinct
+    // propagation should be explored in the literature.
+    std::vector<std::pair<sum_t, sum_t>> assigned_;
+    std::vector<val_t> dirty_;
+    std::vector<val_t> todo_upper_;
+    std::vector<val_t> todo_lower_;
+    std::vector<bool> in_dirty_;
+    std::vector<bool> in_todo_upper_;
+    std::vector<bool> in_todo_lower_;
+    std::set<std::pair<sum_t, val_t>> lower_;
+    std::set<std::pair<sum_t, val_t>> upper_;
+    level_t inactive_level_{0};
+    bool todo_{false};
+};
 
 } // namespace
 
@@ -1116,10 +1262,11 @@ DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool
     auto *co_var_it = reinterpret_cast<co_var_t*>(start); // NOLINT
     auto *element_it = elements_;
     for (auto const &element : elements) {
-        new (element_it++) DistinctElement{element.second, element.first.size(), co_var_it, sort}; // NOLINT
+        auto *co_var_ib = co_var_it;
         for (auto const &co_var : element.first) {
             new (co_var_it++) co_var_t{co_var}; // NOLINT
         }
+        new (element_it++) DistinctElement{element.second, element.first.size(), co_var_ib, sort}; // NOLINT
     }
 }
 
@@ -1132,7 +1279,7 @@ std::unique_ptr<DistinctConstraint> DistinctConstraint::create(lit_t lit, Elemen
 }
 
 UniqueConstraintState DistinctConstraint::create_state() {
-    throw std::runtime_error("implement me!!!");
+    return std::make_unique<DistinctConstraintState>(*this);
 }
 
 } // namespace Clingcon
