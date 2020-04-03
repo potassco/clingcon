@@ -180,7 +180,7 @@ void Propagator::on_model(Clingo::Model &model) {
     if (has_minimize()) {
         auto bound = get_minimize_value(model.thread_id());
         auto value = Clingo::String(std::to_string(bound).c_str());
-        symbols_.emplace_back(Clingo::Function("__csp_bound", {value}));
+        symbols_.emplace_back(Clingo::Function("__csp_cost", {value}));
         if (!minimize_bound_.has_value() || bound <= *minimize_bound_) {
             stats_step_.cost = bound;
             update_minimize(bound - 1);

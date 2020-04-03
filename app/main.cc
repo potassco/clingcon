@@ -1,6 +1,7 @@
 #include <clingo.hh>
 #include <clingcon.h>
 #include <fstream>
+#include <optional>
 
 using Clingo::Detail::handle_error;
 
@@ -80,6 +81,54 @@ public:
         return true;
     }
 
+    void print_model(Clingo::Model const &model, std::function<void()> default_printer) noexcept override {
+        static_cast<void>(default_printer);
+        try {
+            // print model
+            bool comma = false;
+            auto symbols = model.symbols(Clingo::ShowType::Shown);
+            symvec_.assign(symbols.begin(), symbols.end());
+            std::sort(symbols.begin(), symbols.end());
+            for (auto &sym : symbols) {
+                std::cout << (comma ? " " : "") <<  sym;
+                comma = true;
+            }
+            std::cout << "\n";
+
+            // print assignment
+            comma = false;
+            symbols = model.symbols(Clingo::ShowType::Theory);
+            symvec_.assign(symbols.begin(), symbols.end());
+            std::sort(symbols.begin(), symbols.end());
+            char const *cost = nullptr;
+            std::cout << "Assignment:\n";
+            for (auto &sym : symbols) {
+                if (sym.match("__csp", 2)) {
+                    auto arguments = sym.arguments();
+                    std::cout << (comma ? " " : "") <<  arguments[0] << "=" << arguments[1];
+                    comma = true;
+                }
+                else if (sym.match("__csp_cost", 1)) {
+                    auto arguments = sym.arguments();
+                    if (arguments[0].type() == Clingo::SymbolType::String) {
+                        cost = arguments[0].string();
+                    }
+                }
+            }
+            std::cout << "\n";
+
+            // print cost
+            if (cost != nullptr) {
+                std::cout << "Cost: " << cost << "\n";
+            }
+
+            std::cerr.flush();
+        }
+        catch(...) {
+            std::terminate();
+        }
+
+    }
     void on_statistics(Clingo::UserStatistics step, Clingo::UserStatistics accu) override {
         handle_error(clingcon_on_statistics(theory_, step.to_c(), accu.to_c()));
     }
@@ -107,6 +156,7 @@ private:
     }
 
     clingcon_theory_t *theory_{nullptr};
+    std::vector<Clingo::Symbol> symvec_;
 };
 
 
