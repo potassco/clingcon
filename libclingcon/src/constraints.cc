@@ -1203,7 +1203,8 @@ private:
     }
 
     DistinctConstraintState(DistinctConstraintState const &x)
-    : constraint_{x.constraint_}
+    : AbstractConstraintState{} // NOLINT
+    , constraint_{x.constraint_}
     , assigned_{x.assigned_}
     , dirty_{x.dirty_}
     , todo_upper_{x.todo_upper_}
