@@ -190,6 +190,11 @@ public:
         return fixed_;
     }
 
+    //! Check if the element is constant.
+    [[nodiscard]] bool empty() const {
+        return size_ == 0;
+    }
+
     //! Get the number of elements in the constraint.
     [[nodiscard]] size_t size() const {
         return size_;

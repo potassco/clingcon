@@ -810,58 +810,10 @@ public:
         static_cast<void>(solver);
         static_cast<void>(cc);
         static_cast<void>(added);
+        static_cast<void>(&DistinctConstraintState::domain_);
+        static_cast<void>(&DistinctConstraintState::estimate_);
+        static_cast<void>(&DistinctConstraintState::var_);
         /*
-    def _estimate(self):
-        """
-        Estimate the translation cost of the constraint in terms of the
-        required number of weight constraints.
-        """
-        cost = 0
-
-        intervals = IntervalSet()
-        for lower, upper in self.assigned.values():
-            intervals.add(lower, upper+1)
-        for lower, upper in intervals:
-            cost += upper - lower
-
-        return cost
-
-    def _domain(self, state, lower, elements):
-        """
-        Calculate the domain of a term.
-        """
-        values = IntervalSet()
-
-        values.add(lower, lower+1)
-        for co, var in elements:
-            current = values.copy()
-            cs = state.var_state(var)
-            add = abs(co)
-            for _ in range(cs.lower_bound, cs.upper_bound):
-                for l, u in current:
-                    values.add(l+add, u+add)
-                add += abs(co)
-
-        return values
-
-    def _var(self, state, lower, upper, elements, added):
-        """
-        Introduce a variable and make it equal to the term.
-        """
-        assert elements
-
-        if len(elements) == 1:
-            return elements[0][1]
-
-        var = state.add_variable(lower, upper)
-        elems = [(-1, var)] + elements
-        added.append(SumConstraint(TRUE_LIT, elems, 0))
-        added.append(SumConstraint(TRUE_LIT, [(-c, v) for c, v in elems], 0))
-        return var
-
-        """
-        Translate small enough distinct constraints to weight constraints.
-        """
         if self._estimate() >= config.distinct_limit:
             return True, False
 
@@ -938,7 +890,6 @@ public:
         return true;
     }
 
-    //! Clear the todo list and mark the given element as dirty.
     void undo(val_t i, val_t diff) override {
         static_cast<void>(diff);
 
@@ -1046,6 +997,72 @@ protected:
     }
 
 private:
+    //! Introduce a variable and make it equal to the term.
+    [[nodiscard]] var_t var_(Config const &config, Solver &solver, val_t i, ConstraintVec &added) {
+        auto [lower, upper] = assigned_[i];
+        auto const &elements = constraint_[i];
+
+        assert(!elements.empty());
+        if (elements.size() == 1) {
+            return elements.begin()->second;
+        }
+
+        auto var = solver.add_variable(lower, upper);
+        CoVarVec sum_elems;
+        sum_elems.emplace_back(-1, var);
+        sum_elems.insert(sum_elems.end(), elements.begin(), elements.end());
+        added.emplace_back(SumConstraint::create(TRUE_LIT, 0, sum_elems, config.sort_constraints));
+        for (auto &co_var : sum_elems) {
+            co_var.first = -co_var.first;
+        }
+        added.emplace_back(SumConstraint::create(TRUE_LIT, 0, sum_elems, config.sort_constraints));
+
+        return var;
+    }
+
+    //! Estimate the size of the translation in terms of the number of weight
+    //! constraints and return whether the constraint should be translated.
+    //!
+    //! Since terms might be represented by by auxiliary variables, we also
+    //! make sure that they can be represented by auxiliary variables.
+    bool estimate_(sum_t maximum) {
+        sum_t cost = 0;
+
+        IntervalSet<sum_t> intervals;
+        for (auto [lower, upper] : assigned_) {
+            if (lower < MIN_VAL || upper > MAX_VAL) {
+                return false;
+            }
+            intervals.add(lower, upper);
+        }
+        for (auto [lower, upper] : intervals) {
+            cost += upper - lower;
+        }
+
+        return cost <= maximum;
+    }
+
+    //! Calculate the domain of a term.
+    IntervalSet<sum_t> domain_(Solver &solver, val_t i) {
+        IntervalSet<sum_t> values;
+        auto lower = assigned_[i].first;
+
+        values.add(lower, lower+1);
+        for (auto [co, var] : constraint_[i]) {
+            IntervalSet<sum_t> current{values};
+            auto &vs = solver.var_state(var);
+            sum_t add = std::abs(co);
+            for (val_t i = vs.lower_bound(), e = vs.upper_bound(); i != e; ++i) {
+                for (auto [l, u] : current) {
+                    values.add(l + add, u + add);
+                }
+                add += std::abs(co);
+            }
+        }
+
+        return values;
+    }
+
     bool propagate_assigned_(Solver &solver, AbstractClauseCreator &cc, sum_t value, val_t i) {
         for (auto it = upper_.lower_bound({value, 0}), ie = upper_.lower_bound({value+1, 0}); it != ie; ++it) {
             assert(value == it->first);
