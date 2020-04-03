@@ -1123,12 +1123,12 @@ DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool
     }
 }
 
-std::unique_ptr<DistinctConstraint> DistinctConstraint::create(lit_t lit, Elements const &elements, bool sort) {
-    size_t size = sizeof(DistinctConstraint) + elements.size() * sizeof(DistinctElement);
-    for (auto const &element : elements) {
+std::unique_ptr<DistinctConstraint> DistinctConstraint::create(lit_t lit, Elements const &elems, bool sort) {
+    size_t size = sizeof(DistinctConstraint) + elems.size() * sizeof(DistinctElement);
+    for (auto const &element : elems) {
         size += element.first.size() * sizeof(co_var_t);
     }
-    return std::unique_ptr<DistinctConstraint>{new (operator new(size)) DistinctConstraint(lit, elements, sort)};
+    return std::unique_ptr<DistinctConstraint>{new (operator new(size)) DistinctConstraint(lit, elems, sort)};
 }
 
 UniqueConstraintState DistinctConstraint::create_state() {
