@@ -813,65 +813,87 @@ public:
         static_cast<void>(&DistinctConstraintState::domain_);
         static_cast<void>(&DistinctConstraintState::estimate_);
         static_cast<void>(&DistinctConstraintState::var_);
-        /*
-        if self._estimate() >= config.distinct_limit:
-            return True, False
 
-        # compute domain of terms and identify values involved in at least two terms
-        union = set()
-        counts = {}
-        elem_values = []
-        for i, (_, elements) in enumerate(self.constraint.elements):
-            elem_values.append(self._domain(state, self.assigned[i][0], elements))
-            for value in elem_values[-1].enum():
-                if value not in counts:
-                    counts[value] = 0
-                counts[value] += 1
-                if counts[value] > 1:
-                    union.add(value)
+        if (!estimate_(config.distinct_limit)) {
+            return {true, false};
+        }
 
-        # calculate variables for terms avoiding unnecessary variables
-        elem_vars = []
-        for (fixed, elements), (lower, upper), values in zip(self.constraint.elements, self.assigned.values(), elem_values):
-            var = None
-            for value in values.enum():
-                if value not in union:
-                    continue
-                var = self._var(state, lower, upper, elements, added)
-                break
-            elem_vars.append((fixed, var))
+        // count how often values occur in term domains
+        std::map<sum_t, val_t> counts;
+        std::vector<IntervalSet<sum_t>> domains;
+        for (val_t i = 0, e = constraint_.size(); i != e; ++i) {
+            domains.emplace_back(domain_(solver, i));
+            domains.back().enumerate([&](sum_t value) {
+                ++counts[value];
+                return true;
+            });
+        }
 
-        # add weight constraints
-        for value in sorted(union):
-            # variables that have to be different
-            wlits = []
-            for (fixed, var), values in zip(elem_vars, elem_values):
-                if value not in values:
-                    continue
-                lit = TRUE_LIT
-                if var is not None:
-                    # lit == var<=value && var>=value
-                    #     == var<=value && not var<=value-1
-                    vs = state.var_state(var)
-                    a = state.get_literal(vs, value-fixed, cc)
-                    b = -state.get_literal(vs, value-fixed-1, cc)
-                    if a == TRUE_LIT:
-                        lit = b
-                    elif b == -TRUE_LIT:
-                        lit = a
-                    else:
-                        lit = cc.add_literal()
-                        cc.add_clause([-a, -b, lit])
-                        cc.add_clause([a, -lit])
-                        cc.add_clause([b, -lit])
-                wlits.append((lit, 1))
+        // calculate variables for terms avoiding unnecessary variables
+        CoVarVec diff_elems;
+        for (val_t i = 0, e = constraint_.size(); i != e; ++i) {
+            co_var_t co_var{constraint_[i].fixed(), INVALID_VAR};
+            domains[i].enumerate([&](sum_t value) {
+                if (counts[value] > 1) {
+                    co_var = var_(config, solver, i, added);
+                    return false;
+                }
+                return true;
+            });
+            diff_elems.emplace_back(co_var);
+        }
 
-            assert len(wlits) > 1
-            cc.add_weight_constraint(self.literal, wlits, 1, 1)
+        // add weight constraints
+        for (auto [value, count] : counts) {
+            if (count <= 1) {
+                continue;
+            }
+            // variables that have to be different
+            std::vector<Clingo::WeightedLiteral> wlits;
 
-        return True, True
-        */
-        return {true, false};
+            for (val_t i = 0, e = constraint_.size(); i != e; ++i) {
+                auto &domain = domains[i];
+                if (!domain.contains(value)) {
+                    continue;
+                }
+                auto [fixed, var] = diff_elems[i];
+                auto lit = TRUE_LIT;
+                if (var != INVALID_VAR) {
+                    // lit == var<=value && var>=value
+                    //     == var<=value && not var<=value-1
+                    auto &vs = solver.var_state(var);
+                    auto a = solver.get_literal(cc, vs, value - fixed);
+                    auto b = -solver.get_literal(cc, vs, value - fixed - 1);
+
+                    if (a == TRUE_LIT) {
+                        lit = b;
+                    }
+                    else if (b == -TRUE_LIT) {
+                        lit = a;
+                    }
+                    else {
+                        lit = cc.add_literal();
+                        if (!cc.add_clause({-a, -b, lit})) {
+                            return {false, false};
+                        }
+                        if (!cc.add_clause({a, -lit})) {
+                            return {false, false};
+                        }
+                        if (!cc.add_clause({b, -lit})) {
+                            return {false, false};
+                        }
+                    }
+                }
+                wlits.emplace_back(lit, 1);
+            }
+
+            assert(wlits.size() > 1);
+            if (!cc.add_weight_constraint(constraint_.literal(), wlits, 1, Clingo::WeightConstraintType::RightImplication)) {
+                return {false, false};
+            }
+        }
+
+        return {true, true};
     }
 
     [[nodiscard]] UniqueConstraintState copy() const override {
@@ -998,26 +1020,26 @@ protected:
 
 private:
     //! Introduce a variable and make it equal to the term.
-    [[nodiscard]] var_t var_(Config const &config, Solver &solver, val_t i, ConstraintVec &added) {
+    [[nodiscard]] co_var_t var_(Config const &config, Solver &solver, val_t i, ConstraintVec &added) {
         auto [lower, upper] = assigned_[i];
         auto const &elements = constraint_[i];
 
         assert(!elements.empty());
         if (elements.size() == 1) {
-            return elements.begin()->second;
+            return {elements.fixed(), elements.begin()->second};
         }
 
         auto var = solver.add_variable(lower, upper);
         CoVarVec sum_elems;
         sum_elems.emplace_back(-1, var);
         sum_elems.insert(sum_elems.end(), elements.begin(), elements.end());
-        added.emplace_back(SumConstraint::create(TRUE_LIT, 0, sum_elems, config.sort_constraints));
+        added.emplace_back(SumConstraint::create(TRUE_LIT, -elements.fixed(), sum_elems, config.sort_constraints));
         for (auto &co_var : sum_elems) {
             co_var.first = -co_var.first;
         }
-        added.emplace_back(SumConstraint::create(TRUE_LIT, 0, sum_elems, config.sort_constraints));
+        added.emplace_back(SumConstraint::create(TRUE_LIT, elements.fixed(), sum_elems, config.sort_constraints));
 
-        return var;
+        return {0, var};
     }
 
     //! Estimate the size of the translation in terms of the number of weight
@@ -1039,7 +1061,7 @@ private:
             cost += upper - lower;
         }
 
-        return cost <= maximum;
+        return cost < maximum;
     }
 
     //! Calculate the domain of a term.

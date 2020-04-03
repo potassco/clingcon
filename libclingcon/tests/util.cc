@@ -118,8 +118,20 @@ TEST_CASE("util", "[util]") { // NOLINT
         a.add(3, 4);
         a.add(5, 7);
         std::vector<int> enu;
-        a.enumerate([&enu](int x) { enu.emplace_back(x); });
+        a.enumerate([&enu](int x) {
+            enu.emplace_back(x);
+            return true;
+        });
         REQUIRE(enu == (std::vector<int>{1, 3, 5, 6}));
+
+        REQUIRE(!a.contains(0));
+        REQUIRE(a.contains(1));
+        REQUIRE(!a.contains(2));
+        REQUIRE(a.contains(3));
+        REQUIRE(!a.contains(4));
+        REQUIRE(a.contains(5));
+        REQUIRE(a.contains(6));
+        REQUIRE(!a.contains(7));
 
         REQUIRE(a.contains(1, 2));
         REQUIRE(a.contains(3, 4));

@@ -294,7 +294,7 @@ public:
 
     ~InitClauseCreator() override = default;
 
-    lit_t add_literal() override {
+    [[nodiscard]] lit_t add_literal() override {
         auto lit = init_.add_literal();
         ++stats_.num_literals;
         if (state_ == StateTranslate) {
@@ -307,11 +307,11 @@ public:
         init_.add_watch(lit);
     }
 
-    bool propagate() override {
+    [[nodiscard]] bool propagate() override {
         return commit() && init_.propagate();
     }
 
-    bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
+    [[nodiscard]] bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
         assert(type != Clingo::ClauseType::Volatile && type != Clingo::ClauseType::VolatileStatic);
         static_cast<void>(type);
 
@@ -324,7 +324,7 @@ public:
         return true;
     }
 
-    Clingo::Assignment assignment() override {
+    [[nodiscard]] Clingo::Assignment assignment() override {
         return init_.assignment();
     }
 
@@ -335,12 +335,12 @@ public:
     }
 
     //! Map the literal to a solver literal.
-    lit_t solver_literal(lit_t literal) {
+    [[nodiscard]] lit_t solver_literal(lit_t literal) {
         return init_.solver_literal(literal);
     }
 
     //! Add a weight constraint of form `lit == (wlits <= bound)`.
-    bool add_weight_constraint(lit_t lit, Clingo::WeightedLiteralSpan wlits, val_t bound, Clingo::WeightConstraintType type) {
+    [[nodiscard]] bool add_weight_constraint(lit_t lit, Clingo::WeightedLiteralSpan wlits, val_t bound, Clingo::WeightConstraintType type) {
         auto ass = assignment();
         if (ass.is_true(lit)) {
             if (type < 0) {
@@ -366,7 +366,7 @@ public:
     }
 
     //! Commit accumulated constraints.
-    bool commit() {
+    [[nodiscard]] bool commit() {
         for (auto &clause : clauses_) {
             if (!init_.add_clause(clause)) {
                 return false;

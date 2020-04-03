@@ -263,7 +263,7 @@ public:
         //   |-------|
         // |---|  |---|  |---|
         //               ^
-        auto it = map_.upper_bound(a);
+        auto it = map_.lower_bound(b);
         if (it == map_.begin()) {
             return false;
         }
@@ -273,6 +273,24 @@ public:
         // |-----------|
         // ^           ^
         return !(a < it->first) && !(it->second < b);
+    }
+    //!
+    //! Check if the set contains in interval.
+    [[nodiscard]] bool contains(T const &a) const {
+        //           v
+        //   |-------|
+        // |---|  |---|  |---|
+        //               ^
+        auto it = map_.upper_bound(a);
+        if (it == map_.begin()) {
+            return false;
+        }
+        --it;
+        //   v       v
+        //   |-------|
+        // |-----------|
+        // ^           ^
+        return a < it->second;
     }
 
     //! Add an interval to the set.
@@ -336,7 +354,9 @@ public:
     void enumerate(F f) {
         for (const auto &[x, y] : map_) {
             for (auto i = x; i < y; ++i) {
-                f(i);
+                if (!f(i)) {
+                    return;
+                }
             }
         }
     }
