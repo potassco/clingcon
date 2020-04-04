@@ -338,6 +338,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
     while (solvers_.size() > n) {
         solvers_.pop_back();
     }
+    master.shrink_to_fit();
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
         it->copy_state(master);
     }

@@ -619,6 +619,15 @@ private:
     std::vector<AbstractConstraintState*> todo_;
     //! Map from literals to corresponding constraint states.
     std::unordered_multimap<lit_t, AbstractConstraintState*> lit2cs_;
+    //! Set of Clingcon::VarState objects with a modified lower bound.
+    std::vector<var_t> undo_lower_;
+    //! Set of Clingcon::VarState objects that a modified upper bound.
+    std::vector<var_t> undo_upper_;
+    //! List of constraint states that can become inactive on the next level.
+    std::vector<AbstractConstraintState*> inactive_;
+    //! List of variable/coefficient/constraint triples that have been removed
+    //! from the Solver::v2cs_ map.
+    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_var_watches_;
     //! Offset to speed up Solver::check_full.
     uint32_t split_last_{0};
     //! Offset to speed up Solver::simplify.

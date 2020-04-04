@@ -32,8 +32,12 @@ namespace Clingcon {
 //! Class that helps to maintain per decision level state.
 class Solver::Level {
 public:
-    Level(level_t level)
-    : level_{level} {
+    Level(Solver &solver, level_t level)
+    : level_{level}
+    , undo_lower_offset_{solver.undo_lower_.size()}
+    , undo_upper_offset_{solver.undo_upper_.size()}
+    , inactive_offset_{solver.inactive_.size()}
+    , removed_var_watches_offset_{solver.removed_var_watches_.size()} {
     }
 
     [[nodiscard]] level_t level() const {
@@ -41,11 +45,11 @@ public:
     }
 
     //! Update the lower bound of a var state.
-    void update_lower(Solver &solver, VarState &vs, val_t value) {
+    void update_lower(Solver &solver, VarState &vs, val_t value) const {
         val_t diff = value + 1 - vs.lower_bound();
         if (level_ > 0 && !vs.pushed_lower(level_) ) {
             vs.push_lower(level_);
-            undo_lower_.emplace_back(vs.var());
+            solver.undo_lower_.emplace_back(vs.var());
         }
         vs.lower_bound(value + 1);
 
@@ -56,12 +60,12 @@ public:
     }
 
     //! Update the upper bound of a var state.
-    void update_upper(Solver &solver, VarState &vs, val_t value) {
+    void update_upper(Solver &solver, VarState &vs, val_t value) const {
         val_t diff = value - vs.upper_bound();
 
         if (level_ > 0 && !vs.pushed_upper(level_) ) {
             vs.push_upper(level_);
-            undo_upper_.emplace_back(vs.var());
+            solver.undo_upper_.emplace_back(vs.var());
         }
         vs.upper_bound(value);
 
@@ -75,7 +79,7 @@ public:
     //!
     //! The parameters determine whether the lookup tables for lower or upper
     //! bounds are used.
-    void update_constraints_(Solver &solver, var_t var, val_t diff) {
+    void update_constraints_(Solver &solver, var_t var, val_t diff) const {
         auto &watches = solver.var_watches_[var];
         watches.erase(std::remove_if(watches.begin(), watches.end(), [&](auto const &value_cs) {
             if (!value_cs.second->removable(level_)) {
@@ -84,15 +88,15 @@ public:
                 }
                 return false;
             }
-            removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
+            solver.removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
             return true;
         }), watches.end());
     }
 
     //! Mark a constraint state as inactive.
-    void mark_inactive(AbstractConstraintState &cs) {
+    void mark_inactive(Solver &solver, AbstractConstraintState &cs) const {
         if (cs.removable() && !cs.marked_inactive()) {
-            inactive_.emplace_back(&cs);
+            solver.inactive_.emplace_back(&cs);
             cs.mark_inactive(level_);
         }
     }
@@ -109,9 +113,10 @@ public:
     //!
     //! This includes undoing changed bounds of variables clearing constraints
     //! that where not propagated on the current decision level.
-    void undo(Solver &solver) {
+    void undo(Solver &solver) const {
         // undo lower bound changes
-        for (auto var : undo_lower_) {
+        for (auto it = solver.undo_lower_.begin() + undo_lower_offset_, ie = solver.undo_lower_.end(); it != ie; ++it) {
+            auto var = *it;
             auto &vs = solver.var_state(var);
             auto value = vs.lower_bound();
             vs.pop_lower();
@@ -123,10 +128,12 @@ public:
             }
             solver.ldiff_[var] = 0;
         }
+        solver.undo_lower_.resize(undo_lower_offset_);
         solver.in_ldiff_.clear();
 
         // undo upper bound changes
-        for (auto var : undo_upper_) {
+        for (auto it = solver.undo_upper_.begin() + undo_upper_offset_, ie = solver.undo_upper_.end(); it != ie; ++it) {
+            auto var = *it;
             auto &vs = solver.var_state(var);
             auto value = vs.upper_bound();
             vs.pop_upper();
@@ -138,17 +145,22 @@ public:
             }
             solver.udiff_[var] = 0;
         }
+        solver.undo_upper_.resize(undo_upper_offset_);
         solver.in_udiff_.clear();
 
         // mark constraints as active again
-        for (auto *cs : inactive_) {
+        for (auto it = solver.inactive_.begin() + inactive_offset_, ie = solver.inactive_.end(); it != ie; ++it) {
+            auto *cs = *it;
             cs->mark_active();
         }
+        solver.inactive_.resize(inactive_offset_);
 
         // add removed watches
-        for (auto &[var, val, cs] : removed_var_watches_) {
+        for (auto it = solver.removed_var_watches_.begin() + removed_var_watches_offset_, ie = solver.removed_var_watches_.end(); it != ie; ++it) {
+            auto [var, val, cs] = *it;
             solver.var_watches_[var].emplace_back(val, cs);
         }
+        solver.removed_var_watches_.resize(removed_var_watches_offset_);
 
         // clear remaining todo items
         for (auto *cs : solver.todo_) {
@@ -158,10 +170,13 @@ public:
     }
 
     //! Remove the constraint state from the propagation state.
-    void remove_constraint(Solver &solver, AbstractConstraintState &cs) {
+    void remove_constraint(Solver &solver, AbstractConstraintState &cs) const {
+        static_cast<void>(level_);
+        assert(level_ == 0);
+
         if (cs.marked_inactive()) {
             cs.mark_active();
-            inactive_.erase(std::find(inactive_.begin(), inactive_.end(), &cs));
+            solver.inactive_.erase(std::find(solver.inactive_.begin(), solver.inactive_.end(), &cs));
         }
         if (cs.marked_todo()) {
             cs.mark_todo(false);
@@ -171,17 +186,20 @@ public:
 
     //! Remove a set of constraints from the propagation state.
     template <class F>
-    void remove_constraints(Solver &solver, F in_removed) {
+    void remove_constraints(Solver &solver, F in_removed) const {
+        static_cast<void>(level_);
+        assert(level_ == 0);
+
         for (auto &watches : solver.var_watches_) {
             watches.erase(std::remove_if(watches.begin(), watches.end(), [in_removed](auto &watch) {
                 return in_removed(*watch.second);
             }), watches.end());
         }
 
-        inactive_.erase(std::remove_if(inactive_.begin(), inactive_.end(), [in_removed](auto *cs) {
+        solver.inactive_.erase(std::remove_if(solver.inactive_.begin(), solver.inactive_.end(), [in_removed](auto *cs) {
             cs->mark_active();
             return in_removed(*cs);
-        }), inactive_.end());
+        }), solver.inactive_.end());
 
         solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(), [in_removed](auto *cs) {
             cs->mark_todo(false);
@@ -201,18 +219,22 @@ public:
         auto const &lvl_master = master.levels_.front();
 
         // copy bound changes
-        lvl.undo_lower_ = lvl_master.undo_lower_;
+        lvl.undo_lower_offset_ = lvl_master.undo_lower_offset_;
+        solver.undo_lower_ = master.undo_lower_;
         solver.ldiff_ = master.ldiff_;
         solver.in_ldiff_ = master.in_ldiff_;
 
-        lvl.undo_upper_ = lvl_master.undo_upper_;
+        lvl.undo_upper_offset_ = lvl_master.undo_upper_offset_;
+        solver.undo_upper_ = master.undo_upper_;
         solver.udiff_ = master.udiff_;
         solver.in_udiff_ = master.in_udiff_;
 
         // copy inactive
-        lvl.inactive_.clear();
-        for (auto *cs : lvl_master.inactive_) {
-            lvl.inactive_.emplace_back(&solver.constraint_state(cs->constraint()));
+        lvl.inactive_offset_ = lvl_master.inactive_offset_;
+        solver.inactive_.clear();
+        solver.inactive_.reserve(master.inactive_.size());
+        for (auto *cs : master.inactive_) {
+            solver.inactive_.emplace_back(&solver.constraint_state(cs->constraint()));
         }
 
         // copy watches
@@ -224,10 +246,11 @@ public:
         }
 
         // copy removed watches
-        lvl.removed_var_watches_.clear();
-        lvl.removed_var_watches_.reserve(lvl_master.removed_var_watches_.size());
-        for (auto const &[var, val, cs] : lvl_master.removed_var_watches_) {
-            lvl.removed_var_watches_.emplace_back(var, val, &solver.constraint_state(cs->constraint()));
+        lvl.removed_var_watches_offset_ = lvl_master.removed_var_watches_offset_;
+        solver.removed_var_watches_.clear();
+        solver.removed_var_watches_.reserve(master.removed_var_watches_.size());
+        for (auto const &[var, val, cs] : master.removed_var_watches_) {
+            solver.removed_var_watches_.emplace_back(var, val, &solver.constraint_state(cs->constraint()));
         }
 
         // copy todo queue
@@ -241,21 +264,16 @@ public:
 private:
     //! The associated decision level.
     level_t level_;
-    //! Set of Clingcon::VarState objects with a modified lower bound.
-    std::vector<var_t> undo_lower_;
-    //! Set of Clingcon::VarState objects that a modified upper bound.
-    std::vector<var_t> undo_upper_;
-    //! List of constraint states that can become inactive on the next level.
-    std::vector<AbstractConstraintState*> inactive_;
-    //! List of variable/coefficient/constraint triples that have been removed
-    //! from the Solver::v2cs_ map.
-    std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_var_watches_;
+    size_t undo_lower_offset_;
+    size_t undo_upper_offset_;
+    size_t inactive_offset_;
+    size_t removed_var_watches_offset_;
 };
 
 Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
 : config_{config}
 , stats_{stats} {
-    levels_.emplace_back(0);
+    levels_.emplace_back(*this, 0);
 }
 
 Solver::Solver(Solver &&x) noexcept = default;
@@ -291,6 +309,8 @@ void Solver::copy_state(Solver const &master) {
     // copy constraint states and lookups
     c2cs_.clear();
     lit2cs_.clear();
+    c2cs_.reserve(master.c2cs_.size());
+    lit2cs_.reserve(master.lit2cs_.size());
     for (auto const &[c, cs] : master.c2cs_) {
         auto ret = c2cs_.emplace(c, cs->copy());
         lit2cs_.emplace(c->literal(), ret.first->second.get());
@@ -336,7 +356,7 @@ Solver::Level &Solver::level_() {
 void Solver::push_level_(level_t level) {
     assert(!levels_.empty());
     if (levels_.back().level() < level) {
-        levels_.emplace_back(level);
+        levels_.emplace_back(*this, level);
     }
 }
 
@@ -398,7 +418,7 @@ void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
 }
 
 void Solver::mark_inactive(AbstractConstraintState &cs) {
-    level_().mark_inactive(cs);
+    level_().mark_inactive(*this, cs);
 }
 
 AbstractConstraintState &Solver::add_constraint(AbstractConstraint &constraint) {
@@ -721,7 +741,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
                 }
             }
             else {
-                lvl.mark_inactive(*cs);
+                lvl.mark_inactive(*this, *cs);
             }
         }
         todo_.clear();
