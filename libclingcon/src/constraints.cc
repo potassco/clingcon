@@ -786,7 +786,9 @@ public:
     void attach(Solver &solver) override {
         val_t idx = 0;
         for (auto const &element : constraint_) {
-            init_(solver, idx);
+            auto [lower, upper] = init_(solver, idx);
+            lower_.emplace(lower, idx);
+            upper_.emplace(upper, idx);
             for (auto [co, var] : element) {
                 solver.add_var_watch(var, co > 0 ? idx + 1 : -idx - 1, *this);
             }
@@ -1216,7 +1218,7 @@ private:
 
     //! Recalculates the bounds of the i-th element of the constraint assuming
     //! that the bounds of this element are not currently in the bound maps.
-    void init_(Solver &solver, uint32_t idx) {
+    [[nodiscard]] std::pair<sum_t, sum_t> init_(Solver &solver, uint32_t idx) {
         // calculate new values
         auto const &element = constraint_[idx];
         sum_t upper = element.fixed();
@@ -1234,17 +1236,20 @@ private:
         }
         // set new values
         assigned_[idx] = {lower, upper};
-        lower_.emplace(lower, idx);
-        upper_.emplace(upper, idx);
+        return {lower, upper};
     }
 
     //! Recalculate all elements marked dirty.
     void update_(Solver &solver) {
         for (auto i : dirty_) {
-            auto [lower, upper] = assigned_[i];
-            lower_.erase(std::pair{lower, i});
-            upper_.erase(std::pair{upper, i});
-            init_(solver, i);
+            auto [old_lower, old_upper] = assigned_[i];
+            auto node_lower = lower_.extract(std::pair{old_lower, i});
+            auto node_upper = upper_.extract(std::pair{old_upper, i});
+            auto [new_lower, new_upper] = init_(solver, i);
+            node_lower.value().first = new_lower;
+            node_upper.value().first = new_upper;
+            lower_.insert(std::move(node_lower));
+            upper_.insert(std::move(node_upper));
             in_dirty_[i] = false;
         }
         dirty_.clear();
