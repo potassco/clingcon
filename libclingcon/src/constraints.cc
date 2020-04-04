@@ -784,45 +784,37 @@ public:
     }
 
     void attach(Solver &solver) override {
-        val_t i = 0;
+        val_t idx = 0;
         for (auto const &element : constraint_) {
-            init_(solver, i);
+            init_(solver, idx);
             for (auto [co, var] : element) {
-                solver.add_var_watch(var, co > 0 ? i+1 : -i-1, *this);
+                solver.add_var_watch(var, co > 0 ? idx + 1 : -idx - 1, *this);
             }
-            ++i;
+            ++idx;
         }
     }
 
     void detach(Solver &solver) override {
-        val_t i = 0;
+        val_t idx = 0;
         for (auto const &element : constraint_) {
             for (auto [co, var] : element) {
-                solver.remove_var_watch(var, co > 0 ? i+1 : -i-1, *this);
+                solver.remove_var_watch(var, co > 0 ? idx + 1 : -idx - 1, *this);
             }
-            ++i;
+            ++idx;
         }
     }
 
     //! Translate small enough distinct constraints to weight constraints.
     [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) override {
-        static_cast<void>(config);
-        static_cast<void>(solver);
-        static_cast<void>(cc);
-        static_cast<void>(added);
-        static_cast<void>(&DistinctConstraintState::domain_);
-        static_cast<void>(&DistinctConstraintState::estimate_);
-        static_cast<void>(&DistinctConstraintState::var_);
-
         if (!estimate_(config.distinct_limit)) {
             return {true, false};
         }
 
         // count how often values occur in term domains
-        std::map<sum_t, val_t> counts;
+        std::map<sum_t, uint32_t> counts;
         std::vector<IntervalSet<sum_t>> domains;
-        for (val_t i = 0, e = constraint_.size(); i != e; ++i) {
-            domains.emplace_back(domain_(solver, i));
+        for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
+            domains.emplace_back(domain_(solver, idx));
             domains.back().enumerate([&](sum_t value) {
                 ++counts[value];
                 return true;
@@ -831,11 +823,11 @@ public:
 
         // calculate variables for terms avoiding unnecessary variables
         CoVarVec diff_elems;
-        for (val_t i = 0, e = constraint_.size(); i != e; ++i) {
-            co_var_t co_var{constraint_[i].fixed(), INVALID_VAR};
-            domains[i].enumerate([&](sum_t value) {
+        for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
+            co_var_t co_var{constraint_[idx].fixed(), INVALID_VAR};
+            domains[idx].enumerate([&](sum_t value) {
                 if (counts[value] > 1) {
-                    co_var = var_(config, solver, i, added);
+                    co_var = var_(config, solver, idx, added);
                     return false;
                 }
                 return true;
@@ -851,12 +843,12 @@ public:
             // variables that have to be different
             std::vector<Clingo::WeightedLiteral> wlits;
 
-            for (val_t i = 0, e = constraint_.size(); i != e; ++i) {
-                auto &domain = domains[i];
+            for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
+                auto &domain = domains[idx];
                 if (!domain.contains(value)) {
                     continue;
                 }
-                auto [fixed, var] = diff_elems[i];
+                auto [fixed, var] = diff_elems[idx];
                 auto lit = TRUE_LIT;
                 if (var != INVALID_VAR) {
                     // lit == var<=value && var>=value
@@ -902,21 +894,21 @@ public:
 
     //! Add an element whose bound has changed to the todo list and mark it as
     //! dirty.
-    //!
-    //! If i is greater zero, than the lower bound changed; otherwise the upper
-    //! bound.
     [[nodiscard]] bool update(val_t i, val_t diff) override {
         static_cast<void>(diff);
-        mark_dirty_(i);
-        mark_todo_(i);
+        uint32_t idx = std::abs(i) - 1;
+
+        mark_dirty_(idx);
+        mark_todo_(i, idx);
         return true;
     }
 
     void undo(val_t i, val_t diff) override {
         static_cast<void>(diff);
+        uint32_t idx = std::abs(i) - 1;
 
         // mark given element as dirty
-        mark_dirty_(i);
+        mark_dirty_(idx);
 
         // clear todo lists
         clear_todo_();
@@ -1020,9 +1012,9 @@ protected:
 
 private:
     //! Introduce a variable and make it equal to the term.
-    [[nodiscard]] co_var_t var_(Config const &config, Solver &solver, val_t i, ConstraintVec &added) {
-        auto [lower, upper] = assigned_[i];
-        auto const &elements = constraint_[i];
+    [[nodiscard]] co_var_t var_(Config const &config, Solver &solver, uint32_t idx, ConstraintVec &added) {
+        auto [lower, upper] = assigned_[idx];
+        auto const &elements = constraint_[idx];
 
         assert(!elements.empty());
         if (elements.size() == 1) {
@@ -1065,12 +1057,12 @@ private:
     }
 
     //! Calculate the domain of a term.
-    IntervalSet<sum_t> domain_(Solver &solver, val_t i) {
+    IntervalSet<sum_t> domain_(Solver &solver, uint32_t idx) {
         IntervalSet<sum_t> values;
-        auto lower = assigned_[i].first;
+        auto lower = assigned_[idx].first;
 
         values.add(lower, lower+1);
-        for (auto [co, var] : constraint_[i]) {
+        for (auto [co, var] : constraint_[idx]) {
             IntervalSet<sum_t> current{values};
             auto &vs = solver.var_state(var);
             sum_t add = std::abs(co);
@@ -1085,16 +1077,16 @@ private:
         return values;
     }
 
-    bool propagate_assigned_(Solver &solver, AbstractClauseCreator &cc, sum_t value, val_t i) {
+    bool propagate_assigned_(Solver &solver, AbstractClauseCreator &cc, sum_t value, uint32_t idx) {
         for (auto it = upper_.lower_bound({value, 0}), ie = upper_.lower_bound({value+1, 0}); it != ie; ++it) {
             assert(value == it->first);
-            if (it->second != i && !propagate_(solver, cc, 1, i, it->second)) {
+            if (it->second != idx && !propagate_(solver, cc, 1, idx, it->second)) {
                 return false;
             }
         }
         for (auto it = lower_.lower_bound({value, 0}), ie = lower_.lower_bound({value+1, 0}); it != ie; ++it) {
             assert(value == it->first);
-            if (it->second != i && !propagate_(solver, cc, -1, i, it->second)) {
+            if (it->second != idx && !propagate_(solver, cc, -1, idx, it->second)) {
                 return false;
             }
         }
@@ -1125,7 +1117,7 @@ private:
     //!     x <= 9 & not x <= 8 & not y <= 8 => not y <= 9
     //!   example: x != -y
     //!     x <= 9 & not x <= 8 & y <= -9 => y <= -10
-    bool propagate_(Solver &solver, AbstractClauseCreator &cc, int s, val_t i, val_t j) {
+    bool propagate_(Solver &solver, AbstractClauseCreator &cc, int s, uint32_t i, uint32_t j) {
         auto ass = cc.assignment();
 
         auto &reason = solver.temp_reason();
@@ -1188,17 +1180,15 @@ private:
         return cc.add_clause(reason);
     }
 
-    void mark_dirty_(val_t i) {
-        val_t idx = std::abs(i) - 1;
+    void mark_dirty_(uint32_t idx) {
         if (!in_dirty_[idx]) {
             in_dirty_[idx] = true;
             dirty_.emplace_back(idx);
         }
     }
 
-    void mark_todo_(val_t i) {
-        val_t idx = std::abs(i) - 1;
-        if (i > 0) {
+    void mark_todo_(val_t sign, uint32_t idx) {
+        if (sign > 0) {
             if (!in_todo_lower_[idx]) {
                 in_todo_lower_[idx] = true;
                 todo_lower_.emplace_back(idx);
@@ -1226,9 +1216,9 @@ private:
 
     //! Recalculates the bounds of the i-th element of the constraint assuming
     //! that the bounds of this element are not currently in the bound maps.
-    void init_(Solver &solver, val_t i) {
+    void init_(Solver &solver, uint32_t idx) {
         // calculate new values
-        auto const &element = constraint_[i];
+        auto const &element = constraint_[idx];
         sum_t upper = element.fixed();
         sum_t lower = element.fixed();
         for (auto [co, var] : element) {
@@ -1243,9 +1233,9 @@ private:
             }
         }
         // set new values
-        assigned_[i] = {lower, upper};
-        lower_.emplace(lower, i);
-        upper_.emplace(upper, i);
+        assigned_[idx] = {lower, upper};
+        lower_.emplace(lower, idx);
+        upper_.emplace(upper, idx);
     }
 
     //! Recalculate all elements marked dirty.
@@ -1283,14 +1273,14 @@ private:
     // avoided. The best data structures and algorithms for distinct
     // propagation should be explored in the literature.
     std::vector<std::pair<sum_t, sum_t>> assigned_;
-    std::vector<val_t> dirty_;
-    std::vector<val_t> todo_upper_;
-    std::vector<val_t> todo_lower_;
+    std::vector<uint32_t> dirty_;
+    std::vector<uint32_t> todo_upper_;
+    std::vector<uint32_t> todo_lower_;
     std::vector<bool> in_dirty_;
     std::vector<bool> in_todo_upper_;
     std::vector<bool> in_todo_lower_;
-    std::set<std::pair<sum_t, val_t>> lower_;
-    std::set<std::pair<sum_t, val_t>> upper_;
+    std::set<std::pair<sum_t, uint32_t>> lower_;
+    std::set<std::pair<sum_t, uint32_t>> upper_;
     level_t inactive_level_{0};
     bool todo_{false};
 };
