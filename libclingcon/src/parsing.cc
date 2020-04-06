@@ -362,7 +362,7 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
                 if (!is_valid_var(l.second)) {
                     res.emplace_back(safe_mul(l.first, r.first), r.second);
                 }
-                else if (!is_valid_var(l.second)) {
+                else if (!is_valid_var(r.second)) {
                     res.emplace_back(safe_mul(l.first, r.first), l.second);
                 }
                 else {

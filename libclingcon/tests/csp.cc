@@ -95,6 +95,8 @@ TEST_CASE("solving", "[solving]") { // NOLINT
         REQUIRE(solve("&sum { x } <= 2.", 0, 3) == S({"x=0", "x=1", "x=2"}));
         REQUIRE(solve("&sum { x } > 1.", 0, 3) == S({"x=2", "x=3"}));
         REQUIRE(solve("&sum { x } >= 1.", 0, 3) == S({"x=1", "x=2", "x=3"}));
+        REQUIRE(solve("&sum { 2*(x+x) } <= 4.", 0, 3) == S({"x=0", "x=1"}));
+        REQUIRE(solve("&sum { (x+x)*2 } <= 4.", 0, 3) == S({"x=0", "x=1"}));
         REQUIRE(solve("a :- &sum { x } >= 1.", -3, 3) == S(
             {"a x=1", "a x=2", "a x=3", "x=-1", "x=-2", "x=-3", "x=0"}));
         REQUIRE(solve("a :- &sum { x } = 1.", -3, 3) == S(
