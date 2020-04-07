@@ -41,14 +41,14 @@ using namespace Clingcon;
 namespace {
 
 constexpr uint32_t MAX_THREADS = 64;
-enum class Target { RefineReasons, RefineIntroduce, PropagateChain, SplitAll };
+enum class Target { SignValue, RefineReasons, RefineIntroduce, PropagateChain, SplitAll };
 
 } // namespace
 
 struct clingcon_theory {
     Propagator propagator;
     Clingo::Detail::ParserList parsers;
-    std::map<std::pair<Target, std::optional<uint32_t>>, bool> deferred;
+    std::map<std::pair<Target, std::optional<uint32_t>>, val_t> deferred;
     bool shift_constraints{true};
 };
 
@@ -88,25 +88,28 @@ char const *flag_str(bool value) {
 }
 
 template <typename... Args>
-std::string format(Args &&... args) {
+[[nodiscard]] std::string format(Args &&... args) {
     std::ostringstream oss;
     (oss << ... << std::forward<Args>(args));
     return oss.str();
 }
 
 template<class T>
-T strtonum(char const *value) {
+[[nodiscard]] T strtonum(char const *begin, char const *end) {
+    if (!end) {
+        end = begin + std::strlen(begin); // NOLINT
+    }
     T ret = 0;
     bool sign = false;
-    auto const *it = value;
+    auto const *it = begin;
     if (std::is_signed_v<T> && *it == '-') {
         sign = true;
         ++it; // NOLINT
     }
-    if (!*it) {
+    if (it == end) {
         throw std::invalid_argument("integer expected");
     }
-    for (; *it; ++it) { // NOLINT
+    for (; it != end; ++it) { // NOLINT
         if ('0' <= *it && *it <= '9') {
             ret = safe_add<T>(safe_mul<T>(ret, 10), *it - '0'); // NOLINT
         }
@@ -118,8 +121,8 @@ T strtonum(char const *value) {
 }
 
 template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
-T parse_num(char const *value) {
-    auto res = strtonum<T>(value);
+[[nodiscard]] T parse_num(char const *begin, char const *end = nullptr) {
+    auto res = strtonum<T>(begin, end);
     if (min <= res && res <= max) {
         return res;
     }
@@ -127,80 +130,98 @@ T parse_num(char const *value) {
 }
 
 template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
-std::function<bool (const char *)> parser_num(T &dest) {
+[[nodiscard]] std::function<bool (const char *)> parser_num(T &dest) {
     return [&dest](char const *value) {
         dest = parse_num<T>(value);
         return true;
     };
 }
 
-void set_value(Target target, SolverConfig &config, bool value) {
+void set_value(Target target, SolverConfig &config, val_t value) {
     switch (target) {
+        case Target::SignValue: {
+            config.sign_value = value;
+            break;
+        }
         case Target::RefineReasons: {
-            config.refine_reasons = value;
+            config.refine_reasons = value != 0;
             break;
         }
         case Target::RefineIntroduce: {
-            config.refine_introduce = value;
+            config.refine_introduce = value != 0;
             break;
         }
         case Target::PropagateChain: {
-            config.propagate_chain = value;
+            config.propagate_chain = value != 0;
             break;
         }
         case Target::SplitAll: {
-            config.split_all = value;
+            config.split_all = value != 0;
             break;
         }
     }
 }
 
-void set_value(Target target, Config &config, std::pair<bool, std::optional<uint32_t>> const &value) {
-    auto [flag, thread] = value;
+void set_value(Target target, Config &config, std::pair<val_t, std::optional<uint32_t>> const &value) {
+    auto [val, thread] = value;
     if (thread.has_value()) {
-        set_value(target, config.solver_config(*thread), flag);
+        set_value(target, config.solver_config(*thread), val);
     }
     else {
-        set_value(target, config.default_solver_config, flag);
+        set_value(target, config.default_solver_config, val);
         for (auto &sconf : config.solver_configs) {
-            set_value(target, sconf, value.first);
+            set_value(target, sconf, val);
         }
     }
 }
 
-bool parse_bool(char const *value, size_t len=6) { // NOLINT
-    if (std::strncmp(value, "true", len) == 0 || std::strncmp(value, "yes", len) == 0 || std::strncmp(value, "1", len) == 0) {
+[[nodiscard]] bool parse_bool(char const *begin, char const *end = nullptr) {
+    size_t len = end != nullptr ? end - begin : std::strlen(begin);
+    if (std::strncmp(begin, "true", len) == 0 || std::strncmp(begin, "yes", len) == 0 || std::strncmp(begin, "1", len) == 0) {
         return true;
     }
-    if (std::strncmp(value, "false", len) == 0 || std::strncmp(value, "no", len) == 0 || std::strncmp(value, "0", len) == 0) {
+    if (std::strncmp(begin, "false", len) == 0 || std::strncmp(begin, "no", len) == 0 || std::strncmp(begin, "0", len) == 0) {
         return false;
     }
     throw std::invalid_argument("invalid argument");
 }
 
-std::pair<bool, std::optional<uint32_t>> parse_bool_thread(char const *value) {
+[[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_bool_thread(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
-    size_t len = 0;
     char const *comma = std::strchr(value, ',');
     if (comma != nullptr) {
-        thread = strtonum<uint32_t>(comma + 1); // NOLINT
-        if (*thread >= MAX_THREADS) {
-            throw std::invalid_argument("invalid argument");
-        }
-        len = comma - value;
+        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
     }
-    else {
-        len = std::strlen(value);
-    }
-
-    return {parse_bool(value, len), thread};
-
+    return {parse_bool(value, comma) ? 1 : 0, thread};
 }
 
-std::function<bool (const char *)> parser_bool_thread(clingcon_theory &theory, Target target) {
+[[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_sign_value(char const *value) {
+    std::optional<uint32_t> thread = std::nullopt;
+    char const *comma = std::strchr(value, ',');
+    if (comma != nullptr) {
+        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+    }
+
+    if (std::strncmp(value, "+", comma - value) == 0) {
+        return {std::numeric_limits<val_t>::max(), thread};
+    }
+    if (std::strncmp(value, "-", comma - value) == 0) {
+        return {std::numeric_limits<val_t>::min(), thread};
+    }
+    return {parse_num<val_t>(value, comma), thread};
+}
+
+[[nodiscard]] std::function<bool (const char *)> parser_bool_thread(clingcon_theory &theory, Target target) {
     return [&theory, target](char const *value) {
-        auto [flag, thread] = parse_bool_thread(value);
-        return theory.deferred.emplace(std::pair(target, thread), flag).second;
+        auto [val, thread] = parse_bool_thread(value);
+        return theory.deferred.emplace(std::pair(target, thread), val).second;
+    };
+}
+
+[[nodiscard]] std::function<bool (const char *)> parser_sign_value(clingcon_theory &theory, Target target) {
+    return [&theory, target](char const *value) {
+        auto [val, thread] = parse_sign_value(value);
+        return theory.deferred.emplace(std::pair(target, thread), val).second;
     };
 }
 
@@ -272,6 +293,9 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
         else if (std::strcmp(key, "translate-opt") == 0) {
             config.translate_minimize = parse_bool(value);
         }
+        else if (std::strcmp(key, "add-order-clauses") == 0) {
+            config.add_order_clauses = parse_bool(value);
+        }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
             config.min_int = parse_num<val_t, MIN_VAL, MAX_VAL>(value);
@@ -286,6 +310,9 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.check_state = parse_bool(value);
         }
         // propagation
+        else if (std::strcmp(key, "sign-value") == 0) {
+            set_value(Target::SignValue, config, parse_sign_value(value));
+        }
         else if (std::strcmp(key, "refine-reasons") == 0) {
             set_value(Target::RefineReasons, config, parse_bool_thread(value));
         }
@@ -337,34 +364,48 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "translate-opt",
             format("Translate minimize constraint into clasp's minimize constraint [", flag_str(config.translate_minimize), "]\n").c_str(),
             config.translate_minimize);
+        opts.add_flag(
+            group, "add-order-clauses",
+            format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]\n").c_str(),
+            config.add_order_clauses);
 
         // propagation
+        opts.add(
+            group, "sign-value",
+            format(
+                "Configure the sign of order literals [", config.default_solver_config.sign_value, "]\n"
+                "      <arg>: {<n>|+|-}[,<i>]\n"
+                "      <n>: negative if its value is greater or equal to <n>\n"
+                "      <+>: always positive\n"
+                "      <->: always negative\n"
+                "      <i>: Only enable for thread <i>").c_str(),
+            parser_sign_value(*theory, Target::SignValue), true);
         opts.add(
             group, "refine-reasons",
             format(
                 "Refine reasons during propagation [", flag_str(config.default_solver_config.refine_reasons), "]\n"
-                "      <arg>: {{yes|no}}[,<i>]\n"
+                "      <arg>: {yes|no}[,<i>]\n"
                 "      <i>: Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::RefineReasons), true);
         opts.add(
             group, "refine-introduce",
             format(
                 "Introduce order literals when generating reasons [", flag_str(config.default_solver_config.refine_introduce), "]\n"
-                "      <arg>: {{yes|no}}[,<i>]\n"
+                "      <arg>: {yes|no}[,<i>]\n"
                 "      <i>: Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::RefineIntroduce), true);
         opts.add(
             group, "propagate-chain",
             format(
                 "Use closest order literal as reason [", flag_str(config.default_solver_config.propagate_chain), "]\n"
-                "      <arg>: {{yes|no}}[,<i>]\n"
+                "      <arg>: {yes|no}[,<i>]\n"
                 "      <i>: Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::PropagateChain), true);
         opts.add(
             group, "split-all",
             format(
                 "Split all domains on total assignment [", flag_str(config.default_solver_config.split_all), "]\n"
-                "      <arg>: {{yes|no}}[,<i>]\n"
+                "      <arg>: {yes|no}[,<i>]\n"
                 "      <i>: Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::SplitAll), true);
 

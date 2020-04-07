@@ -324,23 +324,23 @@ public:
 
     //! Return a reverse iterator to the first order literal with a value less
     //! than the given value.
-    [[nodiscard]] ReverseIterator lit_lt(val_t value) {
+    [[nodiscard]] ReverseIterator lit_lt(val_t value) const {
         return ReverseIterator{literals_.lower_bound(value)};
     }
     //! Return a reverse iterator to the first order literal with a value less
     //! than or equal to the given value.
-    [[nodiscard]] ReverseIterator lit_le(val_t value) {
+    [[nodiscard]] ReverseIterator lit_le(val_t value) const {
         return ReverseIterator{literals_.upper_bound(value)};
     }
 
     //! Return an iterator to the first order literal with a value greater than
     //! the given value.
-    [[nodiscard]] Iterator lit_gt(val_t value) {
+    [[nodiscard]] Iterator lit_gt(val_t value) const {
         return literals_.upper_bound(value);
     }
     //! Return an iterator to the first order literal with a value greater than
     //! or equal to the given value.
-    [[nodiscard]] Iterator lit_ge(val_t value) {
+    [[nodiscard]] Iterator lit_ge(val_t value) const {
         return literals_.lower_bound(value);
     }
 

@@ -374,7 +374,7 @@ lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) 
         // the literal for non-negative values, assignments close to zero are
         // preferred. This way, we might get solutions with small numbers
         // first.
-        if (value >= 0) {
+        if (value >= config().sign_value) {
             lit = -lit;
         }
         litmap_.emplace(lit, std::pair(vs.var(), value));
@@ -507,6 +507,25 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     }
 
     constraints.erase(constraints.begin() + jdx, constraints.end());
+
+    // This readds binary clauses when multishot-solving. Probably clasp can
+    // handle this.
+    if (conf.add_order_clauses) {
+        for (auto &vs : var2vs_) {
+            lit_t prev = -TRUE_LIT;
+            for (auto [value, lit] : vs) {
+                // lit<=val-1  => lit<=val
+                if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
+                    return false;
+                }
+                // !lit<=val => !lit<=val-1
+                if (prev != -TRUE_LIT && !cc.add_clause({lit, -prev})) {
+                    return false;
+                }
+                prev = lit;
+            }
+        }
+    }
 
     return true;
 }

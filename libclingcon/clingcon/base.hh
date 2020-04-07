@@ -57,6 +57,7 @@ constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max()/2;
 constexpr val_t MIN_VAL = -MAX_VAL;
 
 // defaults for solver config
+constexpr val_t DEFAULT_SIGN_VALUE{0};
 constexpr bool DEFAULT_SPLIT_ALL{false};
 constexpr bool DEFAULT_PROPAGATE_CHAIN{true};
 constexpr bool DEFAULT_REFINE_REASONS{true};
@@ -73,6 +74,7 @@ constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
 constexpr bool DEFAULT_CHECK_SOLUTION{true};
 constexpr bool DEFAULT_CHECK_STATE{false};
 constexpr bool DEFAULT_TRANSLATE_MINIMIZE{false};
+constexpr bool DEFAULT_ADD_ORDER_CLAUSES{false};
 
 constexpr lit_t TRUE_LIT{1};          //!< The true literal.
 constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
@@ -202,6 +204,7 @@ struct Statistics {
 
 //! Per solver configuration.
 struct SolverConfig {
+    val_t sign_value{DEFAULT_SIGN_VALUE};
     bool split_all{DEFAULT_SPLIT_ALL};
     bool propagate_chain{DEFAULT_PROPAGATE_CHAIN};
     bool refine_reasons{DEFAULT_REFINE_REASONS};
@@ -235,6 +238,7 @@ struct Config {
     bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
     bool literals_only{DEFAULT_LITERALS_ONLY};
     bool translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
+    bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
 };
