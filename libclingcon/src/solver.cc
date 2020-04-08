@@ -514,6 +514,7 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
         for (auto &vs : var2vs_) {
             lit_t prev = -TRUE_LIT;
             for (auto [value, lit] : vs) {
+                static_cast<void>(value);
                 // lit<=val-1  => lit<=val
                 if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
                     return false;

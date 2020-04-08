@@ -172,7 +172,7 @@ void set_value(Target target, SolverConfig &config, val_t value) {
 }
 
 void set_value(Target target, Config &config, std::pair<val_t, std::optional<uint32_t>> const &value) {
-    auto [val, thread] = value;
+    auto const &[val, thread] = value;
     if (thread.has_value()) {
         set_value(target, config.solver_config(*thread), val);
     }
