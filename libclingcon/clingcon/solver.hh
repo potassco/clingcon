@@ -547,6 +547,7 @@ public:
     //! that where not propagated on the current decision level.
     void undo();
 
+    [[nodiscard]] lit_t decide(Clingo::Assignment const &assign, lit_t fallback);
     //! @}
 
 private:

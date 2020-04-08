@@ -50,6 +50,7 @@ struct clingcon_theory {
     Clingo::Detail::ParserList parsers;
     std::map<std::pair<Target, std::optional<uint32_t>>, val_t> deferred;
     bool shift_constraints{true};
+    bool chain_heuristic{false};
 };
 
 namespace {
@@ -79,6 +80,14 @@ bool check(clingo_propagate_control_t *c_ctl, void* data) {
     CLINGCON_TRY {
         Clingo::PropagateControl ctl{c_ctl};
         static_cast<Propagator*>(data)->check(ctl);
+    }
+    CLINGCON_CATCH;
+}
+
+bool decide(clingo_id_t thread_id, clingo_assignment_t const *c_ass, clingo_literal_t fallback, void* data, clingo_literal_t *result) {
+    CLINGCON_TRY {
+        Clingo::Assignment ass{c_ass};
+        *result = static_cast<Propagator*>(data)->decide(thread_id, ass, fallback);
     }
     CLINGCON_CATCH;
 }
@@ -235,7 +244,8 @@ extern "C" bool clingcon_create(clingcon_theory_t **theory) {
 }
 
 extern "C" bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control) {
-    static clingo_propagator_t propagator = { init, propagate, undo, check, nullptr };
+    // Note: The decide function is passed here for performance reasons.
+    static clingo_propagator_t propagator = { init, propagate, undo, check, theory->chain_heuristic ? decide : nullptr };
     return
         clingo_control_add(control, "base", nullptr, 0, Clingcon::THEORY) &&
         clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
@@ -295,6 +305,9 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
         }
         else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
+        }
+        else if (std::strcmp(key, "chain-heuristic") == 0) {
+            theory->chain_heuristic = parse_bool(value);
         }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
@@ -362,12 +375,16 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             parser_num<uint32_t>(config.distinct_limit), false, "<n>");
         opts.add_flag(
             group, "translate-opt",
-            format("Translate minimize constraint into clasp's minimize constraint [", flag_str(config.translate_minimize), "]\n").c_str(),
+            format("Translate minimize constraint into clasp's minimize constraint [", flag_str(config.translate_minimize), "]").c_str(),
             config.translate_minimize);
         opts.add_flag(
             group, "add-order-clauses",
-            format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]\n").c_str(),
+            format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]").c_str(),
             config.add_order_clauses);
+        opts.add_flag(
+            group, "chain-heuristic",
+            format("Heuristic to prioritize assigning long chains of literals [", flag_str(theory->chain_heuristic), "]\n").c_str(),
+            theory->chain_heuristic);
 
         // propagation
         opts.add(

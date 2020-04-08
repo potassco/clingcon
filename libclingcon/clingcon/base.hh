@@ -324,7 +324,11 @@ public:
             ++stats_.translate_clauses;
         }
 
-        clauses_.emplace_back(clause.begin(), clause.end());
+        for (auto lit : clause) {
+            clauses_.emplace_back(lit);
+        }
+        clauses_.emplace_back(0);
+
         return true;
     }
 
@@ -371,12 +375,14 @@ public:
 
     //! Commit accumulated constraints.
     [[nodiscard]] bool commit() {
-        for (auto &clause : clauses_) {
-            if (!init_.add_clause(clause)) {
+        for (auto it = clauses_.begin(), ie = clauses_.end(); it != ie; ++it) {
+            auto ib = it;
+            while (*it != 0) { ++it; }
+            if (!init_.add_clause(Clingo::LiteralSpan{&*ib, &*it})) {
                 return false;
             }
         }
-        clauses_.clear();
+        clauses_ = Clause();
 
         for (auto const &[lit, wlits, bound, type] : weight_constraints_) {
             auto inv = static_cast<Clingo::WeightConstraintType>(-type);
@@ -398,7 +404,7 @@ private:
     State state_{StateInit};
     Clingo::PropagateInit &init_;
     Statistics &stats_;
-    std::vector<Clause> clauses_;
+    Clause clauses_;
     std::vector<WeightConstraint> weight_constraints_;
     std::vector<MinimizeLiteral> minimize_;
 };

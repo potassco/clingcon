@@ -426,6 +426,10 @@ void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSp
     solver_(control.thread_id()).undo();
 }
 
+lit_t Propagator::decide(id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) {
+    return solver_(thread_id).decide(assign, fallback);
+}
+
 bool Propagator::shown(var_t var) {
     auto sym = get_symbol(var);
     if (!sym.has_value()) {

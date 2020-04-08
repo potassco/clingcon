@@ -41,7 +41,7 @@ namespace Clingcon {
 using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
 
 //! A propagator for CSP constraints.
-class Propagator final : public Clingo::Propagator {
+class Propagator final : public Clingo::Heuristic {
 public:
     using VarMap = std::map<var_t, Clingo::Symbol>;
     using SymMap = std::unordered_map<Clingo::Symbol, var_t>;
@@ -109,6 +109,8 @@ public:
 
     //! Delegates undoing to the respective solver.
     void undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept override;
+
+    [[nodiscard]] lit_t decide(id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) override;
 
     //! Determine if the given variable should be shown.
     [[nodiscard]] bool shown(var_t var);

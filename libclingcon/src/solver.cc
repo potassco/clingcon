@@ -626,7 +626,7 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (vs.upper_bound() < value + 1) {
-        static_cast<void>(cc.add_clause({-get_literal(cc, vs, vs.upper_bound()), lit}) && cc.propagate());
+        static_cast<void>(cc.add_clause({-get_literal(cc, vs, vs.upper_bound()), -lit}) && cc.propagate());
         return false;
     }
     if (vs.lower_bound() < value + 1) {
@@ -671,17 +671,17 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         for (auto [fact_lit, var, value] : factmap_) {
             auto &vs = var_state(var);
             if (fact_lit == TRUE_LIT) {
-                if (!update_upper_(lvl, cc, var, lit, value)) {
+                if (!update_upper_(lvl, cc, var, TRUE_LIT, value)) {
                     return false;
                 }
-                assert(vs.get_literal(value) == lit);
+                assert(vs.get_literal(value) == TRUE_LIT);
                 vs.unset_literal(value);
             }
             else {
-                if (!update_lower_(lvl, cc, var, lit, value)) {
+                if (!update_lower_(lvl, cc, var, TRUE_LIT, value)) {
                     return false;
                 }
-                assert(vs.get_literal(value) == -lit);
+                assert(vs.get_literal(value) == -TRUE_LIT);
                 vs.unset_literal(value);
             }
         }
@@ -779,6 +779,25 @@ void Solver::undo() {
     lvl.undo(*this);
 
     levels_.pop_back();
+}
+
+lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
+    static_cast<void>(assign);
+    if (auto it = litmap_.find(fallback); it != litmap_.end()) {
+        auto &vs = var_state(it->second.first);
+        // make the literal as small as possible
+        auto lit = vs.lit_ge(vs.lower_bound());
+        assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
+        return lit->second;
+    }
+    if (auto it = litmap_.find(-fallback); it != litmap_.end()) {
+        auto &vs = var_state(it->second.first);
+        // make the literal as large as possible
+        auto lit = vs.lit_lt(vs.upper_bound());
+        assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
+        return -lit->second;
+    }
+    return fallback;
 }
 
 void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {

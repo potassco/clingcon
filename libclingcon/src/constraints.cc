@@ -626,6 +626,48 @@ private:
         std::vector<std::tuple<size_t, size_t, sum_t, sum_t, sum_t, sum_t>> todo{{0, 0, 0, 0, lower, upper}};
         std::vector<lit_t> clause(constraint_.size() + 1, 0);
 
+#if 0
+        CoVarVec elements;
+        elements.assign(constraint_.begin(), constraint_.end());
+        std::sort(elements.begin(), elements.end(), [&](auto const &a, auto const &b) {
+            // sort by coefficient (ascending)
+            if (std::abs(a.first) != std::abs(b.first)) {
+                return std::abs(a.first) > std::abs(b.first);
+            }
+            // i do not see why any of the below should matter...
+            auto &vs_a = solver.var_state(a.second);
+            auto &vs_b = solver.var_state(b.second);
+            // sort by minimum value (ascending)
+            sum_t min_a{0};
+            sum_t min_b{0};
+            if (a.first > 0) {
+                min_a = a.first * vs_a.lower_bound();
+            }
+            else {
+                min_a = a.first * vs_a.upper_bound();
+            }
+            if (b.first > 0) {
+                min_b = b.first * vs_b.lower_bound();
+            }
+            else {
+                min_b = b.first * vs_b.upper_bound();
+            }
+            if (min_a != min_b) {
+                return min_a > min_b;
+            }
+            // sort by domain size (descending)
+            val_t size_a = vs_a.upper_bound() - vs_a.lower_bound();
+            val_t size_b = vs_b.upper_bound() - vs_b.lower_bound();
+            if (size_a != size_b) {
+                return size_a < size_b;
+            }
+            // sort by variable name
+            return a.second < b.second;
+        });
+#else
+        auto &elements = constraint_;
+#endif
+
         while (!todo.empty()) {
             auto [i, j, value_lower, value_upper, lower, upper] = todo.back();
 
@@ -637,7 +679,7 @@ private:
             lit_t lit{0};
 
             if (i > 0) {
-                auto [co, var] = constraint_[i-1];
+                auto [co, var] = elements[i-1];
                 auto &vs = solver.var_state(var);
                 if (co > 0) {
                     todo.back() = std::tuple(i, j, value_lower, value_upper - 1, lower + co, upper + co);
@@ -665,9 +707,9 @@ private:
                 continue;
             }
 
-            assert(upper < 0 && i < constraint_.size());
+            assert(upper < 0 && i < elements.size());
 
-            auto [co, var] = constraint_[i];
+            auto [co, var] = elements[i];
             auto &vs = solver.var_state(var);
 
             if (co > 0) {
