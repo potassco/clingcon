@@ -344,6 +344,22 @@ public:
         return literals_.lower_bound(value);
     }
 
+    //! Common access pattern involving lit_lt.
+    [[nodiscard]] lit_t lit_prev(val_t value) const {
+        if (auto it = lit_lt(value); it != rend()) {
+            return it->second;
+        }
+        return -TRUE_LIT;
+    }
+
+    //! Common access pattern involving lit_gt.
+    [[nodiscard]] lit_t lit_succ(val_t value) const {
+        if (auto it = lit_gt(value); it != end()) {
+            return it->second;
+        }
+        return TRUE_LIT;
+    }
+
     //! @}
 
 private:
@@ -551,6 +567,10 @@ public:
     //! @}
 
 private:
+    //! Update preceeding and succeeding literals of order literal with the
+    //! given value.
+    std::pair<lit_t, lit_t> update_litmap_(VarState &vs, lit_t lit, val_t value);
+
     //! See Solver::propagate.
     template <class It>
     [[nodiscard]] bool propagate_(AbstractClauseCreator &cc, It begin, It end);
@@ -564,10 +584,10 @@ private:
     [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end);
 
     //! Update and propgate the given variable due to a lower bound change.
-    [[nodiscard]] bool update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);
+    [[nodiscard]] bool update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit);
 
     //! Update and propgate the given variable due to an upper bound change.
-    [[nodiscard]] bool update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value);
+    [[nodiscard]] bool update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t succ_lit);
 
     //! If the given literal is an order literal, this function updates the lower
     //! or upper bound of the corresponding variables. Furthermore, the preceeding
@@ -600,9 +620,9 @@ private:
     //!
     //! If there is an order literal for `var<=value`, then the pair
     //! `(var,value)` is contained in the map
-    std::unordered_multimap<lit_t, std::pair<var_t, val_t>> litmap_;
+    std::unordered_multimap<lit_t, std::tuple<var_t, val_t, lit_t, lit_t>> litmap_;
     //! Like litmap but for facts only.
-    std::vector<std::tuple<lit_t, var_t, val_t>> factmap_;
+    std::vector<std::tuple<lit_t, var_t, val_t, lit_t>> factmap_;
     //! A mapping from constraint states to constraints.
     std::unordered_map<AbstractConstraint*, UniqueConstraintState> c2cs_;
     //! Watches mapping variables to a constraint state and a constraint

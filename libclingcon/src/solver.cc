@@ -377,11 +377,37 @@ lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) 
         if (value >= config().sign_value) {
             lit = -lit;
         }
-        litmap_.emplace(lit, std::pair(vs.var(), value));
+        auto ps = update_litmap_(vs, lit, value);
+        litmap_.emplace(lit, std::tuple(vs.var(), value, ps.first, ps.second));
         cc.add_watch(lit);
         cc.add_watch(-lit);
     }
     return lit;
+}
+
+std::pair<lit_t, lit_t> Solver::update_litmap_(VarState &vs, lit_t lit, val_t value) {
+    std::pair<lit_t, lit_t> ret{-TRUE_LIT, TRUE_LIT};
+    if (auto it = vs.lit_lt(value); it != vs.rend()) {
+        ret.first = it->second;
+        for (auto rng = litmap_.equal_range(ret.first); rng.first != rng.second; ++rng.first) {
+            auto &[var, prev_value, prev_lit, succ_lit] = rng.first->second;
+            static_cast<void>(prev_lit);
+            if (it->first == prev_value && var == vs.var()) {
+                succ_lit = lit != 0 ? lit : vs.lit_succ(value);
+            }
+        }
+    }
+    if (auto it = vs.lit_gt(value); it != vs.end()) {
+        ret.second = it->second;
+        for (auto rng = litmap_.equal_range(ret.second); rng.first != rng.second; ++rng.first) {
+            auto &[var, succ_value, prev_lit, succ_lit] = rng.first->second;
+            static_cast<void>(succ_lit);
+            if (it->first == succ_value && var == vs.var()) {
+                prev_lit = lit != 0 ? lit : vs.lit_prev(value);
+            }
+        }
+    }
+    return ret;
 }
 
 lit_t Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) {
@@ -400,7 +426,8 @@ lit_t Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t valu
     // there was no literal yet
     if (old == 0) {
         old = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
-        factmap_.emplace_back(old, vs.var(), value);
+        auto ps = update_litmap_(vs, old, value);
+        factmap_.emplace_back(old, vs.var(), value, truth == Clingo::TruthValue::True ? ps.second : ps.first);
     }
     // we keep the literal
     return old;
@@ -609,7 +636,8 @@ bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
     return true;
 }
 
-bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
+bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t succ_lit) {
+    auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (value < vs.lower_bound()) {
@@ -620,12 +648,11 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_upper(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    // TODO: The lit_gt call is avoidable if the succeeding literal is true.
-    //       Therefore the literal would have to be stored in the litmap_.
-    return propagate_variables_<1>(cc, lit, vs.lit_gt(value), vs.end());
+    return ass.is_true(succ_lit) || propagate_variables_<1>(cc, lit, vs.lit_gt(value), vs.end());
 }
 
-bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value) {
+bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit) {
+    auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (vs.upper_bound() < value + 1) {
@@ -636,8 +663,7 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_lower(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    // TODO: Same todo as for update_upper_.
-    return propagate_variables_<-1>(cc, lit, vs.lit_lt(value), vs.rend());
+    return ass.is_true(-prev_lit) || propagate_variables_<-1>(cc, lit, vs.lit_lt(value), vs.rend());
 }
 
 bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
@@ -648,19 +674,21 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     // On-the-fly simplification on the top-level.
     if (lit != TRUE_LIT && ass.decision_level() == 0 && ass.is_fixed(lit)) {
         for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
-            auto [var, value] = rng.first->second;
+            auto [var, value, prev_lit, succ_lit] = rng.first->second;
             auto &vs = var_state(var);
             assert(vs.get_literal(value) == lit);
             vs.set_literal(value, TRUE_LIT);
-            factmap_.emplace_back(TRUE_LIT, var, value);
+            update_litmap_(vs, TRUE_LIT, value);
+            factmap_.emplace_back(TRUE_LIT, var, value, succ_lit);
         }
         litmap_.erase(lit);
         for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
-            auto [var, value] = rng.first->second;
+            auto [var, value, prev_lit, succ_lit] = rng.first->second;
             auto &vs = var_state(var);
             assert(vs.get_literal(value) == -lit);
             vs.set_literal(value, -TRUE_LIT);
-            factmap_.emplace_back(-TRUE_LIT, var, value);
+            update_litmap_(vs, -TRUE_LIT, value);
+            factmap_.emplace_back(-TRUE_LIT, var, value, prev_lit);
         }
         litmap_.erase(-lit);
         lit = TRUE_LIT;
@@ -672,20 +700,22 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     // Fact propagation. (Could also be put in the litmap...)
     if (lit == TRUE_LIT) {
         assert(ass.decision_level() == 0);
-        for (auto [fact_lit, var, value] : factmap_) {
+        for (auto [fact_lit, var, value, prec_lit] : factmap_) {
             auto &vs = var_state(var);
             if (fact_lit == TRUE_LIT) {
-                if (!update_upper_(lvl, cc, var, TRUE_LIT, value)) {
+                if (!update_upper_(lvl, cc, var, TRUE_LIT, value, prec_lit)) {
                     return false;
                 }
                 assert(vs.get_literal(value) == TRUE_LIT);
+                update_litmap_(vs, 0, value);
                 vs.unset_literal(value);
             }
             else {
-                if (!update_lower_(lvl, cc, var, TRUE_LIT, value)) {
+                if (!update_lower_(lvl, cc, var, TRUE_LIT, value, prec_lit)) {
                     return false;
                 }
                 assert(vs.get_literal(value) == -TRUE_LIT);
+                update_litmap_(vs, 0, value);
                 vs.unset_literal(value);
             }
         }
@@ -696,15 +726,15 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     // Note: Note that iterators of unordered_multimap's are guaranteed to stay
     // valid even for insertion.
     for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
-        auto [var, value] = rng.first->second;
-        if (!update_upper_(lvl, cc, var, lit, value)) {
+        auto [var, value, prev_lit, succ_lit] = rng.first->second;
+        if (!update_upper_(lvl, cc, var, lit, value, succ_lit)) {
             return false;
         }
     }
 
     for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
-        auto [var, value] = rng.first->second;
-        if (!update_lower_(lvl, cc, var, lit, value)) {
+        auto [var, value, prev_lit, succ_lit] = rng.first->second;
+        if (!update_lower_(lvl, cc, var, lit, value, prev_lit)) {
             return false;
         }
     }
@@ -793,14 +823,14 @@ lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
         }
         case Heuristic::MaxChain: {
             if (auto it = litmap_.find(fallback); it != litmap_.end()) {
-                auto &vs = var_state(it->second.first);
+                auto &vs = var_state(std::get<0>(it->second));
                 // make the literal as small as possible
                 auto lit = vs.lit_ge(vs.lower_bound());
                 assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
                 return lit->second;
             }
             if (auto it = litmap_.find(-fallback); it != litmap_.end()) {
-                auto &vs = var_state(it->second.first);
+                auto &vs = var_state(std::get<0>(it->second));
                 // make the literal as large as possible
                 auto lit = vs.lit_lt(vs.upper_bound());
                 assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
@@ -877,8 +907,9 @@ void Solver::update(AbstractClauseCreator &cc) {
     // remove solve step local variables from litmap_
     for (auto it = litmap_.begin(), ie = litmap_.end(); it != ie; ) {
         if (!ass.has_literal(it->first)) {
-            auto &vs = var_state(it->second.first);
-            vs.unset_literal(it->second.second);
+            auto &vs = var_state(std::get<0>(it->second));
+            vs.unset_literal(std::get<1>(it->second));
+            update_litmap_(vs, 0, std::get<1>(it->second));
             it = litmap_.erase(it);
         }
         else {
@@ -985,11 +1016,13 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
         if (truth == Clingo::TruthValue::Free) {
             cc.add_watch(lit);
             cc.add_watch(-lit);
-            litmap_.emplace(lit, std::pair(vs.var(), value));
+            auto ps = update_litmap_(vs, lit, value);
+            litmap_.emplace(lit, std::tuple(vs.var(), value, ps.first, ps.second));
         }
         else {
             lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;;
-            factmap_.emplace_back(lit, vs.var(), value);
+            auto ps = update_litmap_(vs, lit, value);
+            factmap_.emplace_back(lit, vs.var(), value, truth == Clingo::TruthValue::True ? ps.second : ps.first);
         }
         vs.set_literal(value, lit);
     }
@@ -1009,5 +1042,46 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
 
     return true;
 }
+
+#if 0
+// This is a usefull function for debugging.
+void Solver::check_litmap_() {
+    for (auto [lit, tup] : litmap_) {
+        auto [var, value, prev_lit, succ_lit] = tup;
+        auto &vs = var_state(var);
+        if (auto it = vs.lit_lt(value); it != vs.rend()) {
+            assert(it->second == prev_lit);
+        }
+        else {
+            assert(prev_lit == -TRUE_LIT);
+        }
+        if (auto it = vs.lit_gt(value); it != vs.end()) {
+            assert(it->second == succ_lit);
+        }
+        else {
+            assert(succ_lit == TRUE_LIT);
+        }
+    }
+    for (auto [lit, var, value, prec_lit] : factmap_) {
+        auto &vs = var_state(var);
+        if (lit == -TRUE_LIT) {
+            if (auto it = vs.lit_lt(value); it != vs.rend()) {
+                assert(it->second == prec_lit);
+            }
+            else {
+                assert(prec_lit == -TRUE_LIT);
+            }
+        }
+        if (lit == TRUE_LIT) {
+            if (auto it = vs.lit_gt(value); it != vs.end()) {
+                assert(it->second == prec_lit);
+            }
+            else {
+                assert(prec_lit == TRUE_LIT);
+            }
+        }
+    }
+}
+#endif
 
 } // namespace Clingcon
