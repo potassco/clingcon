@@ -44,6 +44,8 @@ using sum_t = int64_t;                    //!< type for summing up value
 using co_var_t = std::pair<val_t, var_t>; //!< coeffcient/variable pair
 using CoVarVec = std::vector<co_var_t>;
 
+enum class Heuristic : val_t { None, MaxChain };
+
 //! The maximum value for variables/coefficients in clingcon.
 //!
 //! This is the largest supported integer value. It is chosen like this so that
@@ -201,9 +203,9 @@ struct Statistics {
     std::forward_list<SolverStatistics> solver_statistics;
 };
 
-
 //! Per solver configuration.
 struct SolverConfig {
+    Heuristic heuristic{Heuristic::None};
     val_t sign_value{DEFAULT_SIGN_VALUE};
     bool split_all{DEFAULT_SPLIT_ALL};
     bool propagate_chain{DEFAULT_PROPAGATE_CHAIN};

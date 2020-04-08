@@ -41,7 +41,7 @@ using namespace Clingcon;
 namespace {
 
 constexpr uint32_t MAX_THREADS = 64;
-enum class Target { SignValue, RefineReasons, RefineIntroduce, PropagateChain, SplitAll };
+enum class Target { Heuristic, SignValue, RefineReasons, RefineIntroduce, PropagateChain, SplitAll };
 
 } // namespace
 
@@ -50,7 +50,6 @@ struct clingcon_theory {
     Clingo::Detail::ParserList parsers;
     std::map<std::pair<Target, std::optional<uint32_t>>, val_t> deferred;
     bool shift_constraints{true};
-    bool chain_heuristic{false};
 };
 
 namespace {
@@ -94,6 +93,19 @@ bool decide(clingo_id_t thread_id, clingo_assignment_t const *c_ass, clingo_lite
 
 char const *flag_str(bool value) {
     return value ? "yes" : "no";
+}
+
+char const *heuristic_str(Heuristic heu) {
+    switch(heu) {
+        case Heuristic::None: {
+            return "none";
+        }
+        case Heuristic::MaxChain: {
+            return "max-chain";
+            break;
+        }
+    };
+    return "";
 }
 
 template <typename... Args>
@@ -150,6 +162,10 @@ void set_value(Target target, SolverConfig &config, val_t value) {
     switch (target) {
         case Target::SignValue: {
             config.sign_value = value;
+            break;
+        }
+        case Target::Heuristic: {
+            config.heuristic = static_cast<Heuristic>(value);
             break;
         }
         case Target::RefineReasons: {
@@ -220,6 +236,22 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     return {parse_num<val_t>(value, comma), thread};
 }
 
+[[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_heuristic(char const *value) {
+    std::optional<uint32_t> thread = std::nullopt;
+    char const *comma = std::strchr(value, ',');
+    if (comma != nullptr) {
+        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+    }
+
+    if (std::strncmp(value, "none", comma - value) == 0) {
+        return {static_cast<val_t>(Heuristic::None), thread};
+    }
+    if (std::strncmp(value, "max-chain", comma - value) == 0) {
+        return {static_cast<val_t>(Heuristic::MaxChain), thread};
+    }
+    throw std::invalid_argument("invalid argument");
+}
+
 [[nodiscard]] std::function<bool (const char *)> parser_bool_thread(clingcon_theory &theory, Target target) {
     return [&theory, target](char const *value) {
         auto [val, thread] = parse_bool_thread(value);
@@ -234,6 +266,13 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     };
 }
 
+[[nodiscard]] std::function<bool (const char *)> parser_heuristic(clingcon_theory &theory) {
+    return [&theory](char const *value) {
+        auto [val, thread] = parse_heuristic(value);
+        return theory.deferred.emplace(std::pair(Target::Heuristic, thread), val).second;
+    };
+}
+
 } // namespace
 
 extern "C" bool clingcon_create(clingcon_theory_t **theory) {
@@ -245,7 +284,14 @@ extern "C" bool clingcon_create(clingcon_theory_t **theory) {
 
 extern "C" bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control) {
     // Note: The decide function is passed here for performance reasons.
-    static clingo_propagator_t propagator = { init, propagate, undo, check, theory->chain_heuristic ? decide : nullptr };
+    auto &config = theory->propagator.config();
+    bool has_heuristic = config.default_solver_config.heuristic != Heuristic::None;
+    for (auto &sconfig : config.solver_configs) {
+        if (has_heuristic) { break; }
+        has_heuristic = sconfig.heuristic != Heuristic::None;
+    }
+
+    static clingo_propagator_t propagator = { init, propagate, undo, check, has_heuristic ? decide : nullptr };
     return
         clingo_control_add(control, "base", nullptr, 0, Clingcon::THEORY) &&
         clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
@@ -306,9 +352,6 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
         else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
         }
-        else if (std::strcmp(key, "chain-heuristic") == 0) {
-            theory->chain_heuristic = parse_bool(value);
-        }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
             config.min_int = parse_num<val_t, MIN_VAL, MAX_VAL>(value);
@@ -323,6 +366,9 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.check_state = parse_bool(value);
         }
         // propagation
+        else if (std::strcmp(key, "order-heuristic") == 0) {
+            set_value(Target::Heuristic, config, parse_heuristic(value));
+        }
         else if (std::strcmp(key, "sign-value") == 0) {
             set_value(Target::SignValue, config, parse_sign_value(value));
         }
@@ -381,12 +427,17 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "add-order-clauses",
             format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]").c_str(),
             config.add_order_clauses);
-        opts.add_flag(
-            group, "chain-heuristic",
-            format("Heuristic to prioritize assigning long chains of literals [", flag_str(theory->chain_heuristic), "]\n").c_str(),
-            theory->chain_heuristic);
 
         // propagation
+        opts.add(
+            group, "order-heuristic",
+            format(
+                "Make the decision heuristic aware of order literls [", heuristic_str(config.default_solver_config.heuristic), "]\n"
+                "      <arg>: {none,max-chain}[,<i>]\n"
+                "      none     : use clasp's heuristic\n"
+                "      max-chain: assign chains of literals\n"
+                "      <i>      : Only enable for thread <i>").c_str(),
+            parser_heuristic(*theory), true);
         opts.add(
             group, "sign-value",
             format(

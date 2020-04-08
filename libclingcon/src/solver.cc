@@ -787,19 +787,27 @@ void Solver::undo() {
 
 lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
     static_cast<void>(assign);
-    if (auto it = litmap_.find(fallback); it != litmap_.end()) {
-        auto &vs = var_state(it->second.first);
-        // make the literal as small as possible
-        auto lit = vs.lit_ge(vs.lower_bound());
-        assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
-        return lit->second;
-    }
-    if (auto it = litmap_.find(-fallback); it != litmap_.end()) {
-        auto &vs = var_state(it->second.first);
-        // make the literal as large as possible
-        auto lit = vs.lit_lt(vs.upper_bound());
-        assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
-        return -lit->second;
+    switch (config_.heuristic) {
+        case Heuristic::None: {
+            break;
+        }
+        case Heuristic::MaxChain: {
+            if (auto it = litmap_.find(fallback); it != litmap_.end()) {
+                auto &vs = var_state(it->second.first);
+                // make the literal as small as possible
+                auto lit = vs.lit_ge(vs.lower_bound());
+                assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
+                return lit->second;
+            }
+            if (auto it = litmap_.find(-fallback); it != litmap_.end()) {
+                auto &vs = var_state(it->second.first);
+                // make the literal as large as possible
+                auto lit = vs.lit_lt(vs.upper_bound());
+                assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
+                return -lit->second;
+            }
+            break;
+        }
     }
     return fallback;
 }

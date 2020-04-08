@@ -629,6 +629,8 @@ private:
     //! List of variable/coefficient/constraint triples that have been removed
     //! from the Solver::v2cs_ map.
     std::vector<std::tuple<var_t, val_t, AbstractConstraintState*>> removed_var_watches_;
+    //! Reason vector to avoid unnecessary allocations.
+    std::vector<lit_t> temp_reason_;
     //! Offset to speed up Solver::check_full.
     uint32_t split_last_{0};
     //! Offset to speed up Solver::simplify.
@@ -638,8 +640,6 @@ private:
     //! The minimize constraint might not have been fully propagated below this
     //! level. See Solver::update_minimize.
     level_t minimize_level_{0};
-    //! Reason vector to avoid unnecessary allocations.
-    std::vector<lit_t> temp_reason_;
 };
 
 } // namespace Clingcon
