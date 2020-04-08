@@ -619,6 +619,8 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_upper(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
+    // TODO: The lit_gt call is avoidable if the succeeding literal is true.
+    //       Therefore the literal would have to be stored in the litmap_.
     return propagate_variables_<1>(cc, lit, vs.lit_gt(value), vs.end());
 }
 
@@ -633,6 +635,7 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_lower(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
+    // TODO: Same todo as for update_upper_.
     return propagate_variables_<-1>(cc, lit, vs.lit_lt(value), vs.rend());
 }
 
