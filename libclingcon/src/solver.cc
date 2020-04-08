@@ -676,6 +676,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
             auto [var, value, prev_lit, succ_lit] = rng.first->second;
             auto &vs = var_state(var);
+            static_cast<void>(prev_lit);
             assert(vs.get_literal(value) == lit);
             vs.set_literal(value, TRUE_LIT);
             update_litmap_(vs, TRUE_LIT, value);
@@ -685,6 +686,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
             auto [var, value, prev_lit, succ_lit] = rng.first->second;
             auto &vs = var_state(var);
+            static_cast<void>(succ_lit);
             assert(vs.get_literal(value) == -lit);
             vs.set_literal(value, -TRUE_LIT);
             update_litmap_(vs, -TRUE_LIT, value);
@@ -727,6 +729,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     // valid even for insertion.
     for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
         auto [var, value, prev_lit, succ_lit] = rng.first->second;
+        static_cast<void>(prev_lit);
         if (!update_upper_(lvl, cc, var, lit, value, succ_lit)) {
             return false;
         }
@@ -734,6 +737,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
 
     for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
         auto [var, value, prev_lit, succ_lit] = rng.first->second;
+        static_cast<void>(succ_lit);
         if (!update_lower_(lvl, cc, var, lit, value, prev_lit)) {
             return false;
         }

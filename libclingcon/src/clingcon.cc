@@ -211,19 +211,27 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     throw std::invalid_argument("invalid argument");
 }
 
+[[nodiscard]] char const *find_str(char const *s, char c) {
+    if (char const *t = std::strchr(s, c); t != nullptr) {
+        return t;
+    }
+    return s + std::strlen(s); // NOLINT
+}
+
 [[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_bool_thread(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
-    char const *comma = std::strchr(value, ',');
-    if (comma != nullptr) {
+    char const *comma = find_str(value, ',');
+    if (*comma != '\0') {
         thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
     }
+
     return {parse_bool(value, comma) ? 1 : 0, thread};
 }
 
 [[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_sign_value(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
-    char const *comma = std::strchr(value, ',');
-    if (comma != nullptr) {
+    char const *comma = find_str(value, ',');
+    if (*comma != '\0') {
         thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
     }
 
@@ -238,8 +246,8 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
 
 [[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_heuristic(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
-    char const *comma = std::strchr(value, ',');
-    if (comma != nullptr) {
+    char const *comma = find_str(value, ',');
+    if (*comma != '\0') {
         thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
     }
 

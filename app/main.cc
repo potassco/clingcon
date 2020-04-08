@@ -1,5 +1,6 @@
 #include <clingo.hh>
 #include <clingcon.h>
+#include <sstream>
 #include <fstream>
 #include <optional>
 
@@ -20,6 +21,11 @@ public:
         }
         else {
             std::ifstream ifs{file};
+            if (!ifs.is_open()) {
+                std::ostringstream oss;
+                oss << "could not open file: " << file;
+                throw std::runtime_error(oss.str());
+            }
             program.assign(std::istreambuf_iterator<char>{ifs}, std::istreambuf_iterator<char>{});
         }
 
