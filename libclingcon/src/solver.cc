@@ -270,6 +270,84 @@ private:
     size_t removed_var_watches_offset_;
 };
 
+//! Helper class to efficiently handle order literal lookups
+class Solver::LitmapEntry {
+public:
+    LitmapEntry()
+    : var_{0}
+    , sign_{0} {
+    }
+
+    LitmapEntry(lit_t lit, var_t var, val_t value, lit_t prev, lit_t succ)
+    : var_{var}
+    , sign_{get_sign_(lit)}
+    , value_{value}
+    , prev_{prev}
+    , succ_{succ} {
+        assert(prev != 0) ;
+    }
+
+    [[nodiscard]] bool valid(lit_t lit) const {
+        return prev_ != 0 && get_sign_(lit) == sign_;
+    }
+
+    [[nodiscard]] var_t var() const {
+        assert(prev_ != 0) ;
+        return var_;
+    }
+
+    [[nodiscard]] val_t value() const {
+        assert(prev_ != 0) ;
+        return value_;
+    }
+
+    [[nodiscard]] lit_t prev() const {
+        assert(prev_ != 0) ;
+        return prev_;
+    }
+
+    void set_prev(lit_t prev) {
+        assert(prev_ != 0) ;
+        prev_ = prev;
+    }
+
+    [[nodiscard]] lit_t succ() const {
+        assert(prev_ != 0) ;
+        return succ_;
+    }
+
+    void set_succ(lit_t succ) {
+        assert(prev_ != 0) ;
+        succ_ = succ;
+    }
+
+    void unset() {
+        prev_ = 0;
+    }
+
+    [[nodiscard]] static size_t map_offset(lit_t lit) {
+        return std::abs(lit) - 1;
+    }
+
+    [[nodiscard]] lit_t map_lit(size_t offset) const {
+        return prev_ != 0 ? add_sign_(offset + 1) : 0;
+    }
+
+private:
+    [[nodiscard]] val_t add_sign_(size_t offset) const {
+        return sign_ == 1 ? -static_cast<val_t>(offset) : static_cast<val_t>(offset);
+    }
+    [[nodiscard]] static var_t get_sign_(lit_t lit) {
+        return lit > 0 ? 1 : 0;
+    }
+
+    var_t var_: 31;
+    var_t sign_: 1;
+    val_t value_{0};
+    lit_t prev_{0};
+    lit_t succ_{0};
+};
+
 Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
 : config_{config}
 , stats_{stats} {
@@ -282,7 +360,7 @@ Solver::~Solver() = default;
 
 void Solver::shrink_to_fit() {
     var2vs_.shrink_to_fit();
-    litmap_.rehash(0);
+    litmap_.shrink_to_fit();
     factmap_.shrink_to_fit();
     c2cs_.rehash(0);
     for (auto &watches : var_watches_) {
@@ -360,6 +438,23 @@ void Solver::push_level_(level_t level) {
     }
 }
 
+Solver::LitmapEntry &Solver::litmap_at_(lit_t lit) {
+    // NOTE: it can never happen that a literal occurs in both phases
+    //       so we can in principle cut the size of this container by half
+    static LitmapEntry invalid;
+    auto offset{LitmapEntry::map_offset(lit)};
+    return offset < litmap_.size() ? litmap_[offset] : invalid;
+}
+
+void Solver::litmap_add_(VarState &vs, val_t val, lit_t lit) {
+    size_t offset{LitmapEntry::map_offset(lit)};
+    if (offset >= litmap_.size()) {
+        litmap_.resize(offset + 1);
+    }
+    auto ps = update_litmap_(vs, lit, val);
+    litmap_[offset] = LitmapEntry{lit, vs.var(), val, ps.first, ps.second};
+}
+
 lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) {
     if (value < vs.min_bound()) {
         return -TRUE_LIT;
@@ -377,8 +472,7 @@ lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) 
         if (value >= config().sign_value) {
             lit = -lit;
         }
-        auto ps = update_litmap_(vs, lit, value);
-        litmap_.emplace(lit, std::tuple(vs.var(), value, ps.first, ps.second));
+        litmap_add_(vs, value, lit);
         cc.add_watch(lit);
         cc.add_watch(-lit);
     }
@@ -389,22 +483,14 @@ std::pair<lit_t, lit_t> Solver::update_litmap_(VarState &vs, lit_t lit, val_t va
     std::pair<lit_t, lit_t> ret{-TRUE_LIT, TRUE_LIT};
     if (auto it = vs.lit_lt(value); it != vs.rend()) {
         ret.first = it->second;
-        for (auto rng = litmap_.equal_range(ret.first); rng.first != rng.second; ++rng.first) {
-            auto &[var, prev_value, prev_lit, succ_lit] = rng.first->second;
-            static_cast<void>(prev_lit);
-            if (it->first == prev_value && var == vs.var()) {
-                succ_lit = lit != 0 ? lit : vs.lit_succ(value);
-            }
+        if (auto &olit = litmap_at_(ret.first); olit.valid(ret.first)) {
+            olit.set_succ(lit != 0 ? lit : vs.lit_succ(value));
         }
     }
     if (auto it = vs.lit_gt(value); it != vs.end()) {
         ret.second = it->second;
-        for (auto rng = litmap_.equal_range(ret.second); rng.first != rng.second; ++rng.first) {
-            auto &[var, succ_value, prev_lit, succ_lit] = rng.first->second;
-            static_cast<void>(succ_lit);
-            if (it->first == succ_value && var == vs.var()) {
-                prev_lit = lit != 0 ? lit : vs.lit_prev(value);
-            }
+        if (auto &olit = litmap_at_(ret.second); olit.valid(ret.second)) {
+            olit.set_prev(lit != 0 ? lit : vs.lit_prev(value));
         }
     }
     return ret;
@@ -673,26 +759,22 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
 
     // On-the-fly simplification on the top-level.
     if (lit != TRUE_LIT && ass.decision_level() == 0 && ass.is_fixed(lit)) {
-        for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
-            auto [var, value, prev_lit, succ_lit] = rng.first->second;
-            auto &vs = var_state(var);
-            static_cast<void>(prev_lit);
-            assert(vs.get_literal(value) == lit);
-            vs.set_literal(value, TRUE_LIT);
-            update_litmap_(vs, TRUE_LIT, value);
-            factmap_.emplace_back(TRUE_LIT, var, value, succ_lit);
+        if (auto &olit = litmap_at_(lit); olit.valid(lit)) {
+            auto &vs = var_state(olit.var());
+            assert(vs.get_literal(olit.value()) == lit);
+            vs.set_literal(olit.value(), TRUE_LIT);
+            update_litmap_(vs, TRUE_LIT, olit.value());
+            factmap_.emplace_back(TRUE_LIT, olit.var(), olit.value(), olit.succ());
+            olit.unset();
         }
-        litmap_.erase(lit);
-        for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
-            auto [var, value, prev_lit, succ_lit] = rng.first->second;
-            auto &vs = var_state(var);
-            static_cast<void>(succ_lit);
-            assert(vs.get_literal(value) == -lit);
-            vs.set_literal(value, -TRUE_LIT);
-            update_litmap_(vs, -TRUE_LIT, value);
-            factmap_.emplace_back(-TRUE_LIT, var, value, prev_lit);
+        if (auto &olit = litmap_at_(-lit); olit.valid(-lit)) {
+            auto &vs = var_state(olit.var());
+            assert(vs.get_literal(olit.value()) == -lit);
+            vs.set_literal(olit.value(), -TRUE_LIT);
+            update_litmap_(vs, -TRUE_LIT, olit.value());
+            factmap_.emplace_back(-TRUE_LIT, olit.var(), olit.value(), olit.prev());
+            olit.unset();
         }
-        litmap_.erase(-lit);
         lit = TRUE_LIT;
     }
 
@@ -727,20 +809,11 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
 
     // Note: Note that iterators of unordered_multimap's are guaranteed to stay
     // valid even for insertion.
-    for (auto rng = litmap_.equal_range(lit); rng.first != rng.second; ++rng.first) {
-        auto [var, value, prev_lit, succ_lit] = rng.first->second;
-        static_cast<void>(prev_lit);
-        if (!update_upper_(lvl, cc, var, lit, value, succ_lit)) {
-            return false;
-        }
+    if (auto const &olit = litmap_at_(lit); olit.valid(lit) && !update_upper_(lvl, cc, olit.var(), lit, olit.value(), olit.succ())) {
+        return false;
     }
-
-    for (auto rng = litmap_.equal_range(-lit); rng.first != rng.second; ++rng.first) {
-        auto [var, value, prev_lit, succ_lit] = rng.first->second;
-        static_cast<void>(succ_lit);
-        if (!update_lower_(lvl, cc, var, lit, value, prev_lit)) {
-            return false;
-        }
+    if (auto const &olit = litmap_at_(-lit); olit.valid(-lit) && !update_lower_(lvl, cc, olit.var(), lit, olit.value(), olit.prev())) {
+        return false; // NOLINT
     }
 
     return true;
@@ -826,15 +899,15 @@ lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
             break;
         }
         case Heuristic::MaxChain: {
-            if (auto it = litmap_.find(fallback); it != litmap_.end()) {
-                auto &vs = var_state(std::get<0>(it->second));
+            if (auto const &olit = litmap_at_(fallback); olit.valid(fallback)) {
+                auto &vs = var_state(olit.var());
                 // make the literal as small as possible
                 auto lit = vs.lit_ge(vs.lower_bound());
                 assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
                 return lit->second;
             }
-            if (auto it = litmap_.find(-fallback); it != litmap_.end()) {
-                auto &vs = var_state(std::get<0>(it->second));
+            if (auto const &olit = litmap_at_(-fallback); olit.valid(-fallback)) {
+                auto &vs = var_state(olit.var());
                 // make the literal as large as possible
                 auto lit = vs.lit_lt(vs.upper_bound());
                 assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
@@ -909,16 +982,17 @@ void Solver::update(AbstractClauseCreator &cc) {
     minimize_level_ = 0;
 
     // remove solve step local variables from litmap_
-    for (auto it = litmap_.begin(), ie = litmap_.end(); it != ie; ) {
-        if (!ass.has_literal(it->first)) {
-            auto &vs = var_state(std::get<0>(it->second));
-            vs.unset_literal(std::get<1>(it->second));
-            update_litmap_(vs, 0, std::get<1>(it->second));
-            it = litmap_.erase(it);
+    size_t offset = 0;
+    for (auto &olit : litmap_) {
+        if (lit_t lit = olit.map_lit(offset); lit != 0) {
+            if (!ass.has_literal(lit)) {
+                auto &vs = var_state(olit.var());
+                vs.unset_literal(olit.value());
+                update_litmap_(vs, 0, olit.value());
+                olit.unset();
+            }
         }
-        else {
-            ++it;
-        }
+        ++offset;
     }
 }
 
@@ -1018,10 +1092,16 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
             lit = -lit;
         }
         if (truth == Clingo::TruthValue::Free) {
+            if (auto const &olit = litmap_at_(lit); olit.valid(lit)) {
+                auto old = lit;
+                lit = cc.add_literal();
+                if (!cc.add_clause({-old, lit}) || !cc.add_clause({-lit, old})) {
+                    return false;
+                }
+            }
             cc.add_watch(lit);
             cc.add_watch(-lit);
-            auto ps = update_litmap_(vs, lit, value);
-            litmap_.emplace(lit, std::tuple(vs.var(), value, ps.first, ps.second));
+            litmap_add_(vs, value, lit);
         }
         else {
             lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;;

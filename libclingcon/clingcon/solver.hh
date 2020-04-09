@@ -375,6 +375,7 @@ private:
 
 class Solver {
     class Level;
+    class LitmapEntry;
 
 public:
     Solver(SolverConfig const &config, SolverStatistics &stats);
@@ -608,6 +609,11 @@ private:
     //! propagate the minimize constraint and return.
     [[nodiscard]] Level &level_();
 
+    //! Helper to access the litmap_ always returning a (possibly invalid) entry.
+    LitmapEntry &litmap_at_(lit_t lit);
+    //! Helper to add an element to the litmap_ making sure to resize the container.
+    void litmap_add_(VarState &vs, val_t val, lit_t lit);
+
     //! Solver configuration.
     SolverConfig const &config_;
     //! Solver statitstics;
@@ -620,7 +626,7 @@ private:
     //!
     //! If there is an order literal for `var<=value`, then the pair
     //! `(var,value)` is contained in the map
-    std::unordered_multimap<lit_t, std::tuple<var_t, val_t, lit_t, lit_t>> litmap_;
+    std::vector<LitmapEntry> litmap_;
     //! Like litmap but for facts only.
     std::vector<std::tuple<lit_t, var_t, val_t, lit_t>> factmap_;
     //! A mapping from constraint states to constraints.
