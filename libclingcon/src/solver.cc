@@ -284,7 +284,7 @@ public:
     , value_{value}
     , prev_{prev}
     , succ_{succ} {
-        assert(prev != 0) ;
+        assert(!invalid()) ;
     }
 
     [[nodiscard]] bool valid(lit_t lit) const {
@@ -296,32 +296,32 @@ public:
     }
 
     [[nodiscard]] var_t var() const {
-        assert(prev_ != 0) ;
+        assert(!invalid()) ;
         return var_;
     }
 
     [[nodiscard]] val_t value() const {
-        assert(prev_ != 0) ;
+        assert(!invalid()) ;
         return value_;
     }
 
     [[nodiscard]] lit_t prev() const {
-        assert(prev_ != 0) ;
+        assert(!invalid()) ;
         return prev_;
     }
 
     void set_prev(lit_t prev) {
-        assert(prev_ != 0) ;
+        assert(!invalid()) ;
         prev_ = prev;
     }
 
     [[nodiscard]] lit_t succ() const {
-        assert(prev_ != 0) ;
+        assert(!invalid()) ;
         return succ_;
     }
 
     void set_succ(lit_t succ) {
-        assert(prev_ != 0) ;
+        assert(!invalid()) ;
         succ_ = succ;
     }
 

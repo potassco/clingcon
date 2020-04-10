@@ -45,6 +45,8 @@ using UniqueConstraint = std::unique_ptr<AbstractConstraint>;
 using ConstraintVec = std::vector<UniqueConstraint>;
 using UniqueConstraintState = std::unique_ptr<AbstractConstraintState>;
 
+constexpr val_t MOGRIFY_FACTOR = 10;
+
 //! Base class of all constraints.
 class AbstractConstraint {
 public:
@@ -161,9 +163,14 @@ protected:
 //! The class maintains a stack of lower and upper bounds, which initially
 //! contain the smallest and largest allowed integer.
 class VarState {
-    using OrderLiterals = std::map<val_t, lit_t>;                  //!< Container to store order literals.
-    using Iterator = OrderLiterals::const_iterator;                //!< Iterator over order literals.
-    using ReverseIterator = OrderLiterals::const_reverse_iterator; //!< Reverse iterator over order literals.
+    using OrderMap = std::map<val_t, lit_t>;                     //!< Map to store order literals.
+    using OrderVec = std::vector<lit_t>;                         //!< Vetor to store order literals.
+    using ReverseIteratorMap = OrderMap::const_reverse_iterator; //!< Reverse iterator over order literals in map.
+    using IteratorVec = OrderVec::const_iterator;                //!< Iterator over order literals in vector.
+    using ReverseIteratorVec = OrderVec::const_reverse_iterator; //!< Reverse iterator over order literals in vector.
+    using BoundStack = std::vector<std::pair<level_t, val_t>>;   //!< Container for stacks of lower/upper bounds.
+
+    static constexpr val_t unused = std::numeric_limits<val_t>::min();
 
 public:
     //! Create an initial state for the given variable.
@@ -171,17 +178,105 @@ public:
     //! Initially, the state should have  a lower bound of `Config::min_int`
     //! and an upper bound of `Config::max_int` and is associated with no
     //! variables.
+    VarState() = delete;
     VarState(var_t var, val_t lower_bound, val_t upper_bound)
     : var_{var}
     , lower_bound_{lower_bound}
     , upper_bound_{upper_bound} {
+        new (&litmap_) OrderMap();
     }
-    VarState() = delete;
-    VarState(VarState const &) = default;
-    VarState(VarState &&) noexcept = default;
-    VarState &operator=(VarState const &) = default;
-    VarState &operator=(VarState &&) noexcept = default;
-    ~VarState() = default;
+
+    VarState(VarState const &x)
+    : var_{x.var_}
+    , lower_bound_{x.lower_bound_}
+    , upper_bound_{x.upper_bound_}
+    , offset_{x.offset_}
+    , lower_bound_stack_{x.lower_bound_stack_}
+    , upper_bound_stack_{x.upper_bound_stack_} {
+        if (offset_ == unused) {
+            new (&litmap_) OrderMap(x.litmap_);
+        }
+        else {
+            new (&litvec_) OrderVec(x.litvec_);
+        }
+    }
+
+    VarState(VarState &&x) noexcept
+    : var_{x.var_}
+    , lower_bound_{x.lower_bound_}
+    , upper_bound_{x.upper_bound_}
+    , offset_{x.offset_}
+    , lower_bound_stack_{std::move(x.lower_bound_stack_)}
+    , upper_bound_stack_{std::move(x.upper_bound_stack_)} {
+        if (offset_ == unused) {
+            new (&litmap_) OrderMap(std::move(x.litmap_));
+        }
+        else {
+            new (&litvec_) OrderVec(std::move(x.litvec_));
+        }
+    }
+
+    VarState &operator=(VarState const &x) {
+        var_ = x.var_;
+        lower_bound_ = x.lower_bound_;
+        upper_bound_ = x.upper_bound_;
+        lower_bound_stack_ = x.lower_bound_stack_;
+        upper_bound_stack_ = x.upper_bound_stack_;
+        if (x.offset_ == unused) {
+            if (offset_ != unused) {
+                litvec_.~OrderVec();
+                new (&litmap_) OrderMap();
+            }
+            offset_ = unused;
+            litmap_ = x.litmap_;
+        }
+        else {
+            if (offset_ == unused) {
+                litmap_.~OrderMap();
+                new (&litvec_) OrderVec(x.litvec_);
+            }
+            offset_ = x.offset_;
+            litvec_ = x.litvec_;
+        }
+        return *this;
+    }
+
+    VarState &operator=(VarState &&x) noexcept {
+        var_ = x.var_;
+        lower_bound_ = x.lower_bound_;
+        upper_bound_ = x.upper_bound_;
+        lower_bound_stack_ = std::move(x.lower_bound_stack_);
+        upper_bound_stack_ = std::move(x.upper_bound_stack_);
+        if (x.offset_ == unused) {
+            if (offset_ == unused) {
+                litmap_ = std::move(x.litmap_);
+            }
+            else {
+                litvec_.~OrderVec();
+                new (&litmap_) OrderMap(std::move(x.litmap_));
+            }
+        }
+        else {
+            if (offset_ == unused) {
+                litmap_.~OrderMap();
+                new (&litvec_) OrderVec(std::move(x.litvec_));
+            }
+            else {
+                litvec_ = std::move(x.litvec_);
+            }
+        }
+        offset_ = x.offset_;
+        return *this;
+    }
+
+    ~VarState() {
+        if (offset_ == unused) {
+            litmap_.~OrderMap();
+        }
+        else {
+            litvec_.~OrderVec();
+        }
+    }
 
     //! Remove all literals associated with this state.
     void reset(val_t min_int, val_t max_int) {
@@ -189,7 +284,9 @@ public:
         upper_bound_ = max_int;
         lower_bound_stack_.clear();
         upper_bound_stack_.clear();
-        literals_.clear();
+        litmap_.clear();
+        litvec_.clear();
+        offset_ = unused;
     }
 
     //! @name Functions for Lower Bounds
@@ -272,31 +369,59 @@ public:
         return lower_bound_ == upper_bound_;
     }
 
+    [[nodiscard]] val_t size() const {
+        return max_bound() - min_bound();
+    }
+
     //! Get a reference to an existing or newly created literal.
     [[nodiscard]] lit_t &get_or_add_literal(val_t value) {
-        return literals_.emplace(value, 0).first->second;
+        if (offset_ == unused && !mogrify_()) {
+            return litmap_.emplace(value, 0).first->second;
+        }
+        return litvec_[value - offset_];
     }
 
     //! Determine if the given value is associated with an order literal.
     [[nodiscard]] bool has_literal(val_t value) const {
-        return literals_.find(value) != literals_.end();
+        if (offset_ == unused) {
+            return litmap_.find(value) != litmap_.end();
+        }
+        return litvec_[value - offset_] != 0;
     }
     //! Get the literal associated with the value.
     [[nodiscard]] std::optional<lit_t> get_literal(val_t value) {
-        auto it = literals_.find(value);
-        if (it != literals_.end()) {
-            return it->second;
+        if (offset_ == unused) {
+            auto it = litmap_.find(value);
+            if (it != litmap_.end()) {
+                return it->second;
+            }
+        }
+        else {
+            auto ret = litvec_[value - offset_];
+            if (ret != 0) {
+                return ret;
+            }
         }
         return std::nullopt;
     }
 
     //! Set the literal of the given value.
     void set_literal(val_t value, lit_t lit) {
-        literals_[value] = lit;
+        if (offset_ == unused && !mogrify_()) {
+            litmap_[value] = lit;
+        }
+        else {
+            litvec_[value - offset_] = lit;
+        }
     }
     //! Unset the literal of the given value.
     void unset_literal(val_t value) {
-        literals_.erase(value);
+        if (offset_ == unused) {
+            litmap_.erase(value);
+        }
+        else {
+            litvec_[value - offset_] = 0;
+        }
     }
 
     //! @}
@@ -306,42 +431,80 @@ public:
 
     //! Traverse all literals.
     template <typename F>
-    [[nodiscard]] auto with(F f) const {
-        return f(literals_.begin(), literals_.end(), [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
+    [[nodiscard]] auto with(F &&f) const {
+        if (offset_ == unused) {
+            return call_map_(std::forward<F>(f), litmap_.begin(), litmap_.end());
+        }
+        return call_vec_(std::forward<F>(f), litvec_.begin(), litvec_.end());
+
     }
     //! Traverse literals preceeding value.
     template <typename F>
-    [[nodiscard]] auto with_lt(val_t value, F f) const {
-        return f(ReverseIterator{literals_.lower_bound(value)}, literals_.crend(), [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
+    [[nodiscard]] auto with_lt(val_t value, F &&f) const {
+        if (offset_ == unused) {
+            return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.lower_bound(value)}, litmap_.rend());
+        }
+        auto offset = std::min<val_t>(std::max(0, value - offset_), litvec_.size());
+        return call_vec_(std::forward<F>(f), ReverseIteratorVec{litvec_.begin() + offset}, litvec_.rend());
+
     }
     //! Traverse literals preceeding and including value.
     template <typename F>
-    [[nodiscard]] auto with_le(val_t value, F f) const {
-        return f(ReverseIterator{literals_.upper_bound(value)}, literals_.crend(), [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
+    [[nodiscard]] auto with_le(val_t value, F &&f) const {
+        if (offset_ == unused) {
+            return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.upper_bound(value)}, litmap_.rend());
+        }
+        auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), litvec_.size());
+        return call_vec_(std::forward<F>(f), ReverseIteratorVec{litvec_.begin() + offset}, litvec_.rend());
     }
     //! Traverse literals succeeding value.
     template <typename F>
-    [[nodiscard]] auto with_gt(val_t value, F f) const {
-        return f(Iterator{literals_.upper_bound(value)}, Iterator{literals_.end()}, [](auto it) { return it->second; },  [](auto it) { return it->first; }, [](auto &it) { ++it; });
+    [[nodiscard]] auto with_gt(val_t value, F &&f) const {
+        if (offset_ == unused) {
+            return call_map_(std::forward<F>(f), litmap_.upper_bound(value), litmap_.end());
+        }
+        auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), litvec_.size());
+        return call_vec_(std::forward<F>(f), litvec_.begin() + offset, litvec_.end());
     }
+
     //! Traverse literals succeeding and including value.
     template <typename F>
-    [[nodiscard]] auto with_ge(val_t value, F f) const {
-        return f(Iterator{literals_.lower_bound(value)}, Iterator{literals_.end()}, [](auto it) { return it->second; },  [](auto it) { return it->first; }, [](auto &it) { ++it; });
+    [[nodiscard]] auto with_ge(val_t value, F &&f) const {
+        if (offset_ == unused) {
+            return call_map_(std::forward<F>(f), litmap_.lower_bound(value), litmap_.end());
+        }
+        auto offset = std::min<val_t>(std::max(0, value - offset_), litvec_.size());
+        return call_vec_(std::forward<F>(f), litvec_.begin() + offset, litvec_.end());
     }
 
     //! Common access pattern involving lit_lt.
     [[nodiscard]] lit_t lit_prev(val_t value) const {
-        if (auto it = ReverseIterator{literals_.lower_bound(value)}; it != literals_.crend()) {
-            return it->second;
+        if (offset_ == unused) {
+            if (auto it = ReverseIteratorMap{litmap_.lower_bound(value)}; it != litmap_.crend()) {
+                return it->second;
+            }
+        }
+        else {
+            auto offset = std::min<val_t>(std::max(0, value - offset_), litvec_.size());
+            for (ReverseIteratorVec it{litvec_.begin() + offset}, ie{litvec_.rend()}; it != ie; ++it) {
+                if (*it != 0) { return *it; }
+            };
         }
         return -TRUE_LIT;
     }
 
     //! Common access pattern involving lit_gt.
     [[nodiscard]] lit_t lit_succ(val_t value) const {
-        if (auto it = literals_.upper_bound(value); it != literals_.end()) {
-            return it->second;
+        if (offset_ == unused) {
+            if (auto it = litmap_.upper_bound(value); it != litmap_.end()) {
+                return it->second;
+            }
+        }
+        else {
+            auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), litvec_.size());
+            for (auto it = litvec_.begin() + offset, ie = litvec_.end(); it != ie; ++it) {
+                if (*it != 0) { return *it; }
+            };
         }
         return TRUE_LIT;
     }
@@ -349,14 +512,54 @@ public:
     //! @}
 
 private:
-    using BoundStack = std::vector<std::pair<level_t, val_t>>;
+    [[nodiscard]] bool mogrify_() {
+        // Note: The second part of the condition is necessary because the
+        // solver might clean up literals at a later point. It is only
+        // guaranteed that it will not introduce literals for values out of
+        // bounds.
+        if (static_cast<val_t>(litmap_.size()) > size() / MOGRIFY_FACTOR && min_bound() <= litmap_.begin()->first && litmap_.rbegin()->first < max_bound()) {
+            auto offset = min_bound();
+            OrderVec vec(size());
+            for (auto [val, lit] : litmap_) {
+                vec[val - offset] = lit;
+            }
+            litmap_.~OrderMap();
+            offset_ = offset;
+            new (&litvec_) OrderVec(std::move(vec));
+            return true;
+        }
+        return false;
+    }
+
+    [[nodiscard]] val_t get_val_(IteratorVec it) const {
+        return static_cast<val_t>(it - litvec_.begin() + offset_);
+    }
+
+    [[nodiscard]] val_t get_val_(ReverseIteratorVec it) const { // NOLINT
+        return static_cast<val_t>(litvec_.rend() - it + offset_) - 1;
+    }
+
+    template <typename F, typename It>
+    auto call_vec_(F &&f, It ib, It ie) const {
+        for (; ib != ie && *ib == 0; ++ib) { };
+        return f(ib, ie, [](auto it) { return *it; }, [&](auto it) { return get_val_(it); }, [ie](auto &it) { for (++it; it != ie && *it == 0; ++it) { }; });
+    }
+
+    template <typename F, typename It>
+    auto call_map_(F &&f, It ib, It ie) const {
+        return f(ib, ie, [](auto it) { return it->second; },  [](auto it) { return it->first; }, [](auto &it) { ++it; });
+    }
 
     var_t var_;                    //!< variable associated with the state
     val_t lower_bound_;            //!< current lower bound of the variable
     val_t upper_bound_;            //!< current upper bound of the variable
+    val_t offset_{unused};         //!< minimium bound at the time of mogrification
     BoundStack lower_bound_stack_; //!< lower bounds of lower levels
     BoundStack upper_bound_stack_; //!< upper bounds of lower levels
-    OrderLiterals literals_;       //!< map from values to literals
+    union {
+        OrderMap litmap_;          //!< map from values to literals
+        OrderVec litvec_;          //!< map from values to literals
+    };
 };
 
 class Solver {
