@@ -291,6 +291,10 @@ public:
         return prev_ != 0 && get_sign_(lit) == sign_;
     }
 
+    [[nodiscard]] bool invalid() const {
+        return prev_ == 0;
+    }
+
     [[nodiscard]] var_t var() const {
         assert(prev_ != 0) ;
         return var_;
@@ -439,8 +443,6 @@ void Solver::push_level_(level_t level) {
 }
 
 Solver::LitmapEntry &Solver::litmap_at_(lit_t lit) {
-    // NOTE: it can never happen that a literal occurs in both phases
-    //       so we can in principle cut the size of this container by half
     static LitmapEntry invalid;
     auto offset{LitmapEntry::map_offset(lit)};
     return offset < litmap_.size() ? litmap_[offset] : invalid;
@@ -807,8 +809,6 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         return true;
     }
 
-    // Note: Note that iterators of unordered_multimap's are guaranteed to stay
-    // valid even for insertion.
     if (auto const &olit = litmap_at_(lit); olit.valid(lit) && !update_upper_(lvl, cc, olit.var(), lit, olit.value(), olit.succ())) {
         return false;
     }
@@ -984,13 +984,11 @@ void Solver::update(AbstractClauseCreator &cc) {
     // remove solve step local variables from litmap_
     size_t offset = 0;
     for (auto &olit : litmap_) {
-        if (lit_t lit = olit.map_lit(offset); lit != 0) {
-            if (!ass.has_literal(lit)) {
-                auto &vs = var_state(olit.var());
-                vs.unset_literal(olit.value());
-                update_litmap_(vs, 0, olit.value());
-                olit.unset();
-            }
+        if (lit_t lit = olit.map_lit(offset); lit != 0 && !ass.has_literal(lit)) {
+            auto &vs = var_state(olit.var());
+            vs.unset_literal(olit.value());
+            update_litmap_(vs, 0, olit.value());
+            olit.unset();
         }
         ++offset;
     }
@@ -1092,7 +1090,7 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
             lit = -lit;
         }
         if (truth == Clingo::TruthValue::Free) {
-            if (auto const &olit = litmap_at_(lit); olit.valid(lit)) {
+            if (auto const &olit = litmap_at_(lit); !olit.invalid()) {
                 auto old = lit;
                 lit = cc.add_literal();
                 if (!cc.add_clause({-old, lit}) || !cc.add_clause({-lit, old})) {
