@@ -161,11 +161,11 @@ protected:
 //! The class maintains a stack of lower and upper bounds, which initially
 //! contain the smallest and largest allowed integer.
 class VarState {
-public:
     using OrderLiterals = std::map<val_t, lit_t>;                  //!< Container to store order literals.
     using Iterator = OrderLiterals::const_iterator;                //!< Iterator over order literals.
     using ReverseIterator = OrderLiterals::const_reverse_iterator; //!< Reverse iterator over order literals.
 
+public:
     //! Create an initial state for the given variable.
     //!
     //! Initially, the state should have  a lower bound of `Config::min_int`
@@ -304,49 +304,35 @@ public:
     //! @name Functions for Traversing Order Literals
     //! @{
 
-    //! Return an iterator to the first order literal.
-    [[nodiscard]] Iterator begin() const {
-        return literals_.begin();
+    //! Traverse all literals.
+    template <typename F>
+    [[nodiscard]] auto with(F f) const {
+        return f(literals_.begin(), literals_.end(), [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
     }
-    //! Return an iterator after the last order literal.
-    [[nodiscard]] Iterator end() const {
-        return literals_.end();
+    //! Traverse literals preceeding value.
+    template <typename F>
+    [[nodiscard]] auto with_lt(val_t value, F f) const {
+        return f(ReverseIterator{literals_.lower_bound(value)}, literals_.crend(), [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
     }
-
-    //! Return a reverse iterator to the last order literal.
-    [[nodiscard]] ReverseIterator rbegin() const {
-        return literals_.rbegin();
+    //! Traverse literals preceeding and including value.
+    template <typename F>
+    [[nodiscard]] auto with_le(val_t value, F f) const {
+        return f(ReverseIterator{literals_.upper_bound(value)}, literals_.crend(), [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
     }
-    //! Return a reverse iterator before the first order literal.
-    [[nodiscard]] ReverseIterator rend() const {
-        return literals_.rend();
+    //! Traverse literals succeeding value.
+    template <typename F>
+    [[nodiscard]] auto with_gt(val_t value, F f) const {
+        return f(Iterator{literals_.upper_bound(value)}, Iterator{literals_.end()}, [](auto it) { return it->second; },  [](auto it) { return it->first; }, [](auto &it) { ++it; });
     }
-
-    //! Return a reverse iterator to the first order literal with a value less
-    //! than the given value.
-    [[nodiscard]] ReverseIterator lit_lt(val_t value) const {
-        return ReverseIterator{literals_.lower_bound(value)};
-    }
-    //! Return a reverse iterator to the first order literal with a value less
-    //! than or equal to the given value.
-    [[nodiscard]] ReverseIterator lit_le(val_t value) const {
-        return ReverseIterator{literals_.upper_bound(value)};
-    }
-
-    //! Return an iterator to the first order literal with a value greater than
-    //! the given value.
-    [[nodiscard]] Iterator lit_gt(val_t value) const {
-        return literals_.upper_bound(value);
-    }
-    //! Return an iterator to the first order literal with a value greater than
-    //! or equal to the given value.
-    [[nodiscard]] Iterator lit_ge(val_t value) const {
-        return literals_.lower_bound(value);
+    //! Traverse literals succeeding and including value.
+    template <typename F>
+    [[nodiscard]] auto with_ge(val_t value, F f) const {
+        return f(Iterator{literals_.lower_bound(value)}, Iterator{literals_.end()}, [](auto it) { return it->second; },  [](auto it) { return it->first; }, [](auto &it) { ++it; });
     }
 
     //! Common access pattern involving lit_lt.
     [[nodiscard]] lit_t lit_prev(val_t value) const {
-        if (auto it = lit_lt(value); it != rend()) {
+        if (auto it = ReverseIterator{literals_.lower_bound(value)}; it != literals_.crend()) {
             return it->second;
         }
         return -TRUE_LIT;
@@ -354,7 +340,7 @@ public:
 
     //! Common access pattern involving lit_gt.
     [[nodiscard]] lit_t lit_succ(val_t value) const {
-        if (auto it = lit_gt(value); it != end()) {
+        if (auto it = literals_.upper_bound(value); it != literals_.end()) {
             return it->second;
         }
         return TRUE_LIT;
@@ -581,8 +567,8 @@ private:
 
     //! Propagates the preceeding or succeeding order literals of lit until a
     //! true literal is found or the end is reached.
-    template <int sign, class It>
-    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end);
+    template <int sign, class It, class L, class I>
+    [[nodiscard]] bool propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc);
 
     //! Update and propgate the given variable due to a lower bound change.
     [[nodiscard]] bool update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit);

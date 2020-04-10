@@ -483,18 +483,22 @@ lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) 
 
 std::pair<lit_t, lit_t> Solver::update_litmap_(VarState &vs, lit_t lit, val_t value) {
     std::pair<lit_t, lit_t> ret{-TRUE_LIT, TRUE_LIT};
-    if (auto it = vs.lit_lt(value); it != vs.rend()) {
-        ret.first = it->second;
-        if (auto &olit = litmap_at_(ret.first); olit.valid(ret.first)) {
-            olit.set_succ(lit != 0 ? lit : vs.lit_succ(value));
+    vs.with_lt(value, [&](auto it, auto ie, auto get_lit, auto, auto) { // NOLINT(readability-named-parameter)
+        if (it != ie) {
+            ret.first = get_lit(it);
+            if (auto &olit = litmap_at_(ret.first); olit.valid(ret.first)) {
+                olit.set_succ(lit != 0 ? lit : vs.lit_succ(value));
+            }
         }
-    }
-    if (auto it = vs.lit_gt(value); it != vs.end()) {
-        ret.second = it->second;
-        if (auto &olit = litmap_at_(ret.second); olit.valid(ret.second)) {
-            olit.set_prev(lit != 0 ? lit : vs.lit_prev(value));
+    });
+    vs.with_gt(value, [&](auto it, auto ie, auto get_lit, auto, auto) { // NOLINT(readability-named-parameter)
+        if (it != ie) {
+            ret.second = get_lit(it);
+            if (auto &olit = litmap_at_(ret.second); olit.valid(ret.second)) {
+                olit.set_prev(lit != 0 ? lit : vs.lit_prev(value));
+            }
         }
-    }
+    });
     return ret;
 }
 
@@ -627,18 +631,23 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     // handle this.
     if (conf.add_order_clauses) {
         for (auto &vs : var2vs_) {
-            lit_t prev = -TRUE_LIT;
-            for (auto [value, lit] : vs) {
-                static_cast<void>(value);
-                // lit<=val-1  => lit<=val
-                if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
-                    return false;
+            if (!vs.with([&](auto ib, auto ie, auto get_lit, auto, auto inc) { // NOLINT(readability-named-parameter)
+                lit_t prev = -TRUE_LIT;
+                for (auto it = ib; it != ie; inc(it)) {
+                    auto lit = get_lit(it);
+                    // lit<=val-1  => lit<=val
+                    if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
+                        return false;
+                    }
+                    // !lit<=val => !lit<=val-1
+                    if (prev != -TRUE_LIT && !cc.add_clause({lit, -prev})) {
+                        return false;
+                    }
+                    prev = lit;
                 }
-                // !lit<=val => !lit<=val-1
-                if (prev != -TRUE_LIT && !cc.add_clause({lit, -prev})) {
-                    return false;
-                }
-                prev = lit;
+                return true;
+            })) {
+                return false;
             }
         }
     }
@@ -703,12 +712,12 @@ bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
     return update_domain_(cc, lit);
 }
 
-template <int sign, class It>
-bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end) {
+template <int sign, class It, class L, class I>
+bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc) {
     auto ass = cc.assignment();
 
-    for (auto it = begin; it != end; ++it) {
-        auto lit = sign * it->second;
+    for (auto it = begin; it != end; inc(it)) {
+        auto lit = sign * get_lit(it);
         if (ass.is_true(lit)) {
             break;
         }
@@ -736,7 +745,9 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_upper(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    return ass.is_true(succ_lit) || propagate_variables_<1>(cc, lit, vs.lit_gt(value), vs.end());
+    return ass.is_true(succ_lit) || vs.with_gt(value, [&](auto begin, auto end, auto &&get_lit, auto, auto &&inc) { // NOLINT(readability-named-parameter)
+        return propagate_variables_<1>(cc, lit, begin, end, std::forward<decltype(get_lit)>(get_lit), std::forward<decltype(inc)>(inc));
+    });
 }
 
 bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit) {
@@ -751,7 +762,9 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_lower(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    return ass.is_true(-prev_lit) || propagate_variables_<-1>(cc, lit, vs.lit_lt(value), vs.rend());
+    return ass.is_true(-prev_lit) || vs.with_lt(value, [&](auto begin, auto end, auto &&get_lit, auto, auto &&inc) { // NOLINT(readability-named-parameter)
+        return propagate_variables_<-1>(cc, lit, begin, end, std::forward<decltype(get_lit)>(get_lit), std::forward<decltype(inc)>(inc));
+    });
 }
 
 bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
@@ -902,16 +915,16 @@ lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
             if (auto const &olit = litmap_at_(fallback); olit.valid(fallback)) {
                 auto &vs = var_state(olit.var());
                 // make the literal as small as possible
-                auto lit = vs.lit_ge(vs.lower_bound());
-                assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
-                return lit->second;
+                auto lit = vs.with_ge(vs.lower_bound(), [](auto it, auto, auto get_lit, auto, auto) { return get_lit(it); }); // NOLINT(readability-named-parameter)
+                assert(assign.truth_value(lit) == Clingo::TruthValue::Free);
+                return lit;
             }
             if (auto const &olit = litmap_at_(-fallback); olit.valid(-fallback)) {
                 auto &vs = var_state(olit.var());
                 // make the literal as large as possible
-                auto lit = vs.lit_lt(vs.upper_bound());
-                assert(assign.truth_value(lit->second) == Clingo::TruthValue::Free);
-                return -lit->second;
+                auto lit = -vs.with_lt(vs.upper_bound(), [&](auto it, auto, auto get_lit, auto, auto) { return get_lit(it); }); // NOLINT(readability-named-parameter)
+                assert(assign.truth_value(lit) == Clingo::TruthValue::Free);
+                return lit;
             }
             break;
         }

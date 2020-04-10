@@ -346,23 +346,24 @@ private:
                 auto value = std::max<sum_t>(current + delta, vs.min_bound());
                 if (value < current) {
                     // refine reason literal
-                    if (auto it = vs.lit_ge(value - 1); it != vs.end()) {
-                        if (auto [value_ge, lit_ge] = *it; value_ge + 1 < current) {
-                            found = 1;
-                            slack -= static_cast<sum_t>(co) * (value_ge + 1 - current);
-                            current = value_ge + 1;
-                            assert(slack < 0);
-                            lit = lit_ge;
-                            // Note: The literal might have been introduced and
-                            // made true during constraint propagation.
-                            if (!ass.is_false(lit)) {
-                                assert(ass.is_true(lit));
-                                ret = cc.add_clause({lit_reason, -lit});
+                    vs.with_ge(value - 1, [&](auto it, auto ie, auto get_lit, auto get_val, auto) { // NOLINT(readability-named-parameter)
+                        if (it != ie) {
+                            if (auto value_ge = get_val(it); value_ge + 1 < current) {
+                                found = 1;
+                                slack -= static_cast<sum_t>(co) * (value_ge + 1 - current);
+                                current = value_ge + 1;
+                                assert(slack < 0);
+                                lit = get_lit(it);
+                                // Note: The literal might have been introduced and
+                                // made true during constraint propagation.
+                                if (!ass.is_false(lit)) {
+                                    assert(ass.is_true(lit));
+                                    ret = cc.add_clause({lit_reason, -lit});
+                                }
+                                assert(ass.is_false(lit));
                             }
-                            assert(ass.is_false(lit));
                         }
-
-                    }
+                    });
                     // introduce reason literal
                     // Note: It is important to imply literals by the smallest
                     // available literal to keep the state consistent.
@@ -392,20 +393,21 @@ private:
                 auto value = std::min<sum_t>(current + delta, vs.max_bound());
                 if (value > current) {
                     // refine reason literal
-                    if (auto it = vs.lit_le(value); it != vs.rend()) {
-                        if (auto [value_le, lit_le] = *it; value_le > current) {
-                            found = 1;
-                            slack -= static_cast<sum_t>(co) * (value_le - current);
-                            current = value_le;
-                            assert(slack < 0);
-                            lit = -lit_le;
-                            if (!ass.is_false(lit)) {
-                                assert(ass.is_true(lit));
-                                ret = cc.add_clause({lit_reason, -lit});
+                    vs.with_le(value, [&](auto it, auto ie, auto get_lit, auto get_val, auto) { // NOLINT(readability-named-parameter)
+                        if (it != ie) {
+                            if (auto value_le = get_val(it); value_le > current) {
+                                found = 1;
+                                slack -= static_cast<sum_t>(co) * (value_le - current);
+                                current = value_le;
+                                assert(slack < 0);
+                                lit = -get_lit(it);
+                                if (!ass.is_false(lit)) {
+                                    assert(ass.is_true(lit));
+                                    ret = cc.add_clause({lit_reason, -lit});
+                                }
                             }
                         }
-
-                    }
+                    });
                     // introduce reason literal
                     if (ret && solver.config().refine_introduce && ass.level(lit) == ass.decision_level() && value > current) {
                         ++solver.statistics().introduced_reason;
