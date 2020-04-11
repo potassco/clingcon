@@ -4,6 +4,10 @@
 #include <fstream>
 #include <optional>
 
+#ifdef CLINGCON_PROFILE
+#include <gperftools/profiler.h>
+#endif
+
 using Clingo::Detail::handle_error;
 
 
@@ -145,7 +149,14 @@ public:
         parse_(control, files);
         control.ground({{"base", {}}});
         handle_error(clingcon_prepare(theory_, control.to_c()));
+
+#ifdef CLINGCON_PROFILE
+        ProfilerStart("clingcon.solve.prof");
+#endif
         control.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
+#ifdef CLINGCON_PROFILE
+        ProfilerStop();
+#endif
     }
 
 private:
