@@ -29,10 +29,6 @@
 
 using namespace Clingcon;
 
-TEST_CASE("fail") {
-    REQUIRE(solve("&minimize { x }. &sum{ x } >= 0 :- a. {a}.", -3, 3) == S({"x=-3"}));
-}
-
 TEST_CASE("solving", "[solving]") { // NOLINT
     SECTION("simple") {
         REQUIRE(solve("&sum{ x } > 0. &sum{ x } < 3. &sum { x } = y.") == S({
