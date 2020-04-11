@@ -550,13 +550,14 @@ AbstractConstraintState &Solver::add_constraint(AbstractConstraint &constraint) 
 }
 
 void Solver::remove_constraint(AbstractConstraint &constraint) {
+    auto lit = constraint.literal();
     auto it = c2cs_.find(&constraint);
     auto &cs = *it->second;
     cs.detach(*this);
 
-    for (auto rng = lit2cs_.equal_range(constraint.literal()); rng.first != rng.second; ++rng.first) {
-        if (rng.first->second == &cs) {
-            lit2cs_.erase(rng.first);
+    for (auto it = lit2cs_.find(lit), ie = lit2cs_.end(); it != ie && it->first == lit; ++it) {
+        if (it->second == &cs) {
+            lit2cs_.erase(it);
             break;
         }
     }
@@ -702,8 +703,8 @@ template <class It>
 }
 
 bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
-    for (auto rng = lit2cs_.equal_range(lit); rng.first != rng.second; ++rng.first) {
-        Level::mark_todo(*this, *rng.first->second);
+    for (auto it = lit2cs_.find(lit), ie = lit2cs_.end(); it != ie && it->first == lit; ++it) {
+        Level::mark_todo(*this, *it->second);
     }
     return update_domain_(cc, lit);
 }
