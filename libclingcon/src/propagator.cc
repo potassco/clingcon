@@ -138,6 +138,12 @@ public:
 
     }
 
+    [[nodiscard]] bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) override {
+        static_cast<void>(lit);
+        static_cast<void>(elems);
+        throw std::logic_error("implement me!!!");
+    }
+
     [[nodiscard]] bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }

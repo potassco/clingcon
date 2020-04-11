@@ -199,7 +199,7 @@ struct TheoryRewriter {
     template <class Lit>
     static void visit(Lit &node, Clingo::AST::TheoryAtom &atom) {
         SigMatcher matcher;
-        if (atom.term.data.accept(matcher, "sum", "diff", "distinct", "minimize", "maximize")) {
+        if (atom.term.data.accept(matcher, "sum", "diff", "distinct", "disjoint", "minimize", "maximize")) {
             int number = atom.elements.size() > 1 ? 0 : -1;
             for (auto &element : atom.elements) {
                 rewrite_tuple(element, number++);
@@ -641,6 +641,28 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     return builder.add_distinct(builder.solver_literal(atom.literal()), elements);
 }
 
+[[nodiscard]] std::pair<co_var_t,val_t> parse_disjoint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
+    CoVarVec elems;
+    parse_constraint_elem(builder, term, true, elems);
+    auto val = safe_inv(simplify(elems));
+    check_syntax(elems.size() == 1, "Invalid Syntax: invalid disjoint statement");
+    return {elems.front(), val};
+}
+
+[[nodiscard]] bool parse_disjoint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+    std::vector<std::pair<std::pair<co_var_t,val_t>, std::pair<co_var_t,val_t>>> elements;
+
+    for (auto elem : atom.elements()) {
+        auto tuple = elem.tuple();
+        check_syntax(!tuple.empty() && elem.condition().empty(), "Invalid Syntax: invalid disjoint statement");
+        check_syntax(match(tuple.front(), "..", 2), "Invalid Syntax: invalid disjoint statement");
+        auto args = tuple.front().arguments();
+        elements.emplace_back(parse_disjoint_elem(builder, args.front()), parse_disjoint_elem(builder, args.back()));
+    }
+
+    return builder.add_disjoint(builder.solver_literal(atom.literal()), elements);
+}
+
 } // namespace
 
 val_t simplify(CoVarVec &vec, bool drop_zero) {
@@ -711,23 +733,28 @@ bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
                 return false;
             }
         }
-        else if(match(atom.term(), "distinct", 0)) {
+        else if (match(atom.term(), "distinct", 0)) {
             if (!parse_distinct(builder, atom)) {
                 return false;
             }
         }
-        else if(match(atom.term(), "show", 0)) {
+        else if (match(atom.term(), "disjoint", 0)) {
+            if (!parse_disjoint(builder, atom)) {
+                return false;
+            }
+        }
+        else if (match(atom.term(), "show", 0)) {
             parse_show(builder, atom);
         }
-        else if(match(atom.term(), "dom", 0)) {
+        else if (match(atom.term(), "dom", 0)) {
             if (!parse_dom(builder, atom)) {
                 return false;
             }
         }
-        else if(match(atom.term(), "minimize", 0)) {
+        else if (match(atom.term(), "minimize", 0)) {
             parse_objective(builder, atom, 1);
         }
-        else if(match(atom.term(), "maximize", 0)) {
+        else if (match(atom.term(), "maximize", 0)) {
             parse_objective(builder, atom, -1);
         }
     }

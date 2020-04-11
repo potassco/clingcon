@@ -150,6 +150,41 @@ public:
         return true;
     }
 
+    bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) override {
+        oss_ << lit << " -> ";
+        bool sep{false};
+        if (elems.size() > 1) {
+            for (auto const &elem : elems) {
+                if (sep) {
+                    oss_ << " != ";
+                }
+                sep = true;
+                auto const &left = elem.first;
+                if (left.first.first != 1) {
+                    oss_ << left.first.first << "*";
+                }
+                oss_ << vars_[left.first.second];
+                if (left.second != 0) {
+                    oss_ << "+" << left.second;
+                }
+                oss_ << "..";
+                auto const &right = elem.second;
+                if (right.first.first != 1) {
+                    oss_ << right.first.first << "*";
+                }
+                oss_ << vars_[right.first.second];
+                if (right.second != 0) {
+                    oss_ << "+" << right.second;
+                }
+            }
+        }
+        else {
+            oss_ << "true";
+        }
+        oss_ << ".";
+        return true;
+    }
+
     bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
         oss_ << lit << " -> " << vars_[var] << " = { ";
         bool sep{false};
@@ -292,6 +327,12 @@ TEST_CASE("parsing", "[parsing]") {
                 "2 -> 1*x != 1*y != 1*z.");
             REQUIRE(parse("&distinct { x+y; 3*y+2; z; -1 }.") ==
                 "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
+        }
+        SECTION("disjoint") {
+            REQUIRE(parse("&disjoint { x..y; y..z; z..x }.") ==
+                "2 -> x..y != y..z != z..x.");
+            REQUIRE(parse("&disjoint { 2*x..2*y+3; y+0..z; 2*2*z..x }.") ==
+                "2 -> 2*x..2*y+3 != y..z != 4*z..x.");
         }
         SECTION("show") {
             REQUIRE(parse("&show { x/1; y }.") ==

@@ -66,6 +66,7 @@ constexpr char const *THEORY = R"(
     &maximize/0 : sum_term, directive;
     &show/0 : sum_term, directive;
     &distinct/0 : sum_term, head;
+    &disjoint/0 : dom_term, head;
     &dom/0 : dom_term, {=}, var_term, head
 }.
 )";
@@ -102,6 +103,8 @@ public:
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
     [[nodiscard]] virtual bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
+    //! Add a disjoint constraint.
+    [[nodiscard]] virtual bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) = 0;
     //! Add a domain for the given variable.
     [[nodiscard]] virtual bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) = 0;
 };
