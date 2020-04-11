@@ -58,8 +58,8 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             }
             // check lt
             c = 0;
-            vs.with_lt(j, [&c, j, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (auto it = ib; it != ie; inc(it)) {
+            vs.with_lt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+                for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) < j);
                     REQUIRE(get_lit(it) == get_val(it) + n + 1);
@@ -68,8 +68,8 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             REQUIRE(c == std::min(j + n, i + n + 1));
             // check le
             c = 0;
-            vs.with_le(j, [&c, j, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (auto it = ib; it != ie; inc(it)) {
+            vs.with_le(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+                for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) <= j);
                     REQUIRE(get_lit(it) == get_val(it) + n + 1);
@@ -78,8 +78,8 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             REQUIRE(c == std::min(j + n + 1, i + n + 1));
             // check gt
             c = 0;
-            vs.with_gt(j, [&c, j, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (auto it = ib; it != ie; inc(it)) {
+            vs.with_gt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+                for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) > j);
                     REQUIRE(get_lit(it) == get_val(it) + n + 1);
@@ -88,8 +88,8 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             REQUIRE(c == std::min(std::max(0, i - j), i + n + 1));
             // check ge
             c = 0;
-            vs.with_ge(j, [&c, j, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (auto it = ib; it != ie; inc(it)) {
+            vs.with_ge(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+                for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) >= j);
                     REQUIRE(get_lit(it) == get_val(it) + n + 1);

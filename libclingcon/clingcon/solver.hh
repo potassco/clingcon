@@ -169,10 +169,19 @@ class VarState {
     using IteratorVec = OrderVec::const_iterator;                //!< Iterator over order literals in vector.
     using ReverseIteratorVec = OrderVec::const_reverse_iterator; //!< Reverse iterator over order literals in vector.
     using BoundStack = std::vector<std::pair<level_t, val_t>>;   //!< Container for stacks of lower/upper bounds.
-
+    template <typename F, typename It>
+    using RetType = std::invoke_result_t<F,
+        It,
+        It,
+        std::function<lit_t(It)>,
+        std::function<val_t(It)>,
+        std::function<void(It)>>;
     static constexpr val_t unused = std::numeric_limits<val_t>::min();
 
 public:
+    using OrderLiteral = std::pair<lit_t, val_t>;
+    using OrderLiteralOpt = std::optional<OrderLiteral>;
+
     //! Create an initial state for the given variable.
     //!
     //! Initially, the state should have  a lower bound of `Config::min_int`
@@ -438,9 +447,10 @@ public:
         return call_vec_(std::forward<F>(f), litvec_.begin(), litvec_.end());
 
     }
+
     //! Traverse literals preceeding value.
     template <typename F>
-    [[nodiscard]] auto with_lt(val_t value, F &&f) const {
+    [[nodiscard]] auto with_lt(val_t value, F &&f) const -> RetType<F, ReverseIteratorVec> {
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.lower_bound(value)}, litmap_.rend());
         }
@@ -450,7 +460,7 @@ public:
     }
     //! Traverse literals preceeding and including value.
     template <typename F>
-    [[nodiscard]] auto with_le(val_t value, F &&f) const {
+    [[nodiscard]] auto with_le(val_t value, F &&f) const -> RetType<F, ReverseIteratorVec> {
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.upper_bound(value)}, litmap_.rend());
         }
@@ -459,7 +469,7 @@ public:
     }
     //! Traverse literals succeeding value.
     template <typename F>
-    [[nodiscard]] auto with_gt(val_t value, F &&f) const {
+    [[nodiscard]] auto with_gt(val_t value, F &&f) const -> RetType<F, IteratorVec> {
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), litmap_.upper_bound(value), litmap_.end());
         }
@@ -469,7 +479,7 @@ public:
 
     //! Traverse literals succeeding and including value.
     template <typename F>
-    [[nodiscard]] auto with_ge(val_t value, F &&f) const {
+    [[nodiscard]] auto with_ge(val_t value, F &&f) const -> RetType<F, IteratorVec> {
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), litmap_.lower_bound(value), litmap_.end());
         }
@@ -477,36 +487,78 @@ public:
         return call_vec_(std::forward<F>(f), litvec_.begin() + offset, litvec_.end());
     }
 
+    //! Get preceeding literal.
+    [[nodiscard]] lit_t lit_lt(val_t value) const {
+        return with_lt(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> lit_t {
+            static_cast<void>(get_val);
+            static_cast<void>(inc);
+            return ib != ie ? get_lit(ib) : 0;
+        });
+    }
+    //! Get preceeding or equal literal.
+    [[nodiscard]] lit_t lit_le(val_t value) const {
+        return with_le(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> lit_t {
+            static_cast<void>(get_val);
+            static_cast<void>(inc);
+            return ib != ie ? get_lit(ib) : 0;
+        });
+    }
+    //! Get succeeding literal.
+    [[nodiscard]] lit_t lit_gt(val_t value) const {
+        return with_gt(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> lit_t {
+            static_cast<void>(get_val);
+            static_cast<void>(inc);
+            return ib != ie ? get_lit(ib) : 0;
+        });
+    }
+    //! Get succeeding or equal literal.
+    [[nodiscard]] lit_t lit_ge(val_t value) const {
+        return with_ge(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> lit_t {
+            static_cast<void>(get_val);
+            static_cast<void>(inc);
+            return ib != ie ? get_lit(ib) : 0;
+        });
+    }
+
+    //! Get preceeding order literal.
+    [[nodiscard]] OrderLiteralOpt order_lit_lt(val_t value) const {
+        return with_lt(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> OrderLiteralOpt {
+            static_cast<void>(inc);
+            return ib != ie ? OrderLiteralOpt{{get_lit(ib), get_val(ib)}} : std::nullopt;
+        });
+    }
+    //! Get preceeding or equal order literal.
+    [[nodiscard]] OrderLiteralOpt order_lit_le(val_t value) const {
+        return with_le(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> OrderLiteralOpt {
+            static_cast<void>(inc);
+            return ib != ie ? OrderLiteralOpt{{get_lit(ib), get_val(ib)}} : std::nullopt;
+        });
+    }
+    //! Get succeeding order literal.
+    [[nodiscard]] OrderLiteralOpt order_lit_gt(val_t value) const {
+        return with_gt(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> OrderLiteralOpt {
+            static_cast<void>(inc);
+            return ib != ie ? OrderLiteralOpt{{get_lit(ib), get_val(ib)}} : std::nullopt;
+        });
+    }
+    //! Get succeeding or equal order literal.
+    [[nodiscard]] OrderLiteralOpt order_lit_ge(val_t value) const {
+        return with_ge(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> OrderLiteralOpt {
+            static_cast<void>(inc);
+            return ib != ie ? OrderLiteralOpt{{get_lit(ib), get_val(ib)}} : std::nullopt;
+        });
+    }
+
     //! Common access pattern involving lit_lt.
     [[nodiscard]] lit_t lit_prev(val_t value) const {
-        if (offset_ == unused) {
-            if (auto it = ReverseIteratorMap{litmap_.lower_bound(value)}; it != litmap_.crend()) {
-                return it->second;
-            }
-        }
-        else {
-            auto offset = std::min<val_t>(std::max(0, value - offset_), litvec_.size());
-            for (ReverseIteratorVec it{litvec_.begin() + offset}, ie{litvec_.rend()}; it != ie; ++it) {
-                if (*it != 0) { return *it; }
-            };
-        }
-        return -TRUE_LIT;
+        auto lit = lit_lt(value);
+        return lit != 0 ? lit : -TRUE_LIT;
     }
 
     //! Common access pattern involving lit_gt.
     [[nodiscard]] lit_t lit_succ(val_t value) const {
-        if (offset_ == unused) {
-            if (auto it = litmap_.upper_bound(value); it != litmap_.end()) {
-                return it->second;
-            }
-        }
-        else {
-            auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), litvec_.size());
-            for (auto it = litvec_.begin() + offset, ie = litvec_.end(); it != ie; ++it) {
-                if (*it != 0) { return *it; }
-            };
-        }
-        return TRUE_LIT;
+        auto lit = lit_gt(value);
+        return lit != 0 ? lit : TRUE_LIT;
     }
 
     //! @}
