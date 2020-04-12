@@ -1371,4 +1371,19 @@ UniqueConstraintState DistinctConstraint::create_state() {
     return std::make_unique<DistinctConstraintState>(*this);
 }
 
+DisjointConstraint::DisjointConstraint(lit_t lit, Elements const &elements)
+: lit_{lit}
+, size_{static_cast<uint32_t>(elements.size())} {
+    std::copy(elements.begin(), elements.end(), elements_);
+}
+
+std::unique_ptr<DisjointConstraint> DisjointConstraint::create(lit_t lit, Elements const &elements) {
+    auto size = sizeof(DisjointConstraint) + elements.size() * sizeof(Element);
+    return std::unique_ptr<DisjointConstraint>{new (operator new(size)) DisjointConstraint(lit, elements)};
+}
+
+UniqueConstraintState DisjointConstraint::create_state() {
+    throw std::logic_error("implment me!!!");
+}
+
 } // namespace Clingcon

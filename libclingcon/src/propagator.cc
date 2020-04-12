@@ -78,10 +78,18 @@ public:
             return propagator_.add_simple(cc_, lit, co, var, rhs, strict);
         }
 
-        assert (!strict);
         propagator_.add_constraint(SumConstraint::create(lit, rhs, elems, propagator_.config().sort_constraints));
+        if (strict) {
+            CoVarVec ielems;
+            ielems.reserve(elems.size());
+            for (auto const &elem : elems) {
+                ielems.emplace_back(safe_inv(elem.first), elem.second);
+            }
+            propagator_.add_constraint(SumConstraint::create(-lit, safe_inv(safe_add(rhs, 1)), ielems, propagator_.config().sort_constraints));
+        }
         return true;
     }
+
     void add_minimize(val_t co, var_t var) override {
         minimize_elems_.emplace_back(co, var);
     }
@@ -135,13 +143,90 @@ public:
         }
 
         return true;
+    }
 
+    static void translate_disjoint_(CoVarVec &elems, val_t &rhs, DisjointConstraint::Element::first_type const &elem, int sign) {
+        elems.emplace_back(sign * elem.first.first, elem.first.second);
+        rhs -= sign * elem.second;
+    }
+
+    static std::tuple<lit_t, CoVarVec, val_t> translate_disjoint_(DisjointConstraint::Element::first_type const &i, DisjointConstraint::Element::first_type const &j) {
+        val_t rhs = 0;
+        CoVarVec elems;
+        translate_disjoint_(elems, rhs, i, 1);
+        translate_disjoint_(elems, rhs, j, -1);
+        rhs += simplify(elems);
+        lit_t lit = 0;
+        if (elems.empty()) {
+            lit = rhs >= 0 ? TRUE_LIT : -TRUE_LIT;
+        }
+        return {lit, elems, rhs};
+    }
+
+    bool translate_disjoint_(lit_t &lit, CoVarVec const &elems, val_t rhs) {
+        if (lit == 0) {
+            lit = add_literal();
+            if (!add_constraint(lit, elems, rhs, true)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool add_disjoint_(DisjointConstraint::Element const &i, DisjointConstraint::Element const &j) {
+        // lower_i >= lower_j    (lower_j - lower_i <= 0)
+        auto [lit_a, elems_a, rhs_a] = translate_disjoint_(j.first, i.first);
+        if (lit_a == -TRUE_LIT) {
+            return true;
+        }
+        // lower_i <= upper_j    (lower_i - upper_j <= 0)
+        auto [lit_b, elems_b, rhs_b] = translate_disjoint_(i.first, j.second);
+        if (lit_b == -TRUE_LIT) {
+            return true;
+        }
+        // lower_i <= upper_i    (lower_i - upper_i <= 0)
+        auto [lit_c, elems_c, rhs_c] = translate_disjoint_(i.first, i.second);
+        if (lit_c == -TRUE_LIT) {
+            return true;
+        }
+
+        if (!translate_disjoint_(lit_a, elems_a, rhs_a)) {
+            return false;
+        }
+        if (!translate_disjoint_(lit_b, elems_b, rhs_b)) {
+            return false;
+        }
+        if (!translate_disjoint_(lit_c, elems_c, rhs_c)) {
+            return false;
+        }
+
+        return cc_.add_clause({-lit_a, -lit_b, -lit_c});
     }
 
     [[nodiscard]] bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) override {
-        static_cast<void>(lit);
-        static_cast<void>(elems);
-        throw std::logic_error("implement me!!!");
+        if (cc_.assignment().is_false(lit)) {
+            return true;
+        }
+
+        /*
+        // TODO: this is the interesting thing!!!
+        if (elems.size() > 2) {
+            propagator_.add_constraint(DisjointConstraint::create(lit, elems));
+            return true;
+        }
+        */
+
+        DisjointConstraint::Elements celems;
+        for (auto it = elems.begin(), ie = elems.end(); it != ie; ++it) {
+            for (auto jt = it + 1; jt != ie; ++jt) {
+                // :- lower_i >= lower_j, lower_i <= upper_j, lower_i <= upper_i.
+                if (!add_disjoint_(*it, *jt) || !add_disjoint_(*jt, *it)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     [[nodiscard]] bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {

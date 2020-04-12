@@ -278,6 +278,64 @@ private:
 #pragma GCC diagnostic pop
 };
 
-} // namespace
+//! Class to capture disjoint constraints.
+class DisjointConstraint final : public AbstractConstraint {
+public:
+    using Element = std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>;
+    using Elements = std::vector<Element>;
+
+    //! Create a new distinct constraint.
+    [[nodiscard]] static std::unique_ptr<DisjointConstraint> create(lit_t lit, Elements const &elements);
+
+    DisjointConstraint() = delete;
+    DisjointConstraint(DisjointConstraint &) = delete;
+    DisjointConstraint(DisjointConstraint &&) = delete;
+    DisjointConstraint &operator=(DisjointConstraint const &) = delete;
+    DisjointConstraint &operator=(DisjointConstraint &&) = delete;
+    ~DisjointConstraint() override = default;
+
+    //! Create thread specific state for the constraint.
+    [[nodiscard]] UniqueConstraintState create_state() override;
+
+    //! Get the literal associated with the constraint.
+    [[nodiscard]] lit_t literal() const override {
+        return lit_;
+    }
+
+    //! Get the number of elements in the constraint.
+    [[nodiscard]] size_t size() const {
+        return size_;
+    }
+
+    //! Access the i-th element.
+    [[nodiscard]] Element const &operator[](size_t i) const {
+        return elements_[i]; // NOLINT
+    }
+
+    //! Pointer to the first element of the constraint.
+    [[nodiscard]] Element const *begin() const {
+        return elements_;
+    }
+
+    //! Pointer after the last element of the constraint.
+    [[nodiscard]] Element const *end() const {
+        return elements_ + size_; // NOLINT
+    }
+
+private:
+    DisjointConstraint(lit_t lit, Elements const &elements);
+
+    //! Solver literal associated with the constraint.
+    lit_t lit_;
+    //! The elements of the distinct constraint.
+    uint32_t size_;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+    //! List of integer/string pairs representing coefficient and variable.
+    Element elements_[]; // NOLINT
+#pragma GCC diagnostic pop
+};
+
+} // namespace Clingcon
 
 #endif // CLINGCON_CONSTRAINTS_H
