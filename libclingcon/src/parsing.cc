@@ -641,23 +641,21 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     return builder.add_distinct(builder.solver_literal(atom.literal()), elements);
 }
 
-[[nodiscard]] std::pair<co_var_t,val_t> parse_disjoint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
-    CoVarVec elems;
-    parse_constraint_elem(builder, term, true, elems);
-    auto val = safe_inv(simplify(elems));
-    check_syntax(elems.size() == 1, "Invalid Syntax: invalid disjoint statement");
-    return {elems.front(), val};
-}
-
 [[nodiscard]] bool parse_disjoint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
-    std::vector<std::pair<std::pair<co_var_t,val_t>, std::pair<co_var_t,val_t>>> elements;
+    CoVarVec elements;
 
     for (auto elem : atom.elements()) {
         auto tuple = elem.tuple();
         check_syntax(!tuple.empty() && elem.condition().empty(), "Invalid Syntax: invalid disjoint statement");
         check_syntax(match(tuple.front(), "..", 2), "Invalid Syntax: invalid disjoint statement");
         auto args = tuple.front().arguments();
-        elements.emplace_back(parse_disjoint_elem(builder, args.front()), parse_disjoint_elem(builder, args.back()));
+        auto var = evaluate(args.front());
+        auto val = evaluate(args.back());
+        check_syntax(var.type() != Clingo::SymbolType::Number, "Invalid Syntax: invalid disjoint statement");
+        check_syntax(val.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid disjoint statement");
+        if (val.number() >= 0) {
+            elements.emplace_back(check_valid_value(val.number()), builder.add_variable(var));
+        }
     }
 
     return builder.add_disjoint(builder.solver_literal(atom.literal()), elements);

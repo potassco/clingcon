@@ -145,16 +145,10 @@ public:
         return true;
     }
 
-    static void translate_disjoint_(CoVarVec &elems, val_t &rhs, DisjointConstraint::Element::first_type const &elem, int sign) {
-        elems.emplace_back(sign * elem.first.first, elem.first.second);
-        rhs -= sign * elem.second;
-    }
-
-    static std::tuple<lit_t, CoVarVec, val_t> translate_disjoint_(DisjointConstraint::Element::first_type const &i, DisjointConstraint::Element::first_type const &j) {
-        val_t rhs = 0;
+    static std::tuple<lit_t, CoVarVec, val_t> translate_disjoint_(var_t const &i, var_t const &j, val_t rhs) {
         CoVarVec elems;
-        translate_disjoint_(elems, rhs, i, 1);
-        translate_disjoint_(elems, rhs, j, -1);
+        elems.emplace_back(1, i);
+        elems.emplace_back(-1, j);
         rhs += simplify(elems);
         lit_t lit = 0;
         if (elems.empty()) {
@@ -173,20 +167,17 @@ public:
         return true;
     }
 
-    bool add_disjoint_(DisjointConstraint::Element const &i, DisjointConstraint::Element const &j) {
+    bool translate_disjoint_(co_var_t const &i, co_var_t const &j) {
+        assert (i.first >= 0 && j.first >= 0);
+
         // lower_i >= lower_j    (lower_j - lower_i <= 0)
-        auto [lit_a, elems_a, rhs_a] = translate_disjoint_(j.first, i.first);
+        auto [lit_a, elems_a, rhs_a] = translate_disjoint_(j.second, i.second, 0);
         if (lit_a == -TRUE_LIT) {
             return true;
         }
         // lower_i <= upper_j    (lower_i - upper_j <= 0)
-        auto [lit_b, elems_b, rhs_b] = translate_disjoint_(i.first, j.second);
+        auto [lit_b, elems_b, rhs_b] = translate_disjoint_(i.second, j.second, j.first);
         if (lit_b == -TRUE_LIT) {
-            return true;
-        }
-        // lower_i <= upper_i    (lower_i - upper_i <= 0)
-        auto [lit_c, elems_c, rhs_c] = translate_disjoint_(i.first, i.second);
-        if (lit_c == -TRUE_LIT) {
             return true;
         }
 
@@ -196,14 +187,11 @@ public:
         if (!translate_disjoint_(lit_b, elems_b, rhs_b)) {
             return false;
         }
-        if (!translate_disjoint_(lit_c, elems_c, rhs_c)) {
-            return false;
-        }
 
-        return cc_.add_clause({-lit_a, -lit_b, -lit_c});
+        return cc_.add_clause({-lit_a, -lit_b});
     }
 
-    [[nodiscard]] bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) override {
+    [[nodiscard]] bool add_disjoint(lit_t lit, CoVarVec const &elems) override {
         if (cc_.assignment().is_false(lit)) {
             return true;
         }
@@ -220,7 +208,7 @@ public:
         for (auto it = elems.begin(), ie = elems.end(); it != ie; ++it) {
             for (auto jt = it + 1; jt != ie; ++jt) {
                 // :- lower_i >= lower_j, lower_i <= upper_j, lower_i <= upper_i.
-                if (!add_disjoint_(*it, *jt) || !add_disjoint_(*jt, *it)) {
+                if (!translate_disjoint_(*it, *jt) || !translate_disjoint_(*jt, *it)) {
                     return false;
                 }
             }

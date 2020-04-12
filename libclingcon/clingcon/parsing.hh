@@ -104,7 +104,7 @@ public:
     //! Add a distinct constraint.
     [[nodiscard]] virtual bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
     //! Add a disjoint constraint.
-    [[nodiscard]] virtual bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) = 0;
+    [[nodiscard]] virtual bool add_disjoint(lit_t lit, CoVarVec const &elems) = 0;
     //! Add a domain for the given variable.
     [[nodiscard]] virtual bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) = 0;
 };

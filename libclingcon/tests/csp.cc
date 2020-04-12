@@ -30,8 +30,8 @@
 using namespace Clingcon;
 
 TEST_CASE("distinct", "[solving]") {
-    REQUIRE(solve("&dom{1..4}=x. &dom{1..4}=y. &disjoint{x..x+2;y..y+2}.") == S({"x=1 y=4", "x=4 y=1"}));
-    REQUIRE(solve("&dom{1..5}=x. &dom{1..5}=y. &dom{1..5}=z. &disjoint{x..x+1; y..y+1; z..z+1}.") == S({
+    REQUIRE(solve("&dom{1..4}=x. &dom{1..4}=y. &disjoint{x..2;y..2}.") == S({"x=1 y=4", "x=4 y=1"}));
+    REQUIRE(solve("&dom{1..5}=x. &dom{1..5}=y. &dom{1..5}=z. &disjoint{x..1; y..1; z..1}.") == S({
         "x=1 y=3 z=5",
         "x=1 y=5 z=3",
         "x=3 y=1 z=5",

@@ -150,7 +150,7 @@ public:
         return true;
     }
 
-    bool add_disjoint(lit_t lit, std::vector<std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>> const &elems) override {
+    bool add_disjoint(lit_t lit, CoVarVec const &elems) override {
         oss_ << lit << " -> ";
         bool sep{false};
         if (elems.size() > 1) {
@@ -159,23 +159,7 @@ public:
                     oss_ << " != ";
                 }
                 sep = true;
-                auto const &left = elem.first;
-                if (left.first.first != 1) {
-                    oss_ << left.first.first << "*";
-                }
-                oss_ << vars_[left.first.second];
-                if (left.second != 0) {
-                    oss_ << "+" << left.second;
-                }
-                oss_ << "..";
-                auto const &right = elem.second;
-                if (right.first.first != 1) {
-                    oss_ << right.first.first << "*";
-                }
-                oss_ << vars_[right.first.second];
-                if (right.second != 0) {
-                    oss_ << "+" << right.second;
-                }
+                oss_ << vars_[elem.second] << ".." << elem.first;
             }
         }
         else {
@@ -329,10 +313,8 @@ TEST_CASE("parsing", "[parsing]") {
                 "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
         }
         SECTION("disjoint") {
-            REQUIRE(parse("&disjoint { x..y; y..z; z..x }.") ==
-                "2 -> x..y != y..z != z..x.");
-            REQUIRE(parse("&disjoint { 2*x..2*y+3; y+0..z; 2*2*z..x }.") ==
-                "2 -> 2*x..2*y+3 != y..z != 4*z..x.");
+            REQUIRE(parse("&disjoint { x..10; y..1+11; z.. -10 }.") ==
+                "2 -> x..10 != y..12.");
         }
         SECTION("show") {
             REQUIRE(parse("&show { x/1; y }.") ==
