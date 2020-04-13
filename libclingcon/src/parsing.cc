@@ -653,7 +653,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
         auto val = evaluate(args.back());
         check_syntax(var.type() != Clingo::SymbolType::Number, "Invalid Syntax: invalid disjoint statement");
         check_syntax(val.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid disjoint statement");
-        if (val.number() >= 0) {
+        if (val.number() > 0) {
             elements.emplace_back(check_valid_value(val.number()), builder.add_variable(var));
         }
     }

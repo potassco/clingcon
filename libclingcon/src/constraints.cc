@@ -1340,22 +1340,30 @@ class DisjointConstraintState final : public AbstractConstraintState {
     struct Algorithm {
         using It = std::vector<Interval>::iterator;
 
-        [[nodiscard]] static val_t lower(It i) {
+        [[nodiscard]] static val_t lower(Interval const &i) {
             if constexpr (type == PropagateType::Lower) {
-                return i->left;
+                return i.left;
             }
             else {
-                return -i->right;
+                return -i.right;
             }
         }
 
-        [[nodiscard]] static val_t upper(It i) {
+        [[nodiscard]] static val_t upper(Interval const &i) {
             if constexpr (type == PropagateType::Lower) {
-                return i->right;
+                return i.right;
             }
             else {
-                return -i->left;
+                return -i.left;
             }
+        }
+
+        [[nodiscard]] static val_t lower(It i) {
+            return lower(*i);
+        }
+
+        [[nodiscard]] static val_t upper(It i) {
+            return upper(*i);
         }
 
         [[nodiscard]] static val_t weight(It i) {
@@ -1455,6 +1463,21 @@ class DisjointConstraintState final : public AbstractConstraintState {
             return true;
         }
 
+        [[nodiscard]] static bool run(Solver &solver, AbstractClauseCreator &cc, It begin, It end) {
+            std::sort(begin, end, [](auto const &a, auto const &b) { return upper(a) < upper(b); });
+            for (auto it = std::make_reverse_iterator(end), ie = std::make_reverse_iterator(begin); it != ie; ) {
+                val_t min = lower(*it);
+                auto je = it.base();
+                for (++it; it != ie && upper(*it) >= min; ++it) {
+                    min = std::min(lower(*it), min);
+                }
+                if (!Algorithm{solver, cc, it.base(), je}.propagate()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         Solver &solver;
         AbstractClauseCreator &cc;
         It begin;
@@ -1506,8 +1529,15 @@ public:
     [[nodiscard]] bool update(val_t i, val_t diff) override {
         static_cast<void>(i);
         static_cast<void>(diff);
-        // Note: if the bounds are updated to the last value propagated, then
-        // no update is necessary.
+        // TODO: If the bounds are updated to the last value propagated, then
+        // no update is necessary. Furthermore, only partitions with a changed
+        // bound need to be propagated. This boils down to tracking variables
+        // with changed bounds and skipping partitions that contain unchanged
+        // variables only.
+        //
+        // One could even track whole partitions but currently the sorting does
+        // not dominate the runtime. Maybe this would change with a fast
+        // O(n*log(n)) propagation algorithm.
         update_ = true;
 
         return true;
@@ -1528,15 +1558,13 @@ public:
         }
 
         if (update_) {
-            update_ = true;
+            update_ = false;
 
-            std::sort(intervals_.begin(), intervals_.end(), [](auto const &a, auto const &b) { return a.right < b.right; });
-            if (!Algorithm<PropagateType::Lower>{solver, cc, intervals_.begin(), intervals_.end()}.propagate()) {
+            if (!Algorithm<PropagateType::Lower>::run(solver, cc, intervals_.begin(), intervals_.end())) {
                 return false;
             }
 
-            std::sort(intervals_.begin(), intervals_.end(), [](auto const &a, auto const &b) { return b.left < a.left; });
-            if (!Algorithm<PropagateType::Upper>{solver, cc, intervals_.begin(), intervals_.end()}.propagate()) {
+            if (!Algorithm<PropagateType::Upper>::run(solver, cc, intervals_.begin(), intervals_.end())) {
                 return false;
             }
         }

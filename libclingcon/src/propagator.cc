@@ -204,7 +204,19 @@ public:
         CoVarVec celems;
         for (auto it = elems.begin(), ie = elems.end(); it != ie; ++it) {
             for (auto jt = it + 1; jt != ie; ++jt) {
-                // :- lower_i >= lower_j, lower_i <= upper_j, lower_i <= upper_i.
+                // TODO: this is a really bad translation. The following would
+                // be way better:
+                //
+                //     c = add_literal()
+                //     c => start_i >= end_j
+                //     -c => start_j >= end_i
+                //
+                // But currently it is
+                //
+                //     :- start_i >= start_j, start_i <= end_j.
+                //     :- start_j >= start_i, start_j <= end_i.
+                //
+                // using *strict* constraints.
                 if (!translate_disjoint_(*it, *jt) || !translate_disjoint_(*jt, *it)) {
                     return false;
                 }
