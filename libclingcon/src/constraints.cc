@@ -1368,12 +1368,12 @@ class DisjointConstraintState final : public AbstractConstraintState {
 
         [[nodiscard]] bool update_bound(std::vector<lit_t> &reason, It i, val_t b) {
             auto &vs = solver.var_state(i->var);
-            reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
-            reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
             if constexpr (type == PropagateType::Lower) {
+                reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
                 reason.emplace_back(-solver.get_literal(cc, vs, b - 1));
             }
             else {
+                reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
                 reason.emplace_back(solver.get_literal(cc, vs, -b - weight(i) + 1));
             }
             return cc.add_clause(reason);
