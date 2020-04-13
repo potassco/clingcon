@@ -29,15 +29,30 @@
 
 using namespace Clingcon;
 
-TEST_CASE("distinct", "[solving]") {
-    REQUIRE(solve("&dom{1..4}=x. &dom{1..4}=y. &disjoint{x..2;y..2}.") == S({"x=1 y=4", "x=4 y=1"}));
-    REQUIRE(solve("&dom{1..5}=x. &dom{1..5}=y. &dom{1..5}=z. &disjoint{x..1; y..1; z..1}.") == S({
+TEST_CASE("disjoint", "[solving]") {
+    REQUIRE(solve("&dom{1..4}=x. &dom{1..4}=y. &disjoint{x@3;y@3}.") == S({"x=1 y=4", "x=4 y=1"}));
+    REQUIRE(solve("&dom{1..5}=x. &dom{1..5}=y. &dom{1..5}=z. &disjoint{x@2; y@2; z@2}.") == S({
         "x=1 y=3 z=5",
         "x=1 y=5 z=3",
         "x=3 y=1 z=5",
         "x=3 y=5 z=1",
         "x=5 y=1 z=3",
         "x=5 y=3 z=1"}));
+    REQUIRE(solve(
+        "#const n = 6. "
+        "#show. "
+        "&show { q/1 }. "
+        "p(1..n). "
+        "&dom { 1..n } = q(N) :- p(N). "
+        "&sum { r(N) } = q(N)-N :- p(N). "
+        "&sum { s(N) } = q(N)+N :- p(N). "
+        "&disjoint { q(N)@1 : p(N) }. "
+        "&disjoint { r(N)@1 : p(N) }. "
+        "&disjoint { s(N)@1 : p(N) }. ") == S({
+            "q(1)=2 q(2)=4 q(3)=6 q(4)=1 q(5)=3 q(6)=5",
+            "q(1)=3 q(2)=6 q(3)=2 q(4)=5 q(5)=1 q(6)=4",
+            "q(1)=4 q(2)=1 q(3)=5 q(4)=2 q(5)=6 q(6)=3",
+            "q(1)=5 q(2)=3 q(3)=1 q(4)=6 q(5)=4 q(6)=2"}));
 }
 
 TEST_CASE("solving", "[solving]") { // NOLINT

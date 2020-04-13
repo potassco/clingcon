@@ -168,7 +168,7 @@ public:
     }
 
     bool translate_disjoint_(co_var_t const &i, co_var_t const &j) {
-        assert (i.first >= 0 && j.first >= 0);
+        assert (i.first > 0 && j.first > 0);
 
         // lower_i >= lower_j    (lower_j - lower_i <= 0)
         auto [lit_a, elems_a, rhs_a] = translate_disjoint_(j.second, i.second, 0);
@@ -176,7 +176,7 @@ public:
             return true;
         }
         // lower_i <= upper_j    (lower_i - upper_j <= 0)
-        auto [lit_b, elems_b, rhs_b] = translate_disjoint_(i.second, j.second, j.first);
+        auto [lit_b, elems_b, rhs_b] = translate_disjoint_(i.second, j.second, j.first - 1);
         if (lit_b == -TRUE_LIT) {
             return true;
         }
@@ -196,15 +196,12 @@ public:
             return true;
         }
 
-        /*
-        // TODO: this is the interesting thing!!!
         if (elems.size() > 2) {
             propagator_.add_constraint(DisjointConstraint::create(lit, elems));
             return true;
         }
-        */
 
-        DisjointConstraint::Elements celems;
+        CoVarVec celems;
         for (auto it = elems.begin(), ie = elems.end(); it != ie; ++it) {
             for (auto jt = it + 1; jt != ie; ++jt) {
                 // :- lower_i >= lower_j, lower_i <= upper_j, lower_i <= upper_i.

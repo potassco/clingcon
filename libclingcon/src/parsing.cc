@@ -647,7 +647,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     for (auto elem : atom.elements()) {
         auto tuple = elem.tuple();
         check_syntax(!tuple.empty() && elem.condition().empty(), "Invalid Syntax: invalid disjoint statement");
-        check_syntax(match(tuple.front(), "..", 2), "Invalid Syntax: invalid disjoint statement");
+        check_syntax(match(tuple.front(), "@", 2), "Invalid Syntax: invalid disjoint statement");
         auto args = tuple.front().arguments();
         auto var = evaluate(args.front());
         auto val = evaluate(args.back());

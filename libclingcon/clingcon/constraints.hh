@@ -281,11 +281,8 @@ private:
 //! Class to capture disjoint constraints.
 class DisjointConstraint final : public AbstractConstraint {
 public:
-    using Element = std::pair<std::pair<co_var_t, val_t>, std::pair<co_var_t, val_t>>;
-    using Elements = std::vector<Element>;
-
     //! Create a new distinct constraint.
-    [[nodiscard]] static std::unique_ptr<DisjointConstraint> create(lit_t lit, Elements const &elements);
+    [[nodiscard]] static std::unique_ptr<DisjointConstraint> create(lit_t lit, CoVarVec const &elements);
 
     DisjointConstraint() = delete;
     DisjointConstraint(DisjointConstraint &) = delete;
@@ -308,22 +305,22 @@ public:
     }
 
     //! Access the i-th element.
-    [[nodiscard]] Element const &operator[](size_t i) const {
+    [[nodiscard]] co_var_t const &operator[](size_t i) const {
         return elements_[i]; // NOLINT
     }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] Element const *begin() const {
+    [[nodiscard]] co_var_t const *begin() const {
         return elements_;
     }
 
     //! Pointer after the last element of the constraint.
-    [[nodiscard]] Element const *end() const {
+    [[nodiscard]] co_var_t const *end() const {
         return elements_ + size_; // NOLINT
     }
 
 private:
-    DisjointConstraint(lit_t lit, Elements const &elements);
+    DisjointConstraint(lit_t lit, CoVarVec const &elements);
 
     //! Solver literal associated with the constraint.
     lit_t lit_;
@@ -332,7 +329,7 @@ private:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
     //! List of integer/string pairs representing coefficient and variable.
-    Element elements_[]; // NOLINT
+    co_var_t elements_[]; // NOLINT
 #pragma GCC diagnostic pop
 };
 

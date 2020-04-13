@@ -1325,6 +1325,279 @@ private:
     bool todo_{false};
 };
 
+//! Capture the state of a disjoint constraint.
+class DisjointConstraintState final : public AbstractConstraintState {
+    struct Interval {
+        size_t var;
+        val_t left;
+        val_t right;
+        val_t weight;
+        val_t u;
+    };
+
+    enum class PropagateType { Lower, Upper };
+    template <PropagateType type>
+    struct Algorithm {
+        using It = std::vector<Interval>::iterator;
+
+        [[nodiscard]] static val_t lower(It i) {
+            if constexpr (type == PropagateType::Lower) {
+                return i->left;
+            }
+            else {
+                return -i->right;
+            }
+        }
+
+        [[nodiscard]] static val_t upper(It i) {
+            if constexpr (type == PropagateType::Lower) {
+                return i->right;
+            }
+            else {
+                return -i->left;
+            }
+        }
+
+        [[nodiscard]] static val_t weight(It i) {
+            return i->weight;
+        }
+
+        [[nodiscard]] static val_t &u(It i) {
+            return i->u;
+        }
+
+        [[nodiscard]] bool update_bound(std::vector<lit_t> &reason, It i, val_t b) {
+            auto &vs = solver.var_state(i->var);
+            reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
+            reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
+            if constexpr (type == PropagateType::Lower) {
+                reason.emplace_back(-solver.get_literal(cc, vs, b - 1));
+            }
+            else {
+                reason.emplace_back(solver.get_literal(cc, vs, -b - weight(i) + 1));
+            }
+            return cc.add_clause(reason);
+        }
+
+        [[nodiscard]] std::vector<lit_t> &calculate_reason(val_t a, It j) {
+            auto &reason = solver.temp_reason();
+            for (auto i = begin; i != j; ++i) {
+                // Since [a, b] is a maximal hall interval, the reason
+                // includes all variables contained in the range [a, b].
+                // Because b is the current upper bound, all upper
+                // bounds of intervals k are smaller or equal than b.
+                if (lower(i) >= a) {
+                    auto &vs = solver.var_state(i->var);
+                    reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
+                    reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
+                }
+            }
+            return reason;
+        }
+
+        //! Propagate hall interval [a, b].
+        [[nodiscard]] bool propagate(val_t a, val_t b, It i) {
+            std::vector<lit_t> *reason{nullptr};
+            size_t size{0};
+            for (auto j = i + 1; j != end; ++j) {
+                if (lower(j) >= a && lower(j) <= b) {
+                    if (reason == nullptr) {
+                        reason = &calculate_reason(a, i + 1);
+                        size = reason->size();
+                    }
+                    if (!update_bound(*reason, j, b + 1)) {
+                        return false;
+                    }
+                    reason->resize(size);
+                }
+            }
+            return true;
+        }
+
+        [[nodiscard]] bool insert(It i) {
+            auto k = end;
+
+            u(i) = lower(i) + weight(i) - 1;
+
+            for (auto j = begin; j != i; ++j) {
+                if (lower(j) < lower(i)) {
+                    u(j) += weight(i);
+                    if (u(j) > upper(i)) {
+                        static_cast<void>(cc.add_clause(calculate_reason(lower(j), i + 1)));
+                        return false;
+                    }
+                    if (u(j) == upper(i) && (k == end || lower(j) < lower(k))) {
+                        k = j;
+                    }
+                }
+                else {
+                    u(i) += weight(j);
+                }
+            }
+
+            if (u(i) > upper(i)) {
+                static_cast<void>(cc.add_clause(calculate_reason(lower(i), i + 1)));
+                return false;
+            }
+            if (u(i) == upper(i) && (k == end || lower(i) < lower(k))) {
+                k = i;
+            }
+
+            return k == end || propagate(lower(k), upper(i), i);
+        }
+
+        [[nodiscard]] bool propagate() {
+            for (auto i = begin; i != end; ++i) {
+                if (!insert(i)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        Solver &solver;
+        AbstractClauseCreator &cc;
+        It begin;
+        It end;
+    };
+
+public:
+    DisjointConstraintState(DisjointConstraint &constraint)
+    : constraint_{constraint} {
+        intervals_.reserve(constraint.size());
+        for (auto const &[val, var] : constraint_) {
+            intervals_.emplace_back(Interval{var, 0, 0, val, 0});
+        }
+    }
+
+    DisjointConstraintState(DisjointConstraintState &&) = delete;
+    DistinctConstraintState &operator=(DisjointConstraintState const &) = delete;
+    DisjointConstraintState &operator=(DisjointConstraintState &&) = delete;
+    ~DisjointConstraintState() override = default;
+
+    DisjointConstraint& constraint() override {
+        return constraint_;
+    }
+
+    void attach(Solver &solver) override {
+        for (auto const &element : constraint_) {
+            solver.add_var_watch(element.second, 1, *this);
+        }
+    }
+
+    void detach(Solver &solver) override {
+        for (auto const &element : constraint_) {
+            solver.remove_var_watch(element.second, 1, *this);
+        }
+    }
+
+    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) override {
+        static_cast<void>(config);
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(added);
+        return {true, false};
+    }
+
+    [[nodiscard]] UniqueConstraintState copy() const override {
+        return std::unique_ptr<DisjointConstraintState>{new DisjointConstraintState(*this)};
+    }
+
+    [[nodiscard]] bool update(val_t i, val_t diff) override {
+        static_cast<void>(i);
+        static_cast<void>(diff);
+        // Note: if the bounds are updated to the last value propagated, then
+        // no update is necessary.
+        update_ = true;
+
+        return true;
+    }
+
+    void undo(val_t i, val_t diff) override {
+        static_cast<void>(i);
+        static_cast<void>(diff);
+    }
+
+    [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
+        static_cast<void>(check_state); // TODO: the state could still be checked...
+
+        for (auto &x : intervals_) {
+            auto &vs = solver.var_state(x.var);
+            x.left = vs.lower_bound();
+            x.right = vs.upper_bound() + x.weight - 1;
+        }
+
+        if (update_) {
+            update_ = true;
+
+            std::sort(intervals_.begin(), intervals_.end(), [](auto const &a, auto const &b) { return a.right < b.right; });
+            if (!Algorithm<PropagateType::Lower>{solver, cc, intervals_.begin(), intervals_.end()}.propagate()) {
+                return false;
+            }
+
+            std::sort(intervals_.begin(), intervals_.end(), [](auto const &a, auto const &b) { return b.left < a.left; });
+            if (!Algorithm<PropagateType::Upper>{solver, cc, intervals_.begin(), intervals_.end()}.propagate()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    void check_full(Solver &solver) override {
+        IntervalSet<val_t> assignment;
+        for (auto [val, var] : constraint_) {
+            auto &vs = solver.var_state(var);
+            auto l = vs.lower_bound();
+            auto u = vs.upper_bound() + val;
+            if (assignment.intersects(l, u)) {
+                throw std::logic_error("invalid assignment to distinct constraint");
+            }
+            assignment.add(l, u);
+        }
+    }
+
+    [[nodiscard]] bool mark_todo(bool todo) override {
+        auto ret = todo_;
+        todo_ = todo;
+        return ret;
+    }
+
+    [[nodiscard]] bool marked_todo() const override {
+        return todo_;
+    }
+
+    [[nodiscard]] bool removable() override {
+        return true;
+    }
+
+protected:
+    [[nodiscard]] level_t inactive_level() const override {
+        return inactive_level_;
+    }
+
+    void inactive_level(level_t level) override {
+        inactive_level_ = level;
+    }
+
+private:
+    DisjointConstraintState(DisjointConstraintState const &x)
+    : AbstractConstraintState{} // NOLINT
+    , constraint_{x.constraint_}
+    , intervals_{x.intervals_}
+    , inactive_level_{x.inactive_level_}
+    , update_{x.update_}
+    , todo_{x.todo_} {
+    }
+
+    DisjointConstraint &constraint_;
+    std::vector<Interval> intervals_;
+    level_t inactive_level_{0};
+    bool update_{true};
+    bool todo_{false};
+
+};
+
 } // namespace
 
 UniqueConstraintState SumConstraint::create_state() {
@@ -1343,6 +1616,8 @@ DistinctElement::DistinctElement(val_t fixed, size_t size, co_var_t *elements, b
         std::sort(elements_, elements_ + size_, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); } ); // NOLINT
     }
 }
+
+// class DistinctConstraint
 
 DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool sort)
 : lit_{lit}
@@ -1371,19 +1646,21 @@ UniqueConstraintState DistinctConstraint::create_state() {
     return std::make_unique<DistinctConstraintState>(*this);
 }
 
-DisjointConstraint::DisjointConstraint(lit_t lit, Elements const &elements)
+// class DisjointConstraint
+
+DisjointConstraint::DisjointConstraint(lit_t lit, CoVarVec const &elements)
 : lit_{lit}
 , size_{static_cast<uint32_t>(elements.size())} {
     std::copy(elements.begin(), elements.end(), elements_);
 }
 
-std::unique_ptr<DisjointConstraint> DisjointConstraint::create(lit_t lit, Elements const &elements) {
-    auto size = sizeof(DisjointConstraint) + elements.size() * sizeof(Element);
+std::unique_ptr<DisjointConstraint> DisjointConstraint::create(lit_t lit, CoVarVec const &elements) {
+    auto size = sizeof(DisjointConstraint) + elements.size() * sizeof(co_var_t);
     return std::unique_ptr<DisjointConstraint>{new (operator new(size)) DisjointConstraint(lit, elements)};
 }
 
 UniqueConstraintState DisjointConstraint::create_state() {
-    throw std::logic_error("implment me!!!");
+    return std::make_unique<DisjointConstraintState>(*this);
 }
 
 } // namespace Clingcon

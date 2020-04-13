@@ -159,7 +159,7 @@ public:
                     oss_ << " != ";
                 }
                 sep = true;
-                oss_ << vars_[elem.second] << ".." << elem.first;
+                oss_ << vars_[elem.second] << "@" << elem.first;
             }
         }
         else {
@@ -313,8 +313,8 @@ TEST_CASE("parsing", "[parsing]") {
                 "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
         }
         SECTION("disjoint") {
-            REQUIRE(parse("&disjoint { x..10; y..1+11; z.. -10 }.") ==
-                "2 -> x..10 != y..12.");
+            REQUIRE(parse("&disjoint { x@10; y@1+11; z@ -10 }.") ==
+                "2 -> x@10 != y@12.");
         }
         SECTION("show") {
             REQUIRE(parse("&show { x/1; y }.") ==

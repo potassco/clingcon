@@ -58,6 +58,16 @@ constexpr char const *THEORY = R"(
     -  : 1, binary, left;
     .. : 0, binary, left
     };
+    disjoint_term {
+    -  : 4, unary;
+    ** : 3, binary, right;
+    *  : 2, binary, left;
+    /  : 2, binary, left;
+    \  : 2, binary, left;
+    +  : 1, binary, left;
+    -  : 1, binary, left;
+    @  : 0, binary, left
+    };
     &__sum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &__sum_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &__diff_h/0 : sum_term, {<=}, sum_term, any;
@@ -66,7 +76,7 @@ constexpr char const *THEORY = R"(
     &maximize/0 : sum_term, directive;
     &show/0 : sum_term, directive;
     &distinct/0 : sum_term, head;
-    &disjoint/0 : dom_term, head;
+    &disjoint/0 : disjoint_term, head;
     &dom/0 : dom_term, {=}, var_term, head
 }.
 )";

@@ -274,8 +274,29 @@ public:
         // ^           ^
         return !(a < it->first) && !(it->second < b);
     }
-    //!
+
     //! Check if the set contains in interval.
+    [[nodiscard]] bool intersects(T const &a, T const &b) const {
+        if (b <= a) {
+            return false;
+        }
+        //           v
+        //   |-------|
+        // |---|  |---|  |---|
+        //               ^
+        auto it = map_.lower_bound(b);
+        if (it == map_.begin()) {
+            return false;
+        }
+        --it;
+        //   v
+        //   |-------|
+        // ------------|
+        //             ^
+        return it->second > a;
+    }
+
+    //! Check if the set contains a value.
     [[nodiscard]] bool contains(T const &a) const {
         //           v
         //   |-------|
