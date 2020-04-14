@@ -1331,6 +1331,8 @@ class DisjointConstraintState final : public AbstractConstraintState {
         size_t var;
         val_t left;
         val_t right;
+        val_t last_left;
+        val_t last_right;
         val_t weight;
         val_t u;
     };
@@ -1374,15 +1376,32 @@ class DisjointConstraintState final : public AbstractConstraintState {
             return i->u;
         }
 
+        [[nodiscard]] static bool changed(Interval const &x) {
+            return x.left != x.last_left || x.right != x.last_right;
+        }
+
         [[nodiscard]] bool update_bound(std::vector<lit_t> &reason, It i, val_t b) {
             auto &vs = solver.var_state(i->var);
             if constexpr (type == PropagateType::Lower) {
                 reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
-                reason.emplace_back(-solver.get_literal(cc, vs, b - 1));
+                // Note: we cap the new lower bound here to the upper bound to
+                // avoid introducing variables above the upper bound. It is
+                // possible to introduce a new variable but it would have to be
+                // implied by the closest order literal to not have it dangling
+                // around later. And it should only be done on the current
+                // decision level to avoid backtracking with out a conflict.
+                //
+                // See for example the sum constraint state, which refines
+                // reasons in the hope of getting better conflict but making
+                // sure to avoid the above mentioned cases.
+                reason.emplace_back(-solver.get_literal(cc, vs, std::min(b - 1, vs.upper_bound())));
+                i->last_left = b;
             }
             else {
                 reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
-                reason.emplace_back(solver.get_literal(cc, vs, -b - weight(i) + 1));
+                // Note: similar to the note above.
+                reason.emplace_back(solver.get_literal(cc, vs, std::max(-b - weight(i) + 1, vs.lower_bound() - 1)));
+                i->last_right = -b;
             }
             return cc.add_clause(reason);
         }
@@ -1425,6 +1444,9 @@ class DisjointConstraintState final : public AbstractConstraintState {
         [[nodiscard]] bool insert(It i) {
             auto k = end;
 
+            i->last_left = i->left;
+            i->last_right = i->right;
+
             u(i) = lower(i) + weight(i) - 1;
 
             for (auto j = begin; j != i; ++j) {
@@ -1463,15 +1485,19 @@ class DisjointConstraintState final : public AbstractConstraintState {
             return true;
         }
 
-        [[nodiscard]] static bool run(Solver &solver, AbstractClauseCreator &cc, It begin, It end) {
+        [[nodiscard]] static bool run(Solver &solver, AbstractClauseCreator &cc, bool force_update, It begin, It end) {
+            // Note: the constraint could also be disabled as soon as all
+            // subsequences became singletons.
             std::sort(begin, end, [](auto const &a, auto const &b) { return upper(a) < upper(b); });
             for (auto it = std::make_reverse_iterator(end), ie = std::make_reverse_iterator(begin); it != ie; ) {
                 val_t min = lower(*it);
                 auto je = it.base();
+                bool has_change = force_update || changed(*it);
                 for (++it; it != ie && upper(*it) >= min; ++it) {
                     min = std::min(lower(*it), min);
+                    has_change = has_change || changed(*it);
                 }
-                if (!Algorithm{solver, cc, it.base(), je}.propagate()) {
+                if (has_change && !Algorithm{solver, cc, it.base(), je}.propagate()) {
                     return false;
                 }
             }
@@ -1489,7 +1515,7 @@ public:
     : constraint_{constraint} {
         intervals_.reserve(constraint.size());
         for (auto const &[val, var] : constraint_) {
-            intervals_.emplace_back(Interval{var, 0, 0, val, 0});
+            intervals_.emplace_back(Interval{var, 0, 0, 0, 0, val, 0});
         }
     }
 
@@ -1529,27 +1555,23 @@ public:
     [[nodiscard]] bool update(val_t i, val_t diff) override {
         static_cast<void>(i);
         static_cast<void>(diff);
-        // TODO: If the bounds are updated to the last value propagated, then
-        // no update is necessary. Furthermore, only partitions with a changed
-        // bound need to be propagated. This boils down to tracking variables
-        // with changed bounds and skipping partitions that contain unchanged
-        // variables only.
-        //
-        // One could even track whole partitions but currently the sorting does
-        // not dominate the runtime. Maybe this would change with a fast
-        // O(n*log(n)) propagation algorithm.
-        update_ = true;
-
         return true;
     }
 
     void undo(val_t i, val_t diff) override {
         static_cast<void>(i);
         static_cast<void>(diff);
+        force_update_ = true;
     }
 
     [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
+        // Note: One could even track whole partitions but currently the
+        // sorting does not dominate the runtime. Maybe this would change with
+        // a fast O(n*log(n)) propagation algorithm.
         static_cast<void>(check_state); // TODO: the state could still be checked...
+
+        bool force_update = force_update_;
+        force_update_ = false;
 
         for (auto &x : intervals_) {
             auto &vs = solver.var_state(x.var);
@@ -1557,19 +1579,9 @@ public:
             x.right = vs.upper_bound() + x.weight - 1;
         }
 
-        if (update_) {
-            update_ = false;
-
-            if (!Algorithm<PropagateType::Lower>::run(solver, cc, intervals_.begin(), intervals_.end())) {
-                return false;
-            }
-
-            if (!Algorithm<PropagateType::Upper>::run(solver, cc, intervals_.begin(), intervals_.end())) {
-                return false;
-            }
-        }
-
-        return true;
+        return
+            Algorithm<PropagateType::Lower>::run(solver, cc, force_update, intervals_.begin(), intervals_.end()) &&
+            Algorithm<PropagateType::Upper>::run(solver, cc, force_update, intervals_.begin(), intervals_.end());
     }
 
     void check_full(Solver &solver) override {
@@ -1614,14 +1626,14 @@ private:
     , constraint_{x.constraint_}
     , intervals_{x.intervals_}
     , inactive_level_{x.inactive_level_}
-    , update_{x.update_}
+    , force_update_{x.force_update_}
     , todo_{x.todo_} {
     }
 
     DisjointConstraint &constraint_;
     std::vector<Interval> intervals_;
     level_t inactive_level_{0};
-    bool update_{true};
+    bool force_update_{true};
     bool todo_{false};
 
 };
