@@ -1162,22 +1162,27 @@ private:
         auto const &elem_j = constraint_[j];
         bool is_fact = elem_j.size() == 1;
 
+        auto lit = -constraint_.literal();
+        if (!ass.is_fixed(lit)) {
+            reason.emplace_back(lit);
+        }
+
         // assigned index
         for (auto [co, var] : elem_i) {
             static_cast<void>(co);
             auto &vs = solver.var_state(var);
             assert(vs.is_assigned());
 
-            reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
-            assert(ass.is_false(reason.back()));
-            if (!ass.is_fixed(reason.back())) {
-                is_fact = false;
+            auto lit = -solver.get_literal(cc, vs, vs.upper_bound());
+            assert(ass.is_false(lit));
+            if (!ass.is_fixed(lit)) {
+                reason.emplace_back(lit);
             }
 
-            reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
-            assert(ass.is_false(reason.back()));
-            if (!ass.is_fixed(reason.back())) {
-                is_fact = false;
+            lit = solver.get_literal(cc, vs, vs.lower_bound() - 1);
+            assert(ass.is_false(lit));
+            if (!ass.is_fixed(lit)) {
+                reason.emplace_back(lit);
             }
         }
 
@@ -1185,32 +1190,31 @@ private:
         for (auto [co, var] : elem_j) {
             auto &vs = solver.var_state(var);
             if (s * co > 0) {
-                reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
-                assert(ass.is_false(reason.back()));
-                if (!ass.is_fixed(reason.back())) {
-                    is_fact = false;
+                lit = -solver.get_literal(cc, vs, vs.upper_bound());
+                assert(ass.is_false(lit));
+                if (!ass.is_fixed(lit)) {
+                    reason.emplace_back(lit);
                 }
 
                 // add consequence
-                // Note: Observe that is_fact can only be true if elem_j.size() == 1
-                auto lit = solver.update_literal(cc, vs, vs.upper_bound() - 1, is_fact ? Clingo::TruthValue::True : Clingo::TruthValue::Free);
-                reason.emplace_back(lit);
+                lit = solver.update_literal(cc, vs, vs.upper_bound() - 1, is_fact && reason.empty() ? Clingo::TruthValue::True : Clingo::TruthValue::Free);
                 if (ass.is_true(lit)) {
                     return true;
                 }
+                reason.emplace_back(lit);
             }
             else {
-                reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
-                assert(ass.is_false(reason.back()));
-                if (!ass.is_fixed(reason.back())) {
-                    is_fact = false;
+                lit = solver.get_literal(cc, vs, vs.lower_bound() - 1);
+                assert(ass.is_false(lit));
+                if (!ass.is_fixed(lit)) {
+                    reason.emplace_back(lit);
                 }
 
-                auto lit = -solver.update_literal(cc, vs, vs.lower_bound(), is_fact ? Clingo::TruthValue::False : Clingo::TruthValue::Free);
-                reason.emplace_back(lit);
+                lit = -solver.update_literal(cc, vs, vs.lower_bound(), is_fact && reason.empty() ? Clingo::TruthValue::False : Clingo::TruthValue::Free);
                 if (ass.is_true(lit)) {
                     return true;
                 }
+                reason.emplace_back(lit);
             }
         }
 
@@ -1339,7 +1343,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
 
     enum class PropagateType { Lower, Upper };
     template <PropagateType type>
-    struct Algorithm {
+    struct Algorithm { // NOLINT(cppcoreguidelines-pro-type-member-init)
         using It = std::vector<Interval>::iterator;
 
         [[nodiscard]] static val_t lower(Interval const &i) {
@@ -1394,20 +1398,28 @@ class DisjointConstraintState final : public AbstractConstraintState {
                 // See for example the sum constraint state, which refines
                 // reasons in the hope of getting better conflict but making
                 // sure to avoid the above mentioned cases.
-                reason.emplace_back(-solver.get_literal(cc, vs, std::min(b - 1, vs.upper_bound())));
+                auto val = std::min(b - 1, vs.upper_bound());
+                auto lit = -solver.update_literal(cc, vs, val, reason.empty() ? Clingo::TruthValue::False : Clingo::TruthValue::Free);
+                reason.emplace_back(lit);
                 i->last_left = b;
             }
             else {
                 reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
                 // Note: similar to the note above.
-                reason.emplace_back(solver.get_literal(cc, vs, std::max(-b - weight(i) + 1, vs.lower_bound() - 1)));
+                auto val = std::max(-b - weight(i) + 1, vs.lower_bound() - 1);
+                auto lit = solver.update_literal(cc, vs, val, reason.empty() ? Clingo::TruthValue::True : Clingo::TruthValue::Free);
+                reason.emplace_back(lit);
                 i->last_right = -b;
             }
             return cc.add_clause(reason);
         }
 
         [[nodiscard]] std::vector<lit_t> &calculate_reason(val_t a, It j) {
+            auto ass = cc.assignment();
             auto &reason = solver.temp_reason();
+            if (!ass.is_fixed(clit)) {
+                reason.emplace_back(-clit);
+            }
             for (auto i = begin; i != j; ++i) {
                 // Since [a, b] is a maximal hall interval, the reason
                 // includes all variables contained in the range [a, b].
@@ -1415,8 +1427,14 @@ class DisjointConstraintState final : public AbstractConstraintState {
                 // bounds of intervals k are smaller or equal than b.
                 if (lower(i) >= a) {
                     auto &vs = solver.var_state(i->var);
-                    reason.emplace_back(solver.get_literal(cc, vs, vs.lower_bound() - 1));
-                    reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
+                    auto l = solver.get_literal(cc, vs, vs.lower_bound() - 1);
+                    auto u = -solver.get_literal(cc, vs, vs.upper_bound());
+                    if (!ass.is_fixed(l)) {
+                        reason.emplace_back(l);
+                    }
+                    if (!ass.is_fixed(u)) {
+                        reason.emplace_back(u);
+                    }
                 }
             }
             return reason;
@@ -1453,8 +1471,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
                 if (lower(j) < lower(i)) {
                     u(j) += weight(i);
                     if (u(j) > upper(i)) {
-                        static_cast<void>(cc.add_clause(calculate_reason(lower(j), i + 1)));
-                        return false;
+                        return cc.add_clause(calculate_reason(lower(j), i + 1));
                     }
                     if (u(j) == upper(i) && (k == end || lower(j) < lower(k))) {
                         k = j;
@@ -1466,8 +1483,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
             }
 
             if (u(i) > upper(i)) {
-                static_cast<void>(cc.add_clause(calculate_reason(lower(i), i + 1)));
-                return false;
+                return cc.add_clause(calculate_reason(lower(i), i + 1));
             }
             if (u(i) == upper(i) && (k == end || lower(i) < lower(k))) {
                 k = i;
@@ -1485,7 +1501,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
             return true;
         }
 
-        [[nodiscard]] static bool run(Solver &solver, AbstractClauseCreator &cc, bool force_update, It begin, It end) {
+        [[nodiscard]] static bool run(Solver &solver, AbstractClauseCreator &cc, lit_t clit, bool force_update, It begin, It end) {
             // Note: the constraint could also be disabled as soon as all
             // subsequences became singletons.
             std::sort(begin, end, [](auto const &a, auto const &b) { return upper(a) < upper(b); });
@@ -1497,7 +1513,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
                     min = std::min(lower(*it), min);
                     has_change = has_change || changed(*it);
                 }
-                if (has_change && !Algorithm{solver, cc, it.base(), je}.propagate()) {
+                if (has_change && !Algorithm{solver, cc, it.base(), je, clit}.propagate()) {
                     return false;
                 }
             }
@@ -1508,6 +1524,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
         AbstractClauseCreator &cc;
         It begin;
         It end;
+        lit_t clit;
     };
 
 public:
@@ -1580,8 +1597,8 @@ public:
         }
 
         return
-            Algorithm<PropagateType::Lower>::run(solver, cc, force_update, intervals_.begin(), intervals_.end()) &&
-            Algorithm<PropagateType::Upper>::run(solver, cc, force_update, intervals_.begin(), intervals_.end());
+            Algorithm<PropagateType::Lower>::run(solver, cc, constraint_.literal(), force_update, intervals_.begin(), intervals_.end()) &&
+            Algorithm<PropagateType::Upper>::run(solver, cc, constraint_.literal(), force_update, intervals_.begin(), intervals_.end());
     }
 
     void check_full(Solver &solver) override {

@@ -129,6 +129,12 @@ public:
                 if (!cc_.add_clause({-a, -b})) {
                     return false;
                 }
+                if (!cc_.add_clause({lit, -a})) {
+                    return false;
+                }
+                if (!cc_.add_clause({lit, -b})) {
+                    return false;
+                }
 
                 if (!add_constraint(a, celems, check_valid_value(rhs-1), false)) {
                     return false;
@@ -167,7 +173,7 @@ public:
         return true;
     }
 
-    bool translate_disjoint_(co_var_t const &i, co_var_t const &j) {
+    bool translate_disjoint_(lit_t lit, co_var_t const &i, co_var_t const &j) {
         assert (i.first > 0 && j.first > 0);
 
         // lower_i >= lower_j    (lower_j - lower_i <= 0)
@@ -188,7 +194,7 @@ public:
             return false;
         }
 
-        return cc_.add_clause({-lit_a, -lit_b});
+        return cc_.add_clause({-lit, -lit_a, -lit_b});
     }
 
     [[nodiscard]] bool add_disjoint(lit_t lit, CoVarVec const &elems) override {
@@ -217,7 +223,7 @@ public:
                 //     :- start_j >= start_i, start_j <= end_i.
                 //
                 // using *strict* constraints.
-                if (!translate_disjoint_(*it, *jt) || !translate_disjoint_(*jt, *it)) {
+                if (!translate_disjoint_(lit, *it, *jt) || !translate_disjoint_(lit, *jt, *it)) {
                     return false;
                 }
             }

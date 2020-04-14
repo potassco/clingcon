@@ -432,6 +432,7 @@ val_t Solver::get_value(var_t var) const {
 }
 
 Solver::Level &Solver::level_() {
+    assert(!levels_.empty());
     return levels_.back();
 }
 
@@ -898,10 +899,12 @@ void Solver::undo() {
     Timer timer{stats_.time_undo};
 
     auto &lvl = level_();
+    assert(lvl.level() != 0);
 
     lvl.undo(*this);
 
     levels_.pop_back();
+    assert(!levels_.empty());
 }
 
 lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
