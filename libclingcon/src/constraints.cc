@@ -369,7 +369,7 @@ private:
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
-                        auto refined = solver.get_literal(cc, vs, value-1);
+                        auto refined = solver.get_literal(cc, vs, value - 1);
                         assert(!ass.is_true(refined));
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
@@ -379,7 +379,7 @@ private:
         }
         else {
             // symmetric case
-            auto current = vs.upper_bound();
+            sum_t current = vs.upper_bound();
             auto lit_reason = -solver.get_literal(cc, vs, current);
             lit = lit_reason;
             assert(ass.is_false(lit));

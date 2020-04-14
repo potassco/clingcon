@@ -82,7 +82,7 @@ typedef int clingcon_value_type_t;
 
 //! Struct to store values that can be returned by a theory.
 typedef struct clingcon_value {
-    clingcon_value_type type;
+    clingcon_value_type_t type;
     union {
         int int_number;
         double double_number;

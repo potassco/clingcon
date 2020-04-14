@@ -40,6 +40,8 @@ if (MSVC)
         # force static runtime
         string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
     endif()
+    add_compile_options("/wd4244" "/wd4267" "/wd26451")
+    add_definitions("-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 endif()
 
 if (POLICY CMP0063 AND CLINGCON_BUILD_SHARED)

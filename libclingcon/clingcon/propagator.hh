@@ -110,7 +110,7 @@ public:
     //! Delegates undoing to the respective solver.
     void undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept override;
 
-    [[nodiscard]] lit_t decide(id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) override;
+    [[nodiscard]] lit_t decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) override;
 
     //! Determine if the given variable should be shown.
     [[nodiscard]] bool shown(var_t var);

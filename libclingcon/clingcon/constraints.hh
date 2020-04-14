@@ -29,6 +29,14 @@
 
 #include <array>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4200)
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 //! @file clingcon/constraints.hh
 //! Module implementing constraints.
 //!
@@ -102,12 +110,8 @@ private:
     val_t rhs_;
     //! Number of elements in the constraint.
     size_t size_;
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
     //! List of integer/string pairs representing coefficient and variable.
     std::pair<val_t, var_t> elements_[]; // NOLINT
-#pragma GCC diagnostic pop
 };
 
 //! Class to capture minimize constraints of form `a_0*x_0 + ... + a_n * x_n + adjust`.
@@ -173,16 +177,19 @@ private:
     lit_t adjust_;
     //! Number of elements in the constraint.
     uint32_t size_;
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
     //! List of integer/string pairs representing coefficient and variable.
     std::pair<val_t, var_t> elements_[]; // NOLINT
-#pragma GCC diagnostic pop
 };
 
 class DistinctElement {
 public:
+#ifdef _MSC_VER
+    DistinctElement()
+    : fixed_{0}
+    , size_{0}
+    , elements_{nullptr} {
+    }
+#endif
     DistinctElement(val_t fixed, size_t size, co_var_t *elements, bool sort);
 
     //! Get the fixed part of the term.
@@ -271,11 +278,8 @@ private:
     lit_t lit_;
     //! The elements of the distinct constraint.
     uint32_t size_;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
     //! List of integer/string pairs representing coefficient and variable.
     DistinctElement elements_[]; // NOLINT
-#pragma GCC diagnostic pop
 };
 
 //! Class to capture disjoint constraints.
@@ -326,13 +330,16 @@ private:
     lit_t lit_;
     //! The elements of the distinct constraint.
     uint32_t size_;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
     //! List of integer/string pairs representing coefficient and variable.
     co_var_t elements_[]; // NOLINT
-#pragma GCC diagnostic pop
 };
 
 } // namespace Clingcon
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#else
+#pragma GCC diagnostic pop
+#endif
 
 #endif // CLINGCON_CONSTRAINTS_H

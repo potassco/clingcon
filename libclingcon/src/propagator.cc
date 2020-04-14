@@ -465,12 +465,12 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     }
 
     // translate (simple enough) constraints
-    cc.set_state(InitClauseCreator::StateTranslate);
+    cc.set_state(InitState::Translate);
     bool ret = master_().translate(cc, stats_step_, config_, constraints_);
     if (!ret) {
         return false;
     }
-    cc.set_state(InitClauseCreator::StateInit);
+    cc.set_state(InitState::Init);
 
     // mark minimize constraint as translated if necessary
     if (config_.translate_minimize && minimize_ != nullptr) {
@@ -520,7 +520,7 @@ void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSp
     solver_(control.thread_id()).undo();
 }
 
-lit_t Propagator::decide(id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) {
+lit_t Propagator::decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) {
     return solver_(thread_id).decide(assign, fallback);
 }
 

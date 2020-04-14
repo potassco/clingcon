@@ -358,7 +358,32 @@ Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
     levels_.emplace_back(*this, 0);
 }
 
+#ifdef _MSC_VER
+Solver::Solver(Solver &&x) noexcept
+: config_{x.config_}
+, stats_{x.stats_}
+, var2vs_{std::move(x.var2vs_)}
+, levels_{std::move(x.levels_)}
+, litmap_{std::move(x.litmap_)}
+, factmap_{std::move(x.factmap_)}
+, c2cs_{std::move(x.c2cs_)}
+, var_watches_{std::move(x.var_watches_)}
+, udiff_{std::move(x.udiff_)}
+, in_udiff_{std::move(x.in_udiff_)}
+, ldiff_{std::move(x.ldiff_)}
+, in_ldiff_{std::move(x.in_ldiff_)}
+, todo_{std::move(x.todo_)}
+, lit2cs_{std::move(x.lit2cs_)}
+, temp_reason_{std::move(x.temp_reason_)}
+, split_last_{x.split_last_}
+, trail_offset_{x.trail_offset_}
+, minimize_bound_{std::move(x.minimize_bound_)}
+, minimize_level_{x.minimize_level_}
+{
+}
+#else
 Solver::Solver(Solver &&x) noexcept = default;
+#endif
 
 Solver::~Solver() = default;
 

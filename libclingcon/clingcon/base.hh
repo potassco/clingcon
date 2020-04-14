@@ -275,15 +275,15 @@ public:
     virtual Clingo::Assignment assignment() = 0;
 };
 
+enum class InitState {
+    Init = 0,
+    Translate = 1
+};
 
 //! Implement an `AbstractClauseCreator` using a `Clingo::PropagateInit`
 //! object and extra functions.
 class InitClauseCreator final : public AbstractClauseCreator {
 public:
-    enum State {
-        StateInit = 0,
-        StateTranslate = 1
-    };
     using Clause = std::vector<lit_t>;
     using WeightConstraint = std::tuple<lit_t, std::vector<Clingo::WeightedLiteral>, val_t, Clingo::WeightConstraintType>;
     using MinimizeLiteral = std::tuple<lit_t, val_t, int>;
@@ -303,7 +303,7 @@ public:
     [[nodiscard]] lit_t add_literal() override {
         auto lit = init_.add_literal();
         ++stats_.num_literals;
-        if (state_ == StateTranslate) {
+        if (state_ == InitState::Translate) {
             ++stats_.translate_literals;
         }
         return lit;
@@ -322,7 +322,7 @@ public:
         static_cast<void>(type);
 
         ++stats_.num_clauses;
-        if (state_ == StateTranslate) {
+        if (state_ == InitState::Translate) {
             ++stats_.translate_clauses;
         }
 
@@ -340,7 +340,7 @@ public:
 
     //! Set the state to log either init literals or additionally translation
     //! literals.
-    void set_state(State state) {
+    void set_state(InitState state) {
         state_ = state;
     }
 
@@ -363,7 +363,7 @@ public:
             }
         }
 
-        if (state_ == StateTranslate) {
+        if (state_ == InitState::Translate) {
             ++stats_.translate_wcs;
         }
         weight_constraints_.emplace_back(lit, std::vector<Clingo::WeightedLiteral>{wlits.begin(), wlits.end()}, bound, type);
@@ -403,7 +403,7 @@ public:
     }
 
 private:
-    State state_{StateInit};
+    InitState state_{InitState::Init};
     Clingo::PropagateInit &init_;
     Statistics &stats_;
     Clause clauses_;

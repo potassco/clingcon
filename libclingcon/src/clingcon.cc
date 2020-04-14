@@ -123,9 +123,14 @@ template<class T>
     T ret = 0;
     bool sign = false;
     auto const *it = begin;
-    if (std::is_signed_v<T> && *it == '-') {
-        sign = true;
-        ++it; // NOLINT
+    if constexpr (std::is_signed_v<T>) {
+        if (*it == '-') {
+            sign = true;
+            ++it; // NOLINT
+        }
+    }
+    else {
+        static_cast<void>(sign);
     }
     if (it == end) {
         throw std::invalid_argument("integer expected");
@@ -138,7 +143,12 @@ template<class T>
             throw std::invalid_argument("integer expected");
         }
     }
-    return sign ? safe_inv<T>(ret) : ret;
+    if constexpr (std::is_signed_v<T>) {
+        return sign ? safe_inv<T>(ret) : ret;
+    }
+    else {
+        return ret;
+    }
 }
 
 template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
