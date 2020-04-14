@@ -25,6 +25,8 @@
 #include "clingcon/parsing.hh"
 #include "catch.hpp"
 
+#include <sstream>
+
 using namespace Clingcon;
 
 using sret = std::pair<CoVarVec, val_t>;
@@ -203,7 +205,6 @@ private:
 std::string parse(char const *prg) {
     Clingo::Control ctl;
     ctl.with_builder([&](Clingo::ProgramBuilder &builder) {
-        bool sep{false};
         std::ostringstream oss;
         Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
             transform(std::move(stm), [&](Clingo::AST::Statement &&stm) {
@@ -230,8 +231,8 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE(simplify({{0, 0}, {0, 0}}, false) == sret({{0, 0}}, 0));
         REQUIRE(simplify({{0, 0}, {1, INVALID_VAR}, {2, INVALID_VAR}, {3, 0}, {4, 0}}) == sret({{7, 0}}, -3));
 
-        REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::max(), 0}, {std::numeric_limits<int>::max(), 0}}), std::overflow_error const &);
-        REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error const &);
+        REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::max(), 0}, {std::numeric_limits<int>::max(), 0}}), std::overflow_error);
+        REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error);
     }
     SECTION("transform") {
         REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h {  } = 0 :- &__sum_b {  } = 1.");

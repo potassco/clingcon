@@ -24,6 +24,7 @@
 
 #include "clingcon/astutil.hh"
 #include "catch.hpp"
+#include <sstream>
 
 using namespace Clingcon;
 
