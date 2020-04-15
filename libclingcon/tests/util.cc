@@ -209,8 +209,8 @@ TEST_CASE("util", "[util]") { // NOLINT
     }
 
     SECTION("safe-int") {
-        using O = std::overflow_error const &;
-        using U = std::underflow_error const &;
+        using O = std::overflow_error;
+        using U = std::underflow_error;
         auto a = std::numeric_limits<int>::max();
         auto b = std::numeric_limits<int>::min();
 
