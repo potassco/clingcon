@@ -104,7 +104,12 @@ public:
     //! Add the given constraint state to the todo list if it is not yet
     //! contained.
     static void mark_todo(Solver &solver, AbstractConstraintState &cs) {
-        if (!cs.mark_todo(true)) {
+        // Note: we have to enqueue only active constraints. When propagating
+        // (and if enabled) the state of the constraint is checked. For
+        // inactive constraints, the state is not updated once the watches were
+        // removed. If we would enqueue an inactive constraint, then the state
+        // check can fail.
+        if (!cs.marked_inactive() && !cs.mark_todo(true)) {
             solver.todo_.emplace_back(&cs);
         }
     }
