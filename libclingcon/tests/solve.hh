@@ -92,7 +92,7 @@ inline S solve(Config const &config, std::string const &prg) {
     SolveEventHandler handler{p};
 
     // TODO: there is a potential clasp bug regarding multi-threading
-    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t4"}};
+    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
         Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
@@ -151,9 +151,9 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
         Config{{}, min_int, max_int, 0, 0, 0, sconfig, false, false, false, false, true, true},  // basic
         Config{{}, min_int, max_int, 0, 0, 0, sconfig, true,  false, false, false, true, true},  // sort constraints
         Config{{}, min_int, max_int, m, 0, m, sconfig, true,  false, true,  false, true, true},  // translate
+        Config{{}, min_int, max_int, m, 0, m, sconfig, true,  false, true,  true,  true, true},  // translate + order clauses
         Config{{}, min_int, max_int, m, 0, m, sconfig, true,  true,  true,  false, true, true},  // translate literals only
-        // TODO: there is a potential clasp bug regarding weight constraints
-        //Config{{}, min_int, max_int, 0, m, m, sconfig, true,  false, true,  false, true, true},  // translate weight constraints
+        Config{{}, min_int, max_int, 0, m, m, sconfig, true,  false, true,  false, true, true},  // translate weight constraints
     };
 
     std::optional<S> last = std::nullopt;
