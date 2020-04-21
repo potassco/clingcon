@@ -35,16 +35,22 @@ jobs:
         channels: potassco/label/dev,conda-forge
 
     - name: prerequisites
+      shell: pwsh
       run: conda install clingo cmake cxx-compiler
 
     - name: reactivate
+      shell: pwsh
       run: conda activate clingcon
 
     - run: conda info
+      shell: pwsh
     - run: conda list
+      shell: pwsh
     - run: which cmake
+      shell: pwsh
       
     - name: build and test
+      shell: pwsh
       run: >
         ctest
         --build-config Debug
