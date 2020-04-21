@@ -30,6 +30,11 @@ jobs:
     - name: prerequisites
       run: conda install clingo cmake ninja cxx-compiler
 
+    - run: conda info
+    - run: conda list
+    - run: which cmake
+    - run: cmake -G
+      
     - name: build and test
       run: >
         ctest
