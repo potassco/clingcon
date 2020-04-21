@@ -15,6 +15,13 @@ jobs:
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         python-version: ['3.7']    
+        include:
+          - os: 'ubuntu-latest'
+            generator: 'Unix Makefiles'
+          - os: 'macos-latest'
+            generator: 'Unix Makefiles'
+          - os: 'windows-latest'
+            generator: 'Visual Studio 15 2017 Win64'
 
     steps:
     - uses: actions/checkout@v2
@@ -28,12 +35,14 @@ jobs:
         channels: potassco/label/dev,conda-forge
 
     - name: prerequisites
-      run: conda install clingo cmake ninja cxx-compiler
+      run: conda install clingo cmake cxx-compiler
+
+    - name: reactivate
+      run: conda activate clingcon
 
     - run: conda info
     - run: conda list
     - run: which cmake
-    - run: cmake -G
       
     - name: build and test
       run: >
