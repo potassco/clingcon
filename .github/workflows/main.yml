@@ -1,0 +1,40 @@
+name: clingcon CI tests
+
+on:
+  push:
+    branches: [ clingcon4 ]
+  pull_request:
+    branches: [ clingcon4 ]
+
+jobs:
+  build:
+    name: clingcon ${{ matrix.python-version }} ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        python-version: ['3.7']    
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: miniconda
+      uses: goanpeca/setup-miniconda@v1.1.2
+      with:
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+        activate-environment: clingcon
+        channels: potassco/label/dev,conda-forge
+
+    - name: prerequisites
+      run: conda install clingo cmake ninja cxx-compiler
+
+    - name: build and test
+      run: >
+        ctest
+         --build-config Debug
+         --build-generator Ninja
+         --build-and-test . build
+         --build-options -DCLINGCON_BUILD_TESTS=On
+         --test-command ctest -V --build-config Debug
