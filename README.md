@@ -1,5 +1,7 @@
 # Clingcon
 
+![clingcon CI tests](https://github.com/potassco/clingcon/workflows/tests/badge.svg)
+
 The clingcon-5 project is still in development. A release has to wait until
 clingo-5.5.0 is ready. The project is already usable with the latest
 development version of clingo. The latest stable clingcon release is 3.3.0
@@ -13,8 +15,8 @@ available under the [releases][release] tab and in the [clingcon-3] branch.
 
 ## Linting
 
-The default Makefile will setup the cmake to use `clang-tidy`. It is also
-possible to create a compile database to use with linting plugins.
+The Makefile is meant for development and sets up cmake to use `clang-tidy`. It
+is also possible to create a compile database to use with linting plugins.
 
     conda install -n clingcon -c programfan compdb
     conda activate clingcon

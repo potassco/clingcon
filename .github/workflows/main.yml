@@ -1,4 +1,4 @@
-name: clingcon CI tests
+name: tests
 
 on:
   - push
