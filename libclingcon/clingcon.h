@@ -34,13 +34,13 @@
 //! @author Roland Kaminski
 
 //! Major version number.
-#define CLINGCON_VERSION_MAJOR 4
+#define CLINGCON_VERSION_MAJOR 5
 //! Minor version number.
 #define CLINGCON_VERSION_MINOR 0
 //! Revision number.
 #define CLINGCON_VERSION_REVISION 0
 //! String representation of version.
-#define CLINGCON_VERSION "4.0.0"
+#define CLINGCON_VERSION "5.0.0"
 
 #ifdef __cplusplus
 extern "C" {
