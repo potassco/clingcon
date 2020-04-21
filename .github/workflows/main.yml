@@ -14,19 +14,19 @@ jobs:
       fail-fast: false
       matrix:
         os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        python-version: ['3.7']    
+        python-version: ['3.7']
         include:
           - os: 'ubuntu-latest'
-            generator: 'Unix Makefiles'
+            generator: 'Ninja'
           - os: 'macos-latest'
-            generator: 'Unix Makefiles'
+            generator: 'Ninja'
           - os: 'windows-latest'
             generator: 'Visual Studio 15 2017 Win64'
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: miniconda
+    - name: setup miniconda
       uses: goanpeca/setup-miniconda@v1.1.2
       with:
         auto-update-conda: true
@@ -34,27 +34,22 @@ jobs:
         activate-environment: clingcon
         channels: potassco/label/dev,conda-forge
 
-    - name: prerequisites
+    - name: install prerequisites
       shell: pwsh
       run: conda install clingo cmake ninja cxx-compiler
 
-    - name: reactivate
+    - name: print info
       shell: pwsh
-      run: conda activate clingcon
+      run: |
+        conda info
+        conda list
 
-    - run: conda info
-      shell: pwsh
-    - run: conda list
-      shell: pwsh
-    - run: which cmake
-      shell: pwsh
-      
     - name: build and test
       shell: pwsh
       run: >
         ctest
         --build-config Debug
-        --build-generator Ninja
+        --build-generator "${{ matrix.generator }}"
         --build-and-test . build
         --build-options -DCLINGCON_BUILD_TESTS=On
         --test-command ctest -V --build-config Debug
