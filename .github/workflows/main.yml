@@ -36,7 +36,7 @@ jobs:
 
     - name: prerequisites
       shell: pwsh
-      run: conda install clingo cmake cxx-compiler
+      run: conda install clingo cmake ninja cxx-compiler
 
     - name: reactivate
       shell: pwsh
