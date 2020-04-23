@@ -797,6 +797,8 @@ private:
 
 //! Capture the state of a distinct constraint.
 class DistinctConstraintState final : public AbstractConstraintState {
+    using DiffElement = std::tuple<val_t, val_t, var_t>;
+    using DiffVec = std::vector<DiffElement>;
 public:
     DistinctConstraintState(DistinctConstraint &constraint)
     : constraint_{constraint} {
@@ -858,18 +860,19 @@ public:
             });
         }
 
+        DiffVec diff_elems;
+
         // calculate variables for terms avoiding unnecessary variables
-        CoVarVec diff_elems;
         for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
-            co_var_t co_var{constraint_[idx].fixed(), INVALID_VAR};
+            DiffElement elem{constraint_[idx].fixed(), 1, INVALID_VAR};
             domains[idx].enumerate([&](sum_t value) {
                 if (counts[value] > 1) {
-                    co_var = var_(config, solver, idx, added);
+                    elem = var_(config, solver, idx, added);
                     return false;
                 }
                 return true;
             });
-            diff_elems.emplace_back(co_var);
+            diff_elems.emplace_back(elem);
         }
 
         // add weight constraints
@@ -885,14 +888,16 @@ public:
                 if (!domain.contains(value)) {
                     continue;
                 }
-                auto [fixed, var] = diff_elems[idx];
+                auto [fixed, co, var] = diff_elems[idx];
                 auto lit = TRUE_LIT;
                 if (var != INVALID_VAR) {
                     // lit == var<=value && var>=value
                     //     == var<=value && not var<=value-1
                     auto &vs = solver.var_state(var);
-                    auto a = solver.get_literal(cc, vs, value - fixed);
-                    auto b = -solver.get_literal(cc, vs, value - fixed - 1);
+
+                    auto adjust = (value - fixed) / co;
+                    auto a = solver.get_literal(cc, vs, adjust);
+                    auto b = -solver.get_literal(cc, vs, adjust - 1);
 
                     if (a == TRUE_LIT) {
                         lit = b;
@@ -1049,13 +1054,13 @@ protected:
 
 private:
     //! Introduce a variable and make it equal to the term.
-    [[nodiscard]] co_var_t var_(Config const &config, Solver &solver, uint32_t idx, ConstraintVec &added) {
+    [[nodiscard]] DiffElement var_(Config const &config, Solver &solver, uint32_t idx, ConstraintVec &added) {
         auto [lower, upper] = assigned_[idx];
         auto const &elements = constraint_[idx];
 
         assert(!elements.empty());
         if (elements.size() == 1) {
-            return {elements.fixed(), elements.begin()->second};
+            return {elements.fixed(), elements.begin()->first, elements.begin()->second};
         }
 
         auto var = solver.add_variable(lower, upper);
@@ -1068,7 +1073,7 @@ private:
         }
         added.emplace_back(SumConstraint::create(TRUE_LIT, elements.fixed(), sum_elems, config.sort_constraints));
 
-        return {0, var};
+        return {0, 1, var};
     }
 
     //! Estimate the size of the translation in terms of the number of weight

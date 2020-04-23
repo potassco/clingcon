@@ -98,7 +98,8 @@ public:
     //!
     //! Binary distinct constraints will be represented with a sum constraint.
     [[nodiscard]] bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
-        if (cc_.assignment().is_false(lit)) {
+        auto truth = cc_.assignment().truth_value(lit);
+        if (truth == Clingo::TruthValue::False) {
             return true;
         }
 
@@ -107,10 +108,15 @@ public:
             return true;
         }
 
+        // Note: even though translation is also handled in constraints, it is
+        // easier to do it here right away because at this point we can also
+        // add trivial constraints that will be simplified further later on.
+        // The only advantage of doing it in the constraint would be that we
+        // potentially have to introduce fewer literals.
         CoVarVec celems;
         for (auto it = elems.begin(), ie = elems.end(); it != ie; ++it) {
             for (auto jt = it + 1; jt != ie; ++jt) {
-                auto rhs = it->second - jt->second;
+                auto rhs = jt->second - it->second;
                 celems.assign(it->first.begin(), it->first.end());
                 for (auto [co, var] : jt->first) {
                     celems.emplace_back(-co, var);
@@ -118,22 +124,28 @@ public:
                 rhs += simplify(celems, true);
 
                 if (celems.empty()) {
-                    return rhs != 0 || cc_.add_clause({-lit});
+                    if (rhs == 0) {
+                        return cc_.add_clause({-lit});
+                    }
+                    continue;
                 }
 
                 auto a = cc_.add_literal();
-                auto b = cc_.add_literal();
-                if (!cc_.add_clause({a, b, -lit})) {
-                    return false;
-                }
-                if (!cc_.add_clause({-a, -b})) {
-                    return false;
-                }
-                if (!cc_.add_clause({lit, -a})) {
-                    return false;
-                }
-                if (!cc_.add_clause({lit, -b})) {
-                    return false;
+                auto b = -a;
+                if (truth != Clingo::TruthValue::True) {
+                    b = cc_.add_literal();
+                    if (!cc_.add_clause({a, b, -lit})) {
+                        return false;
+                    }
+                    if (!cc_.add_clause({-a, -b})) {
+                        return false;
+                    }
+                    if (!cc_.add_clause({lit, -a})) {
+                        return false;
+                    }
+                    if (!cc_.add_clause({lit, -b})) {
+                        return false;
+                    }
                 }
 
                 if (!add_constraint(a, celems, check_valid_value(rhs-1), false)) {
