@@ -287,7 +287,7 @@ void Propagator::on_model(Clingo::Model &model) {
         auto bound = get_minimize_value(model.thread_id());
         auto value = Clingo::String(std::to_string(bound).c_str());
         symbols_.emplace_back(Clingo::Function("__csp_cost", {value}));
-        if (!minimize_bound_.has_value() || bound <= *minimize_bound_) {
+        if (bound <= minimize_bound_.load(std::memory_order_relaxed)) {
             stats_step_.cost = bound;
             update_minimize(bound - 1);
         }
@@ -448,6 +448,12 @@ void Propagator::init(Clingo::PropagateInit &init) {
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
         it->copy_state(master);
     }
+
+    // If there is a minimize constraint we have to enable total checks subject
+    // to the model lock too.
+    if (has_minimize()) {
+        init.set_check_mode(Clingo::PropagatorCheckMode::Both);
+    }
 }
 
 bool Propagator::simplify_(AbstractClauseCreator &cc) {
@@ -506,9 +512,12 @@ void Propagator::check(Clingo::PropagateControl &control) {
     auto &solver = solver_(control.thread_id());
     auto dl = ass.decision_level();
 
-    if (minimize_ != nullptr && minimize_bound_.has_value()) {
-        auto bound = *minimize_bound_ + minimize_->adjust();
-        solver.update_minimize(*minimize_, dl, bound);
+    if (minimize_ != nullptr) {
+        auto minimize_bound = minimize_bound_.load(std::memory_order_relaxed);
+        if (minimize_bound != no_bound) {
+            auto bound = minimize_bound + minimize_->adjust();
+            solver.update_minimize(*minimize_, dl, bound);
+        }
     }
 
     ControlClauseCreator cc{control, solver.statistics()};
