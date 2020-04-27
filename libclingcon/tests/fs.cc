@@ -117,10 +117,6 @@ S remove_bound(S &&res) {
     return std::move(res);
 }
 
-bool contains(S const &sols, std::optional<std::string> sol) {
-    return sol->empty() ? sols.empty() : std::find(sols.begin(), sols.end(), remove_bound(*sol)) != sols.end();
-}
-
 } // namespace
 
 TEST_CASE("fs", "[fs]") {
@@ -136,6 +132,5 @@ TEST_CASE("fs", "[fs]") {
     }
     SECTION("fso") {
         REQUIRE(remove_bound(solve(FSO + FSE + FSI, -256, 256)) == SOL16);
-        REQUIRE(contains(SOL16, solve_opt(FSO + FSE + FSI, -256, 256)));
     }
 }
