@@ -86,12 +86,45 @@ public:
     bool proven = false;
 };
 
+// This function suse the default configuration to find an optimal model. Which
+// model is found is non-deterministic and tests should check if the model is
+// contained in a list of candidates.
+inline std::optional<std::string> solve_opt(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+    Propagator p;
+    SolveEventHandler handler{p};
+
+    p.config().min_int = min_int;
+    p.config().max_int = max_int;
+    p.config().check_state = true;
+    p.config().check_solution = true;
+
+    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
+    ctl.add("base", {}, THEORY);
+    ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
+        Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
+            transform(std::move(stm), [&builder](Clingo::AST::Statement &&stm) {
+                builder.add(stm);
+            }, true);
+        });
+    });
+    ctl.register_propagator(p);
+    ctl.ground({{"base", {}}});
+
+    if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+        throw std::runtime_error("interrupted");
+    }
+
+    if (!handler.models.empty()) {
+        return handler.models.back();
+    }
+    return std::nullopt;
+}
+
 inline S solve(Config const &config, std::string const &prg) {
     Propagator p;
     p.config() = config;
     SolveEventHandler handler{p};
 
-    // TODO: there is a potential clasp bug regarding multi-threading
     Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {

@@ -25,17 +25,25 @@
 #include "solve.hh"
 #include "catch.hpp"
 
+#include <regex>
+
 using namespace Clingcon;
 
 namespace {
+
+std::string FSB = R"(
+#const bound=16.
+)";
+
+std::string FSO = R"(
+&minimize { bound }.
+)";
 
 std::string FSI = R"(
             machine(1).      machine(2).
 task(a). duration(a,1,3). duration(a,2,4).
 task(b). duration(b,1,1). duration(b,2,6).
 task(c). duration(c,1,5). duration(c,2,5).
-
-#const bound=16.
 )";
 
 std::string FSE = R"(
@@ -55,7 +63,7 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
 
 &sum {  1*T1 + -1*T2 } <= -D :- seq(T1,T2,D).
 &sum { -1*(T,M) } <= 0       :- duration(T,M,D).
-&sum {  1*(T,M) } <= B       :- duration(T,M,D), B=bound-D.
+&sum {  1*(T,M) } <= bound-D :- duration(T,M,D).
 
 #show permutation/2.
 )";
@@ -77,7 +85,7 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
 
 &diff { T1-T2 } <= -D :- seq(T1,T2,D).
 &diff { 0-(T,M) } <= 0 :- duration(T,M,D).
-&sum { (T,M)-0 } <= B :- duration(T,M,D), B=bound-D.
+&sum { (T,M)-0 } <= bound-D :- duration(T,M,D).
 
 #show permutation/2.
 )";
@@ -99,18 +107,35 @@ S SOL16{
 
 S SOL11{SOL16.begin(), SOL16.begin() + 6};
 
+std::string remove_bound(std::string const &str) {
+    return std::regex_replace(str, std::regex{"bound=[^ ]* "}, "");
+}
+S remove_bound(S &&res) {
+    for (auto &str : res) {
+        str = remove_bound(str);
+    }
+    return std::move(res);
+}
+
+bool contains(S const &sols, std::optional<std::string> sol) {
+    return sol->empty() ? sols.empty() : std::find(sols.begin(), sols.end(), remove_bound(*sol)) != sols.end();
+}
+
 } // namespace
 
 TEST_CASE("fs", "[fs]") {
     SECTION("fse") {
-        REQUIRE(solve(FSE + FSI, 0, 10) == S({}));
-        REQUIRE(solve(FSE + FSI, 0, 11) == SOL11);
-        REQUIRE(solve(FSE + FSI) == SOL16);
+        REQUIRE(solve(FSB + FSE + FSI, 0, 10) == S({}));
+        REQUIRE(solve(FSB + FSE + FSI, 0, 11) == SOL11);
+        REQUIRE(solve(FSB + FSE + FSI) == SOL16);
     }
     SECTION("fsd") {
-        REQUIRE(solve(FSD + FSI, 0, 10) == S({}));
-        REQUIRE(solve(FSD + FSI, 0, 11) == SOL11);
-        REQUIRE(solve(FSD + FSI) == SOL16);
+        REQUIRE(solve(FSB + FSD + FSI, 0, 10) == S({}));
+        REQUIRE(solve(FSB + FSD + FSI, 0, 11) == SOL11);
+        REQUIRE(solve(FSB + FSD + FSI) == SOL16);
+    }
+    SECTION("fso") {
+        REQUIRE(remove_bound(solve(FSO + FSE + FSI, -256, 256)) == SOL16);
+        REQUIRE(contains(SOL16, solve_opt(FSO + FSE + FSI, -256, 256)));
     }
 }
-
