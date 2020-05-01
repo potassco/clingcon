@@ -29,6 +29,7 @@
 # For more information, please refer to <http://unlicense.org/>
 
 import os
+import re
 import os.path
 import ycm_core
 import subprocess
@@ -49,16 +50,13 @@ flags = [
 '-I{home}/git/clingo/install/debug/include'.format(home=os.path.expanduser('~')),
 ]
 
-proc = subprocess.Popen(
-    ['clang++', '-std=c++17', '-stdlib=libc++', '-E', '-x', 'c++', '-', '-v'],
-    stdin=open(os.devnull), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-out, err = proc.communicate()
+clang = ['clang', '-std=c++17', '-stdlib=libc++', '-E', '-x', 'c++', '-', '-v']
+null = open("/dev/null")
 
-for line in err.splitlines():
-    line = line.strip()
-    if line.startswith(b'/') and line.endswith(b'include/c++/v1'):
-        flags.append('-I{}'.format(line))
-        break
+out, err = subprocess.Popen(clang, stdin=null, stdout=null, stderr=subprocess.PIPE).communicate()
+libcxx = re.search(r'/.*include/c\+\+/v1$', err.decode('utf-8'), re.MULTILINE)
+if libcxx is not None:
+    flags.append('-I{}'.format(libcxx.group(0)))
 
 # Set this to the absolute path to the folder (NOT the file!) containing the
 # compile_commands.json file to use that instead of 'flags'. See here for
