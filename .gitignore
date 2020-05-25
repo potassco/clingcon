@@ -1,4 +1,5 @@
 build
+install
 html
 latex
 .clangd/
