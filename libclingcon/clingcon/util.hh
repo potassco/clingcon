@@ -29,6 +29,7 @@
 #include <vector>
 #include <map>
 #include <cstdlib>
+#include <stdexcept>
 
 //! @file clingcon/util.hh
 //! Very general utility functions.
