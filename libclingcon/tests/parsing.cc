@@ -252,6 +252,8 @@ TEST_CASE("parsing", "[parsing]") {
             REQUIRE(parse("&sum { x; y; z } != 0.") ==
                 "{ 3, 4, -2 }."
                 "{ -3, -4 }."
+                "{ 2, -3 }."
+                "{ 2, -4 }."
                 "3 -> 1*x + 1*y + 1*z <= -1."
                 "4 -> -1*x + -1*y + -1*z <= -1.");
             REQUIRE(parse("&sum { x; y; z } <= 0.") ==

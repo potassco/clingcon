@@ -239,6 +239,7 @@ TEST_CASE("sum", "[solving]") {
                 "x=5",
                 "x=6"}));
         REQUIRE(solve("{a}. &sum { x } >= 3 :- a. &sum { x } <= 0 :- not a.", 0, 3) == S({"a x=3", "x=0"}));
+        REQUIRE(solve("{a}. &sum { x } != 5 :- not a. &dom {5; 10} = x.", 0, 10) == S({"a x=10", "a x=5", "x=10"}));
     }
     SECTION("parse") {
         REQUIRE(solve("&sum { x(f(1+2)) } <= 0.", 0, 0) == S({"x(f(3))=0"}));
