@@ -489,6 +489,13 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
             return false;
         }
 
+        if (!builder.add_clause({literal, -a})) {
+            return false;
+        }
+        if (!builder.add_clause({literal, -b})) {
+            return false;
+        }
+
         if (!normalize_constraint(builder, a, *elems, "<", rhs, false)) {
             return false;
         }
