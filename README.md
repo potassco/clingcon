@@ -7,18 +7,27 @@ clingo-5.5.0 is ready. The project is already usable with the latest
 development version of clingo. The latest stable clingcon release is 3.3.0
 available under the [releases][release] tab and in the [clingcon-3] branch.
 
-## Building with conda
+## Building a release version with conda
 
-    conda create -n clingcon -c potassco/label/dev -c conda-forge clingo ninja cmake gxx_linux-64 libcxx clang-tools
+    conda create -n clingcon -c potassco/label/dev -c conda-forge \
+	      clingo ninja cmake cxx-compiler
     conda activate clingcon
-    make
+    cmake -G Ninja \
+          -Bbuild/release \
+          -H. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX="${CONDA_PREFIX}" \
+          -DCLINGCON_MANAGE_RPATH=Off
+    cmake --build build/release --target install
+    clingcon --version
 
-## Linting
+## Development
 
 The Makefile is meant for development and sets up cmake to use `clang-tidy`. It
 is also possible to create a compile database to use with linting plugins.
 
-    conda install -n clingcon -c programfan compdb
+    conda install -n clingcon -c conda-forge -c programfan \
+	      compdb libcxx clang-tools
     conda activate clingcon
     make compdb
 

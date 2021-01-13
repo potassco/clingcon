@@ -150,12 +150,12 @@ public:
     UniqueMinimizeConstraint remove_minimize();
 private:
     //! Get the solver associated with the given `thread_id`.
-    Solver &solver_(uint32_t thread_id) {
+    [[nodiscard]] Solver &solver_(uint32_t thread_id) {
         assert(thread_id < solvers_.size());
         return solvers_[thread_id];
     }
     //! Get the solver associated with the given `thread_id`.
-    Solver const &solver_(uint32_t thread_id) const {
+    [[nodiscard]] Solver const &solver_(uint32_t thread_id) const {
         return solvers_[thread_id];
     }
 

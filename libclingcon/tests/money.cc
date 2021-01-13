@@ -29,24 +29,24 @@ using namespace Clingcon;
 
 namespace {
 
-std::string DOM = R"(
+std::string const DOM = R"(
 &sum { X } <= 9 :- letter(X).
 &sum { X } >= 0 :- letter(X).
 )";
 
-std::string DOMC = R"(
+std::string const DOMC = R"(
 &dom {0..9} = X :- letter(X).
 )";
 
-std::string DIST = R"(
+std::string const DIST = R"(
 &sum { X } != Y :- letter(X), letter(Y), X < Y.
 )";
 
-std::string DISTC = R"(
+std::string const DISTC = R"(
 &distinct {X : letter(X)}.
 )";
 
-std::string SMM = R"(
+std::string const SMM = R"(
 letter(s;e;n;d;m;o;r;y).
 
 &sum {             1000*s + 100*e + 10*n + 1*d
