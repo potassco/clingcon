@@ -64,10 +64,10 @@ class Theory:
         self._pre = prefix
         self._lib = lib
         self._ffi = ffi
+        self._rewrite = self.__define_rewrite()
 
         # create theory
         self._theory = self.__call1(self.__pre('theory_t*'), 'create')
-        self.__define_extern()
 
     def __pre(self, name):
         return f'{self._pre}_{name}'
@@ -135,7 +135,7 @@ class Theory:
         """
         self.__call0('prepare', self._theory, self._ffi.cast('clingo_control_t*', control._rep))
 
-    def rewrite_statement(self, stm: AST, add: Callable[[AST], None]) -> None:
+    def rewrite_ast(self, stm: AST, add: Callable[[AST], None]) -> None:
         """
         Rewrite the given statement and call add on the rewritten version(s).
 
@@ -151,7 +151,7 @@ class Theory:
         """
 
         handle = self._ffi.new_handle(add)
-        self.__call0('rewrite_statement', self._theory, stm._rep, self._rewrite, handle)
+        self.__call0('rewrite_ast', self._theory, self._ffi.cast('clingo_ast_t*', stm._rep), getattr(self._lib, f'py{self._pre}_rewrite'), handle)
 
     def register_options(self, options: ApplicationOptions) -> None:
         """
@@ -302,11 +302,9 @@ class Theory:
         while self.__assignment_next(self.__c_theory, thread_id, byref(c_index)):
             yield (self.get_symbol(c_index.value), self.get_value(thread_id, c_index.value))
 
-    def __define_extern(self):
-        name = f'py{self._pre}_rewrite'
-        # TODO: error handling and name
-        @self._ffi.def_extern(name=name)
-        def _rewrite(statement, data):
+    def __define_rewrite(self):
+        @self._ffi.def_extern(name=f'py{self._pre}_rewrite')
+        def rewrite(ast, data):
             '''
             Low-level solve event handler.
             '''
@@ -329,6 +327,7 @@ class Theory:
                 p_stats = _ffi.cast('clingo_statistics_t**', event)
                 handler.on_statistics(p_stats[0], p_stats[1])
             '''
-            print(statement)
+            print(ast)
             return True
-        self._rewrite = _rewrite
+        return rewrite
+

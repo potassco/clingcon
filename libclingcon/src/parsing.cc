@@ -727,6 +727,10 @@ void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb
     });
 }
 
+void transform(Clingo::ASTv2::AST &&ast, ASTCallback const &cb, bool shift) {
+    throw std::runtime_error("implement me!!!");
+}
+
 bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) {
     for (auto const &atom : theory_atoms) {
         bool is_sum_b = match(atom.term(), "__sum_b", 0);

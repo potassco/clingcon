@@ -6,7 +6,6 @@ from clingo import ast
 import _clingcon
 import theory
 
-
 class Application:
     def __init__(self, name):
         self.program_name = name
@@ -49,7 +48,7 @@ class Application:
         self.__theory.register(prg)
 
         with ast.ProgramBuilder(prg) as bld:
-            ast.parse_files(files, lambda stm: self.__theory.rewrite_statement(stm, bld.add))
+            ast.parse_files(files, lambda stm: self.__theory.rewrite_ast(stm, bld.add))
 
         prg.ground([("base", [])])
         self.__theory.prepare(prg)
