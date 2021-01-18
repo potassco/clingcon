@@ -139,7 +139,7 @@ using ASTCallback = std::function<void(Clingo::ASTv2::AST &&ast)>;
 //!
 //! Optionally shifts constraints from rule bodies into heads of integrity
 //! constraints if possible.
-void transform(Clingo::ASTv2::AST &&stm, ASTCallback const &cb, bool shift);
+void transform(Clingo::ASTv2::AST const &ast, ASTCallback const &cb, bool shift);
 
 //! Parse the given theory passing the result to the given builder.
 //!

@@ -70,7 +70,7 @@ bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t* step
 extern "Python" bool pyclingcon_rewrite(clingo_ast_t *ast, void *data);
 """)
 
-pip_path = '/home/kaminski/.local//lib/python3.8/site-packages/clingo'
+pip_path = '/home/kaminski/.local/lib/python3.8/site-packages/clingo'
 lib_path = '/home/kaminski/git/potassco/clingcon/build/pip/bin'
 inc_path = '/home/kaminski/git/potassco/clingcon/libclingcon'
 

@@ -6,7 +6,7 @@ from clingo import ast
 import _clingcon
 import theory
 
-class Application:
+class Application(clingo.Application):
     def __init__(self, name):
         self.program_name = name
         self.version = "1.0"
@@ -44,25 +44,22 @@ class Application:
 
         sys.stdout.flush()
 
-    def main(self, prg, files):
-        self.__theory.register(prg)
+    def main(self, ctl, files):
+        self.__theory.register(ctl)
 
-        with ast.ProgramBuilder(prg) as bld:
+        with ast.ProgramBuilder(ctl) as bld:
             ast.parse_files(files, lambda stm: self.__theory.rewrite_ast(stm, bld.add))
 
-        prg.ground([("base", [])])
-        self.__theory.prepare(prg)
+        ctl.ground([("base", [])])
+        self.__theory.prepare(ctl)
 
-        prg.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
+        ctl.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
 
     def __on_model(self, model):
         self.__theory.on_model(model)
 
     def __on_statistics(self, step, accu):
         self.__theory.on_statistics(step, accu)
-
-    def __parse(self, builder, stream):
-        clingo.parse_program(stream.read(), lambda stm: self.__theory.rewrite_statement(stm, builder.add))
 
     def __hidden(self, symbol):
         return symbol.type == clingo.SymbolType.Function and symbol.name.startswith("__")

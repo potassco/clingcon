@@ -10,12 +10,22 @@ from ctypes import c_bool, c_void_p, c_int, c_double, c_uint, c_uint64, c_size_t
 from ctypes import POINTER, byref, CFUNCTYPE, cdll
 from ctypes.util import find_library
 
-from clingo._internal import _handle_error
+from clingo._internal import _handle_error, _ffi as _clingo_ffi, _lib as _clingo_lib
 from clingo import Control, ApplicationOptions, Model, StatisticsMap, Symbol
 from clingo.ast import AST
 
 
 ValueType = Union[int, float, Symbol]
+
+
+class _CBData:
+    '''
+    The class stores the data object that should be passed to a callback as
+    well as provides the means to set an error while a callback is running.
+    '''
+    def __init__(self, data):
+        self.data = data
+        self.error = None
 
 class Theory:
     """
@@ -42,7 +52,7 @@ class Theory:
     - `clingo_symbol_t get_symbol(theory_t *theory, size_t index)`
     - `void assignment_begin(theory_t *theory, uint32_t thread_id, size_t *index)`
     - `bool assignment_next(theory_t *theory, uint32_t thread_id, size_t *index)`
-    - `void assignment_has_value(theory_t *theory, uint32_t thread_id, size_t index)`
+    - `bool assignment_has_value(theory_t *theory, uint32_t thread_id, size_t index)`
     - `void assignment_get_value(theory_t *theory, uint32_t thread_id, size_t index, value_t *value)`
     - `bool configure(theory_t *theory, char const *key, char const *value)`
     """
@@ -72,13 +82,16 @@ class Theory:
     def __pre(self, name):
         return f'{self._pre}_{name}'
 
-    def __call0(self, c_fun, *args, handler=None):
+    def __get(self, name):
+        return getattr(self._lib, self.__pre(name))
+
+    def __call0(self, c_fun, *args, cb_data=None):
         '''
         Helper to simplify calling C functions without a return value.
         '''
-        _handle_error(getattr(self._lib, self.__pre(c_fun))(*args), handler)
+        _handle_error(self.__get(c_fun)(*args), cb_data)
 
-    def __call1(self, c_type, c_fun, *args, handler=None):
+    def __call1(self, c_type, c_fun, *args, cb_data=None):
         '''
         Helper to simplify calling C functions where the last parameter is a
         reference to the return value.
@@ -87,7 +100,7 @@ class Theory:
             p_ret = self._ffi.new(f'{c_type}*')
         else:
             p_ret = c_type
-        _handle_error(getattr(self._lib, self.__pre(c_fun))(*args, p_ret), handler)
+        _handle_error(self.__get(c_fun)(*args, p_ret), cb_data)
         return p_ret[0]
 
     def __del__(self):
@@ -150,7 +163,8 @@ class Theory:
             Callback for adding translated statements.
         """
 
-        handle = self._ffi.new_handle(add)
+        cb_data = _CBData(add)
+        handle = self._ffi.new_handle(cb_data)
         self.__call0('rewrite_ast', self._theory, self._ffi.cast('clingo_ast_t*', stm._rep), getattr(self._lib, f'py{self._pre}_rewrite'), handle)
 
     def register_options(self, options: ApplicationOptions) -> None:
@@ -215,9 +229,9 @@ class Theory:
         Optional[int]
             The index of the value if found.
         """
-        c_index = c_size_t()
-        if self.__lookup_symbol(self.__c_theory, symbol._to_c, byref(c_index)): # type: ignore
-            return c_index.value
+        c_index = self._ffi.new('size_t*')
+        if self.__get('lookup_symbol')(self._theory, symbol._rep, c_index):
+            return c_index[0]
         return None
 
     def get_symbol(self, index: int) -> Symbol:
@@ -236,7 +250,7 @@ class Theory:
         Symbol
             The associated symbol.
         """
-        return _Symbol(self.__get_symbol(self.__c_theory, index))
+        return Symbol(_clingo_ffi.cast('clingo_symbol_t', self.__get('get_symbol')(self._theory, index)))
 
     def has_value(self, thread_id: int, index: int) -> bool:
         """
@@ -254,7 +268,7 @@ class Theory:
         bool
             Whether the given index has a value.
         """
-        return self.__assignment_has_value(self.__c_theory, thread_id, index)
+        return self.__get('assignment_has_value')(self._theory, thread_id, index)
 
     def get_value(self, thread_id: int, index: int) -> ValueType:
         """
@@ -272,14 +286,14 @@ class Theory:
         ValueType
             The value of the index in form of an int, float, or Symbol.
         """
-        c_value = _c_variant()
-        self.__assignment_get_value(self.__c_theory, thread_id, index, byref(c_value))
+        c_value = self._ffi.new('clingcon_value_t*')
+        self.__get('assignment_get_value')(self._theory, thread_id, index, c_value)
         if c_value.type == 0:
-            return c_value.value.integer
+            return c_value.int_number
         if c_value.type == 1:
-            return c_value.value.double
+            return c_value.double_number
         if c_value.type == 2:
-            return _Symbol(c_value.value.symbol)
+            return Symbol(c_value.symbol)
         raise RuntimeError("must not happen")
 
     def assignment(self, thread_id: int) -> Iterator[Tuple[Symbol, ValueType]]:
@@ -297,37 +311,26 @@ class Theory:
         Iterator[Tuple[Symbol,ValueType]]
             An iterator over symbol/value pairs.
         """
-        c_index = c_size_t()
-        self.__assignment_begin(self.__c_theory, thread_id, byref(c_index))
-        while self.__assignment_next(self.__c_theory, thread_id, byref(c_index)):
-            yield (self.get_symbol(c_index.value), self.get_value(thread_id, c_index.value))
+        c_index = self._ffi.new('size_t*')
+        self.__get('assignment_begin')(self._theory, thread_id, c_index)
+        while self.__get('assignment_next')(self._theory, thread_id, c_index):
+            yield (self.get_symbol(c_index[0]), self.get_value(thread_id, c_index[0]))
+
+    def __error_handler(self, exception, exc_value, traceback) -> bool:
+        if traceback is not None:
+            cb_data = self._ffi.from_handle(traceback.tb_frame.f_locals['data'])
+            cb_data.error = (exception, exc_value, traceback)
+            _clingo_lib.clingo_set_error(_clingo_lib.clingo_error_unknown, str(exc_value).encode())
+        else:
+            _clingo_lib.clingo_set_error(_clingo_lib.clingo_error_runtime, "error in callback".encode())
+        return False
 
     def __define_rewrite(self):
-        @self._ffi.def_extern(name=f'py{self._pre}_rewrite')
+        @self._ffi.def_extern(name=f'py{self._pre}_rewrite', onerror=self.__error_handler)
         def rewrite(ast, data):
-            '''
-            Low-level solve event handler.
-            '''
-            '''
-            handler = _ffi.from_handle(data).data
-            if type_ == _lib.clingo_solve_event_type_finish:
-                handler.on_finish(_ffi.cast('clingo_solve_result_bitset_t*', event)[0])
-
-            if type_ == _lib.clingo_solve_event_type_model:
-                goon[0] = handler.on_model(_ffi.cast('clingo_model_t*', event))
-
-            if type_ == _lib.clingo_solve_event_type_unsat:
-                lower = []
-                c_args = _ffi.cast('void**', event)
-                c_lower = _ffi.cast('int64_t*', c_args[0])
-                size = int(_ffi.cast('size_t', c_args[1]))
-                handler.on_unsat([c_lower[i] for i in range(size) ])
-
-            if type_ == _lib.clingo_solve_event_type_statistics:
-                p_stats = _ffi.cast('clingo_statistics_t**', event)
-                handler.on_statistics(p_stats[0], p_stats[1])
-            '''
-            print(ast)
+            add = self._ffi.from_handle(data).data
+            ast = _clingo_ffi.cast('clingo_ast_t*', ast)
+            _clingo_lib.clingo_ast_acquire(ast)
+            add(AST(ast))
             return True
         return rewrite
-

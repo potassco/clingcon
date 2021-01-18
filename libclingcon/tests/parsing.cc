@@ -39,10 +39,10 @@ sret simplify(CoVarVec const &vec, bool drop_zero=true) {
 
 std::string transform(char const *prg, bool shift=true) {
     std::ostringstream oss;
-    Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
-        if (!stm.data.is<Clingo::AST::Program>()) {
-            transform(std::move(stm), [&](Clingo::AST::Statement &&stm) {
-                oss << stm;
+    Clingo::ASTv2::parse_string(prg, [&](Clingo::ASTv2::AST const &ast) {
+        if (ast.type() != Clingo::ASTv2::Type::Program) {
+            transform(ast, [&](Clingo::ASTv2::AST &&ast) {
+                oss << ast;
             }, shift);
         }
     });
@@ -204,14 +204,15 @@ private:
 
 std::string parse(char const *prg) {
     Clingo::Control ctl;
-    ctl.with_builder([&](Clingo::ProgramBuilder &builder) {
+    {
+        Clingo::ASTv2::ProgramBuilder builder{ctl};
         std::ostringstream oss;
-        Clingo::parse_program(prg, [&](Clingo::AST::Statement &&stm) {
-            transform(std::move(stm), [&](Clingo::AST::Statement &&stm) {
-                builder.add(stm);
+        Clingo::ASTv2::parse_string(prg, [&](Clingo::ASTv2::AST const &ast) {
+            transform(ast, [&](Clingo::ASTv2::AST &&trans) {
+                builder.add(trans);
             }, true);
         });
-    });
+    }
     ctl.add("base", {}, THEORY);
     ctl.ground({{"base", {}}});
 
@@ -235,14 +236,14 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error);
     }
     SECTION("transform") {
-        REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h {  } = 0 :- &__sum_b {  } = 1.");
-        REQUIRE(transform(":- &sum{ } = 0.") == "&__sum_h {  } != 0.");
-        REQUIRE(transform(":- &sum{ } = 0, &sum{ } = 1.") == "&__sum_h {  } != 0 :- &__sum_b {  } = 1.");
+        REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h { } = 0 :- &__sum_b { } = 1.");
+        REQUIRE(transform(":- &sum{ } = 0.") == "&__sum_h { } != 0.");
+        REQUIRE(transform(":- &sum{ } = 0, &sum{ } = 1.") == "&__sum_h { } != 0 :- &__sum_b { } = 1.");
 
-        REQUIRE(transform("&sum{ X } = 0.") == "&__sum_h { X :  } = 0.");
-        REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y : p(X,Y) } = 0.");
-        REQUIRE(transform("&sum{ X : p(X,Y); X : q(X,Y) } = 0.") == "&__sum_h { X,0,Y : p(X,Y); X,1,Y : q(X,Y) } = 0.");
-        REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X : p(X,_) } = 0.");
+        REQUIRE(transform("&sum{ X } = 0.") == "&__sum_h { X } = 0.");
+        REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y: p(X,Y) } = 0.");
+        REQUIRE(transform("&sum{ X : p(X,Y); X : q(X,Y) } = 0.") == "&__sum_h { X,0,Y: p(X,Y); X,1,Y: q(X,Y) } = 0.");
+        REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X: p(X,_) } = 0.");
     }
     SECTION("parse") {
         SECTION("sum head") {
