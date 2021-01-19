@@ -31,23 +31,31 @@ set(source
     ${source-group})
 # ]]]
 
+set(clingcon_public_scope_ PUBLIC)
+set(clingcon_private_scope_ PRIVATE)
 if (CLINGCON_BUILD_SHARED)
     set(clingcon_lib_type SHARED)
+    if (CLINGCON_BUILD_SHARED_INTERFACE)
+        set(clingcon_lib_type INTERFACE)
+        set(clingcon_public_scope_ INTERFACE)
+        set(clingcon_private_scope_ INTERFACE)
+    endif()
 else()
     set(clingcon_lib_type STATIC)
 endif()
 
-add_library(libclingcon ${clingcon_lib_type} ${header} ${source})
-target_include_directories(libclingcon PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
-target_compile_definitions(libclingcon PRIVATE CLINGCON_BUILD_LIBRARY)
+add_library(libclingcon ${clingcon_lib_type})
+target_sources(libclingcon ${clingcon_private_scope_} ${header} ${source})
+target_include_directories(libclingcon ${clingcon_public_scope_} "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+target_compile_definitions(libclingcon ${clingcon_private_scope_} CLINGCON_BUILD_LIBRARY)
 
-if (NOT CLINGCON_BUILD_STATIC AND CLINGCON_BUILD_SHARED)
+if (NOT CLINGCON_BUILD_STATIC AND CLINGCON_BUILD_SHARED AND NOT CLINGCON_BUILD_SHARED_INTERFACE)
     set_target_properties(libclingcon PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
-target_link_libraries(libclingcon PRIVATE libclingo)
+target_link_libraries(libclingcon ${clingcon_public_scope_} libclingo)
 if (NOT CLINGCON_BUILD_SHARED)
-    target_compile_definitions(libclingcon PUBLIC CLINGCON_NO_VISIBILITY)
-else()
+    target_compile_definitions(libclingcon ${clingcon_public_scope_} CLINGCON_NO_VISIBILITY)
+elseif(NOT CLINGCON_BUILD_SHARED_INTERFACE)
     set_target_properties(libclingcon PROPERTIES PUBLIC_HEADER clingcon.h)
     install(TARGETS libclingcon
         EXPORT ClingconTargets
@@ -72,10 +80,12 @@ else()
         ${CMAKE_CURRENT_BINARY_DIR}/ClingconConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Clingcon)
 endif()
-set_target_properties(libclingcon PROPERTIES
-    OUTPUT_NAME clingcon
-    LIBRARY_OUTPUT_NAME clingcon
-    FOLDER lib)
+if (NOT CLINGCON_BUILD_SHARED_INTERFACE)
+    set_target_properties(libclingcon PROPERTIES
+        OUTPUT_NAME clingcon
+        LIBRARY_OUTPUT_NAME clingcon
+        FOLDER lib)
+endif()
 
 if (CLINGCON_BUILD_TESTS)
     # NOTE: we build statically without hiding symbols

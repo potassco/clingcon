@@ -132,6 +132,15 @@ public:
 //! constraints if possible.
 void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb, bool shift);
 
+using ASTCallback = std::function<void(Clingo::ASTv2::AST &&ast)>;
+
+//! Transform the given statement with csp constraints and pass it on to the
+//! given callback.
+//!
+//! Optionally shifts constraints from rule bodies into heads of integrity
+//! constraints if possible.
+void transform(Clingo::ASTv2::AST const &ast, ASTCallback const &cb, bool shift);
+
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.

@@ -5,3 +5,8 @@ latex
 .clangd/
 compile_commands.json
 *.swp
+_skbuild/
+dist/
+*.egg-info/
+__pycache__/
+MANIFEST

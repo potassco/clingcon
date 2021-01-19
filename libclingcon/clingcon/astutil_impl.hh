@@ -480,10 +480,24 @@ void transform_ast(V&& v, N &node) {
     Detail::Visitor<V, false> vv{v};
     node.data.accept(vv, node);
 }
+
 template <typename V, typename N>
 void visit_ast(V&& v, N const &node) {
     Detail::Visitor<V, true> vv{v};
     node.data.accept(vv, node);
+}
+
+inline void collect_variables(VarSet &vars, Clingo::ASTv2::AST const &ast) {
+    ast.visit_ast([&](Clingo::ASTv2::AST const &child) {
+        if (child.type() == Clingo::ASTv2::Type::Variable) {
+            vars.emplace(child.get<char const *>(Clingo::ASTv2::Attribute::Name));
+        }
+        return true;
+    });
+}
+
+inline void collect_variables(VarSet &vars, Clingo::ASTv2::ASTRef ast) {
+    collect_variables(vars, ast.get());
 }
 
 template <typename N>

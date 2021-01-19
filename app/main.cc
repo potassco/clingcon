@@ -19,18 +19,18 @@ public:
     }
 
     void rewrite(Clingo::StringSpan files) {
-        handle_error(clingo_parse_files(files.begin(), files.size(), rewrite_, this, nullptr, nullptr, 0));
+        handle_error(clingo_ast_parse_files(files.begin(), files.size(), rewrite_, this, nullptr, nullptr, 0));
     }
 
 private:
-    static bool add_(clingo_ast_statement_t const *stm, void *data) {
+    static bool add_(clingo_ast_t *stm, void *data) {
         auto *self = static_cast<Rewriter*>(data);
-        return clingo_program_builder_add(self->builder_, stm);
+        return clingo_program_builder_add_ast(self->builder_, stm);
     }
 
-    static bool rewrite_(clingo_ast_statement_t const *stm, void *data) {
+    static bool rewrite_(clingo_ast_t *stm, void *data) {
         auto *self = static_cast<Rewriter*>(data);
-        return clingcon_rewrite_statement(self->theory_, stm, add_, self);
+        return clingcon_rewrite_ast(self->theory_, stm, add_, self);
     }
 
     clingcon_theory_t *theory_;

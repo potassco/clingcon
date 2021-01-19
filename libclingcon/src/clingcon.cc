@@ -330,6 +330,17 @@ extern "C" bool clingcon_rewrite_statement(clingcon_theory_t *theory, clingo_ast
     CLINGCON_CATCH;
 }
 
+extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast, clingcon_ast_callback_t add, void *data) {
+    CLINGCON_TRY {
+        clingo_ast_acquire(ast);
+        Clingo::ASTv2::AST ast_cpp{ast};
+        transform(ast_cpp, [add, data](Clingo::ASTv2::AST &&ast_trans){
+            handle_error(add(ast_trans.to_c(), data));
+        }, theory->shift_constraints);
+    }
+    CLINGCON_CATCH;
+}
+
 extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control) {
     static_cast<void>(theory);
     static_cast<void>(control);
