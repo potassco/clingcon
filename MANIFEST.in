@@ -1,0 +1,14 @@
+include setup.py
+include pyproject.toml
+include CMakeLists.txt
+include LICENSE.md
+include README.md
+recursive-include app *
+recursive-include cmake *
+recursive-include libclingcon *
+include libpyclingcon/*.c
+include libpyclingcon/*.h
+include libpyclingcon/CMakeLists.txt
+recursive-include libpyclingcon/clingcon *.py *.typed
+prune _skbuild
+global-exclude *.py[cod]

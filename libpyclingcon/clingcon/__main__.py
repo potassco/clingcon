@@ -3,14 +3,13 @@
 import sys
 import clingo
 from clingo import ast
-import _clingcon
-import theory
+from . import ClingconTheory
 
 class Application(clingo.Application):
     def __init__(self, name):
         self.program_name = name
         self.version = "1.0"
-        self.__theory = theory.Theory("clingcon", _clingcon.lib, _clingcon.ffi)
+        self.__theory = ClingconTheory()
 
     def register_options(self, options):
         self.__theory.register_options(options)
@@ -64,5 +63,5 @@ class Application(clingo.Application):
     def __hidden(self, symbol):
         return symbol.type == clingo.SymbolType.Function and symbol.name.startswith("__")
 
-
-sys.exit(int(clingo.clingo_main(Application("clingcon"), sys.argv[1:])))
+if __name__ == "__main__":
+    sys.exit(int(clingo.clingo_main(Application("clingcon"), sys.argv[1:])))
