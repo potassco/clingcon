@@ -1,10 +1,15 @@
 import sys
 import site
+from os.path import dirname, abspath
 from textwrap import dedent
 from skbuild import setup
+import clingo
+
 
 if not site.ENABLE_USER_SITE and "--user" in sys.argv[1:]:
     site.ENABLE_USER_SITE = True
+
+clingopath = abspath(dirname(clingo.__file__))
 
 setup(
     version = '5.0.0',
@@ -32,7 +37,8 @@ setup(
                  '-DPYCLINGCON_USER_INSTALL=OFF',
                  '-DPYCLINGCON_USE_INSTALL_PREFIX=ON',
                  '-DPYCLINGCON_FORCE_OLD_MODULE=ON',
-                 '-DPYCLINGCON_INSTALL_DIR=libpyclingcon' ],
+                 '-DPYCLINGCON_INSTALL_DIR=libpyclingcon',
+                 f'-DPYCLINGCON_PIP_PATH={clingopath}' ],
     packages=[ 'clingcon' ],
     package_data={ 'clingcon': [ 'py.typed', 'import__clingcon.lib', 'clingcon.h' ] },
     package_dir={ '': 'libpyclingcon' },
