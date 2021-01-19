@@ -13,6 +13,10 @@ setup(
     long_description = dedent('''\
         This package provides allows for adding the clingcon propagator as a
         theory to clingcon.
+
+        It can also be used as a clingcon solver running:
+
+            python -m clingcon CLINGCON_ARGUMENTS
         '''),
     long_description_content_type='text/markdown',
     author = 'Roland Kaminski',
