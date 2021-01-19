@@ -1,14 +1,30 @@
 """
-This module defines a single Theory class for using a C theory with
-clingo's python library.
+This module defines a single Theory class for using a cffi based module with
+clingo's Python library.
+
+Notes
+-----
+The cffi module must implement the following functions:
+
+- `bool create(theory_t **theory)`
+- `bool destroy(theory_t *theory)`
+- `bool register(theory_t *theory, clingo_control_t* control)`
+- `bool rewrite_statement(theory_t *theory, clingo_ast_statement_t const *stm, rewrite_callback_t add, void *data)`
+- `bool prepare(theory_t *theory, clingo_control_t* control)`
+- `bool register_options(theory_t *theory, clingo_options_t* options)`
+- `bool validate_options(theory_t *theory)`
+- `bool on_model(theory_t *theory, clingo_model_t* model)`
+- `bool on_statistics(theory_t *theory, clingo_statistics_t* step, clingo_statistics_t* accu)`
+- `bool lookup_symbol(theory_t *theory, clingo_symbol_t symbol, size_t *index)`
+- `clingo_symbol_t get_symbol(theory_t *theory, size_t index)`
+- `void assignment_begin(theory_t *theory, uint32_t thread_id, size_t *index)`
+- `bool assignment_next(theory_t *theory, uint32_t thread_id, size_t *index)`
+- `bool assignment_has_value(theory_t *theory, uint32_t thread_id, size_t index)`
+- `void assignment_get_value(theory_t *theory, uint32_t thread_id, size_t index, value_t *value)`
+- `bool configure(theory_t *theory, char const *key, char const *value)`
 """
 
-import sys
-import ctypes
-from typing import Optional, Union, Iterator, Tuple, Callable, IO
-from ctypes import c_bool, c_void_p, c_int, c_double, c_uint, c_uint64, c_size_t, c_char_p, Structure
-from ctypes import POINTER, byref, CFUNCTYPE, cdll
-from ctypes.util import find_library
+from typing import Optional, Union, Iterator, Tuple, Callable
 
 from clingo._internal import _handle_error, _ffi as _clingo_ffi, _lib as _clingo_lib
 from clingo import Control, ApplicationOptions, Model, StatisticsMap, Symbol
@@ -16,7 +32,6 @@ from clingo.ast import AST
 
 
 ValueType = Union[int, float, Symbol]
-
 
 class _CBData:
     '''
@@ -34,27 +49,6 @@ class Theory:
 
     The functions in here are designed to be used with a `Application`
     object but can also be used with a standalone `Control` object.
-
-    Notes
-    -----
-    The C library must implement the following functions:
-
-    - `bool create(theory_t **theory)`
-    - `bool destroy(theory_t *theory)`
-    - `bool register(theory_t *theory, clingo_control_t* control)`
-    - `bool rewrite_statement(theory_t *theory, clingo_ast_statement_t const *stm, rewrite_callback_t add, void *data)`
-    - `bool prepare(theory_t *theory, clingo_control_t* control)`
-    - `bool register_options(theory_t *theory, clingo_options_t* options)`
-    - `bool validate_options(theory_t *theory)`
-    - `bool on_model(theory_t *theory, clingo_model_t* model)`
-    - `bool on_statistics(theory_t *theory, clingo_statistics_t* step, clingo_statistics_t* accu)`
-    - `bool lookup_symbol(theory_t *theory, clingo_symbol_t symbol, size_t *index)`
-    - `clingo_symbol_t get_symbol(theory_t *theory, size_t index)`
-    - `void assignment_begin(theory_t *theory, uint32_t thread_id, size_t *index)`
-    - `bool assignment_next(theory_t *theory, uint32_t thread_id, size_t *index)`
-    - `bool assignment_has_value(theory_t *theory, uint32_t thread_id, size_t index)`
-    - `void assignment_get_value(theory_t *theory, uint32_t thread_id, size_t index, value_t *value)`
-    - `bool configure(theory_t *theory, char const *key, char const *value)`
     """
     # pylint: disable=too-many-instance-attributes,line-too-long,protected-access
 
@@ -79,17 +73,23 @@ class Theory:
         # create theory
         self._theory = self.__call1(self.__pre('theory_t*'), 'create')
 
-    def __pre(self, name):
-        return f'{self._pre}_{name}'
+    def __pre(self, name, extra=""):
+        return f'{extra}{self._pre}_{name}'
 
-    def __get(self, name):
-        return getattr(self._lib, self.__pre(name))
+    def __get(self, name, extra=""):
+        return getattr(self._lib, self.__pre(name, extra))
+
+    def __call(self, c_fun, *args):
+        '''
+        Helper to simplify calling C functions without error handling.
+        '''
+        return self.__get(c_fun)(*args)
 
     def __call0(self, c_fun, *args, cb_data=None):
         '''
         Helper to simplify calling C functions without a return value.
         '''
-        _handle_error(self.__get(c_fun)(*args), cb_data)
+        _handle_error(self.__call(c_fun, *args), cb_data)
 
     def __call1(self, c_type, c_fun, *args, cb_data=None):
         '''
@@ -100,7 +100,7 @@ class Theory:
             p_ret = self._ffi.new(f'{c_type}*')
         else:
             p_ret = c_type
-        _handle_error(self.__get(c_fun)(*args, p_ret), cb_data)
+        _handle_error(self.__call(c_fun, *args, p_ret), cb_data)
         return p_ret[0]
 
     def __del__(self):
@@ -165,7 +165,7 @@ class Theory:
 
         cb_data = _CBData(add)
         handle = self._ffi.new_handle(cb_data)
-        self.__call0('rewrite_ast', self._theory, self._ffi.cast('clingo_ast_t*', stm._rep), getattr(self._lib, f'py{self._pre}_rewrite'), handle)
+        self.__call0('rewrite_ast', self._theory, self._ffi.cast('clingo_ast_t*', stm._rep), self.__get('rewrite', 'py'), handle)
 
     def register_options(self, options: ApplicationOptions) -> None:
         """
@@ -230,7 +230,7 @@ class Theory:
             The index of the value if found.
         """
         c_index = self._ffi.new('size_t*')
-        if self.__get('lookup_symbol')(self._theory, symbol._rep, c_index):
+        if self.__call('lookup_symbol', self._theory, symbol._rep, c_index):
             return c_index[0]
         return None
 
@@ -250,7 +250,7 @@ class Theory:
         Symbol
             The associated symbol.
         """
-        return Symbol(_clingo_ffi.cast('clingo_symbol_t', self.__get('get_symbol')(self._theory, index)))
+        return Symbol(_clingo_ffi.cast('clingo_symbol_t', self.__call('get_symbol', self._theory, index)))
 
     def has_value(self, thread_id: int, index: int) -> bool:
         """
@@ -268,7 +268,7 @@ class Theory:
         bool
             Whether the given index has a value.
         """
-        return self.__get('assignment_has_value')(self._theory, thread_id, index)
+        return self.__call('assignment_has_value', self._theory, thread_id, index)
 
     def get_value(self, thread_id: int, index: int) -> ValueType:
         """
@@ -287,7 +287,7 @@ class Theory:
             The value of the index in form of an int, float, or Symbol.
         """
         c_value = self._ffi.new('clingcon_value_t*')
-        self.__get('assignment_get_value')(self._theory, thread_id, index, c_value)
+        self.__call('assignment_get_value', self._theory, thread_id, index, c_value)
         if c_value.type == 0:
             return c_value.int_number
         if c_value.type == 1:
@@ -312,8 +312,8 @@ class Theory:
             An iterator over symbol/value pairs.
         """
         c_index = self._ffi.new('size_t*')
-        self.__get('assignment_begin')(self._theory, thread_id, c_index)
-        while self.__get('assignment_next')(self._theory, thread_id, c_index):
+        self.__call('assignment_begin', self._theory, thread_id, c_index)
+        while self.__call('assignment_next', self._theory, thread_id, c_index):
             yield (self.get_symbol(c_index[0]), self.get_value(thread_id, c_index[0]))
 
     def __error_handler(self, exception, exc_value, traceback) -> bool:
