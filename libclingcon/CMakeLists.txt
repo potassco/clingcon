@@ -52,7 +52,7 @@ target_compile_definitions(libclingcon ${clingcon_private_scope_} CLINGCON_BUILD
 if (NOT CLINGCON_BUILD_STATIC AND CLINGCON_BUILD_SHARED AND NOT CLINGCON_BUILD_SHARED_INTERFACE)
     set_target_properties(libclingcon PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
-target_link_libraries(libclingcon ${clingcon_private_scope_} libclingo)
+target_link_libraries(libclingcon ${clingcon_public_scope_} libclingo)
 if (NOT CLINGCON_BUILD_SHARED)
     target_compile_definitions(libclingcon ${clingcon_public_scope_} CLINGCON_NO_VISIBILITY)
 elseif(NOT CLINGCON_BUILD_SHARED_INTERFACE)
