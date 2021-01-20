@@ -1,6 +1,7 @@
-import clingo
+from clingo.theory import Theory
 from ._clingcon import lib as _lib, ffi as _ffi
-from .theory import Theory
+
+__all__ = ['ClingconTheory']
 
 class ClingconTheory(Theory):
     def __init__(self):
