@@ -70,16 +70,8 @@ bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t* step
 extern "Python" bool pyclingcon_rewrite(clingo_ast_t *ast, void *data);
 """)
 
-pip_path = '/home/kaminski/.local/lib/python3.8/site-packages/clingo'
-lib_path = '/home/kaminski/git/potassco/clingcon/build/pip/bin'
-inc_path = '/home/kaminski/git/potassco/clingcon/libclingcon'
-
-
 ffibuilder.set_source("_clingcon", """\
 #include "clingcon.h"
-""", libraries=['clingcon'], \
-     include_dirs=[pip_path, inc_path],
-     library_dirs=[lib_path],
-     extra_link_args=[f'-Wl,-rpath={lib_path}'])
+""")
 
-ffibuilder.compile(verbose=True)
+ffibuilder.emit_c_code('_clingcon.c')
