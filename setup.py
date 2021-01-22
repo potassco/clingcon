@@ -16,7 +16,7 @@ setup(
     name = 'clingcon',
     description = 'CFFI-based bindings to the clingcon solver.',
     long_description = dedent('''\
-        This package provides allows for adding the clingcon propagator as a
+        This package allows for adding the clingcon propagator as a
         theory to clingcon.
 
         It can also be used as a clingcon solver running:
