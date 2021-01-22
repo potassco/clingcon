@@ -18,7 +18,7 @@ available under the [releases][release] tab and in the [clingcon-3] branch.
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX="${CONDA_PREFIX}" \
           -DCLINGCON_MANAGE_RPATH=Off \
-	  -DPYCLINGCON_USER_INSTALL=Off \
+          -DPYCLINGCON_USER_INSTALL=Off \
           -DPYCLINGCON_USE_INSTALL_PREFIX=On \
           -DCMAKE_INSTALL_LIBDIR=lib
     cmake --build build/release --target install
