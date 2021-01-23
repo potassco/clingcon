@@ -10,8 +10,8 @@ jobs:
     - name: Install prerequisites
       run: |
         sudo apt-get install python3 python3-pip gcc g++ cmake ninja-build
-        sudo pip3 install setuptools wheel scikit-build
-        sudo pip3 install --extra-index-url https://test.pypi.org/simple/ clingo-cffi
+        pip3 install --user setuptools wheel scikit-build
+        pip3 install --user --extra-index-url https://test.pypi.org/simple/ clingo-cffi
     - name: Checkout repo
       uses: actions/checkout@v2
       with:
