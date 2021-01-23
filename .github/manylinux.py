@@ -50,7 +50,7 @@ def compile_wheels():
     for pybin in glob('/opt/python/*/bin'):
         # Requires Py3.6 or greater - on the docker image 3.5 is cp35-cp35m
         if "35" not in pybin:
-            check_call([path.join(pybin, 'pip'), 'wheel', './', '--no-deps', '-w', 'wheelhouse/'])
+            check_call([path.join(pybin, 'pip'), 'wheel', '--extra-index-url', 'https://test.pypi.org/simple/', './', '--no-deps', '-w', 'wheelhouse/'])
 
 
 def repair_wheels():
