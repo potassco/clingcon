@@ -33,6 +33,8 @@ case $1 in
         dispatch 5239782
         # .github/workflows/pipwinmac-wip.yml
         dispatch 5239783
+        # .github/workflows/ppa-dev.yml
+        dispatch 5245822
         ;;
     release)
         echo "implement me"
