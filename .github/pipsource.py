@@ -38,4 +38,4 @@ def adjust_version():
 
 if __name__ == "__main__":
     adjust_version()
-    #check_call(['python3', 'setup.py', 'sdist'])
+    check_call(['python3', 'setup.py', 'sdist'])
