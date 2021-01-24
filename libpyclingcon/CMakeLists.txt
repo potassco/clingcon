@@ -64,6 +64,14 @@ if (PYCLINGCON_INSTALL_DIR)
         PATTERN "*.py"
         PATTERN "*.typed"
         PATTERN "tests" EXCLUDE)
+    if (NOT PYCLINGCON_ENABLE STREQUAL "pip")
+        file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/INSTALLER "pip\n")
+        file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/METADATA "Metadata-Version: 1.1\nName: clingcon\nVersion: ${CLINGCON_VERSION}\n")
+        install(FILES
+            ${CMAKE_CURRENT_BINARY_DIR}/INSTALLER
+            ${CMAKE_CURRENT_BINARY_DIR}/METADATA
+            DESTINATION ${_PYCLINGCON_INSTALL_DIR}/clingcon-${CLINGCON_VERSION}.dist-info)
+    endif()
     install(FILES ${CMAKE_SOURCE_DIR}/libclingcon/clingcon.h
         DESTINATION ${_PYCLINGCON_INSTALL_DIR}/clingcon)
 endif()
