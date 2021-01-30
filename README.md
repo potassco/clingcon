@@ -10,17 +10,15 @@ available under the [releases][release] tab and in the [clingcon-3] branch.
 ## Building a release version with conda
 
     conda create -n clingcon -c potassco/label/dev -c conda-forge \
-	      clingo ninja cmake cxx-compiler
+          clingo ninja cmake cxx-compiler
     conda activate clingcon
     cmake -G Ninja \
           -Bbuild/release \
           -H. \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX="${CONDA_PREFIX}" \
-          -DCLINGCON_MANAGE_RPATH=Off \
-          -DPYCLINGCON_USER_INSTALL=Off \
-          -DPYCLINGCON_USE_INSTALL_PREFIX=On \
-          -DCMAKE_INSTALL_LIBDIR=lib
+          -DCMAKE_INSTALL_LIBDIR=lib \
+          -DCLINGCON_MANAGE_RPATH=Off
     cmake --build build/release --target install
     clingcon --version
 
@@ -30,7 +28,7 @@ The Makefile is meant for development and sets up cmake to use `clang-tidy`. It
 is also possible to create a compile database to use with linting plugins.
 
     conda install -n clingcon -c conda-forge -c programfan \
-	      compdb libcxx clang-tools
+          compdb libcxx clang-tools
     conda activate clingcon
     make compdb
 

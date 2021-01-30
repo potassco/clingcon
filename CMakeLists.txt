@@ -21,20 +21,26 @@ set(CMAKE_CXX_EXTENSIONS ON)
 include(GNUInstallDirs)
 include(CMakeDependentOption)
 
-option(CLINGCON_BUILD_STATIC "do not build shared libraries" OFF)
 option(CLINGCON_MANAGE_RPATH "set rpath if not installed into system directory" ON)
 option(CLINGCON_BUILD_TESTS "build tests" OFF)
-CMAKE_DEPENDENT_OPTION(CLINGCON_BUILD_SHARED "build clingcon library shared" ON "NOT CLINGCON_BUILD_STATIC" OFF)
-CMAKE_DEPENDENT_OPTION(CLINGCON_BUILD_SHARED_INTERFACE "share symbols in dependents" OFF "CLINGCON_BUILD_SHARED" OFF)
+option(CLINGCON_BUILD_SHARED "build clingcon library shared" ON)
 
-option(PYCLINGCON_ENABLE "build with python support: OFF, auto, require, pip" "auto")
-option(PYCLINGCON_FORCE_OLD_MODULE "force use of the old find_python module" OFF)
-option(PYCLINGCON_USER_INSTALL "install the python module in the user's site directory" ON)
-CMAKE_DEPENDENT_OPTION(PYCLINGCON_USE_INSTALL_PREFIX "install the python module under the install prefix" OFF "NOT PYCLINGCON_USER_INSTALL" OFF)
+set(PYCLINGCON_ENABLE "auto" CACHE STRING "build with python support: OFF, auto, require, pip
+auto: enable python support if python is available
+require: enable python support and fails if python is not available
+pip: enable python support and link against the clingo python module")
+set(PYCLINGCON_INSTALL "prefix" CACHE STRING "configure where to install python module: user, system, prefix
+user: install into user prefix
+system: install into python library
+prefix: install into install prefix")
+set(PYCLINGCON_PIP_PATH "" CACHE STRING "path to clingo pip package")
+set(PYCLINGCON_SUFFIX "" CACHE STRING "suffix for python module")
+set(PYCLINGCON_INSTALL_DIR "" CACHE STRING "path where to install python module")
 
-mark_as_advanced(CLINGCON_BUILD_STATIC)
 mark_as_advanced(CLINGCON_BUILD_SHARED)
-mark_as_advanced(PYCLINGCON_FORCE_OLD_MODULE)
+mark_as_advanced(PYCLINGCON_PIP_PATH)
+mark_as_advanced(PYCLINGCON_SUFFIX)
+mark_as_advanced(PYCLINGCON_INSTALL_DIR)
 
 if (MSVC)
     set(VC_RELEASE_LINK_OPTIONS /LTCG)
@@ -42,10 +48,6 @@ if (MSVC)
     SET(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} ${VC_RELEASE_LINK_OPTIONS}")
     SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${VC_RELEASE_LINK_OPTIONS}")
     SET(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS_RELEASE} ${VC_RELEASE_LINK_OPTIONS}")
-    if (CLINGCON_BUILD_STATIC)
-        # force static runtime
-        string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-    endif()
     add_compile_options("/wd4244" "/wd4267" "/wd26451")
     add_definitions("-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 endif()
@@ -81,7 +83,7 @@ if (NOT CMAKE_IMPORT_LIBRARY_PREFIX)
 endif()
 
 if (PYCLINGCON_ENABLE)
-    if(NOT PYCLINGCON_FORCE_OLD_MODULE AND (CMAKE_VERSION VERSION_GREATER "3.15.0" OR CMAKE_VERSION VERSION_EQUAL "3.15.0"))
+    if(NOT PYCLINGCON_ENABLE STREQUAL "pip" AND (CMAKE_VERSION VERSION_GREATER "3.15.0" OR CMAKE_VERSION VERSION_EQUAL "3.15.0"))
         if(DEFINED PYTHON_EXECUTABLE AND NOT DEFINED Python_EXECUTABLE)
             set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}")
         endif()
@@ -125,7 +127,7 @@ if (PYCLINGCON_ENABLE)
 endif()
 
 if (PYCLINGCON_ENABLE STREQUAL "pip")
-    if (NOT CLINGCON_BUILD_SHARED_INTERFACE)
+    if (NOT CLINGCON_BUILD_SHARED)
         message(FATAL_ERROR "building against the pip package requires CLINGCON_BUILD_SHARED.")
     endif()
     add_library(libclingo INTERFACE)

@@ -8,9 +8,9 @@ set(source
 # ]]]
 
 if (NOT PYCLINGCON_INSTALL_DIR AND Python_EXECUTABLE)
-    if (PYCLINGCON_USER_INSTALL)
+    if (PYCLINGCON_INSTALL STREQUAL "user")
         execute_process(COMMAND ${Python_EXECUTABLE} ${CLINGCON_SOURCE_DIR}/cmake/python-site.py site OUTPUT_VARIABLE PYCLINGCON_INSTALL_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-    elseif(PYCLINGCON_USE_INSTALL_PREFIX)
+    elseif(PYCLINGCON_INSTALL STREQUAL "prefix")
         execute_process(COMMAND ${Python_EXECUTABLE} ${CLINGCON_SOURCE_DIR}/cmake/python-site.py prefix "${CMAKE_INSTALL_PREFIX}" OUTPUT_VARIABLE PYCLINGCON_INSTALL_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
     else()
         execute_process(COMMAND ${Python_EXECUTABLE} ${CLINGCON_SOURCE_DIR}/cmake/python-site.py prefix OUTPUT_VARIABLE PYCLINGCON_INSTALL_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -31,11 +31,7 @@ if (NOT PYCLINGCON_SUFFIX)
     endif()
 endif()
 
-if (CLINGCON_BUILD_SHARED_INTERFACE)
-    add_library(pyclingcon SHARED ${source})
-else()
-    add_library(pyclingcon MODULE ${source})
-endif()
+add_library(pyclingcon MODULE ${source})
 target_link_libraries(pyclingcon PRIVATE libclingcon Python::Module)
 set_target_properties(pyclingcon PROPERTIES
     FOLDER lib

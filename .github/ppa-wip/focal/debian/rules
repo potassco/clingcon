@@ -18,5 +18,5 @@
 # dh_make generated override targets
 # This is example for Cmake (See https://bugs.debian.org/641051 )
 override_dh_auto_configure:
-	dh_auto_configure -- -DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) -DPYCLINGCON_ENABLE=require -DPYCLINGCON_USER_INSTALL=Off -DCLINGCON_MANAGE_RPATH=Off -DPYCLINGCON_INSTALL_DIR=/usr/lib/python3/dist-packages
+	dh_auto_configure -- -DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) -DPYCLINGCON_ENABLE=require -DCLINGCON_MANAGE_RPATH=Off -DPYCLINGCON_INSTALL_DIR=/usr/lib/python3/dist-packages
 
