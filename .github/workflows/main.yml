@@ -16,12 +16,16 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             generator: 'Ninja'
+            build_type: 'Debug'
           - os: 'macos-latest'
             generator: 'Ninja'
+            build_type: 'Debug'
           - os: 'windows-2016'
             generator: 'Visual Studio 15 2017 Win64'
+            build_type: 'Release'
           - os: 'windows-2019'
             generator: 'Visual Studio 16 2019'
+            build_type: 'Release'
 
     steps:
     - uses: actions/checkout@v2
@@ -48,8 +52,8 @@ jobs:
       shell: pwsh
       run: >
         ctest
-        --build-config Debug
+        --build-config "${{ matrix.build_type }}"
         --build-generator "${{ matrix.generator }}"
         --build-and-test . build
         --build-options -DCLINGCON_BUILD_TESTS=On
-        --test-command ctest -V --build-config Debug
+        --test-command ctest -V --build-config "${{ matrix.build_type }}"
