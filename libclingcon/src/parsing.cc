@@ -112,26 +112,28 @@ Clingo::ASTv2::AST shift_rule(Clingo::ASTv2::AST ast) {
     auto body = ast.get<ASTVector>(Attribute::Body);
     for (auto it = body.begin(), ie = body.end(); it != ie; ++it) {
         AST lit = *it;
-        auto atom = lit.get<AST>(Attribute::Atom);
-        if (atom.type() == Type::TheoryAtom) {
-            if (match(atom.get<AST>(Attribute::Term), "sum", "diff")) {
-                auto ret = ast.copy();
-                auto ret_bd = ret.get<ASTVector>(Attribute::Body);
-                auto jt = ret_bd.begin() + (it - body.begin());
-                auto ret_hd = atom.copy();
-                auto guard = ret_hd.get<Clingo::Optional<AST>>(Attribute::Guard);
-                check_syntax(guard.get() != nullptr);
-                if (static_cast<Sign>(lit.get<int>(Attribute::Sign)) != Sign::Negation) {
-                    auto const *rel = guard->get<char const *>(Attribute::OperatorName);
-                    auto ret_guard = guard->copy();
-                    ret_guard.set(Attribute::OperatorName, negate_relation(rel));
-                    ret_hd.set(Attribute::Guard, Clingo::Optional<AST>{std::move(ret_guard)});
-                }
-                ret.set(Attribute::Head, std::move(ret_hd));
-                ret_bd.erase(jt);
-                return ret;
-            }
+        if (lit.type() != Type::Literal) {
+            continue;
         }
+        auto atom = lit.get<AST>(Attribute::Atom);
+        if (atom.type() != Type::TheoryAtom || !match(atom.get<AST>(Attribute::Term), "sum", "diff")) {
+            continue;
+        }
+        auto ret = ast.copy();
+        auto ret_bd = ret.get<ASTVector>(Attribute::Body);
+        auto jt = ret_bd.begin() + (it - body.begin());
+        auto ret_hd = atom.copy();
+        auto guard = ret_hd.get<Clingo::Optional<AST>>(Attribute::Guard);
+        check_syntax(guard.get() != nullptr);
+        if (static_cast<Sign>(lit.get<int>(Attribute::Sign)) != Sign::Negation) {
+            auto const *rel = guard->get<char const *>(Attribute::OperatorName);
+            auto ret_guard = guard->copy();
+            ret_guard.set(Attribute::OperatorName, negate_relation(rel));
+            ret_hd.set(Attribute::Guard, Clingo::Optional<AST>{std::move(ret_guard)});
+        }
+        ret.set(Attribute::Head, std::move(ret_hd));
+        ret_bd.erase(jt);
+        return ret;
     }
     return ast;
 }

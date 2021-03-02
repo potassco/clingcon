@@ -279,6 +279,9 @@ TEST_CASE("sum", "[solving]") {
     SECTION("shift") {
         REQUIRE(solve("{a}. :- a, &sum { x } < 3. :- not a, &sum { x } > 0.", 0, 3) == S({"a x=3", "x=0"}));
     }
+    SECTION("bug shift") {
+        REQUIRE(solve("{a}. b. c :- a: b.", 0, 3) == S({"a b c", ""}));
+    }
     SECTION("show") {
         REQUIRE(solve("&sum { p(X) } = 0 :- X=1..3. &sum { q(X) } = 0 :- X=1..3. &show { }.") == S({
             ""}));
