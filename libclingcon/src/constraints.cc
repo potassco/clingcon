@@ -750,7 +750,13 @@ public:
     //! Translate the minimize constraint into clasp's minimize constraint.
     [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) final {
         static_cast<void>(added);
-        if (!config.translate_minimize) {
+        int64_t min_size = 0;
+        for (auto [co, var] : constraint_) {
+            auto & vs = solver.var_state(var);
+            min_size += static_cast<uint64_t>(vs.max_bound() - vs.min_bound() - 1);
+        }
+
+        if (config.translate_minimize >= 0 && min_size > static_cast<int64_t>(config.translate_minimize)) {
             return {true, false};
         }
 
