@@ -751,8 +751,9 @@ public:
 
     //! Translate the minimize constraint into clasp's minimize constraint.
     [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) final {
+        static_cast<void>(config);
         static_cast<void>(added);
-        if (!config.translate_minimize) {
+        if (!constraint_.translated()) {
             return {true, false};
         }
 

@@ -393,7 +393,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.distinct_limit = parse_num<uint32_t>(value);
         }
         else if (std::strcmp(key, "translate-opt") == 0) {
-            config.translate_minimize = parse_bool(value);
+            config.translate_minimize = parse_num<int32_t>(value);
         }
         else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
@@ -468,10 +468,11 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "translate-distinct",
             format("Restrict translation of distinct constraints <n> pb constraints [", config.distinct_limit, "]").c_str(),
             parser_num<uint32_t>(config.distinct_limit), false, "<n>");
-        opts.add_flag(
+        opts.add(
             group, "translate-opt",
-            format("Translate minimize constraint into clasp's minimize constraint [", flag_str(config.translate_minimize), "]").c_str(),
-            config.translate_minimize);
+            format("Translate minimize constraint if less than <n> literals needed [", config.translate_minimize, "]\n"
+                   "      < n<0 >  : always translate").c_str(),
+            parser_num<int32_t>(config.translate_minimize), false, "<n>");
         opts.add_flag(
             group, "add-order-clauses",
             format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]").c_str(),
