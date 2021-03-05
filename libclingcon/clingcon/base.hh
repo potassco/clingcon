@@ -70,6 +70,7 @@ constexpr val_t DEFAULT_MAX_INT{MAX_VAL};
 constexpr val_t DEFAULT_MIN_INT{MIN_VAL};
 constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
+constexpr uint32_t DEFAULT_CLAUSE_LIMIT_TOTAL{100000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
 constexpr uint32_t DEFAULT_WEIGHT_CONSTRAINT_LIMIT{0};
 constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
@@ -234,6 +235,7 @@ struct Config {
     val_t min_int{DEFAULT_MIN_INT};
     val_t max_int{DEFAULT_MAX_INT};
     uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
+    int32_t clause_limit_total{DEFAULT_CLAUSE_LIMIT_TOTAL};
     uint32_t weight_constraint_limit{DEFAULT_WEIGHT_CONSTRAINT_LIMIT};
     uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
     int32_t translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
@@ -299,6 +301,12 @@ public:
     InitClauseCreator &operator=(InitClauseCreator const &) = delete;
 
     ~InitClauseCreator() override = default;
+
+    //! Get the propagator statistics.
+    [[nodiscard]] Statistics const &statistics() const {
+        return stats_;
+    }
+
 
     [[nodiscard]] lit_t add_literal() override {
         auto lit = init_.add_literal();

@@ -363,6 +363,9 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
         else if (std::strcmp(key, "sort-constraints") == 0) {
             config.sort_constraints = parse_bool(value);
         }
+        else if (std::strcmp(key, "translate-clauses-total") == 0) {
+            config.clause_limit_total = parse_num<uint32_t>(value);
+        }
         else if (std::strcmp(key, "translate-clauses") == 0) {
             config.clause_limit = parse_num<uint32_t>(value);
         }
@@ -432,6 +435,10 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "sort-constraints",
             format("Sort constraint elements [", flag_str(config.sort_constraints), "]").c_str(),
             config.sort_constraints);
+        opts.add(
+            group, "translate-clauses-total",
+            format("Restrict translation to <n> clauses total [", config.clause_limit_total, "]").c_str(),
+            parser_num<int32_t>(config.clause_limit_total), false, "<n>");
         opts.add(
             group, "translate-clauses",
             format("Restrict translation to <n> clauses per constraint [", config.clause_limit, "]").c_str(),
