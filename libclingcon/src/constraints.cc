@@ -447,11 +447,15 @@ public:
         // Note: otherwise propagation is broken
         assert(lower >= 0);
 
-        if ( (config.clause_limit_total < 0 || cc.statistics().translate_clauses < static_cast<uint32_t>(config.clause_limit_total)) &&
-             clause_estimate_(solver, lower, upper, config.clause_limit)) {
+        bool clauses_left = config.clause_limit_total < 0 || 
+        cc.statistics().translate_clauses < static_cast<uint32_t>(config.clause_limit_total);
+        if (clauses_left && clause_estimate_(solver, lower, upper, config.clause_limit)) {
+            std::cout << "do translate " << config.clause_limit_total << " " << cc.statistics().translate_clauses << std::endl;
             auto ret = clause_translate_(solver, cc, lower, upper, config.literals_only);
             return {ret, !config.literals_only};
         }
+        else
+            std::cout << "donot translate " << config.clause_limit_total << " " << cc.statistics().translate_clauses << std::endl;
 
         // translation to weight constraints
         if (weight_estimate_(solver) < config.weight_constraint_limit) {

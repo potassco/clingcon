@@ -599,6 +599,7 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
 
 bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints) {
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
+    std::cout << "translate solver" << std::endl;
     for (size_t idx = jdx; idx < constraints.size(); ++idx) {
         auto &cs = add_constraint(*constraints[idx]);
         if (idx >= kdx) {

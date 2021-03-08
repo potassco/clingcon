@@ -364,7 +364,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.sort_constraints = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-clauses-total") == 0) {
-            config.clause_limit_total = parse_num<uint32_t>(value);
+            config.clause_limit_total = parse_num<int32_t>(value);
         }
         else if (std::strcmp(key, "translate-clauses") == 0) {
             config.clause_limit = parse_num<uint32_t>(value);

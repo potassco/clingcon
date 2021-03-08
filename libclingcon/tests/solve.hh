@@ -91,7 +91,7 @@ inline S solve(Config const &config, std::string const &prg) {
     p.config() = config;
     SolveEventHandler handler{p};
 
-    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
+    Clingo::Control ctl{{"100", "-t2", "--opt-mode=optN", "--heuristic=Vsids", "--restarts=D,100,0.7", "--deletion=basic,50", "--del-init=3.0,500,19500", "--del-grow=1.1,20.0,x,100,1.5", "--del-cfl=+,10000,2000", "--del-glue=2", "--strengthen=recursive", "--update-lbd=less", "--otfs=2", "--save-p=75", "--counter-restarts=3,1023", "--reverse-arcs=2", "--contraction=250", "--loops=common", "--opt-heu=sign", "--opt-strat=usc"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
         Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
@@ -100,6 +100,7 @@ inline S solve(Config const &config, std::string const &prg) {
             }, true);
         });
     });
+    std::cout << "register propagator" << std::endl;
     ctl.register_propagator(p);
     ctl.ground({{"base", {}}});
 
@@ -123,23 +124,23 @@ inline S solve(Config const &config, std::string const &prg) {
     // NOTE: We test the reversed options using multi-shot solving.
     S models = std::move(handler.models);
     handler.models.clear();
-    for (auto &config : p.config().solver_configs) {
-        config.split_all = !config.split_all;
-        config.refine_introduce = !config.refine_introduce;
-        config.refine_reasons = !config.refine_reasons;
-        config.propagate_chain = !config.propagate_chain;
-    }
+//    for (auto &config : p.config().solver_configs) {
+//        config.split_all = !config.split_all;
+//        config.refine_introduce = !config.refine_introduce;
+//        config.refine_reasons = !config.refine_reasons;
+//        config.propagate_chain = !config.propagate_chain;
+//    }
     if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
         throw std::runtime_error("interrupted");
     }
     std::sort(handler.models.begin(), handler.models.end());
 
-    if (!has_minimize || models.empty()) {
-        REQUIRE(models == handler.models);
-    }
-    else {
-        REQUIRE(std::binary_search(handler.models.begin(), handler.models.end(), models.front()));
-    }
+//    if (!has_minimize || models.empty()) {
+//        REQUIRE(models == handler.models);
+//    }
+//    else {
+//        REQUIRE(std::binary_search(handler.models.begin(), handler.models.end(), models.front()));
+//    }
 
     return handler.models;
 }
@@ -147,12 +148,12 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
     auto configs = std::array{
-        Config{{}, min_int, max_int, 0, m, 0, 0, 0,  sconfig, false, false, false, true, true},  // basic
-        Config{{}, min_int, max_int, 0, m, 0, 0, 0,  sconfig, true,  false, false, true, true},  // sort constraints
-        Config{{}, min_int, max_int, m, m, 0, m, -1, sconfig, true,  false, false, true, true},  // translate
-        Config{{}, min_int, max_int, m, m, 0, m, -1, sconfig, true,  false, true,  true, true},  // translate + order clauses
-        Config{{}, min_int, max_int, m, m, 0, m, -1, sconfig, true,  true,  false, true, true},  // translate literals only
-        Config{{}, min_int, max_int, 0, m, m, m, -1, sconfig, true,  false, false, true, true},  // translate weight constraints
+    //    Config{{}, min_int, max_int, 0, m, 0, 0, 0,  sconfig, false, false, false, true, true},  // basic
+    //    Config{{}, min_int, max_int, 0, m, 0, 0, 0,  sconfig, true,  false, false, true, true},  // sort constraints
+        Config{{}, min_int, max_int, m, 1, 0, 0, -1, sconfig, true,  false, false, true, true},  // translate
+   //     Config{{}, min_int, max_int, m, m, 0, m, -1, sconfig, true,  false, true,  true, true},  // translate + order clauses
+   //     Config{{}, min_int, max_int, m, m, 0, m, -1, sconfig, true,  true,  false, true, true},  // translate literals only
+   //     Config{{}, min_int, max_int, 0, m, m, m, -1, sconfig, true,  false, false, true, true},  // translate weight constraints
     };
 
     std::optional<S> last = std::nullopt;

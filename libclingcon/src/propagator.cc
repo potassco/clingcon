@@ -390,6 +390,7 @@ void Propagator::add_constraint(UniqueConstraint constraint) {
 void Propagator::init(Clingo::PropagateInit &init) {
     init.set_check_mode(Clingo::PropagatorCheckMode::Partial);
 
+    std::cout << "Propagator Init" << std::endl; 
     Timer timer{stats_step_.time_init};
     InitClauseCreator cc{init, stats_step_};
 
@@ -486,6 +487,7 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
 
     // translate (simple enough) constraints
     cc.set_state(InitState::Translate);
+    std::cout << "Propagator::translate_" << std::endl;
     bool ret = master_().translate(cc, stats_step_, config_, constraints_);
     if (!ret) {
         return false;

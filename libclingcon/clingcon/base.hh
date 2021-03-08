@@ -70,7 +70,7 @@ constexpr val_t DEFAULT_MAX_INT{MAX_VAL};
 constexpr val_t DEFAULT_MIN_INT{MIN_VAL};
 constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
-constexpr uint32_t DEFAULT_CLAUSE_LIMIT_TOTAL{100000};
+constexpr int32_t DEFAULT_CLAUSE_LIMIT_TOTAL{100000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
 constexpr uint32_t DEFAULT_WEIGHT_CONSTRAINT_LIMIT{0};
 constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
@@ -306,7 +306,6 @@ public:
     [[nodiscard]] Statistics const &statistics() const {
         return stats_;
     }
-
 
     [[nodiscard]] lit_t add_literal() override {
         auto lit = init_.add_literal();
