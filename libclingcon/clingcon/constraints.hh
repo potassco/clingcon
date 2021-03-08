@@ -163,6 +163,16 @@ public:
         return elements_ + size_; // NOLINT
     }
 
+    //! return the number of required literals in all domains
+    [[nodiscard]] int64_t required_literals(Solver &solver) const {
+        int64_t min_size = 0;
+        for (auto [co, var] : *this) {
+            auto & vs = solver.var_state(var);
+            min_size += static_cast<uint64_t>(vs.max_bound() - vs.min_bound() - 1);
+        }
+        return min_size;
+    }
+
 private:
     MinimizeConstraint(val_t adjust, CoVarVec const &elems, bool sort)
     : adjust_{adjust}

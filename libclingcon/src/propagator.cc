@@ -476,11 +476,7 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     // propagating tagged clauses, which is not supported at the moment.
     int64_t min_size = 0;
     if (minimize != nullptr) {
-        for (auto [co, var] : *minimize) {
-            auto & vs = master_().var_state(var);
-            min_size += static_cast<uint64_t>(vs.max_bound() - vs.min_bound() - 1);
-        }
-
+        min_size = minimize->required_literals(master_());
         // Note: fail if translation was requested earlier
         if (translated_minimize_ && config_.translate_minimize == 0) {
             throw std::runtime_error("translation of minimize constraints is disabled but was enabled before");
@@ -497,11 +493,10 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     cc.set_state(InitState::Init);
 
     // mark minimize constraint as translated if necessary
-    if (minimize_ != nullptr) {
-           if (config_.translate_minimize < 0 || min_size < static_cast<int64_t>(config_.translate_minimize)) {
-            translated_minimize_ = true;
-            minimize_ = nullptr;
-        }
+    if (minimize_ != nullptr && 
+        (config_.translate_minimize < 0 || min_size < static_cast<int64_t>(config_.translate_minimize))) {
+        translated_minimize_ = true;
+        minimize_ = nullptr;
     }
 
     return true;
