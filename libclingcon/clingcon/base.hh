@@ -430,6 +430,8 @@ public:
 
     lit_t add_literal() override {
         ++stats_.literals;
+        auto temp = control_.add_literal();
+        std::cout << "solver[" << control_.thread_id() << "].add_literal = " << temp << std::endl;
         return control_.add_literal();
     }
 

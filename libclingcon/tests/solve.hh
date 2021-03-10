@@ -91,7 +91,7 @@ inline S solve(Config const &config, std::string const &prg) {
     p.config() = config;
     SolveEventHandler handler{p};
 
-    Clingo::Control ctl{{"100", "-t2", "--opt-mode=optN", "--heuristic=Vsids", "--restarts=D,100,0.7", "--deletion=basic,50", "--del-init=3.0,500,19500", "--del-grow=1.1,20.0,x,100,1.5", "--del-cfl=+,10000,2000", "--del-glue=2", "--strengthen=recursive", "--update-lbd=less", "--otfs=2", "--save-p=75", "--counter-restarts=3,1023", "--reverse-arcs=2", "--contraction=250", "--loops=common", "--opt-heu=sign", "--opt-strat=usc"}};
+    Clingo::Control ctl{{"100", "-t2", "--distribute=conflict,global,4,0", "--opt-mode=optN", "--heuristic=Vsids", "--restarts=D,100,0.7", "--deletion=basic,50", "--del-init=3.0,500,19500", "--del-grow=1.1,20.0,x,100,1.5", "--del-cfl=+,10000,2000", "--del-glue=2", "--strengthen=recursive", "--update-lbd=less", "--otfs=2", "--save-p=75", "--counter-restarts=3,1023", "--reverse-arcs=2", "--contraction=250", "--loops=common", "--opt-heu=sign", "--opt-strat=usc"}};
     ctl.add("base", {}, THEORY);
     ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
         Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
