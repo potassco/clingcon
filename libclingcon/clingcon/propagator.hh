@@ -54,7 +54,7 @@ public:
     Propagator(Propagator &&) = delete;
     Propagator& operator=(Propagator const &) = delete;
     Propagator& operator=(Propagator &&) = delete;
-    ~Propagator() override = default;
+    ~Propagator() override;
 
     //! Return statistics object.
     Statistics const &statistics() {

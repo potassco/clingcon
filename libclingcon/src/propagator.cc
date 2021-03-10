@@ -26,7 +26,16 @@
 #include "clingcon/parsing.hh"
 #include <mutex>
 #include <condition_variable>
+#include <iostream>
+#include <fstream>
 
+const std::string tracestep1 = {"tracestep1"};
+const std::string tracestep2 = {"tracestep2"};
+const std::string retracestep1 = {"retracestep1"};
+const std::string retracestep2 = {"retracestep2"};
+std::string tracefile;
+std::string retracefile;
+std::ofstream outfile;
 //#define BUGLOG
 
 namespace Clingcon {
@@ -281,7 +290,6 @@ private:
 
 void Propagator::on_model(Clingo::Model &model) {
 //    const std::lock_guard<std::mutex> lock(propagate_lock);
-//    std::cout << "solver[" << model.thread_id() << "].on_model({";
     std::vector<Clingo::Symbol> symbols_;
     std::string separator;
     for (auto [sym, var] : sym_map_) {
@@ -398,11 +406,48 @@ void Propagator::add_constraint(UniqueConstraint constraint) {
     master_().add_constraint(*constraint);
     add_constraint_(std::move(constraint));
 }
+std::vector<std::pair<std::string,Clingo::id_t>> order = {};
 
+void readtrace(const std::string& t) {
+    std::ifstream file(t);
+    std::string str; 
+    while (std::getline(file, str))
+    {
+        if (str.find("%") == 0) continue;
+        auto end = str.find(",");
+        order.push_back(std::make_pair(str.substr(2,end-3),std::stoi(str.substr(end+1,1))));
+
+    }
+    std::cout << "read order" << std::endl;
+    for (auto i : order) {
+        std::cout << "{" << i.first << "," << i.second << "},";
+    }
+    std::cout << std::endl;
+}
+
+Propagator::~Propagator() {
+    outfile.close();
+}
 void Propagator::init(Clingo::PropagateInit &init) {
+    if (tracefile == tracestep1) {
+        tracefile = tracestep2;
+        retracefile = retracestep2;
+        outfile.close();
+    }
+    else {
+        tracefile = tracestep1;
+        retracefile = retracestep1;
+    }
+#ifdef BUGLOG
+    outfile.open(tracefile);
+#endif
+#ifndef BUGLOG
+    outfile.open(retracefile);
+    readtrace(tracefile);
+#endif
     init.set_check_mode(Clingo::PropagatorCheckMode::Partial);
 
-    std::cout << "Propagator Init" << std::endl; 
+    outfile << "%Propagator Init" << std::endl; 
     Timer timer{stats_step_.time_init};
     InitClauseCreator cc{init, stats_step_};
 
@@ -499,7 +544,7 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
 
     // translate (simple enough) constraints
     cc.set_state(InitState::Translate);
-    std::cout << "Propagator::translate_" << std::endl;
+    outfile << "%Propagator::translate_" << std::endl;
     bool ret = master_().translate(cc, stats_step_, config_, constraints_);
     if (!ret) {
         return false;
@@ -517,23 +562,19 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
 
 }
 
-std::vector<std::pair<std::string,Clingo::id_t>> order = {
-{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",0},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"check",1},{"propagate",1},{"check",1},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"propagate",0},{"check",0},{"check",1},{"check",1},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",0},{"check",1},{"check",0},{"propagate",1},{"propagate",0},{"check",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",1},{"check",1},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",0},{"check",0},{"propagate",1},{"check",1},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"propagate",1},{"check",1},{"propagate",1},{"propagate",0},{"check",0},{"check",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"check",1},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"propagate",0},{"check",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"check",0},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"check",0},{"propagate",0},{"check",0},{"check",0},{"propagate",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"check",0},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},
-
-{"check",0},{"check",1},{"check",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"check",1},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",1},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",0},{"check",0},{"check",1},{"check",0},{"propagate",0},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"propagate",0},{"check",1},{"check",0},{"propagate",0},{"propagate",1},{"check",1},{"propagate",1},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",0},{"check",0},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",0},{"check",1},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",0},{"check",0},{"propagate",1},{"check",0},{"check",0},{"check",0},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"propagate",0},{"propagate",0},{"check",0},{"check",1},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"check",0},{"propagate",0},{"check",0},{"check",0},{"propagate",1},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"propagate",1},{"propagate",1},{"check",1},{"check",0},{"check",1},{"propagate",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"check",1},{"check",0},{"propagate",0},{"check",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"check",1},{"check",0},{"propagate",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"check",0},{"check",1},{"propagate",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"check",0},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"check",0},{"propagate",0},{"propagate",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",0},{"check",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",0},{"propagate",0},{"check",0},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1},{"propagate",1},{"check",1}
-
-};
 
 std::mutex propagate_lock;
+#ifndef BUGLOG
 static unsigned int pos = 0;
 std::condition_variable cv;
+#endif
 
 void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) {
         
 //    std::cout << "propagate: lock[" << control.thread_id() << "]" << std::endl;
     std::unique_lock<std::mutex> lock(propagate_lock);
 #ifdef BUGLOG
-     std::cout << "{\"propagate\"," << control.thread_id() << "}," << std::endl;
+     outfile << "{\"propagate\"," << control.thread_id() << "}," << std::endl;
 #endif
 //    std::cout << "solver[" << control.thread_id() << "].propagate({";
 //    std::string separator;
@@ -544,9 +585,9 @@ void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpa
 //    std::cout << "});" << std::endl;
 
 #ifndef BUGLOG
-    std::cout << "propagate: waiting[" << control.thread_id() << "] for condition" << std::endl;
+    outfile << "%propagate: waiting[" << control.thread_id() << "] for condition" << std::endl;
     cv.wait(lock, [&]{return order[pos].first == "propagate" && order[pos].second == control.thread_id();});
-    std::cout << "propagate: thread[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+    outfile << "%propagate: thread[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
 #endif
 //    if (pos >= order.size()) {
 //        throw std::runtime_error("Unexpected, try again ;)");
@@ -564,9 +605,9 @@ void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpa
     static_cast<void>(solver.propagate(cc, changes));
 #ifndef BUGLOG
     ++pos;
-    std::cout << "propagate: unlock with thread " << control.thread_id() << std::endl;
+    outfile << "%propagate: unlock with thread " << control.thread_id() << std::endl;
     lock.unlock();
-    std::cout << "propagate: notify all others with thread " << control.thread_id() << std::endl;
+    outfile << "%propagate: notify all others with thread " << control.thread_id() << std::endl;
     cv.notify_all();
 #endif
 }
@@ -574,13 +615,13 @@ void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpa
 void Propagator::check(Clingo::PropagateControl &control) {
     std::unique_lock<std::mutex> lock(propagate_lock);
 #ifdef BUGLOG
-     std::cout << "{\"check\"," << control.thread_id() << "}," << std::endl;
+     outfile << "{\"check\"," << control.thread_id() << "}," << std::endl;
 #endif
 
 #ifndef BUGLOG
-    std::cout << "check waiting[" << control.thread_id() << "] for condition" << std::endl;
+    outfile << "%check waiting[" << control.thread_id() << "] for condition" << std::endl;
     cv.wait(lock, [&]{return order[pos].first == "check" && order[pos].second == control.thread_id();});
-    std::cout << "check thread[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+    outfile << "%check thread[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
 #endif
     auto ass = control.assignment();
     auto size = ass.size();
@@ -599,9 +640,9 @@ void Propagator::check(Clingo::PropagateControl &control) {
 
     if (!solver.check(cc, config_.check_state)) {
         #ifndef BUGLOG
-        std::cout << "check: unlock with thread " << control.thread_id() << std::endl;
+        outfile << "%check: unlock with thread " << control.thread_id() << std::endl;
         lock.unlock();
-        std::cout << "check: notify all others with thread " << control.thread_id() << std::endl;
+        outfile << "%check: notify all others with thread " << control.thread_id() << std::endl;
         cv.notify_all();
         #endif
 
@@ -618,9 +659,9 @@ void Propagator::check(Clingo::PropagateControl &control) {
     }
 #ifndef BUGLOG
     ++pos;
-    std::cout << "check: unlock with thread " << control.thread_id() << std::endl;
+    outfile << "%check: unlock with thread " << control.thread_id() << std::endl;
     lock.unlock();
-    std::cout << "check: notify all others with thread " << control.thread_id() << std::endl;
+    outfile << "%check: notify all others with thread " << control.thread_id() << std::endl;
     cv.notify_all();
 #endif
 
