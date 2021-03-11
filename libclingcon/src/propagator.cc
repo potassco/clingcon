@@ -38,6 +38,13 @@ std::string retracefile;
 std::ofstream outfile;
 //#define BUGLOG
 
+std::mutex propagate_lock;
+#ifndef BUGLOG
+static unsigned int pos = 0;
+std::condition_variable cv;
+std::vector<std::pair<std::string,Clingo::id_t>> order = {};
+#endif
+
 namespace Clingcon {
 
 namespace {
@@ -289,7 +296,17 @@ private:
 
 
 void Propagator::on_model(Clingo::Model &model) {
-//    const std::lock_guard<std::mutex> lock(propagate_lock);
+    std::unique_lock<std::mutex> lock(propagate_lock);
+#ifndef BUGLOG
+    outfile << "%waiting on_model[" << model.thread_id() << "] for condition" << std::endl;
+    cv.wait(lock, [&]{return order[pos].first == "on_model" && order[pos].second == model.thread_id();});
+    outfile << "%thread on_model[" << model.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
+#endif
+
+    outfile << "{\"on_model\"," << model.thread_id() << "}," << std::endl;
+
     std::vector<Clingo::Symbol> symbols_;
     std::string separator;
     for (auto [sym, var] : sym_map_) {
@@ -314,6 +331,16 @@ void Propagator::on_model(Clingo::Model &model) {
     }
 
     model.extend(symbols_);
+#ifndef BUGLOG
+    ++pos;
+    outfile << "%unlock on_model with thread " << model.thread_id() << std::endl;
+    lock.unlock();
+    outfile << "%notify on_model all others with thread " << model.thread_id() << std::endl;
+    cv.notify_all();
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
+#endif
+
 }
 
 void Propagator::on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu) {
@@ -406,7 +433,6 @@ void Propagator::add_constraint(UniqueConstraint constraint) {
     master_().add_constraint(*constraint);
     add_constraint_(std::move(constraint));
 }
-std::vector<std::pair<std::string,Clingo::id_t>> order = {};
 
 void readtrace(const std::string& t) {
     std::ifstream file(t);
@@ -563,11 +589,6 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
 }
 
 
-std::mutex propagate_lock;
-#ifndef BUGLOG
-static unsigned int pos = 0;
-std::condition_variable cv;
-#endif
 
 void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) {
         
@@ -677,24 +698,63 @@ void Propagator::check(Clingo::PropagateControl &control) {
 }
 
 void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept {
-//    const std::lock_guard<std::mutex> lock(propagate_lock);
-//    std::cout << "solver[" << control.thread_id() << "].undo({";
-//    std::string seperator;
-//    for (auto i : changes) {
-//        std::cout << seperator << i;
-//        seperator = ", ";
-//    }
-//    std::cout << "});" << std::endl;
+    std::unique_lock<std::mutex> lock(propagate_lock);
+#ifndef BUGLOG
+    outfile << "%waiting undo[" << control.thread_id() << "] for condition" << std::endl;
+    cv.wait(lock, [&]{return order[pos].first == "undo" && order[pos].second == control.thread_id();});
+    outfile << "%thread undo[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
+#endif
+
+     outfile << "{\"undo\"," << control.thread_id() << "}," << std::endl;
+
+    outfile << "%solver[" << control.thread_id() << "].undo({";
+    std::string seperator;
+    for (auto i : changes) {
+        outfile << seperator << i;
+        seperator = ", ";
+    }
+    outfile << "});" << std::endl;
     static_cast<void>(changes);
     solver_(control.thread_id()).undo();
+#ifndef BUGLOG
+    ++pos;
+    outfile << "%unlock undo with thread " << control.thread_id() << std::endl;
+    lock.unlock();
+    outfile << "%notify undo all others with thread " << control.thread_id() << std::endl;
+    cv.notify_all();
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
+#endif
+
 }
 
 lit_t Propagator::decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) {
-//    const std::lock_guard<std::mutex> lock(propagate_lock);
-//    std::cout << "solver[" << thread_id << "].decide(" << fallback << " vs ";
+    std::unique_lock<std::mutex> lock(propagate_lock);
+#ifndef BUGLOG
+    outfile << "%waiting decide[" << thread_id << "] for condition" << std::endl;
+    cv.wait(lock, [&]{return order[pos].first == "decide" && order[pos].second == thread_id;});
+    outfile << "%thread decide[" << thread_id << "] came through with " << pos << "/" << order.size() << std::endl;
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
+#endif
+
+    outfile << "{\"decide\"," << thread_id << "}," << std::endl;
+
+    outfile << "%solver[" << thread_id << "].decide(" << fallback << " vs ";
 
     auto temp = solver_(thread_id).decide(assign, fallback);
-//    std::cout << temp << ");" << std::endl;
+    outfile << temp << ");" << std::endl;
+#ifndef BUGLOG
+    ++pos;
+    outfile << "%unlock decide with thread " << thread_id << std::endl;
+    lock.unlock();
+    outfile << "%notify decide all others with thread " << thread_id << std::endl;
+    cv.notify_all();
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
+#endif
     return temp;
 }
 
