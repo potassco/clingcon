@@ -573,9 +573,6 @@ void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpa
         
 //    std::cout << "propagate: lock[" << control.thread_id() << "]" << std::endl;
     std::unique_lock<std::mutex> lock(propagate_lock);
-#ifdef BUGLOG
-     outfile << "{\"propagate\"," << control.thread_id() << "}," << std::endl;
-#endif
 //    std::cout << "solver[" << control.thread_id() << "].propagate({";
 //    std::string separator;
 //    for (auto x : changes) {
@@ -585,44 +582,50 @@ void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpa
 //    std::cout << "});" << std::endl;
 
 #ifndef BUGLOG
-    outfile << "%propagate: waiting[" << control.thread_id() << "] for condition" << std::endl;
+    outfile << "%waiting propagate[" << control.thread_id() << "] for condition" << std::endl;
     cv.wait(lock, [&]{return order[pos].first == "propagate" && order[pos].second == control.thread_id();});
-    outfile << "%propagate: thread[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+    outfile << "%thread propagate[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
 #endif
+
+     outfile << "{\"propagate\"," << control.thread_id() << "}," << std::endl;
 //    if (pos >= order.size()) {
 //        throw std::runtime_error("Unexpected, try again ;)");
 //    }
 
-//    std::cout << "solver[" << control.thread_id() << "].propagate({";
-//    std::string separator;
-//    for (auto x : changes) {
-//       std::cout << separator << x;
-//       separator = ", ";
-//    }
-//    std::cout << "});" << std::endl;
+    outfile << "%solver[" << control.thread_id() << "].propagate({";
+    std::string separator;
+    for (auto x : changes) {
+       outfile << separator << x;
+       separator = ", ";
+    }
+    outfile << "});" << std::endl;
     auto &solver = solver_(control.thread_id());
     ControlClauseCreator cc{control, solver.statistics()};
     static_cast<void>(solver.propagate(cc, changes));
 #ifndef BUGLOG
     ++pos;
-    outfile << "%propagate: unlock with thread " << control.thread_id() << std::endl;
+    outfile << "%unlock propagate with thread " << control.thread_id() << std::endl;
     lock.unlock();
-    outfile << "%propagate: notify all others with thread " << control.thread_id() << std::endl;
+    outfile << "%notify propagate all others with thread " << control.thread_id() << std::endl;
     cv.notify_all();
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
 #endif
 }
 
 void Propagator::check(Clingo::PropagateControl &control) {
     std::unique_lock<std::mutex> lock(propagate_lock);
-#ifdef BUGLOG
-     outfile << "{\"check\"," << control.thread_id() << "}," << std::endl;
-#endif
 
 #ifndef BUGLOG
-    outfile << "%check waiting[" << control.thread_id() << "] for condition" << std::endl;
+    outfile << "%waiting check[" << control.thread_id() << "] for condition" << std::endl;
     cv.wait(lock, [&]{return order[pos].first == "check" && order[pos].second == control.thread_id();});
-    outfile << "%check thread[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+    outfile << "%thread check[" << control.thread_id() << "] came through with " << pos << "/" << order.size() << std::endl;
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
 #endif
+    outfile << "{\"check\"," << control.thread_id() << "}," << std::endl;
     auto ass = control.assignment();
     auto size = ass.size();
     auto &solver = solver_(control.thread_id());
@@ -640,11 +643,15 @@ void Propagator::check(Clingo::PropagateControl &control) {
 
     if (!solver.check(cc, config_.check_state)) {
         #ifndef BUGLOG
+        ++pos;
         outfile << "%check: unlock with thread " << control.thread_id() << std::endl;
         lock.unlock();
         outfile << "%check: notify all others with thread " << control.thread_id() << std::endl;
         cv.notify_all();
+        #else
+        outfile << "%" << std::endl << "%" << std::endl;
         #endif
+        
 
         return;
     }
@@ -663,6 +670,8 @@ void Propagator::check(Clingo::PropagateControl &control) {
     lock.unlock();
     outfile << "%check: notify all others with thread " << control.thread_id() << std::endl;
     cv.notify_all();
+#else
+    outfile << "%" << std::endl << "%" << std::endl;
 #endif
 
 }
