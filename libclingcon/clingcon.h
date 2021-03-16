@@ -93,9 +93,6 @@ typedef struct clingcon_value {
 //! The clingcon theory.
 typedef struct clingcon_theory clingcon_theory_t;
 
-//! Callback to rewrite statements (see ::clingcon_rewrite_statement).
-typedef bool (*clingcon_rewrite_callback_t)(clingo_ast_statement_t const *statement, void *data);
-
 //! Callback to rewrite statements (see ::clingcon_rewrite_ast).
 typedef bool (*clingcon_ast_callback_t)(clingo_ast_t *ast, void *data);
 
@@ -104,9 +101,6 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_create(clingcon_theory_t **theory);
 
 //! Register the theory with a control object.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control);
-
-//! Rewrite statements before adding them via the given callback.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_rewrite_statement(clingcon_theory_t *theory, clingo_ast_statement_t const *stm, clingcon_rewrite_callback_t add, void *data);
 
 //! Rewrite asts before adding them via the given callback.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast, clingcon_ast_callback_t add, void *data);

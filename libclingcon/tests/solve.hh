@@ -93,9 +93,9 @@ inline S solve(Config const &config, std::string const &prg) {
 
     Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
     ctl.add("base", {}, THEORY);
-    ctl.with_builder([prg](Clingo::ProgramBuilder &builder) {
-        Clingo::parse_program(prg.c_str(), [&builder](Clingo::AST::Statement &&stm) {
-            transform(std::move(stm), [&builder](Clingo::AST::Statement &&stm) {
+    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) {
                 builder.add(stm);
             }, true);
         });

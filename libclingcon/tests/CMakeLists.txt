@@ -1,7 +1,6 @@
 # [[[source: .
 set(ide_source_group "Source Files")
 set(source-group
-    "${CMAKE_CURRENT_SOURCE_DIR}/astutil.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/catch.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/csp.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/fs.cc"

@@ -25,7 +25,7 @@ public:
 private:
     static bool add_(clingo_ast_t *stm, void *data) {
         auto *self = static_cast<Rewriter*>(data);
-        return clingo_program_builder_add_ast(self->builder_, stm);
+        return clingo_program_builder_add(self->builder_, stm);
     }
 
     static bool rewrite_(clingo_ast_t *stm, void *data) {
@@ -131,7 +131,7 @@ public:
     void main(Clingo::Control &control, Clingo::StringSpan files) override { // NOLINT(bugprone-exception-escape)
         handle_error(clingcon_register(theory_, control.to_c()));
 
-        control.with_builder([&](Clingo::ProgramBuilder &builder) {
+        Clingo::AST::with_builder(control, [&](Clingo::AST::ProgramBuilder &builder) {
             Rewriter rewriter{theory_, builder.to_c()};
             rewriter.rewrite(files);
         });

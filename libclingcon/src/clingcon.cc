@@ -315,26 +315,11 @@ extern "C" bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* c
         clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
 }
 
-extern "C" bool clingcon_rewrite_statement(clingcon_theory_t *theory, clingo_ast_statement_t const *stm, clingcon_rewrite_callback_t add, void *data) {
-    CLINGCON_TRY {
-        Clingo::StatementCallback cb = [&](Clingo::AST::Statement &&stm) {
-            transform(std::move(stm), [add, data](Clingo::AST::Statement &&stm){
-                Clingo::AST::Detail::ASTToC visitor;
-                auto x = stm.data.accept(visitor);
-                x.location = stm.location;
-                handle_error(add(&x, data));
-            }, theory->shift_constraints);
-        };
-        Clingo::AST::Detail::convStatement(stm, cb);
-    }
-    CLINGCON_CATCH;
-}
-
 extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast, clingcon_ast_callback_t add, void *data) {
     CLINGCON_TRY {
         clingo_ast_acquire(ast);
-        Clingo::ASTv2::AST ast_cpp{ast};
-        transform(ast_cpp, [add, data](Clingo::ASTv2::AST &&ast_trans){
+        Clingo::AST::Node ast_cpp{ast};
+        transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans){
             handle_error(add(ast_trans.to_c(), data));
         }, theory->shift_constraints);
     }

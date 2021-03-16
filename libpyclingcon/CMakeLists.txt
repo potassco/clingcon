@@ -33,6 +33,7 @@ endif()
 
 add_library(pyclingcon MODULE ${source})
 target_link_libraries(pyclingcon PRIVATE libclingcon Python::Module)
+target_compile_definitions(pyclingcon PRIVATE _CFFI_NO_LIMITED_API)
 set_target_properties(pyclingcon PROPERTIES
     FOLDER lib
     OUTPUT_NAME _clingcon

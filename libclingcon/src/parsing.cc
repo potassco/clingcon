@@ -25,10 +25,10 @@
 #include "clingcon/parsing.hh"
 #include "clingcon/base.hh"
 #include "clingcon/util.hh"
-#include "clingcon/astutil.hh"
 
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <cmath>
 #include <numeric>
 
@@ -70,8 +70,8 @@ char const *negate_relation(char const *op) {
 }
 
 template <typename... CStrs>
-bool match(Clingo::ASTv2::AST const &ast, CStrs... strs) {
-    using namespace Clingo::ASTv2;
+bool match(Clingo::AST::Node const &ast, CStrs... strs) {
+    using namespace Clingo::AST;
     if (ast.type() == Type::SymbolicTerm) {
         auto sym = ast.get<Clingo::Symbol>(Attribute::Term);
         return (sym.match(strs, 0) || ...);
@@ -80,7 +80,7 @@ bool match(Clingo::ASTv2::AST const &ast, CStrs... strs) {
         if (ast.get<int>(Attribute::External) != 0) {
             return false;
         }
-        if (!ast.get<ASTVector>(Attribute::Arguments).empty()) {
+        if (!ast.get<NodeVector>(Attribute::Arguments).empty()) {
             return false;
         }
         auto const *name = ast.get<char const *>(Attribute::Name);
@@ -89,16 +89,16 @@ bool match(Clingo::ASTv2::AST const &ast, CStrs... strs) {
     return false;
 }
 
-Clingo::ASTv2::AST shift_rule(Clingo::ASTv2::AST ast) {
-    using namespace Clingo::ASTv2;
+Clingo::AST::Node shift_rule(Clingo::AST::Node ast) {
+    using namespace Clingo::AST;
     if (ast.type() != Type::Rule) {
         return ast;
     }
-    auto head = ast.get<AST>(Attribute::Head);
+    auto head = ast.get<Node>(Attribute::Head);
     if (head.type() != Type::Literal) {
         return ast;
     }
-    auto atom = head.get<AST>(Attribute::Atom);
+    auto atom = head.get<Node>(Attribute::Atom);
     if (atom.type() != Type::BooleanConstant) {
         return ast;
     }
@@ -109,27 +109,27 @@ Clingo::ASTv2::AST shift_rule(Clingo::ASTv2::AST ast) {
         return ast;
     }
 
-    auto body = ast.get<ASTVector>(Attribute::Body);
+    auto body = ast.get<NodeVector>(Attribute::Body);
     for (auto it = body.begin(), ie = body.end(); it != ie; ++it) {
-        AST lit = *it;
+        Node lit = *it;
         if (lit.type() != Type::Literal) {
             continue;
         }
-        auto atom = lit.get<AST>(Attribute::Atom);
-        if (atom.type() != Type::TheoryAtom || !match(atom.get<AST>(Attribute::Term), "sum", "diff")) {
+        auto atom = lit.get<Node>(Attribute::Atom);
+        if (atom.type() != Type::TheoryAtom || !match(atom.get<Node>(Attribute::Term), "sum", "diff")) {
             continue;
         }
         auto ret = ast.copy();
-        auto ret_bd = ret.get<ASTVector>(Attribute::Body);
+        auto ret_bd = ret.get<NodeVector>(Attribute::Body);
         auto jt = ret_bd.begin() + (it - body.begin());
         auto ret_hd = atom.copy();
-        auto guard = ret_hd.get<Clingo::Optional<AST>>(Attribute::Guard);
+        auto guard = ret_hd.get<Clingo::Optional<Node>>(Attribute::Guard);
         check_syntax(guard.get() != nullptr);
         if (static_cast<Sign>(lit.get<int>(Attribute::Sign)) != Sign::Negation) {
             auto const *rel = guard->get<char const *>(Attribute::OperatorName);
             auto ret_guard = guard->copy();
             ret_guard.set(Attribute::OperatorName, negate_relation(rel));
-            ret_hd.set(Attribute::Guard, Clingo::Optional<AST>{std::move(ret_guard)});
+            ret_hd.set(Attribute::Guard, Clingo::Optional<Node>{std::move(ret_guard)});
         }
         ret.set(Attribute::Head, std::move(ret_hd));
         ret_bd.erase(jt);
@@ -138,8 +138,8 @@ Clingo::ASTv2::AST shift_rule(Clingo::ASTv2::AST ast) {
     return ast;
 }
 
-Clingo::ASTv2::AST tag_terms(Clingo::ASTv2::AST &ast, char const *tag) {
-    using namespace Clingo::ASTv2;
+Clingo::AST::Node tag_terms(Clingo::AST::Node &ast, char const *tag) {
+    using namespace Clingo::AST;
     if (ast.type() == Type::SymbolicTerm) {
         auto ret = ast.copy();
         auto term = ast.get<Clingo::Symbol>(Attribute::Term);
@@ -158,19 +158,45 @@ Clingo::ASTv2::AST tag_terms(Clingo::ASTv2::AST &ast, char const *tag) {
         ret.set(Attribute::Name, Clingo::add_string(name.c_str()));
         return ret;
     }
-    return throw_syntax_error<AST>();
+    return throw_syntax_error<Node>();
+}
+
+struct CStrCmp {
+    inline bool operator()(char const *a, char const *b) const {
+        return std::strcmp(a, b) < 0;
+    }
+};
+
+using VarSet = std::set<char const *, CStrCmp>;
+
+void collect_variables(VarSet &vars, Clingo::AST::Node const &ast) {
+    ast.visit_ast([&](Clingo::AST::Node const &child) {
+        if (child.type() == Clingo::AST::Type::Variable) {
+            vars.emplace(child.get<char const *>(Clingo::AST::Attribute::Name));
+        }
+        return true;
+    });
+}
+
+template <typename It>
+VarSet collect_variables(It ib,It ie) {
+    VarSet vars;
+    for (; ib != ie; ++ib) {
+        collect_variables(vars, *ib);
+    }
+    return vars;
 }
 
 // Tags head and body atoms and ensures multiset semantics.
-struct TheoryRewriterR {
+struct TheoryRewriter {
     // Add variables to tuple to ensure multiset semantics.
-    static Clingo::ASTv2::AST rewrite_tuple(Clingo::ASTv2::AST const &element, int number) {
-        using namespace Clingo::ASTv2;
+    static Clingo::AST::Node rewrite_tuple(Clingo::AST::Node const &element, int number) {
+        using namespace Clingo::AST;
         auto ret = element.copy();
-        auto tuple = ret.get<ASTVector>(Attribute::Terms);
+        auto tuple = ret.get<NodeVector>(Attribute::Terms);
         check_syntax(tuple.size() == 1);
 
-        auto condition = ret.get<ASTVector>(Attribute::Condition);
+        auto condition = ret.get<NodeVector>(Attribute::Condition);
         auto vars_condition = collect_variables(condition.begin(), condition.end());
         for (auto const &name : collect_variables(tuple.begin(), tuple.end())) {
             vars_condition.erase(name);
@@ -190,8 +216,8 @@ struct TheoryRewriterR {
     }
 
     // Mark head/body literals and ensure multiset semantics for theory atoms.
-    Clingo::ASTv2::AST operator()(Clingo::ASTv2::AST const &ast) {
-        using namespace Clingo::ASTv2;
+    Clingo::AST::Node operator()(Clingo::AST::Node const &ast) {
+        using namespace Clingo::AST;
         if (ast.type() == Type::Literal) {
             in_literal = true;
             auto ret = ast.transform_ast(*this);
@@ -199,11 +225,11 @@ struct TheoryRewriterR {
             return ret;
         }
         if (ast.type() == Type::TheoryAtom) {
-            auto term = ast.get<AST>(Attribute::Term);
+            auto term = ast.get<Node>(Attribute::Term);
             if (match(term, "sum", "diff", "distinct", "disjoint", "minimize", "maximize")) {
                 auto atom = ast.copy();
 
-                auto elements = atom.get<ASTVector>(Attribute::Elements);
+                auto elements = atom.get<NodeVector>(Attribute::Elements);
                 int number = elements.size() > 1 ? 0 : -1;
                 for (auto it = elements.begin(), ie = elements.end(); it != ie; ++it) {
                     *it = rewrite_tuple(*it, number++);
@@ -219,143 +245,6 @@ struct TheoryRewriterR {
         return ast.transform_ast(*this);
     }
     bool in_literal{false};
-};
-
-// Checks if the given theory atom is shiftable.
-struct SigMatcher {
-    template <typename... CStrs>
-    [[nodiscard]] static bool visit(Clingo::Symbol const &f, CStrs... strs) {
-        return (f.match(strs, 0) || ...);
-    }
-
-    template <typename... CStrs>
-    [[nodiscard]] static bool visit(Clingo::AST::Function const &f, CStrs... strs) {
-        return !f.external && f.arguments.empty() && ((std::strcmp(f.name, strs) == 0) || ...);
-    }
-
-    template <class T, typename... CStrs>
-    [[nodiscard]] static bool visit(T const &x, CStrs... strs) {
-        static_cast<void>(x);
-        (static_cast<void>(strs), ...);
-        return false;
-    }
-};
-
-// Shifts constraints into rule heads.
-struct TheoryShifter {
-    static void visit(Clingo::AST::Rule &rule) {
-        if (!rule.head.data.is<Clingo::AST::Literal>()) {
-            return;
-        }
-        auto &head = rule.head.data.get<Clingo::AST::Literal>();
-        if (!head.data.is<Clingo::AST::Boolean>() || head.data.get<Clingo::AST::Boolean>().value) {
-            return;
-        }
-        auto it = rule.body.begin();
-        auto ie = rule.body.end();
-        auto jt = it;
-        for (; it != ie; ++it) {
-            if (it->data.is<Clingo::AST::TheoryAtom>()) {
-                auto &atom = it->data.get<Clingo::AST::TheoryAtom>();
-                SigMatcher matcher;
-                if (atom.term.data.accept(matcher, "sum", "diff")) {
-                    check_syntax(atom.guard.get() != nullptr);
-                    if (it->sign != Clingo::AST::Sign::Negation) {
-                        auto *guard = atom.guard.get();
-                        guard->operator_name = negate_relation(guard->operator_name);
-                    }
-                    rule.head.location = it->location;
-                    rule.head.data = std::move(atom);
-                    for (++it; it != ie; ++it, ++jt) {
-                        if (it != jt) {
-                            std::iter_swap(it, jt);
-                        }
-                    }
-                    break;
-                }
-            }
-            if (it != jt) {
-                std::iter_swap(it, jt);
-            }
-            ++jt;
-        }
-        rule.body.erase(jt, ie);
-    }
-
-    template <class T>
-    static void visit(T &value) {
-        static_cast<void>(value);
-    }
-};
-
-struct TermTagger {
-    static void visit(Clingo::AST::Function &term, char const *tag) {
-        std::string name{"__"};
-        name += term.name;
-        name += tag;
-        term.name = Clingo::add_string(name.c_str());
-    }
-
-    static void visit(Clingo::Symbol &term, char const *tag) {
-        std::string name{"__"};
-        name += term.name();
-        name += tag;
-        term = Clingo::Function(name.c_str(), {});
-    }
-
-    template <typename T>
-    static void visit(T &value, char const *tag) {
-        static_cast<void>(value);
-        static_cast<void>(tag);
-        throw_syntax_error();
-    }
-};
-
-
-// Tags head and body atoms and ensures multiset semantics.
-struct TheoryRewriter {
-    // Add variables to tuple to ensure multiset semantics.
-    static void rewrite_tuple(Clingo::AST::TheoryAtomElement &element, int number) {
-        check_syntax(element.tuple.size() == 1);
-        auto vars_condition = collect_variables(element.condition.begin(), element.condition.end());
-        for (auto const &name : collect_variables(element.tuple.begin(), element.tuple.end())) {
-            vars_condition.erase(name);
-        }
-        vars_condition.erase("_");
-        if (number >= 0) {
-            element.tuple.push_back({element.tuple.front().location, Clingo::Number(number)});
-        }
-        for (auto const &name : vars_condition) {
-            element.tuple.push_back({element.tuple.front().location, Clingo::AST::Variable{name}});
-        }
-    }
-
-    static char const *tag(Clingo::AST::HeadLiteral const &lit) {
-        static_cast<void>(lit);
-        return "_h";
-    }
-
-    static char const *tag(Clingo::AST::BodyLiteral const &lit) {
-        static_cast<void>(lit);
-        return "_b";
-    }
-
-    // Mark head/body literals and ensure multiset semantics for theory atoms.
-    template <class Lit>
-    static void visit(Lit &node, Clingo::AST::TheoryAtom &atom) {
-        SigMatcher matcher;
-        if (atom.term.data.accept(matcher, "sum", "diff", "distinct", "disjoint", "minimize", "maximize")) {
-            int number = atom.elements.size() > 1 ? 0 : -1;
-            for (auto &element : atom.elements) {
-                rewrite_tuple(element, number++);
-            }
-        }
-
-        if (atom.term.data.accept(matcher, "sum", "diff")) {
-            TermTagger tagger;
-            atom.term.data.accept(tagger, tag(node));
-        }
-    }
 };
 
 [[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
@@ -860,24 +749,12 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     return rhs;
 }
 
-void transform(Clingo::AST::Statement &&stm, Clingo::StatementCallback const &cb, bool shift) {
-    unpool(std::move(stm), [&](Clingo::AST::Statement &&unpooled) {
-        if (shift) {
-            TheoryShifter shifter;
-            unpooled.data.accept(shifter);
-        }
-        TheoryRewriter tagger;
-        transform_ast(tagger, unpooled);
-        cb(std::move(unpooled));
-    });
-}
-
-void transform(Clingo::ASTv2::AST const &ast, ASTCallback const &cb, bool shift) {
+void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift) {
     for (auto &unpooled : ast.unpool()) {
         if (shift) {
             unpooled = shift_rule(unpooled);
         }
-        cb(unpooled.transform_ast(TheoryRewriterR{}));
+        cb(unpooled.transform_ast(TheoryRewriter{}));
     }
 }
 
