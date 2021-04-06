@@ -12,6 +12,6 @@ with ProgramBuilder(ctl) as bld:
 
 ctl.ground([('base', [])])
 thy.prepare(ctl)
-with ctl.solve(yield_=True) as hnd:
+with ctl.solve(yield_=True, on_model=thy.on_model) as hnd:
     for mdl in hnd:
         print([f'{key}={val}' for key, val in thy.assignment(mdl.thread_id)])
