@@ -21,21 +21,17 @@ index_order(M,I,V) :- index_order(M,I-1,U), order(M,U,V).
 index_dur(M,I,D)     :- index_order(M,I,(D,_)).
 index_rev(M,L-I+F,D) :- index_dur(M,I,D), first(F), last(L).
 
-% start at first index and on first machine
-up_dur(I,M,0)     :- first(I), machine(M), not machine(M-1).
-% start at first index
-up_dur(I,M,S'+D') :- first(I), machine(M),                up_dur(I,M-1,S'), index_dur(M-1,I,D').
-% start on first machine
-up_dur(I,M,S+D)   :- up_dur(I-1,M,S), index_dur(M,I-1,D), index(I), machine(M), not machine(M-1).
-% start at/on other indices/machines
-up_dur(I,M,S+D)   :- up_dur(I-1,M,S), index_dur(M,I-1,D), up_dur(I,M-1,S'), index_dur(M-1,I,D'), S+D>=S'+D'.
-up_dur(I,M,S'+D') :- up_dur(I-1,M,S), index_dur(M,I-1,D), up_dur(I,M-1,S'), index_dur(M-1,I,D'), S+D<S'+D'.
+sum_up(M,I,0)   :- first(I), machine(M), not machine(M-1).
+sum_up(M,I,S+D) :- first(I), machine(M), sum_up(M-1,I,S), index_dur(M-1,I,D).
+sum_up(M,I,S+D) :- index(I), sum_up(M,I-1,S), index_dur(M,I-1,D).
 
-% Note: bounds can be refined using a similar scheme as above
-down_dur(I,M,D)   :- last(I), index_rev(M,I,D).
-down_dur(I,M,S+D) :- down_dur(I+1,M,S), index_rev(M,I,D).
+sum_down(M,I,D)   :- last(I), machine(M), not machine(M+1), index_rev(M,I,D).
+sum_down(M,I,S+D) :- last(I), machine(M), sum_down(M+1,I,S), index_rev(M,I,D).
+sum_down(M,I,S+D) :- index(I), sum_down(M,I+1,S), index_rev(M,I,D).
 
-&sum { (I,M)     } >= S       :- up_dur(I,M,S).
-&sum { (I,M) + S } <= bound   :- down_dur(I,M,S).
-&sum { (I,M) + D } <= (I,M+1) :- index(I), first(F), index_dur(M,F,D), machine(M+1).
-&sum { (I,M) + D } <= (I+1,M) :- index(I), first(F), index_dur(M,F,D), index(I+1).
+min_dur(M,D) :- first(I), index_dur(M,I,D).
+
+&sum { (I,M)     } >= S       :- sum_up(M,I,S).
+&sum { (I,M) + S } <= bound   :- sum_down(M,I,S).
+&sum { (I,M) + D } <= (I,M+1) :- index(I), min_dur(M,D), machine(M+1).
+&sum { (I,M) + D } <= (I+1,M) :- index(I), min_dur(M,D), index(I+1).
