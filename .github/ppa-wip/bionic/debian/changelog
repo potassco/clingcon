@@ -1,5 +1,5 @@
-clingcon (5.0.0) bionic; urgency=medium
+clingcon (1.0.0) bionic; urgency=medium
 
   * initial release
 
- -- Roland Kaminski <kaminski@cs.uni-potsdam.de>  Sat, 23 Jan 2021 22:30:55 +0100
+ -- Roland Kaminski <kaminski@cs.uni-potsdam.de>  Fri, 02 Jan 2021 13:32:11 +0100

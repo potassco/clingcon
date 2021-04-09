@@ -2,27 +2,61 @@ name: Deploy pip source package (wip)
 
 on:
   workflow_dispatch:
+    inputs:
+      wip:
+        description: 'Publish work in progress package.'
+        required: false
+        default: true
 
 jobs:
   build_packages:
     runs-on: ubuntu-latest
+
     steps:
     - name: Install prerequisites
       run: |
-        sudo apt-get install python3 python3-pip gcc g++ cmake ninja-build
+        sudo apt-get install python3 python3-pip
         pip3 install --user --upgrade --force-reinstall pip
-        python3 -m pip install --user --upgrade setuptools wheel scikit-build pip
+        python3 -m pip install --user --upgrade setuptools wheel
+        sudo apt-get install gcc g++ cmake ninja-build
+        python3 -m pip install --user --upgrade scikit-build
+
+    - name: Install prerequisites (wip)
+      if: ${{ github.event.inputs.wip }}
+      run: |
         python3 -m pip install --user --extra-index-url https://test.pypi.org/simple/ clingo-cffi
+
+    - name: Install prerequisites (release)
+      if: ${{ !github.event.inputs.wip }}
+      run: |
+        python3 -m pip install --user clingo
+
     - name: Checkout repo
       uses: actions/checkout@v2
       with:
         submodules: recursive
-    - name: Build source package
+
+    - name: Build source package (wip)
+      if: ${{ github.event.inputs.wip }}
       run: python3 .github/pipsource.py
-    - name: Publish package to TestPyPI
+
+    - name: Publish package to TestPyPI (wip)
+      if: ${{ github.event.inputs.wip }}
       uses: pypa/gh-action-pypi-publish@master
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
         packages_dir: dist/
         repository_url: https://test.pypi.org/legacy/
+
+    - name: Build source package (release)
+      if: ${{ !github.event.inputs.wip }}
+      run: python3 .github/pipsource.py --release
+
+    - name: Publish package to TestPyPI (release)
+      if: ${{ !github.event.inputs.wip }}
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN_RELEASE }}
+        packages_dir: dist/

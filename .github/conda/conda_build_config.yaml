@@ -1,0 +1,15 @@
+python:
+    - 3.6
+    - 3.7
+    - 3.8
+    - 3.9
+
+clingo:
+    - 5.5
+
+pin_run_as_build:
+    clingo: x.x
+
+# from https://github.com/phracker/MacOSX-SDKs
+CONDA_BUILD_SYSROOT:
+    - /opt/MacOSX10.9.sdk # [osx]
