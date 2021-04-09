@@ -31,7 +31,11 @@ if (NOT PYCLINGCON_SUFFIX)
     endif()
 endif()
 
-add_library(pyclingcon MODULE ${source})
+if (PYCLINGCON_ENABLE STREQUAL "pip")
+    add_library(pyclingcon SHARED ${source})
+else()
+    add_library(pyclingcon MODULE ${source})
+endif()
 target_link_libraries(pyclingcon PRIVATE libclingcon Python::Module)
 target_compile_definitions(pyclingcon PRIVATE _CFFI_NO_LIMITED_API)
 set_target_properties(pyclingcon PROPERTIES
@@ -68,7 +72,8 @@ if (PYCLINGCON_INSTALL_DIR)
             ${CMAKE_CURRENT_BINARY_DIR}/INSTALLER
             ${CMAKE_CURRENT_BINARY_DIR}/METADATA
             DESTINATION ${_PYCLINGCON_INSTALL_DIR}/clingcon-${CLINGCON_VERSION}.dist-info)
+    else()
+        install(FILES ${CMAKE_SOURCE_DIR}/libclingcon/clingcon.h
+            DESTINATION ${_PYCLINGCON_INSTALL_DIR}/clingcon)
     endif()
-    install(FILES ${CMAKE_SOURCE_DIR}/libclingcon/clingcon.h
-        DESTINATION ${_PYCLINGCON_INSTALL_DIR}/clingcon)
 endif()

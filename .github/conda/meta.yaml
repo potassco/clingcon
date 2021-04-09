@@ -1,0 +1,43 @@
+{% set name = 'clingcon' %}
+{% set dev = not environ.get('BUILD_RELEASE', false) %}
+{% set version = environ.get('VERSION_NUMBER') %}
+{% set revision = environ.get('GITHUB_SHA', 'wip') %}
+{% set build = environ.get('BUILD_NUMBER', "0") %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  path: ../..
+
+requirements:
+  build:
+  - cmake
+  - {{ compiler('c') }}
+  - {{ compiler('cxx') }}
+  host:
+  - clingo
+  - python
+  run:
+  - {{ pin_compatible('clingo') }}
+  - python
+  - cffi
+
+build:
+  number: {{ build }}
+  skip: True [win and vc<14]
+
+test:
+  commands:
+  - '{{ name }} --version'
+  - python -m clingcon --version
+
+about:
+  home: https://potassco.org/
+  license: MIT
+  summary: A solver for logic programs with linear constraints over integers.
+  description: The clingcon solver extends the clingo ASP system with support for linear constraints over integers.
+  license_file: LICENSE.md
+  doc_url: https://potassco.org/
+  dev_url: https://github.com/potassco/{{ name }}
