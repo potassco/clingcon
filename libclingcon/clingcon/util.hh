@@ -30,8 +30,6 @@
 #include <map>
 #include <cstdlib>
 #include <stdexcept>
-#include <string>
-#include <cassert>
 
 //! @file clingcon/util.hh
 //! Very general utility functions.
