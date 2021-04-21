@@ -283,7 +283,13 @@ val_t safe_pow(val_t a, val_t b) {
 
 Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
     if (term.type() == Clingo::TheoryTermType::Symbol) {
-        return Clingo::Function(term.name(), {});
+        const auto *name = term.name();
+        if (name[0] == '\"') {
+            return Clingo::String(unquote(name).c_str());
+        }
+        else {
+            return Clingo::Function(name, {});
+        }
     }
 
     if (term.type() == Clingo::TheoryTermType::Number) {
