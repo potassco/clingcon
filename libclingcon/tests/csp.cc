@@ -300,14 +300,29 @@ TEST_CASE("sum", "[solving]") {
         REQUIRE(solve("&sum { v(X) } = X :- X=1..3. &sum { v(X) : X=1..2; v(X) : X=2..3 } = x.") == S({
             "x=8 v(1)=1 v(2)=2 v(3)=3"}));
     }
-    /*
-    def test_multishot(self):
-        s = Solver(0, 3)
-        self.assertEqual(s.solve("&sum { x } <= 2."), [[('x', 0)], [('x', 1)], [('x', 2)]])
-        self.assertEqual(s.solve(""), [[('x', 0)], [('x', 1)], [('x', 2)]])
-        self.assertEqual(s.solve("&sum { x } <= 1."), [[('x', 0)], [('x', 1)]])
-        self.assertEqual(s.solve("&sum { x } <= 0."), [[('x', 0)]])
-        self.assertEqual(s.solve("&sum { x } <= 1."), [[('x', 0)]])
-        self.assertEqual(s.solve("&sum { x } <= 2."), [[('x', 0)]])
-    */
+    SECTION("string") {
+        Propagator p;
+        SolveEventHandler handler{p};
+        Clingo::Control ctl{{"100"}};
+        ctl.add("base", {}, THEORY);
+        Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
+            Clingo::AST::parse_string(R"(&sum { ("a\"b\\c",0) } = 2.)", [&builder](Clingo::AST::Node const &stm) {
+                transform(stm, [&builder](Clingo::AST::Node const &stm) {
+                    builder.add(stm);
+                }, true);
+            });
+        });
+        ctl.register_propagator(p);
+        ctl.ground({{"base", {}}});
+        {
+            auto hnd = ctl.solve(Clingo::LiteralSpan{}, &handler, false, true);
+            for (auto &&mdl : hnd) {
+                auto syms = mdl.symbols(Clingo::ShowType::Theory);
+                REQUIRE(syms.size() == 1);
+                REQUIRE(syms.front() == Clingo::Function("__csp", {
+                    Clingo::Function("", {Clingo::String(R"(a"b\c)"), Clingo::Number(0)}),
+                    Clingo::Number(2)}));
+            }
+        }
+    }
 }

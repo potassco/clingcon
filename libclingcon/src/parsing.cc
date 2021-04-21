@@ -281,9 +281,45 @@ val_t safe_pow(val_t a, val_t b) {
     return static_cast<val_t>(ret);
 }
 
+std::string unquote(Clingo::Span<char> str) {
+    std::string res;
+    bool slash = false;
+    for (auto c : str) {
+        if (slash) {
+            switch (c) {
+                case 'n': {
+                    res.push_back('\n');
+                    break;
+                }
+                case '\\': {
+                    res.push_back('\\');
+                    break;
+                }
+                case '"': {
+                    res.push_back('"');
+                    break;
+                }
+                default: {
+                    assert(false);
+                    break;
+                }
+            }
+            slash = false;
+        }
+        else if (c == '\\') { slash = true; }
+        else { res.push_back(c); }
+    }
+    return res;
+}
+
 Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
     if (term.type() == Clingo::TheoryTermType::Symbol) {
-        return Clingo::Function(term.name(), {});
+        const auto *cname = term.name();
+        Clingo::Span<char> name{cname, std::strlen(cname)};
+        if (!name.empty() && name.front() == '"' && name.back() == '"') {
+            return Clingo::String(unquote({name.begin() + 1, name.end() - 1}).c_str());
+        }
+        return Clingo::Function(cname, {});
     }
 
     if (term.type() == Clingo::TheoryTermType::Number) {
