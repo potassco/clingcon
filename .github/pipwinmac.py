@@ -44,8 +44,15 @@ def adjust_version(url):
                 version = m.group(1)
     assert version is not None
 
-    with urlopen('{}/{}'.format(url, package_name)) as uh:
-        pip = uh.read().decode()
+    try:
+        with urlopen('{}/{}'.format(url, package_name)) as uh:
+            pip = uh.read().decode()
+    except HTTPError as err:
+        if err.code == 404:
+            pip = '\n'
+        else:
+            raise
+
     post = 0
     for m in finditer(r'{}-{}\.post([0-9]+)\.tar\.gz'.format(package_regex, escape(version)), pip):
         post = max(post, int(m.group(1)))
@@ -78,7 +85,7 @@ def run():
     adjust_version(url)
 
     if os.name == 'posix':
-        environ['PATH'] = '/usr/local/opt/bison/bin' + pathsep + environ["PATH"]
+        environ['PATH'] = '/usr/local/opt/bison/bin' + pathsep + '/usr/local/opt/bison@2.7/bin' + pathsep + environ["PATH"]
         environ['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
     args = ['pip', 'wheel', '-v', '--no-deps', '-w', 'dist']
     if idx is not None:
