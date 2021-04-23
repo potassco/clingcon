@@ -146,7 +146,7 @@ inline S solve(Config const &config, std::string const &prg) {
 inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
-    constexpr uint32_t f = m * 10;
+    constexpr uint64_t f = m * 10;
     constexpr uint32_t o = std::numeric_limits<uint32_t>::max();
     auto configs = std::array{
         Config{{}, min_int, max_int, 0, 0, 0, 0, 0, sconfig, false, false, false, true, true},  // basic
