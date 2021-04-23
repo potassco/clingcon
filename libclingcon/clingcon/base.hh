@@ -69,6 +69,7 @@ constexpr bool DEFAULT_REFINE_INTRODUCE{true};
 constexpr val_t DEFAULT_MAX_INT{MAX_VAL};
 constexpr val_t DEFAULT_MIN_INT{MIN_VAL};
 constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
+constexpr uint64_t DEFAULT_CLAUSE_LIMIT_TOTAL{1000000};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
 constexpr uint32_t DEFAULT_WEIGHT_CONSTRAINT_LIMIT{0};
@@ -233,6 +234,7 @@ struct Config {
     std::forward_list<SolverConfig> solver_configs;
     val_t min_int{DEFAULT_MIN_INT};
     val_t max_int{DEFAULT_MAX_INT};
+    uint64_t clause_limit_total{DEFAULT_CLAUSE_LIMIT_TOTAL};
     uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
     uint32_t weight_constraint_limit{DEFAULT_WEIGHT_CONSTRAINT_LIMIT};
     uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
@@ -299,6 +301,11 @@ public:
     InitClauseCreator &operator=(InitClauseCreator const &) = delete;
 
     ~InitClauseCreator() override = default;
+
+    //! Get the propagator statistics.
+    [[nodiscard]] Statistics const &statistics() const {
+        return stats_;
+    }
 
     [[nodiscard]] lit_t add_literal() override {
         auto lit = init_.add_literal();
