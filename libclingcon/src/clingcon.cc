@@ -393,7 +393,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.distinct_limit = parse_num<uint32_t>(value);
         }
         else if (std::strcmp(key, "translate-opt") == 0) {
-            config.translate_minimize = parse_num<int32_t>(value);
+            config.translate_minimize = parse_num<uint32_t>(value);
         }
         else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
@@ -470,9 +470,12 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             parser_num<uint32_t>(config.distinct_limit), false, "<n>");
         opts.add(
             group, "translate-opt",
-            format("Translate minimize constraint if less than <n> literals needed [", config.translate_minimize, "]\n"
-                   "      < n<0 >  : always translate").c_str(),
-            parser_num<int32_t>(config.translate_minimize), false, "<n>");
+            format(
+                "Configure translation of minimize constraint [", config.translate_minimize, "]\n"
+                "      <n>: translate if required literals less equal to <n>\n"
+                "        0  : never translate\n"
+                "        max: always translate").c_str(),
+            parser_num<uint32_t>(config.translate_minimize), false, "<n>");
         opts.add_flag(
             group, "add-order-clauses",
             format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]").c_str(),
@@ -484,47 +487,47 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             format(
                 "Make the decision heuristic aware of order literls [", heuristic_str(config.default_solver_config.heuristic), "]\n"
                 "      <arg>: {none,max-chain}[,<i>]\n"
-                "      none     : use clasp's heuristic\n"
-                "      max-chain: assign chains of literals\n"
-                "      <i>      : Only enable for thread <i>").c_str(),
+                "        none     : use clasp's heuristic\n"
+                "        max-chain: assign chains of literals\n"
+                "      <i>  : Only enable for thread <i>").c_str(),
             parser_heuristic(*theory), true);
         opts.add(
             group, "sign-value",
             format(
                 "Configure the sign of order literals [", config.default_solver_config.sign_value, "]\n"
                 "      <arg>: {<n>|+|-}[,<i>]\n"
-                "      <n>: negative if its value is greater or equal to <n>\n"
-                "      <+>: always positive\n"
-                "      <->: always negative\n"
-                "      <i>: Only enable for thread <i>").c_str(),
+                "        <n>: negative iff its value is greater or equal to <n>\n"
+                "        +  : always positive\n"
+                "        -  : always negative\n"
+                "      <i>  : Only enable for thread <i>").c_str(),
             parser_sign_value(*theory, Target::SignValue), true);
         opts.add(
             group, "refine-reasons",
             format(
                 "Refine reasons during propagation [", flag_str(config.default_solver_config.refine_reasons), "]\n"
                 "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>: Only enable for thread <i>").c_str(),
+                "      <i>  : Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::RefineReasons), true);
         opts.add(
             group, "refine-introduce",
             format(
                 "Introduce order literals when generating reasons [", flag_str(config.default_solver_config.refine_introduce), "]\n"
                 "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>: Only enable for thread <i>").c_str(),
+                "      <i>  : Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::RefineIntroduce), true);
         opts.add(
             group, "propagate-chain",
             format(
                 "Use closest order literal as reason [", flag_str(config.default_solver_config.propagate_chain), "]\n"
                 "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>: Only enable for thread <i>").c_str(),
+                "      <i>  : Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::PropagateChain), true);
         opts.add(
             group, "split-all",
             format(
                 "Split all domains on total assignment [", flag_str(config.default_solver_config.split_all), "]\n"
                 "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>: Only enable for thread <i>").c_str(),
+                "      <i>  : Only enable for thread <i>").c_str(),
             parser_bool_thread(*theory, Target::SplitAll), true);
 
         // hidden/debug

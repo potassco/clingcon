@@ -749,14 +749,29 @@ public:
     MinimizeConstraintState& operator=(MinimizeConstraintState &&x) = delete;
     ~MinimizeConstraintState() override = default;
 
+    //! Get the number of literals required to translate the minimize constraint.
+    [[nodiscard]] int64_t required_literals(Solver &solver) const {
+        int64_t size = 0;
+        for (auto [co, var] : constraint_) {
+            auto &vs = solver.var_state(var);
+            size += static_cast<int64_t>(vs.max_bound()) - vs.min_bound() - 1;
+        }
+        return size;
+    }
+
     //! Translate the minimize constraint into clasp's minimize constraint.
     [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) final {
-        static_cast<void>(config);
         static_cast<void>(added);
-        if (!constraint_.translated()) {
+
+        bool translate = solver.translate_minimize();
+        translate = translate || config.translate_minimize == std::numeric_limits<uint32_t>::max();
+        translate = translate || required_literals(solver) <= config.translate_minimize;
+
+        if (!translate) {
             return {true, false};
         }
 
+        solver.enable_translate_minimize();
         cc.add_minimize(TRUE_LIT, -constraint_.adjust(), 0);
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);

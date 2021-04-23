@@ -163,31 +163,10 @@ public:
         return elements_ + size_; // NOLINT
     }
 
-    //! Get the number of required literals in all domains.
-    [[nodiscard]] int64_t required_literals(Solver &solver) const {
-        int64_t min_size = 0;
-        for (auto [co, var] : *this) {
-            auto & vs = solver.var_state(var);
-            min_size += static_cast<int64_t>(vs.max_bound()) - vs.min_bound() - 1;
-        }
-        return min_size;
-    }
-
-    //! Mark constraint to be translated.
-    void mark_translation() {
-        translate_ = true;
-    }
-
-    //! Check if constraint is to be translated.
-    [[nodiscard]] bool translated() const {
-        return translate_;
-    }
-
 private:
     MinimizeConstraint(val_t adjust, CoVarVec const &elems, bool sort)
     : adjust_{adjust}
-    , size_{static_cast<uint32_t>(elems.size())}
-    , translate_(false) {
+    , size_{static_cast<uint32_t>(elems.size())} {
         std::copy(elems.begin(), elems.end(), elements_);
         if (sort) {
             std::sort(elements_, elements_ + size_, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); } ); // NOLINT
@@ -195,11 +174,9 @@ private:
     }
 
     //! Integer adjustment of the constraint.
-    lit_t adjust_;
+    val_t adjust_;
     //! Number of elements in the constraint.
     uint32_t size_;
-    //! True if constraint was translated.
-    bool translate_;
     //! List of integer/string pairs representing coefficient and variable.
     std::pair<val_t, var_t> elements_[]; // NOLINT
 };
