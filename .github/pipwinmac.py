@@ -5,6 +5,7 @@ Script to build binary wheels on windows.
 from re import finditer, escape, match, sub, search
 from subprocess import check_call
 from urllib.request import urlopen
+from urllib.error import HTTPError
 from glob import glob
 from platform import python_implementation
 from sysconfig import get_config_var
