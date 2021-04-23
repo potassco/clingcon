@@ -11,9 +11,9 @@ pip:
     build_depends: |
         sudo apt-get install gcc g++ cmake ninja-build
         python3 -m pip install --user --upgrade scikit-build
-    manylinux_images:
-        - 'manylinux2014_x86_64'
-        #- 'manylinux2014_ppc64le'
+    install: |
+        if ARCH != "x86_64":
+            check_call(['sed', '-i', 's/, "cmake"//', 'pyproject.toml'])
     build_depends_release: |
         python3 -m pip install --user clingo
     build_depends_dev: |
