@@ -153,6 +153,13 @@ template<class T>
 
 template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
 [[nodiscard]] T parse_num(char const *begin, char const *end = nullptr) {
+    static_assert(min <= max);
+    if (strncmp(begin, "min", end - begin) == 0) {
+        return min;
+    }
+    if (strncmp(begin, "max", end - begin) == 0) {
+        return max;
+    }
     auto res = strtonum<T>(begin, end);
     if (min <= res && res <= max) {
         return res;
@@ -254,6 +261,15 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     return {parse_num<val_t>(value, comma), thread};
 }
 
+[[nodiscard]] std::pair<uint32_t, std::optional<uint64_t>> parse_translate_clause(char const *value) {
+    std::optional<val_t> total = std::nullopt;
+    char const *comma = find_str(value, ',');
+    if (*comma != '\0') {
+        total = parse_num<val_t>(comma + 1); // NOLINT
+    }
+    return {parse_num<uint32_t>(value, comma), total};
+}
+
 [[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_heuristic(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
@@ -288,6 +304,18 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     return [&theory](char const *value) {
         auto [val, thread] = parse_heuristic(value);
         return theory.deferred.emplace(std::pair(Target::Heuristic, thread), val).second;
+    };
+}
+
+template<class T, class U>
+[[nodiscard]] std::function<bool (const char *)> parser_translate_clause(T &translate_clauses, U &translate_clauses_total) {
+    return [&translate_clauses, &translate_clauses_total](char const *value) {
+        auto [clauses, clauses_total] = parse_translate_clause(value);
+        translate_clauses = clauses;
+        if (clauses_total) {
+            translate_clauses_total = *clauses_total;
+        }
+        return true;
     };
 }
 
@@ -349,7 +377,11 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.sort_constraints = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-clauses") == 0) {
-            config.clause_limit = parse_num<uint32_t>(value);
+            auto [clauses, clauses_total] = parse_translate_clause(value);
+            config.clause_limit = clauses;
+            if (clauses_total) {
+                config.clause_limit_total = *clauses_total;
+            }
         }
         else if (std::strcmp(key, "literals-only") == 0) {
             config.literals_only = parse_bool(value);
@@ -419,8 +451,11 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             config.sort_constraints);
         opts.add(
             group, "translate-clauses",
-            format("Restrict translation to <n> clauses per constraint [", config.clause_limit, "]").c_str(),
-            parser_num<uint32_t>(config.clause_limit), false, "<n>");
+            format(
+                "Restrict translation to clauses [", config.clause_limit, ",", config.clause_limit_total,"]\n",
+                "      <n>: maximum clauses per constraint\n"
+                "      <m>: maximum clauses total").c_str(),
+            parser_translate_clause(config.clause_limit, config.clause_limit_total), false, "<n>[,<m>]");
         opts.add_flag(
             group, "literals-only",
             format("Only create literals during translation but no clauses [", flag_str(config.literals_only), "]").c_str(),

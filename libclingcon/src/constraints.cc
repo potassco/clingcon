@@ -446,8 +446,10 @@ public:
 
         // Note: otherwise propagation is broken
         assert(lower >= 0);
-
-        if (clause_estimate_(solver, lower, upper, config.clause_limit)) {
+        bool translate =
+            cc.statistics().translate_clauses < config.clause_limit_total &&
+            clause_estimate_(solver, lower, upper, config.clause_limit);
+        if (translate) {
             auto ret = clause_translate_(solver, cc, lower, upper, config.literals_only);
             return {ret, !config.literals_only};
         }
