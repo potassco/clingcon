@@ -475,10 +475,6 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     // Note: the minimize constraint is added after simplification to avoid
     // propagating tagged clauses, which is not supported at the moment.
     if (minimize != nullptr) {
-        // Note: fail if translation was requested earlier
-        if (translated_minimize_ && !config_.translate_minimize) {
-            throw std::runtime_error("translation of minimize constraints is disabled but was enabled before");
-        }
         add_minimize_(std::move(minimize));
     }
 
@@ -491,8 +487,7 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     cc.set_state(InitState::Init);
 
     // mark minimize constraint as translated if necessary
-    if (config_.translate_minimize && minimize_ != nullptr) {
-        translated_minimize_ = true;
+    if (minimize_ != nullptr && master_().translate_minimize()) {
         minimize_ = nullptr;
     }
 

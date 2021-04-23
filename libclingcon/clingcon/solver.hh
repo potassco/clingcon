@@ -767,6 +767,19 @@ public:
     //! propagator as well.
     bool translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints);
 
+    //! Enable translation of minimize constraint.
+    //!
+    //! Note that the translation of minimize constraints cannot be disabled once enabled.
+    //! Furthermore, translation only happens in the master solver.
+    void enable_translate_minimize() {
+        translate_minimize_ = true;
+    }
+
+    //! Return true if the minimize constraint has to be translated.
+    [[nodiscard]] bool translate_minimize() const {
+        return translate_minimize_;
+    }
+
     //! Optimize internal data structures.
     //!
     //! Should be called before solving/copying states.
@@ -907,6 +920,8 @@ private:
     //! The minimize constraint might not have been fully propagated below this
     //! level. See Solver::update_minimize.
     level_t minimize_level_{0};
+    //! Flag that indicates whether the minimize constraint is to be translated.
+    bool translate_minimize_{false};
 };
 
 } // namespace Clingcon

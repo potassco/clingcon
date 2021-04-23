@@ -208,7 +208,6 @@ private:
     SigSet show_signature_;                       //!< signatures to show
     MinimizeConstraint *minimize_{nullptr};       //!< minimize constraint
     std::atomic<sum_t> minimize_bound_{no_bound}; //!< bound of the minimize constraint
-    bool translated_minimize_{false};             //!< whether a minimize constraint has been translated
     bool show_{false};                            //!< whether there is a show statement
 };
 

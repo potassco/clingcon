@@ -174,7 +174,7 @@ private:
     }
 
     //! Integer adjustment of the constraint.
-    lit_t adjust_;
+    val_t adjust_;
     //! Number of elements in the constraint.
     uint32_t size_;
     //! List of integer/string pairs representing coefficient and variable.
