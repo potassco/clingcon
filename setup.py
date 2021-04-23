@@ -12,7 +12,7 @@ if not site.ENABLE_USER_SITE and "--user" in sys.argv[1:]:
 clingopath = abspath(dirname(clingo.__file__))
 
 setup(
-    version = '5.0.0',
+    version = '5.0.1',
     name = 'clingcon',
     description = 'CFFI-based bindings to the clingcon solver.',
     long_description = dedent('''\
