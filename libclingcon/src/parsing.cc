@@ -796,7 +796,7 @@ void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift,
         }
         TheoryRewriter t{};
         cb(unpooled.transform_ast(t));
-        if (t) {
+        if (t.has_optimize) {
             has_optimize = true;
         }
     }

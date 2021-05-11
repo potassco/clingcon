@@ -50,6 +50,7 @@ struct clingcon_theory {
     Clingo::Detail::ParserList parsers;
     std::map<std::pair<Target, std::optional<uint32_t>>, val_t> deferred;
     bool shift_constraints{true};
+    bool has_optimize{false};
 };
 
 namespace {
@@ -347,11 +348,9 @@ extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
     CLINGCON_TRY {
         clingo_ast_acquire(ast);
         Clingo::AST::Node ast_cpp{ast};
-        bool has_minimize = false;
         transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans){
             handle_error(add(ast_trans.to_c(), data));
-        }, theory->shift_constraints, has_minimize);
-        std::cout << "HAS MINIMIZE " << has_minimize << std::endl;
+        }, theory->shift_constraints, theory->has_optimize);
     }
     CLINGCON_CATCH;
 }
@@ -360,8 +359,9 @@ extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* co
     static_cast<void>(theory);
     Clingo::Control c{control, false};
     auto cnf = c.configuration()["solve"]["models"];
-    if (cnf.value() == "-1" && true)
+    if (cnf.value() == "-1" && theory->has_optimize) {
         cnf = "0";
+    }
     return true;
 }
 

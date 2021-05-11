@@ -37,13 +37,15 @@ sret simplify(CoVarVec const &vec, bool drop_zero=true) {
     return {ret, rhs};
 }
 
-std::string transform(char const *prg, bool shift=true) {
+std::string transform(char const *prg, bool shift=true, bool request_optimize=false) {
     std::ostringstream oss;
     Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
         if (ast.type() != Clingo::AST::Type::Program) {
+            bool has_optimize{false};
             transform(ast, [&](Clingo::AST::Node const &ast) {
                 oss << ast;
-            }, shift);
+            }, shift, has_optimize);
+            REQUIRE(request_optimize == has_optimize);
         }
     });
     return oss.str();
@@ -207,10 +209,11 @@ std::string parse(char const *prg) {
     {
         Clingo::AST::ProgramBuilder builder{ctl};
         std::ostringstream oss;
+        bool has_optimize{false};
         Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
             transform(ast, [&](Clingo::AST::Node &&trans) {
                 builder.add(trans);
-            }, true);
+            }, true, has_optimize);
         });
     }
     ctl.add("base", {}, THEORY);
@@ -239,6 +242,8 @@ TEST_CASE("parsing", "[parsing]") {
         REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h { } = 0 :- &__sum_b { } = 1.");
         REQUIRE(transform(":- &sum{ } = 0.") == "&__sum_h { } != 0.");
         REQUIRE(transform(":- &sum{ } = 0, &sum{ } = 1.") == "&__sum_h { } != 0 :- &__sum_b { } = 1.");
+        REQUIRE(transform("&minimize{ x }.", true, true) == "&minimize { x }.");
+        REQUIRE(transform("&maximize{ x }.", true, true) == "&maximize { x }.");
 
         REQUIRE(transform("&sum{ X } = 0.") == "&__sum_h { X } = 0.");
         REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y: p(X,Y) } = 0.");
