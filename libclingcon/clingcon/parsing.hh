@@ -132,8 +132,10 @@ using NodeCallback = std::function<void(Clingo::AST::Node &&ast)>;
 //!
 //! Optionally shifts constraints from rule bodies into heads of integrity
 //! constraints if possible.
-//! has_optimize is set true if csp minimize/maximize constraints are found
-void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize);
+//!
+//! The function returns true if the program contains an optimization
+//! statement.
+bool transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift);
 
 //! Parse the given theory passing the result to the given builder.
 //!

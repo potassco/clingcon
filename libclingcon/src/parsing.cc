@@ -238,7 +238,7 @@ struct TheoryRewriter {
                 if (match(term, "sum", "diff")) {
                     atom.set(Attribute::Term, tag_terms(term, in_literal ? "_b" : "_h"));
                 }
-                if (match(term, "minimize", "maximize")) {
+                else if (match(term, "minimize", "maximize")) {
                     has_optimize = true;
                 }
 
@@ -247,8 +247,8 @@ struct TheoryRewriter {
         }
         return ast.transform_ast(*this);
     }
+    bool &has_optimize;
     bool in_literal{false};
-    bool has_optimize{false};
 };
 
 [[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
@@ -789,17 +789,15 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     return rhs;
 }
 
-void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize) {
+bool transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift) {
+    bool has_optimize = false;
     for (auto &unpooled : ast.unpool()) {
         if (shift) {
             unpooled = shift_rule(unpooled);
         }
-        TheoryRewriter t{};
-        cb(unpooled.transform_ast(t));
-        if (t.has_optimize) {
-            has_optimize = true;
-        }
+        cb(unpooled.transform_ast(TheoryRewriter{has_optimize}));
     }
+    return has_optimize;
 }
 
 bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) {

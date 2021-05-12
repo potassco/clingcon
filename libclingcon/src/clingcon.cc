@@ -348,18 +348,17 @@ extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
     CLINGCON_TRY {
         clingo_ast_acquire(ast);
         Clingo::AST::Node ast_cpp{ast};
-        transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans){
+        theory->has_optimize = theory->has_optimize || transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) {
             handle_error(add(ast_trans.to_c(), data));
-        }, theory->shift_constraints, theory->has_optimize);
+        }, theory->shift_constraints);
     }
     CLINGCON_CATCH;
 }
 
 extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control) {
-    static_cast<void>(theory);
     Clingo::Control c{control, false};
     auto cnf = c.configuration()["solve"]["models"];
-    if (cnf.value() == "-1" && theory->has_optimize) {
+    if (theory->has_optimize && cnf.value() == "-1") {
         cnf = "0";
     }
     return true;

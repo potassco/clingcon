@@ -307,10 +307,9 @@ TEST_CASE("sum", "[solving]") {
         ctl.add("base", {}, THEORY);
         Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
             Clingo::AST::parse_string(R"(&sum { ("a\"b\\c",0) } = 2.)", [&builder](Clingo::AST::Node const &stm) {
-                bool has_optimize{false};
                 transform(stm, [&builder](Clingo::AST::Node const &stm) {
                     builder.add(stm);
-                }, true, has_optimize);
+                }, true);
             });
         });
         ctl.register_propagator(p);
