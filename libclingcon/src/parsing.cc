@@ -238,12 +238,16 @@ struct TheoryRewriter {
                 if (match(term, "sum", "diff")) {
                     atom.set(Attribute::Term, tag_terms(term, in_literal ? "_b" : "_h"));
                 }
+                else if (match(term, "minimize", "maximize")) {
+                    has_optimize = true;
+                }
 
                 return atom;
             }
         }
         return ast.transform_ast(*this);
     }
+    bool &has_optimize;
     bool in_literal{false};
 };
 
@@ -785,12 +789,12 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     return rhs;
 }
 
-void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift) {
+void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize) {
     for (auto &unpooled : ast.unpool()) {
         if (shift) {
             unpooled = shift_rule(unpooled);
         }
-        cb(unpooled.transform_ast(TheoryRewriter{}));
+        cb(unpooled.transform_ast(TheoryRewriter{has_optimize}));
     }
 }
 

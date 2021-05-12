@@ -95,9 +95,10 @@ inline S solve(Config const &config, std::string const &prg) {
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
+            bool has_optimize{false};
             transform(stm, [&builder](Clingo::AST::Node const &stm) {
                 builder.add(stm);
-            }, true);
+            }, true, has_optimize);
         });
     });
     ctl.register_propagator(p);
