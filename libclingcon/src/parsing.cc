@@ -789,15 +789,13 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     return rhs;
 }
 
-bool transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift) {
-    bool has_optimize = false;
+void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize) {
     for (auto &unpooled : ast.unpool()) {
         if (shift) {
             unpooled = shift_rule(unpooled);
         }
         cb(unpooled.transform_ast(TheoryRewriter{has_optimize}));
     }
-    return has_optimize;
 }
 
 bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) {

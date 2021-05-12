@@ -348,9 +348,9 @@ extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
     CLINGCON_TRY {
         clingo_ast_acquire(ast);
         Clingo::AST::Node ast_cpp{ast};
-        theory->has_optimize = theory->has_optimize || transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) {
+        transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) {
             handle_error(add(ast_trans.to_c(), data));
-        }, theory->shift_constraints);
+        }, theory->shift_constraints, theory->has_optimize);
     }
     CLINGCON_CATCH;
 }

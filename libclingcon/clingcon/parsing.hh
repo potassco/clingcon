@@ -130,12 +130,12 @@ using NodeCallback = std::function<void(Clingo::AST::Node &&ast)>;
 //! Transform the given statement with csp constraints and pass it on to the
 //! given callback.
 //!
+//! Parameter has_optimize is set to true if the program contains an
+//! optimization statement.
+//!
 //! Optionally shifts constraints from rule bodies into heads of integrity
 //! constraints if possible.
-//!
-//! The function returns true if the program contains an optimization
-//! statement.
-bool transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift);
+void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize);
 
 //! Parse the given theory passing the result to the given builder.
 //!

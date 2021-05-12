@@ -39,12 +39,12 @@ sret simplify(CoVarVec const &vec, bool drop_zero=true) {
 
 std::pair<bool, std::string> transform(char const *prg, bool shift=true) {
     std::ostringstream oss;
-    bool has_optimize = false;
+    bool has_optimize{false};
     Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
         if (ast.type() != Clingo::AST::Type::Program) {
-            has_optimize = has_optimize || transform(ast, [&](Clingo::AST::Node const &ast) {
+            transform(ast, [&](Clingo::AST::Node const &ast) {
                 oss << ast;
-            }, shift);
+            }, shift, has_optimize);
         }
     });
     return {has_optimize, oss.str()};
@@ -208,10 +208,11 @@ std::string parse(char const *prg) {
     {
         Clingo::AST::ProgramBuilder builder{ctl};
         std::ostringstream oss;
+        bool has_optimize{false};
         Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
             transform(ast, [&](Clingo::AST::Node &&trans) {
                 builder.add(trans);
-            }, true);
+            }, true, has_optimize);
         });
     }
     ctl.add("base", {}, THEORY);
