@@ -765,7 +765,7 @@ public:
 
         bool translate = solver.translate_minimize();
         translate = translate || config.translate_minimize == std::numeric_limits<uint32_t>::max();
-        translate = translate || required_literals(solver) <= config.translate_minimize;
+        translate = translate || required_literals(solver) < config.translate_minimize;
 
         if (!translate) {
             return {true, false};

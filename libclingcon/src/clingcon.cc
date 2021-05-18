@@ -362,7 +362,7 @@ extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* co
         if (cnf.value() == "-1") {
             for (auto atom : ctl.theory_atoms()) {
                 auto term = atom.term();
-                if ((match(term, "minimize", 0) || match(term, "maximize", 0)) && atom.elements().empty()) {
+                if ((match(term, "minimize", 0) || match(term, "maximize", 0)) && !atom.elements().empty()) {
                     cnf = "0";
                     break;
                 }
@@ -483,7 +483,7 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "translate-opt",
             format(
                 "Configure translation of minimize constraint [", config.translate_minimize, "]\n"
-                "      <n>: translate if required literals less equal to <n>\n"
+                "      <n>: translate if required literals less than <n>\n"
                 "        0  : never translate\n"
                 "        max: always translate").c_str(),
             parser_num<uint32_t>(config.translate_minimize), false, "<n>");
