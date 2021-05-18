@@ -357,12 +357,12 @@ extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
 extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control) {
     static_cast<void>(theory);
     CLINGCON_TRY {
-        Clingo::Control c{control, false};
-        auto cnf = c.configuration()["solve"]["models"];
+        Clingo::Control ctl{control, false};
+        auto cnf = ctl.configuration()["solve"]["models"];
         if (cnf.value() == "-1") {
-            for (auto i : c.theory_atoms()) {
-                auto t = i.term();
-                if (match(t, "minimize", 0) || match(t, "maximize", 0)) {
+            for (auto atom : ctl.theory_atoms()) {
+                auto term = atom.term();
+                if ((match(term, "minimize", 0) || match(term, "maximize", 0)) && atom.elements().empty()) {
                     cnf = "0";
                     break;
                 }
