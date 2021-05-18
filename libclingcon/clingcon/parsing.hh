@@ -130,17 +130,17 @@ using NodeCallback = std::function<void(Clingo::AST::Node &&ast)>;
 //! Transform the given statement with csp constraints and pass it on to the
 //! given callback.
 //!
-//! Parameter has_optimize is set to true if the program contains an
-//! optimization statement.
-//!
 //! Optionally shifts constraints from rule bodies into heads of integrity
 //! constraints if possible.
-void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize);
+void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift);
 
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.
 [[nodiscard]] bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms);
+
+//! Check if the theory term has the given signature.
+[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity);
 
 } // namespace Clingcon
 

@@ -60,6 +60,7 @@ TEST_CASE("disjoint", "[solving]") {
 
 TEST_CASE("distinct", "[solving]") {
     SECTION("simple") {
+        REQUIRE(solve("&distinct { 1; 3; x }.", 2, 3) == S({"x=2"}));
         REQUIRE(solve("&distinct { x; y }.", 0, 1) == S({"x=0 y=1", "x=1 y=0"}));
         REQUIRE(solve("&distinct { 2*x; 3*y }.", 2, 3) == S({"x=2 y=2", "x=2 y=3", "x=3 y=3"}));
         REQUIRE(solve("&distinct { 0*x; 0*y }.", 0, 1) == S({}));
@@ -307,10 +308,9 @@ TEST_CASE("sum", "[solving]") {
         ctl.add("base", {}, THEORY);
         Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
             Clingo::AST::parse_string(R"(&sum { ("a\"b\\c",0) } = 2.)", [&builder](Clingo::AST::Node const &stm) {
-                bool has_optimize{false};
                 transform(stm, [&builder](Clingo::AST::Node const &stm) {
                     builder.add(stm);
-                }, true, has_optimize);
+                }, true);
             });
         });
         ctl.register_propagator(p);

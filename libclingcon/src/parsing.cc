@@ -69,6 +69,8 @@ char const *negate_relation(char const *op) {
     throw std::runtime_error("unexpected operator");
 }
 
+using Clingcon::match;
+
 template <typename... CStrs>
 bool match(Clingo::AST::Node const &ast, CStrs... strs) {
     using namespace Clingo::AST;
@@ -238,27 +240,14 @@ struct TheoryRewriter {
                 if (match(term, "sum", "diff")) {
                     atom.set(Attribute::Term, tag_terms(term, in_literal ? "_b" : "_h"));
                 }
-                else if (match(term, "minimize", "maximize")) {
-                    has_optimize = true;
-                }
 
                 return atom;
             }
         }
         return ast.transform_ast(*this);
     }
-    bool &has_optimize;
     bool in_literal{false};
 };
-
-[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
-    return (term.type() == Clingo::TheoryTermType::Symbol &&
-        std::strcmp(term.name(), name) == 0 &&
-        arity == 0) ||
-        (term.type() == Clingo::TheoryTermType::Function &&
-        std::strcmp(term.name(), name) == 0 &&
-        term.arguments().size() == arity);
-}
 
 [[nodiscard]] Clingo::Symbol evaluate(Clingo::TheoryTerm const &term);
 
@@ -789,12 +778,12 @@ val_t simplify(CoVarVec &vec, bool drop_zero) {
     return rhs;
 }
 
-void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift, bool &has_optimize) {
+void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift) {
     for (auto &unpooled : ast.unpool()) {
         if (shift) {
             unpooled = shift_rule(unpooled);
         }
-        cb(unpooled.transform_ast(TheoryRewriter{has_optimize}));
+        cb(unpooled.transform_ast(TheoryRewriter{}));
     }
 }
 
@@ -835,6 +824,15 @@ bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
         }
     }
     return true;
+}
+
+[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
+    return (term.type() == Clingo::TheoryTermType::Symbol &&
+        std::strcmp(term.name(), name) == 0 &&
+        arity == 0) ||
+        (term.type() == Clingo::TheoryTermType::Function &&
+        std::strcmp(term.name(), name) == 0 &&
+        term.arguments().size() == arity);
 }
 
 } // namespace Clingcon

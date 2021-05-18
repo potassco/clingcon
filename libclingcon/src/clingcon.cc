@@ -50,7 +50,6 @@ struct clingcon_theory {
     Clingo::Detail::ParserList parsers;
     std::map<std::pair<Target, std::optional<uint32_t>>, val_t> deferred;
     bool shift_constraints{true};
-    bool has_optimize{false};
 };
 
 namespace {
@@ -348,20 +347,29 @@ extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
     CLINGCON_TRY {
         clingo_ast_acquire(ast);
         Clingo::AST::Node ast_cpp{ast};
-        transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) {
+        transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans){
             handle_error(add(ast_trans.to_c(), data));
-        }, theory->shift_constraints, theory->has_optimize);
+        }, theory->shift_constraints);
     }
     CLINGCON_CATCH;
 }
 
 extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control) {
-    Clingo::Control c{control, false};
-    auto cnf = c.configuration()["solve"]["models"];
-    if (theory->has_optimize && cnf.value() == "-1") {
-        cnf = "0";
+    static_cast<void>(theory);
+    CLINGCON_TRY {
+        Clingo::Control ctl{control, false};
+        auto cnf = ctl.configuration()["solve"]["models"];
+        if (cnf.value() == "-1") {
+            for (auto atom : ctl.theory_atoms()) {
+                auto term = atom.term();
+                if ((match(term, "minimize", 0) || match(term, "maximize", 0)) && !atom.elements().empty()) {
+                    cnf = "0";
+                    break;
+                }
+            }
+        }
     }
-    return true;
+    CLINGCON_CATCH;
 }
 
 extern "C" bool clingcon_destroy(clingcon_theory_t *theory) {
@@ -475,7 +483,7 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "translate-opt",
             format(
                 "Configure translation of minimize constraint [", config.translate_minimize, "]\n"
-                "      <n>: translate if required literals less equal to <n>\n"
+                "      <n>: translate if required literals less than <n>\n"
                 "        0  : never translate\n"
                 "        max: always translate").c_str(),
             parser_num<uint32_t>(config.translate_minimize), false, "<n>");
