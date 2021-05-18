@@ -883,13 +883,15 @@ public:
         // calculate variables for terms avoiding unnecessary variables
         for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
             DiffElement elem{constraint_[idx].fixed(), 1, INVALID_VAR};
-            domains[idx].enumerate([&](sum_t value) {
-                if (counts[value] > 1) {
-                    elem = var_(config, solver, idx, added);
-                    return false;
-                }
-                return true;
-            });
+            if (!constraint_[idx].empty()) {
+                domains[idx].enumerate([&](sum_t value) {
+                    if (counts[value] > 1) {
+                        elem = var_(config, solver, idx, added);
+                        return false;
+                    }
+                    return true;
+                });
+            }
             diff_elems.emplace_back(elem);
         }
 
