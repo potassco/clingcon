@@ -69,6 +69,8 @@ char const *negate_relation(char const *op) {
     throw std::runtime_error("unexpected operator");
 }
 
+using Clingcon::match;
+
 template <typename... CStrs>
 bool match(Clingo::AST::Node const &ast, CStrs... strs) {
     using namespace Clingo::AST;
@@ -246,15 +248,6 @@ struct TheoryRewriter {
     }
     bool in_literal{false};
 };
-
-[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
-    return (term.type() == Clingo::TheoryTermType::Symbol &&
-        std::strcmp(term.name(), name) == 0 &&
-        arity == 0) ||
-        (term.type() == Clingo::TheoryTermType::Function &&
-        std::strcmp(term.name(), name) == 0 &&
-        term.arguments().size() == arity);
-}
 
 [[nodiscard]] Clingo::Symbol evaluate(Clingo::TheoryTerm const &term);
 
@@ -831,6 +824,15 @@ bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
         }
     }
     return true;
+}
+
+[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity) {
+    return (term.type() == Clingo::TheoryTermType::Symbol &&
+        std::strcmp(term.name(), name) == 0 &&
+        arity == 0) ||
+        (term.type() == Clingo::TheoryTermType::Function &&
+        std::strcmp(term.name(), name) == 0 &&
+        term.arguments().size() == arity);
 }
 
 } // namespace Clingcon

@@ -139,6 +139,9 @@ void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift)
 //! This functions throws if there is a (potential) overflow.
 [[nodiscard]] bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms);
 
+//! Check if the theory term has the given signature.
+[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity);
+
 } // namespace Clingcon
 
 #endif // CLINGCON_PARSING_H

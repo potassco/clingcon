@@ -356,20 +356,20 @@ extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
 
 extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control) {
     static_cast<void>(theory);
-    Clingo::Control c{control, false};
-    auto cnf = c.configuration()["solve"]["models"];
-    if (cnf.value() == "-1") {
-        for (auto i : c.theory_atoms()) {
-            auto t = i.term();
-            if (t.type() == Clingo::TheoryTermType::Symbol &&
-            (strcmp(t.name(),"minimize") == 0 || strcmp(t.name(),"maximize") == 0) &&
-            !i.elements().empty() ) {
-                cnf = "0";
-                break;
+    CLINGCON_TRY {
+        Clingo::Control c{control, false};
+        auto cnf = c.configuration()["solve"]["models"];
+        if (cnf.value() == "-1") {
+            for (auto i : c.theory_atoms()) {
+                auto t = i.term();
+                if (match(t, "minimize", 0) || match(t, "maximize", 0)) {
+                    cnf = "0";
+                    break;
+                }
             }
         }
     }
-    return true;
+    CLINGCON_CATCH;
 }
 
 extern "C" bool clingcon_destroy(clingcon_theory_t *theory) {
