@@ -398,7 +398,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.literals_only = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-pb") == 0) {
-            config.weight_constraint_limit = parse_num<uint32_t>(value);
+            config.translate_pb = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-distinct") == 0) {
             config.distinct_limit = parse_num<uint32_t>(value);
@@ -471,10 +471,10 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "literals-only",
             format("Only create literals during translation but no clauses [", flag_str(config.literals_only), "]").c_str(),
             config.literals_only);
-        opts.add(
+        opts.add_flag(
             group, "translate-pb",
-            format("Restrict translation to <n> literals per pb constraint [", config.weight_constraint_limit, "]").c_str(),
-            parser_num<uint32_t>(config.weight_constraint_limit), false, "<n>");
+            format("Translate Boolean linear constraints to PB constraints [", flag_str(config.translate_pb), "]").c_str(),
+            config.translate_pb);
         opts.add(
             group, "translate-distinct",
             format("Restrict translation of distinct constraints <n> pb constraints [", config.distinct_limit, "]").c_str(),
