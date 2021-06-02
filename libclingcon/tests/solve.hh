@@ -35,6 +35,7 @@
 using namespace Clingcon;
 
 using S = std::vector<std::string>;
+using O = std::vector<std::optional<val_t>>;
 
 class SolveEventHandler : public Clingo::SolveEventHandler {
 public:
@@ -176,11 +177,9 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     return *last;
 }
 
-inline void solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts, std::vector<std::optional<val_t>> const &bounds) {
-    assert(parts.size() == bounds.size());
+inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) {
     Propagator p;
     p.config() = config;
-    SolveEventHandler handler{p};
 
     Clingo::Control ctl{{"0", "-t8"}};
     ctl.add("base", {}, THEORY);
@@ -192,9 +191,12 @@ inline void solve_opt(Config const &config, std::string const &prg, Clingo::Part
         });
     });
     ctl.register_propagator(p);
-    for (unsigned int i = 0; i < parts.size(); ++i) {
-        ctl.ground({parts[i]});
 
+    O bounds;
+    for (auto const &part : parts) {
+        ctl.ground({part});
+
+        SolveEventHandler handler{p};
         if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
             throw std::runtime_error("interrupted");
         }
@@ -202,25 +204,35 @@ inline void solve_opt(Config const &config, std::string const &prg, Clingo::Part
         auto stat = ctl.statistics()["user_step"]["Clingcon"];
         if (stat.has_subkey("Cost")) {
             bound = static_cast<val_t>(stat["Cost"].value());
-        } else {
+        }
+        else {
             stat = ctl.statistics()["summary"];
             if (stat.has_subkey("costs")) {
                 bound = static_cast<val_t>(stat["costs"][size_t(0)].value());
             }
         }
-        REQUIRE(bound == bounds[i]);
-        handler.models.clear();
+        bounds.emplace_back(bound);
     }
+    return bounds;
 }
 
-inline void solve_opt(std::string const &prg, Clingo::PartSpan const &parts, std::vector<std::optional<val_t>> const &bounds, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
     int i = 0;
+    O bounds;
     for (auto const &config : create_configs(min_int, max_int)) {
         std::ostringstream oss;
-        oss << "configuration: " << i++ << "\nprogram: " << prg;
+        oss << "configuration: " << i << "\nprogram: " << prg;
         INFO(oss.str());
-        solve_opt(config, prg, parts, bounds);
+        auto current = solve_opt(config, prg, parts);
+        if (i == 0) {
+            bounds = std::move(current);
+        }
+        else {
+            REQUIRE(bounds == current);
+        }
+        ++i;
     }
+    return bounds;
 }
 
 #endif // CLINGCON_TEST_SOLVE_H
