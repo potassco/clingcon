@@ -163,21 +163,6 @@ TEST_CASE("optimize", "[solving]") {
         REQUIRE(solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}));
         REQUIRE(solve("&maximize { x }. a :- &sum{ x } >= 0.", -3, 3) == S({"a x=3"}));
     }
-    /*
-    def test_optimize_bound(self):
-        sol = [[('x', 0), ('y', 2), ('z', 0)],
-               [('x', 1), ('y', 1), ('z', 1)],
-               [('x', 2), ('y', 0), ('z', 2)]]
-        for translate_minimize in (True, False):
-            s = Solver(0, 3)
-            s.prp.config.translate_minimize.value = translate_minimize
-            s.solve("&minimize { x + 2 * y + z + 5 }. &sum{ x + y } >= 2. &sum { y + z } >= 2.")
-            self.assertEqual(s.bound, 9)
-            self.assertEqual(s.solve("", optimize=False, bound=9), sol)
-            self.assertEqual(s.solve("", optimize=False, bound=9), sol)
-            self.assertEqual(s.solve("&minimize { 6 }.", optimize=False, bound=9), [])
-            self.assertEqual(s.solve("", optimize=False, bound=15), sol)
-    */
 }
 
 TEST_CASE("dom", "[solving]") {
@@ -325,5 +310,17 @@ TEST_CASE("sum", "[solving]") {
                     Clingo::Number(2)}));
             }
         }
+    }
+}
+
+TEST_CASE("multishot", "[solving]") {
+    SECTION("optimize") {
+        REQUIRE(solve_opt(
+            "#program base. "
+            "&dom {-3..9} = x. "
+            "&minimize { x }. "
+            "#program next. "
+            "&sum { x } >= 5.",
+            {{"base", {}}, {"next", {}}}) == O({-3, 5}));
     }
 }
