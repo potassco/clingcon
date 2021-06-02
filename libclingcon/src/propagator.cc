@@ -453,6 +453,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
     // to the model lock too.
     if (has_minimize()) {
         init.set_check_mode(Clingo::PropagatorCheckMode::Both);
+        update_minimize(no_bound);
     }
 }
 

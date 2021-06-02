@@ -327,3 +327,10 @@ TEST_CASE("sum", "[solving]") {
         }
     }
 }
+
+TEST_CASE("multishot", "[solving]") {
+    SECTION("optimize") {
+        solve_opt("#program base. &dom {-3..9} = x. &minimize { x }. #program next. &sum { x } >= 5.",
+        {{"base",{}},{"next",{}}}, {-3,5});
+    }
+}
