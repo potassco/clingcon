@@ -149,12 +149,12 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     constexpr uint64_t f = m * 10;
     constexpr uint32_t o = std::numeric_limits<uint32_t>::max();
     auto configs = std::array{
-        Config{{}, min_int, max_int, 0, 0, 0, 0, sconfig, false, false, false, false, true, true},  // basic
-        Config{{}, min_int, max_int, 0, 0, 0, 0, sconfig, false, true,  false, false, true, true},  // sort constraints
-        Config{{}, min_int, max_int, f, m, m, o, sconfig, false, true,  false, false, true, true},  // translate
-        Config{{}, min_int, max_int, f, m, m, o, sconfig, false, true,  false, true,  true, true},  // translate + order clauses
-        Config{{}, min_int, max_int, f, m, m, o, sconfig, false, true,  true,  false, true, true},  // translate literals only
-        Config{{}, min_int, max_int, f, 0, m, o, sconfig, true, true,  false, false, true, true},  // translate weight constraints
+        Config{{}, min_int, max_int, 0, 0, 0, 0, sconfig, 0, false, false, false, true, true},  // basic
+        Config{{}, min_int, max_int, 0, 0, 0, 0, sconfig, 0, true,  false, false, true, true},  // sort constraints
+        Config{{}, min_int, max_int, f, m, m, o, sconfig, 0, true,  false, false, true, true},  // translate
+        Config{{}, min_int, max_int, f, m, m, o, sconfig, 0, true,  false, true,  true, true},  // translate + order clauses
+        Config{{}, min_int, max_int, f, m, m, o, sconfig, 0, true,  true,  false, true, true},  // translate literals only
+        Config{{}, min_int, max_int, f, 0, m, o, sconfig, m, true,  false, false, true, true},  // translate weight constraints
     };
 
     std::optional<S> last = std::nullopt;

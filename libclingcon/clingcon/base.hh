@@ -72,7 +72,7 @@ constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
 constexpr uint64_t DEFAULT_CLAUSE_LIMIT_TOTAL{1000000};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
-constexpr bool DEFAULT_TRANSLATE_PB{true};
+constexpr double DEFAULT_WEIGHT_CONSTRAINT_RATIO{1.0f};
 constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
 constexpr uint32_t DEFAULT_TRANSLATE_MINIMIZE{0};
 constexpr bool DEFAULT_CHECK_SOLUTION{true};
@@ -239,7 +239,7 @@ struct Config {
     uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
     uint32_t translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
     SolverConfig default_solver_config;
-    bool translate_pb{DEFAULT_TRANSLATE_PB};
+    double weight_constraint_ratio{DEFAULT_WEIGHT_CONSTRAINT_RATIO};
     bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
     bool literals_only{DEFAULT_LITERALS_ONLY};
     bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};

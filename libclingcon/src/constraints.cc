@@ -448,7 +448,7 @@ public:
         assert(lower >= 0);
 
         // translation to weight constraints
-        if (config.translate_pb && is_pb_(solver)) {
+        if (config.weight_constraint_ratio >= domain2variable_ratio_(solver)) {
             return weight_translate_(solver, cc, lower);
         }
 
@@ -488,14 +488,14 @@ private:
     }
 
     //! Check if constraint consists only of binary variables.
-    bool is_pb_(Solver &solver) const {
+    double domain2variable_ratio_(Solver &solver) const {
+        if (constraint_.size() == 0) return 0;
+        double ret = 0;
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);
-            if (vs.upper_bound() - vs.lower_bound() > 1) {
-                return false;
-            }
+            ret += vs.upper_bound() - vs.lower_bound();
         }
-        return true;
+        return ret/constraint_.size();
     }
 
     //! Translate the constraint to weight a constraint.

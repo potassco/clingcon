@@ -151,6 +151,36 @@ template<class T>
     }
 }
 
+template<>
+[[nodiscard]] double strtonum<double>(char const *begin, char const *end) {
+    if (!end) {
+        end = begin + std::strlen(begin); // NOLINT
+    }
+    double ret = 0;
+    bool sign = false;
+    auto const *it = begin;
+    if (*it == '-') {
+        sign = true;
+        ++it; // NOLINT
+    }
+    if (it == end) {
+        throw std::invalid_argument("double expected");
+    }
+    unsigned int mul=1;
+    for (; it != end; ++it) { // NOLINT
+        if ('0' <= *it && *it <= '9') {
+            ret = ret*(mul == 1 ? 10 : 1) + (double(*it - '0')/mul); // NOLINT
+            mul = mul * (mul == 1 ? 1 : 10);
+        }
+        else if (*it == '.' && mul == 1) {
+            mul*=10;
+        }
+        else
+            throw std::invalid_argument("double expected");
+    }
+    return sign ? -ret : ret;
+}
+
 template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
 [[nodiscard]] T parse_num(char const *begin, char const *end = nullptr) {
     static_assert(min <= max);
@@ -167,10 +197,32 @@ template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits
     throw std::invalid_argument("invalid argument");
 }
 
+[[nodiscard]] double parse_num(char const *begin, char const *end = nullptr, double min=std::numeric_limits<double>::lowest(), double max=std::numeric_limits<double>::max()) {
+    assert(min <= max);
+    if (strncmp(begin, "min", end - begin) == 0) {
+        return min;
+    }
+    if (strncmp(begin, "max", end - begin) == 0) {
+        return max;
+    }
+    auto res = strtonum<double>(begin, end);
+    if (min <= res && res <= max) {
+        return res;
+    }
+    throw std::invalid_argument("invalid argument");
+}
+
 template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
 [[nodiscard]] std::function<bool (const char *)> parser_num(T &dest) {
     return [&dest](char const *value) {
         dest = parse_num<T>(value);
+        return true;
+    };
+}
+
+[[nodiscard]] std::function<bool (const char *)> parser_num(double &dest, double min=std::numeric_limits<double>::lowest(), double max=std::numeric_limits<double>::max()) {
+    return [&dest, min, max](char const *value) {
+        dest = parse_num(value, nullptr, min, max);
         return true;
     };
 }
@@ -398,7 +450,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.literals_only = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-pb") == 0) {
-            config.translate_pb = parse_bool(value);
+            config.weight_constraint_ratio = parse_num(value);
         }
         else if (std::strcmp(key, "translate-distinct") == 0) {
             config.distinct_limit = parse_num<uint32_t>(value);
@@ -471,10 +523,10 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             group, "literals-only",
             format("Only create literals during translation but no clauses [", flag_str(config.literals_only), "]").c_str(),
             config.literals_only);
-        opts.add_flag(
+        opts.add(
             group, "translate-pb",
-            format("Translate Boolean linear constraints to PB constraints [", flag_str(config.translate_pb), "]").c_str(),
-            config.translate_pb);
+            format("Restrict translation to <n> literals per variable on average per PB constraint [", config.weight_constraint_ratio, "]").c_str(),
+            parser_num(config.weight_constraint_ratio), false, "<n>");
         opts.add(
             group, "translate-distinct",
             format("Restrict translation of distinct constraints <n> pb constraints [", config.distinct_limit, "]").c_str(),
