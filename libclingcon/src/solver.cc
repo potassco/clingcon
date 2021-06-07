@@ -667,10 +667,6 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
                     if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
                         return false;
                     }
-                    // !lit<=val => !lit<=val-1
-                    if (prev != -TRUE_LIT && !cc.add_clause({lit, -prev})) {
-                        return false;
-                    }
                     prev = lit;
                 }
                 return true;
