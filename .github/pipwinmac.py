@@ -76,12 +76,12 @@ def run():
     args = parser.parse_args()
 
     if args.release:
-        rename_clingo_cffi()
         url = 'https://pypi.org/simple'
         idx = None
     else:
         url = 'https://test.pypi.org/simple'
         idx = 'https://test.pypi.org/simple'
+        rename_clingo_cffi()
 
     adjust_version(url)
 

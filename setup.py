@@ -28,7 +28,7 @@ setup(
     author_email = 'kaminski@cs.uni-potsdam.de',
     license = 'MIT',
     url = 'https://github.com/potassco/clingcon',
-    install_requires=[ 'cffi', 'clingo-cffi' ],
+    install_requires=[ 'cffi', 'clingo' ],
     cmake_args=[ '-DCLINGCON_MANAGE_RPATH=OFF',
                  '-DPYCLINGCON_ENABLE=pip',
                  '-DPYCLINGCON_INSTALL_DIR=libpyclingcon',
