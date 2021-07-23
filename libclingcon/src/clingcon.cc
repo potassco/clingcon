@@ -29,6 +29,9 @@
 #include <clingo.hh>
 #include <stdexcept>
 #include <sstream>
+#include <locale>
+#include <cstring>
+#include <sstream>
 #include <map>
 
 #define CLINGCON_TRY try // NOLINT
@@ -115,73 +118,25 @@ template <typename... Args>
     return oss.str();
 }
 
+
 template<class T>
-[[nodiscard]] T strtonum(char const *begin, char const *end) {
-    if (!end) {
-        end = begin + std::strlen(begin); // NOLINT
+[[nodiscard]] T strtonum(char const *ib, char const *ie) {
+    if (!ie) {
+        ie = ib + std::strlen(ib); // NOLINT
     }
-    T ret = 0;
-    bool sign = false;
-    auto const *it = begin;
-    if constexpr (std::is_signed_v<T>) {
-        if (*it == '-') {
-            sign = true;
-            ++it; // NOLINT
-        }
+    std::istringstream iss{std::string{ib, ie}};
+    iss.imbue(std::locale::classic());
+    iss.exceptions(std::iostream::failbit);
+    iss.unsetf(std::ios_base::skipws);
+    T val;
+    iss >> val;
+    if (!iss.eof()) {
+        throw std::runtime_error("number expected");
     }
-    else {
-        static_cast<void>(sign);
-    }
-    if (it == end) {
-        throw std::invalid_argument("integer expected");
-    }
-    for (; it != end; ++it) { // NOLINT
-        if ('0' <= *it && *it <= '9') {
-            ret = safe_add<T>(safe_mul<T>(ret, 10), *it - '0'); // NOLINT
-        }
-        else {
-            throw std::invalid_argument("integer expected");
-        }
-    }
-    if constexpr (std::is_signed_v<T>) {
-        return sign ? safe_inv<T>(ret) : ret;
-    }
-    else {
-        return ret;
-    }
+    return val;
 }
 
-template<>
-[[nodiscard]] double strtonum<double>(char const *begin, char const *end) {
-    if (!end) {
-        end = begin + std::strlen(begin); // NOLINT
-    }
-    double ret = 0;
-    bool sign = false;
-    auto const *it = begin;
-    if (*it == '-') {
-        sign = true;
-        ++it; // NOLINT
-    }
-    if (it == end) {
-        throw std::invalid_argument("double expected");
-    }
-    unsigned int mul=1;
-    for (; it != end; ++it) { // NOLINT
-        if ('0' <= *it && *it <= '9') {
-            ret = ret*(mul == 1 ? 10 : 1) + (double(*it - '0')/mul); // NOLINT
-            mul = mul * (mul == 1 ? 1 : 10);
-        }
-        else if (*it == '.' && mul == 1) {
-            mul*=10;
-        }
-        else
-            throw std::invalid_argument("double expected");
-    }
-    return sign ? -ret : ret;
-}
-
-template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
+template<class T, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()>
 [[nodiscard]] T parse_num(char const *begin, char const *end = nullptr) {
     static_assert(min <= max);
     if (strncmp(begin, "min", end - begin) == 0) {

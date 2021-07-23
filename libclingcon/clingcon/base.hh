@@ -72,7 +72,7 @@ constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
 constexpr uint64_t DEFAULT_CLAUSE_LIMIT_TOTAL{1000000};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
-constexpr double DEFAULT_WEIGHT_CONSTRAINT_RATIO{1.0f};
+constexpr double DEFAULT_WEIGHT_CONSTRAINT_RATIO{1.0};
 constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
 constexpr uint32_t DEFAULT_TRANSLATE_MINIMIZE{0};
 constexpr bool DEFAULT_CHECK_SOLUTION{true};
