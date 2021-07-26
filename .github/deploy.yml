@@ -17,7 +17,7 @@ pip:
     build_depends_release: |
         python3 -m pip install --user clingo
     build_depends_dev: |
-        python3 -m pip install --user --extra-index-url https://test.pypi.org/simple/ clingo-cffi
+        python3 -m pip install --user --extra-index-url https://test.pypi.org/simple/ clingo
     winmac_images:
         macos-10.15:
         windows-2016:

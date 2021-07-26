@@ -8,8 +8,6 @@ from subprocess import check_output, check_call, CalledProcessError
 from os import unlink, environ, path, mkdir
 from glob import glob
 
-from rename import rename_clingo_cffi
-
 ARCH = check_output(['uname', '-m']).decode().strip()
 
 
@@ -55,7 +53,7 @@ def compile_wheels(idx):
     '''
     for pybin in glob('/opt/python/*/bin'):
         # Requires Py3.6 or greater - on the docker image 3.5 is cp35-cp35m
-        if "35" not in pybin and not "310" in pybin:
+        if "35" not in pybin and "310" not in pybin:
             args = [path.join(pybin, 'pip'), 'wheel', '--verbose', '--no-deps', '-w', 'wheelhouse/']
             if idx is not None:
                 args.extend(['--extra-index-url', idx])
@@ -88,7 +86,6 @@ def run():
     else:
         url = 'https://test.pypi.org/simple'
         idx = 'https://test.pypi.org/simple/'
-        rename_clingo_cffi()
 
     adjust_version(url)
 
