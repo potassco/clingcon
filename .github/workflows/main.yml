@@ -17,23 +17,20 @@ jobs:
           - os: 'ubuntu-latest'
             generator: 'Ninja'
             build_type: 'Debug'
-            conda_compiler: 'gxx_linux-64'
             channels: 'potassco/label/dev'
+            env_file: '.github/linux-env.yml'
           - os: 'macos-latest'
             generator: 'Ninja'
             build_type: 'Debug'
-            conda_compiler: 'cxx-compiler'
-            channels: 'potassco/label/dev,conda-forge'
+            env_file: '.github/generic-env.yml'
           - os: 'windows-2016'
             generator: 'Visual Studio 15 2017 Win64'
             build_type: 'Release'
-            conda_compiler: 'cxx-compiler'
-            channels: 'potassco/label/dev,conda-forge'
+            env_file: '.github/generic-env.yml'
           - os: 'windows-2019'
             generator: 'Visual Studio 16 2019'
             build_type: 'Release'
-            conda_compiler: 'cxx-compiler'
-            channels: 'potassco/label/dev,conda-forge'
+            env_file: '.github/generic-env.yml'
 
     steps:
     - uses: actions/checkout@v2
@@ -42,24 +39,19 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
-        python-version: ${{ matrix.python-version }}
         activate-environment: clingcon
-        channels: ${{ matrix.channels }}
-
-    - name: install prerequisites
-      shell: pwsh
-      run: conda install clingo cmake ninja "${{ matrix.conda_compiler }}"
+        python-version: ${{ matrix.python-version }}
+        environment-file: ${{ matrix.env_file }}
 
     - name: print info
-      shell: pwsh
+      shell: bash -l {0}
       run: |
-        conda activate clingcon
         env
         conda info
         conda list
 
     - name: build and test
-      shell: pwsh
+      shell: bash -l {0}
       run: >
         ctest
         --build-config "${{ matrix.build_type }}"
