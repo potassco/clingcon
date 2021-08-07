@@ -136,9 +136,9 @@ template<class T>
     return val;
 }
 
-template<class T, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()>
-[[nodiscard]] T parse_num(char const *begin, char const *end = nullptr) {
-    static_assert(min <= max);
+template<class T>
+[[nodiscard]] T parse_range_num(char const *begin, char const *end = nullptr, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+    assert(min <= max);
     if (strncmp(begin, "min", end - begin) == 0) {
         return min;
     }
@@ -152,32 +152,15 @@ template<class T, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_lim
     throw std::invalid_argument("invalid argument");
 }
 
-[[nodiscard]] double parse_num(char const *begin, char const *end = nullptr, double min=std::numeric_limits<double>::lowest(), double max=std::numeric_limits<double>::max()) {
-    assert(min <= max);
-    if (strncmp(begin, "min", end - begin) == 0) {
-        return min;
-    }
-    if (strncmp(begin, "max", end - begin) == 0) {
-        return max;
-    }
-    auto res = strtonum<double>(begin, end);
-    if (min <= res && res <= max) {
-        return res;
-    }
-    throw std::invalid_argument("invalid argument");
+template<class T>
+[[nodiscard]] T parse_num(char const *begin, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+    return parse_range_num(begin, nullptr, min, max);
 }
 
-template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
-[[nodiscard]] std::function<bool (const char *)> parser_num(T &dest) {
-    return [&dest](char const *value) {
-        dest = parse_num<T>(value);
-        return true;
-    };
-}
-
-[[nodiscard]] std::function<bool (const char *)> parser_num(double &dest, double min=std::numeric_limits<double>::lowest(), double max=std::numeric_limits<double>::max()) {
-    return [&dest, min, max](char const *value) {
-        dest = parse_num(value, nullptr, min, max);
+template<class T>
+[[nodiscard]] std::function<bool (const char *)> parser_num(T &dest, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+    return [&](char const *value) {
+        dest = parse_num<T>(value, min, max);
         return true;
     };
 }
@@ -246,7 +229,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
-        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+        thread = parse_num<uint32_t>(comma + 1, 0, MAX_THREADS - 1); // NOLINT
     }
 
     return {parse_bool(value, comma) ? 1 : 0, thread};
@@ -256,7 +239,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
-        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+        thread = parse_num<uint32_t>(comma + 1, 0, MAX_THREADS - 1); // NOLINT
     }
 
     if (std::strncmp(value, "+", comma - value) == 0) {
@@ -265,7 +248,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     if (std::strncmp(value, "-", comma - value) == 0) {
         return {std::numeric_limits<val_t>::min(), thread};
     }
-    return {parse_num<val_t>(value, comma), thread};
+    return {parse_range_num<val_t>(value, comma), thread};
 }
 
 [[nodiscard]] std::pair<uint32_t, std::optional<uint64_t>> parse_translate_clause(char const *value) {
@@ -274,14 +257,14 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     if (*comma != '\0') {
         total = parse_num<val_t>(comma + 1); // NOLINT
     }
-    return {parse_num<uint32_t>(value, comma), total};
+    return {parse_range_num<uint32_t>(value, comma), total};
 }
 
 [[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_heuristic(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
-        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+        thread = parse_num<uint32_t>(comma + 1, 0, MAX_THREADS - 1); // NOLINT
     }
 
     if (std::strncmp(value, "none", comma - value) == 0) {
@@ -405,7 +388,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.literals_only = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-pb") == 0) {
-            config.weight_constraint_ratio = parse_num(value);
+            config.weight_constraint_ratio = parse_num<double>(value);
         }
         else if (std::strcmp(key, "translate-distinct") == 0) {
             config.distinct_limit = parse_num<uint32_t>(value);
@@ -418,10 +401,10 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
         }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
-            config.min_int = parse_num<val_t, MIN_VAL, MAX_VAL>(value);
+            config.min_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
         }
         else if (std::strcmp(key, "max-int") == 0) {
-            config.max_int = parse_num<val_t, MIN_VAL, MAX_VAL>(value);
+            config.max_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
         }
         else if (std::strcmp(key, "check-solution") == 0) {
             config.check_solution = parse_bool(value);
@@ -552,11 +535,11 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
         opts.add(
             group, "min-int,@2",
             format("Set minimum integer [", config.min_int, "]").c_str(),
-            parser_num<val_t, MIN_VAL, MAX_VAL>(config.min_int), false, "<i>");
+            parser_num<val_t>(config.min_int, MIN_VAL, MAX_VAL), false, "<i>");
         opts.add(
             group, "max-int,@2",
             format("Set maximum integer [", config.max_int, "]").c_str(),
-            parser_num<val_t, MIN_VAL, MAX_VAL>(config.max_int), false, "<i>");
+            parser_num<val_t>(config.max_int, MIN_VAL, MAX_VAL), false, "<i>");
         opts.add_flag(
             group, "check-solution,@2",
             format("Verify solutions [", flag_str(config.check_solution), "]").c_str(),
