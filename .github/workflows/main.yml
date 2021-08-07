@@ -17,15 +17,23 @@ jobs:
           - os: 'ubuntu-latest'
             generator: 'Ninja'
             build_type: 'Debug'
+            conda_compiler: 'gxx_linux-64'
+            channels: 'potassco/label/dev'
           - os: 'macos-latest'
             generator: 'Ninja'
             build_type: 'Debug'
+            conda_compiler: 'cxx-compiler'
+            channels: 'potassco/label/dev,conda-forge'
           - os: 'windows-2016'
             generator: 'Visual Studio 15 2017 Win64'
             build_type: 'Release'
+            conda_compiler: 'cxx-compiler'
+            channels: 'potassco/label/dev,conda-forge'
           - os: 'windows-2019'
             generator: 'Visual Studio 16 2019'
             build_type: 'Release'
+            conda_compiler: 'cxx-compiler'
+            channels: 'potassco/label/dev,conda-forge'
 
     steps:
     - uses: actions/checkout@v2
@@ -36,15 +44,17 @@ jobs:
         auto-update-conda: true
         python-version: ${{ matrix.python-version }}
         activate-environment: clingcon
-        channels: potassco/label/dev,conda-forge
+        channels: ${{ matrix.channels }}
 
     - name: install prerequisites
       shell: pwsh
-      run: conda install clingo cmake ninja cxx-compiler
+      run: conda install clingo cmake ninja "${{ matrix.conda_compiler }}"
 
     - name: print info
       shell: pwsh
       run: |
+        conda activate clingcon
+        env
         conda info
         conda list
 
