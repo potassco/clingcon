@@ -1,0 +1,9 @@
+name: clingcon
+channels:
+  - potassco/label/dev
+  - conda-forge
+dependencies:
+  - clingo 
+  - cmake
+  - ninja
+  - cxx-compiler
