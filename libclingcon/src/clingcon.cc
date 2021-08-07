@@ -118,7 +118,6 @@ template <typename... Args>
     return oss.str();
 }
 
-
 template<class T>
 [[nodiscard]] T strtonum(char const *ib, char const *ie) {
     if (!ie) {

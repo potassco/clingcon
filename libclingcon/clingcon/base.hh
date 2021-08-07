@@ -232,14 +232,14 @@ struct Config {
     }
 
     std::forward_list<SolverConfig> solver_configs;
-    val_t min_int{DEFAULT_MIN_INT};
-    val_t max_int{DEFAULT_MAX_INT};
+    SolverConfig default_solver_config;
+    double weight_constraint_ratio{DEFAULT_WEIGHT_CONSTRAINT_RATIO};
     uint64_t clause_limit_total{DEFAULT_CLAUSE_LIMIT_TOTAL};
     uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
     uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
     uint32_t translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
-    SolverConfig default_solver_config;
-    double weight_constraint_ratio{DEFAULT_WEIGHT_CONSTRAINT_RATIO};
+    val_t min_int{DEFAULT_MIN_INT};
+    val_t max_int{DEFAULT_MAX_INT};
     bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
     bool literals_only{DEFAULT_LITERALS_ONLY};
     bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};
