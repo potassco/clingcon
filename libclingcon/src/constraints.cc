@@ -448,7 +448,7 @@ public:
         assert(lower >= 0);
 
         // translation to weight constraints
-        if (config.weight_constraint_ratio >= domain2variable_ratio_(solver)) {
+        if (literal_variable_ratio_(solver) <= config.weight_constraint_ratio) {
             return weight_translate_(solver, cc, lower);
         }
 
@@ -487,15 +487,31 @@ private:
         return constraint_.rhs();
     }
 
-    //! Check if constraint consists only of binary variables.
-    double domain2variable_ratio_(Solver &solver) const {
-        if (constraint_.size() == 0) return 0;
-        double ret = 0;
+    //! Estimate the size of the translation in terms of the number of literals
+    //! necessary for the weight constraint.
+    double literal_variable_ratio_(Solver &solver) const {
+        sum_t n = 0;
+        sum_t estimate = 0;
+        sum_t slack = rhs(solver) - lower_bound_;
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);
-            ret += vs.upper_bound() - vs.lower_bound();
+            if (vs.lower_bound() != vs.upper_bound()) {
+                n += 1;
+            }
+            if (co > 0) {
+                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto value = floordiv<sum_t>(diff, co);
+                assert (value >= vs.lower_bound());
+                estimate += std::min<sum_t>(value + 1, vs.upper_bound()) - vs.lower_bound();
+            }
+            else {
+                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto value = -floordiv<sum_t>(diff, -co);
+                assert(value <= vs.upper_bound());
+                estimate += vs.upper_bound() - std::max<sum_t>(value - 1, vs.lower_bound());
+            }
         }
-        return ret/constraint_.size();
+        return n > 0 ? static_cast<double>(estimate) / n : 0;
     }
 
     //! Translate the constraint to weight a constraint.
