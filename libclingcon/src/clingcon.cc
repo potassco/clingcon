@@ -462,11 +462,11 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             config.literals_only);
         opts.add(
             group, "translate-pb",
-            format("Restrict translation to <n> literals per variable on average per PB constraint [", config.weight_constraint_ratio, "]").c_str(),
-            parser_num(config.weight_constraint_ratio), false, "<n>");
+            format("Translate to weight constraints if ratio of variables and literals is less equal <r> [", config.weight_constraint_ratio, "]").c_str(),
+            parser_num(config.weight_constraint_ratio), false, "<r>");
         opts.add(
             group, "translate-distinct",
-            format("Restrict translation of distinct constraints <n> pb constraints [", config.distinct_limit, "]").c_str(),
+            format("Restrict translation of distinct constraints to <n> pb constraints [", config.distinct_limit, "]").c_str(),
             parser_num<uint32_t>(config.distinct_limit), false, "<n>");
         opts.add(
             group, "translate-opt",
