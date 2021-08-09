@@ -6,8 +6,6 @@ import argparse
 from re import finditer, escape, match, sub, search
 from subprocess import check_call, check_output
 
-from rename import rename_clingo_cffi
-
 def adjust_version(url):
     '''
     Adjust version in setup.py.
@@ -48,7 +46,6 @@ def run():
     parser.add_argument('--release', action='store_true', help='Build release package.')
     args = parser.parse_args()
     if args.release:
-        rename_clingo_cffi()
         url = 'https://pypi.org/simple'
     else:
         url = 'https://test.pypi.org/simple'

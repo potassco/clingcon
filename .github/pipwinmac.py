@@ -13,8 +13,6 @@ from os import environ, pathsep
 import os
 import argparse
 
-from rename import rename_clingo_cffi
-
 NAMES = {
     "cpython": "cp",
     "pypy": "pp",
@@ -76,7 +74,6 @@ def run():
     args = parser.parse_args()
 
     if args.release:
-        rename_clingo_cffi()
         url = 'https://pypi.org/simple'
         idx = None
     else:
