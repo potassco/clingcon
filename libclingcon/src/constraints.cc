@@ -446,17 +446,18 @@ public:
 
         // Note: otherwise propagation is broken
         assert(lower >= 0);
+
+        // translation to weight constraints
+        if (literal_variable_ratio_(solver) <= config.weight_constraint_ratio) {
+            return weight_translate_(solver, cc, lower);
+        }
+
         bool translate =
             cc.statistics().translate_clauses < config.clause_limit_total &&
             clause_estimate_(solver, lower, upper, config.clause_limit);
         if (translate) {
             auto ret = clause_translate_(solver, cc, lower, upper, config.literals_only);
             return {ret, !config.literals_only};
-        }
-
-        // translation to weight constraints
-        if (weight_estimate_(solver) < config.weight_constraint_limit) {
-            return weight_translate_(solver, cc, lower);
         }
 
         return {true, false};
@@ -488,11 +489,15 @@ private:
 
     //! Estimate the size of the translation in terms of the number of literals
     //! necessary for the weight constraint.
-    sum_t weight_estimate_(Solver &solver) const {
+    double literal_variable_ratio_(Solver &solver) const {
+        sum_t n = 0;
         sum_t estimate = 0;
         sum_t slack = rhs(solver) - lower_bound_;
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);
+            if (vs.lower_bound() != vs.upper_bound()) {
+                n += 1;
+            }
             if (co > 0) {
                 auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
                 auto value = floordiv<sum_t>(diff, co);
@@ -506,7 +511,7 @@ private:
                 estimate += vs.upper_bound() - std::max<sum_t>(value - 1, vs.lower_bound());
             }
         }
-        return estimate;
+        return n > 0 ? static_cast<double>(estimate) / n : 0;
     }
 
     //! Translate the constraint to weight a constraint.

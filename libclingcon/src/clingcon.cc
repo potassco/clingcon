@@ -29,6 +29,9 @@
 #include <clingo.hh>
 #include <stdexcept>
 #include <sstream>
+#include <locale>
+#include <cstring>
+#include <sstream>
 #include <map>
 
 #define CLINGCON_TRY try // NOLINT
@@ -116,44 +119,25 @@ template <typename... Args>
 }
 
 template<class T>
-[[nodiscard]] T strtonum(char const *begin, char const *end) {
-    if (!end) {
-        end = begin + std::strlen(begin); // NOLINT
+[[nodiscard]] T strtonum(char const *ib, char const *ie) {
+    if (!ie) {
+        ie = ib + std::strlen(ib); // NOLINT
     }
-    T ret = 0;
-    bool sign = false;
-    auto const *it = begin;
-    if constexpr (std::is_signed_v<T>) {
-        if (*it == '-') {
-            sign = true;
-            ++it; // NOLINT
-        }
+    std::istringstream iss{std::string{ib, ie}};
+    iss.imbue(std::locale::classic());
+    iss.exceptions(std::iostream::failbit);
+    iss.unsetf(std::ios_base::skipws);
+    T val;
+    iss >> val;
+    if (!iss.eof()) {
+        throw std::runtime_error("number expected");
     }
-    else {
-        static_cast<void>(sign);
-    }
-    if (it == end) {
-        throw std::invalid_argument("integer expected");
-    }
-    for (; it != end; ++it) { // NOLINT
-        if ('0' <= *it && *it <= '9') {
-            ret = safe_add<T>(safe_mul<T>(ret, 10), *it - '0'); // NOLINT
-        }
-        else {
-            throw std::invalid_argument("integer expected");
-        }
-    }
-    if constexpr (std::is_signed_v<T>) {
-        return sign ? safe_inv<T>(ret) : ret;
-    }
-    else {
-        return ret;
-    }
+    return val;
 }
 
-template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
-[[nodiscard]] T parse_num(char const *begin, char const *end = nullptr) {
-    static_assert(min <= max);
+template<class T>
+[[nodiscard]] T parse_range_num(char const *begin, char const *end = nullptr, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+    assert(min <= max);
     if (strncmp(begin, "min", end - begin) == 0) {
         return min;
     }
@@ -167,10 +151,15 @@ template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits
     throw std::invalid_argument("invalid argument");
 }
 
-template<class T, T min=std::numeric_limits<T>::min(), T max=std::numeric_limits<T>::max()>
-[[nodiscard]] std::function<bool (const char *)> parser_num(T &dest) {
-    return [&dest](char const *value) {
-        dest = parse_num<T>(value);
+template<class T>
+[[nodiscard]] T parse_num(char const *begin, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+    return parse_range_num(begin, nullptr, min, max);
+}
+
+template<class T>
+[[nodiscard]] std::function<bool (const char *)> parser_num(T &dest, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+    return [&](char const *value) {
+        dest = parse_num<T>(value, min, max);
         return true;
     };
 }
@@ -239,7 +228,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
-        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+        thread = parse_num<uint32_t>(comma + 1, 0, MAX_THREADS - 1); // NOLINT
     }
 
     return {parse_bool(value, comma) ? 1 : 0, thread};
@@ -249,7 +238,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
-        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+        thread = parse_num<uint32_t>(comma + 1, 0, MAX_THREADS - 1); // NOLINT
     }
 
     if (std::strncmp(value, "+", comma - value) == 0) {
@@ -258,7 +247,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     if (std::strncmp(value, "-", comma - value) == 0) {
         return {std::numeric_limits<val_t>::min(), thread};
     }
-    return {parse_num<val_t>(value, comma), thread};
+    return {parse_range_num<val_t>(value, comma), thread};
 }
 
 [[nodiscard]] std::pair<uint32_t, std::optional<uint64_t>> parse_translate_clause(char const *value) {
@@ -267,14 +256,14 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     if (*comma != '\0') {
         total = parse_num<val_t>(comma + 1); // NOLINT
     }
-    return {parse_num<uint32_t>(value, comma), total};
+    return {parse_range_num<uint32_t>(value, comma), total};
 }
 
 [[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_heuristic(char const *value) {
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
-        thread = parse_num<uint32_t, 0, MAX_THREADS - 1>(comma + 1); // NOLINT
+        thread = parse_num<uint32_t>(comma + 1, 0, MAX_THREADS - 1); // NOLINT
     }
 
     if (std::strncmp(value, "none", comma - value) == 0) {
@@ -398,7 +387,7 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.literals_only = parse_bool(value);
         }
         else if (std::strcmp(key, "translate-pb") == 0) {
-            config.weight_constraint_limit = parse_num<uint32_t>(value);
+            config.weight_constraint_ratio = parse_num<double>(value);
         }
         else if (std::strcmp(key, "translate-distinct") == 0) {
             config.distinct_limit = parse_num<uint32_t>(value);
@@ -411,10 +400,10 @@ extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, c
         }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
-            config.min_int = parse_num<val_t, MIN_VAL, MAX_VAL>(value);
+            config.min_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
         }
         else if (std::strcmp(key, "max-int") == 0) {
-            config.max_int = parse_num<val_t, MIN_VAL, MAX_VAL>(value);
+            config.max_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
         }
         else if (std::strcmp(key, "check-solution") == 0) {
             config.check_solution = parse_bool(value);
@@ -473,11 +462,11 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             config.literals_only);
         opts.add(
             group, "translate-pb",
-            format("Restrict translation to <n> literals per pb constraint [", config.weight_constraint_limit, "]").c_str(),
-            parser_num<uint32_t>(config.weight_constraint_limit), false, "<n>");
+            format("Translate to weight constraints if ratio of variables and literals is less equal <r> [", config.weight_constraint_ratio, "]").c_str(),
+            parser_num(config.weight_constraint_ratio), false, "<r>");
         opts.add(
             group, "translate-distinct",
-            format("Restrict translation of distinct constraints <n> pb constraints [", config.distinct_limit, "]").c_str(),
+            format("Restrict translation of distinct constraints to <n> pb constraints [", config.distinct_limit, "]").c_str(),
             parser_num<uint32_t>(config.distinct_limit), false, "<n>");
         opts.add(
             group, "translate-opt",
@@ -545,11 +534,11 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
         opts.add(
             group, "min-int,@2",
             format("Set minimum integer [", config.min_int, "]").c_str(),
-            parser_num<val_t, MIN_VAL, MAX_VAL>(config.min_int), false, "<i>");
+            parser_num<val_t>(config.min_int, MIN_VAL, MAX_VAL), false, "<i>");
         opts.add(
             group, "max-int,@2",
             format("Set maximum integer [", config.max_int, "]").c_str(),
-            parser_num<val_t, MIN_VAL, MAX_VAL>(config.max_int), false, "<i>");
+            parser_num<val_t>(config.max_int, MIN_VAL, MAX_VAL), false, "<i>");
         opts.add_flag(
             group, "check-solution,@2",
             format("Verify solutions [", flag_str(config.check_solution), "]").c_str(),

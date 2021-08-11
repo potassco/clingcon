@@ -72,7 +72,7 @@ constexpr bool DEFAULT_SORT_CONSTRAINTS{true};
 constexpr uint64_t DEFAULT_CLAUSE_LIMIT_TOTAL{1000000};
 constexpr uint32_t DEFAULT_CLAUSE_LIMIT{1000};
 constexpr bool DEFAULT_LITERALS_ONLY{false};
-constexpr uint32_t DEFAULT_WEIGHT_CONSTRAINT_LIMIT{0};
+constexpr double DEFAULT_WEIGHT_CONSTRAINT_RATIO{1.0};
 constexpr uint32_t DEFAULT_DISTINCT_LIMIT{1000};
 constexpr uint32_t DEFAULT_TRANSLATE_MINIMIZE{0};
 constexpr bool DEFAULT_CHECK_SOLUTION{true};
@@ -232,14 +232,14 @@ struct Config {
     }
 
     std::forward_list<SolverConfig> solver_configs;
-    val_t min_int{DEFAULT_MIN_INT};
-    val_t max_int{DEFAULT_MAX_INT};
+    SolverConfig default_solver_config;
+    double weight_constraint_ratio{DEFAULT_WEIGHT_CONSTRAINT_RATIO};
     uint64_t clause_limit_total{DEFAULT_CLAUSE_LIMIT_TOTAL};
     uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
-    uint32_t weight_constraint_limit{DEFAULT_WEIGHT_CONSTRAINT_LIMIT};
     uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
     uint32_t translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
-    SolverConfig default_solver_config;
+    val_t min_int{DEFAULT_MIN_INT};
+    val_t max_int{DEFAULT_MAX_INT};
     bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
     bool literals_only{DEFAULT_LITERALS_ONLY};
     bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};
