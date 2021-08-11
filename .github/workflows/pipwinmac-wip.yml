@@ -32,7 +32,7 @@ jobs:
 
     - name: Install pip prerequisites
       run: |
-        pip install --user cffi scikit-build cmake ninja twine
+        pip install --user toml cffi scikit-build cmake ninja twine
 
     - name: Compile and upload wheels (wip)
       if: ${{ github.event.inputs.wip == 'true' }}
