@@ -137,6 +137,11 @@ public:
     [[nodiscard]] bool has_minimize() const {
         return minimize_ != nullptr;
     }
+    //! Get a reference to the propagator's minimize constraint.
+    MinimizeConstraint const &get_minimize() {
+        assert(has_minimize());
+        return *minimize_;
+    }
 
     //! Evaluates the minimize constraint w.r.t. the given thread.
     //!
