@@ -158,7 +158,7 @@ template<class T>
 
 template<class T>
 [[nodiscard]] std::function<bool (const char *)> parser_num(T &dest, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
-    return [&](char const *value) {
+    return [&dest, min, max](char const *value) {
         dest = parse_num<T>(value, min, max);
         return true;
     };
