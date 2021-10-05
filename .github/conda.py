@@ -41,7 +41,7 @@ def run():
         channels = ['potassco']
     else:
         label = "dev"
-        channels = ['potassco', 'potassco/label/dev']
+        channels = ['potassco/label/dev', 'potassco']
 
     version = None
     with open('libclingcon/clingcon.h') as fh:
