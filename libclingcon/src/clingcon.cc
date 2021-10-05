@@ -317,6 +317,18 @@ extern "C" bool clingcon_create(clingcon_theory_t **theory) {
     CLINGCON_CATCH;
 }
 
+extern "C" void clingcon_version(int *major, int *minor, int *patch) {
+    if (major != nullptr) {
+        *major = CLINGCON_VERSION_MAJOR;
+    }
+    if (minor != nullptr) {
+        *minor = CLINGCON_VERSION_MINOR;
+    }
+    if (patch != nullptr) {
+        *patch = CLINGCON_VERSION_REVISION;
+    }
+}
+
 extern "C" bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control) {
     // Note: The decide function is passed here for performance reasons.
     auto &config = theory->propagator.config();

@@ -7,9 +7,9 @@ from . import ClingconTheory
 
 class Application(clingo.Application):
     def __init__(self, name):
-        self.program_name = name
-        self.version = "1.0"
         self.__theory = ClingconTheory()
+        self.program_name = name
+        self.version = ".".join(str(x) for x in self.__theory.version())
 
     def register_options(self, options):
         self.__theory.register_options(options)
@@ -18,7 +18,7 @@ class Application(clingo.Application):
         self.__theory.validate_options()
         return True
 
-    def print_model(self, model, default_printer):
+    def print_model(self, model, printer):
         # print model
         symbols = model.symbols(shown=True)
         sys.stdout.write(" ".join(str(symbol) for symbol in sorted(symbols) if not self.__hidden(symbol)))
@@ -43,16 +43,16 @@ class Application(clingo.Application):
 
         sys.stdout.flush()
 
-    def main(self, ctl, files):
-        self.__theory.register(ctl)
+    def main(self, control, files):
+        self.__theory.register(control)
 
-        with ast.ProgramBuilder(ctl) as bld:
+        with ast.ProgramBuilder(control) as bld:
             ast.parse_files(files, lambda stm: self.__theory.rewrite_ast(stm, bld.add))
 
-        ctl.ground([("base", [])])
-        self.__theory.prepare(ctl)
+        control.ground([("base", [])])
+        self.__theory.prepare(control)
 
-        ctl.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
+        control.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
 
     def __on_model(self, model):
         self.__theory.on_model(model)

@@ -96,6 +96,9 @@ typedef struct clingcon_theory clingcon_theory_t;
 //! Callback to rewrite statements (see ::clingcon_rewrite_ast).
 typedef bool (*clingcon_ast_callback_t)(clingo_ast_t *ast, void *data);
 
+//! Return the version of the theory.
+CLINGCON_VISIBILITY_DEFAULT void clingcon_version(int *major, int *minor, int *patch);
+
 //! Creates the theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_create(clingcon_theory_t **theory);
 
