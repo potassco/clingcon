@@ -2,10 +2,16 @@
 
 ![clingcon CI tests](https://github.com/potassco/clingcon/workflows/tests/badge.svg)
 
-The clingcon-5 project is still in development. A release has to wait until
-clingo-5.5.0 is ready. The project is already usable with the latest
-development version of clingo. The latest stable clingcon release is 3.3.0
-available under the [releases][release] tab and in the [clingcon-3] branch.
+Clingcon is an answer set solver for constraint logic programs building upon
+the answer set solver [clingo]. It extends the high-level modeling language of
+ASP with constraints over finite domain integer variables.
+
+The latest source release is available under the [releases][release] tab.
+Binary packages can be installed using on of the following package managers:
+
+- Packages for a wide range of platforms are available on [Anaconda][conda]
+- Ubuntu users can install packages from our [Ubuntu PPA][ubuntu]
+- Clingcon's Python module is available on [PyPI][pypi]
 
 ## Building a release version with conda
 
@@ -35,6 +41,9 @@ is also possible to create a compile database to use with linting plugins.
 With this, plugins like [vim-ale] should be able to lint the source code while
 editing.
 
-[vim-ale]: https://github.com/dense-analysis/ale
-[release]: https://github.com/potassco/clingcon/releases
-[clingcon-3]: https://github.com/potassco/clingcon/tree/clingcon-3
+[vim-ale]: https://github.com/dense-analysis/ale/
+[release]: https://github.com/potassco/clingcon/releases/
+[clingo]: https://github.com/potassco/clingo/
+[conda]: https://anaconda.org/conda-forge/clingcon/
+[pypi]: https://pypi.org/project/clingcon/
+[ubuntu]: https://launchpad.net/~potassco/
