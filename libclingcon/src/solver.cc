@@ -867,9 +867,9 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
     // Note: Most of the time check has to be called only for levels that have
     // also been propagated. The exception is if a minimize constraint has to
     // be integrated when backtracking from a bound update.
-    if (ass.decision_level() != lvl.level() && lvl.level() >= minimize_level_) {
-        return true;
-    }
+    //if (ass.decision_level() != lvl.level() && lvl.level() > minimize_level_) {
+    //    return true;
+    //}
 
     // Note: We have to loop here because watches for the true/false literals
     // do not fire again.
