@@ -18,7 +18,7 @@ function dispatch() {
       -d "{\"ref\":\"$3\",\"inputs\":{\"wip\":\"$2\"${4:+,$4}}}"
 }
 
-branch=wip
+branch=rebuild
 wip=true
 
 case $1 in
@@ -38,16 +38,8 @@ case $1 in
         dispatch 5239780 $wip $branch '"image":"manylinux2014_aarch64"'
         ;&
     dev)
-        # .github/workflows/conda-dev.yml
-        dispatch 5239781 $wip $branch
-        # .github/workflows/manylinux.yml
-        dispatch 5239780 $wip $branch
-        #.github/workflows/pipsource.yml
-        dispatch 5239782 $wip $branch
         # .github/workflows/pipwinmac-wip.yml
         dispatch 5239783 $wip $branch
-        # .github/workflows/ppa-dev.yml
-        dispatch 5245822 $wip $branch
         ;;
     *)
         echo "usage: trigger {list,dev,release}"
