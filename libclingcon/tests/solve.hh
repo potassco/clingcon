@@ -89,17 +89,8 @@ public:
 
 inline std::vector<Config> create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
-    constexpr uint32_t m = 1000;
-    constexpr double r = 1.0;
-    constexpr uint64_t f = m * 10;
-    constexpr uint32_t o = std::numeric_limits<uint32_t>::max();
     auto configs = {
         Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, false, false, false, true, true},  // basic
-        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, true,  false, false, true, true},  // sort constraints
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true,  false, false, true, true},  // translate
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true,  false, true,  true, true},  // translate + order clauses
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true,  true,  false, true, true},  // translate literals only
-        Config{{}, sconfig, r, f, 0, m, o, min_int, max_int, true,  false, false, true, true},  // translate weight constraints
     };
     return configs;
 }
