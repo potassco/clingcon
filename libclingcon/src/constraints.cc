@@ -216,7 +216,7 @@ public:
             reason.emplace_back(-clit);
 
             solver.mark_inactive(*this);
-            return cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt);
+            return cc.add_clause(reason, Clingo::ClauseType::Learnt);
         }
 
         if (!ass.is_true(clit)) {
@@ -295,7 +295,7 @@ public:
                 }
 
                 // propagate the clause
-                if (!cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt)) {
+                if (!cc.add_clause(reason, Clingo::ClauseType::Learnt)) {
                     return false;
                 }
 
