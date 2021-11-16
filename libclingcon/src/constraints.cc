@@ -133,19 +133,26 @@ public:
 
         if (T::marked_inactive()) {
             if (lhs > T::upper_bound_) {
+                std::cerr << "invalid inactive constraint: " << typeid(this).name() << std::endl;
                 throw std::logic_error("invalid solution");
             }
         }
         else {
             if (lhs != T::upper_bound_) {
+                std::cerr << "invalid upper bound: " << typeid(this).name() << std::endl;
+                std::cerr << "  " << lhs << " > " << T::upper_bound_ << std::endl;
                 throw std::logic_error("invalid solution");
             }
             if (lhs > T::lower_bound_) {
+                std::cerr << "invalid lower bound: " << typeid(this).name() << std::endl;
+                std::cerr << "  " << lhs << " > " << T::lower_bound_ << std::endl;
                 throw std::logic_error("invalid solution");
             }
         }
 
         if (lhs > rhs) {
+            std::cerr << "conflicting constraint: " << typeid(this).name() << std::endl;
+            std::cerr << "  " << lhs << " > " << rhs << std::endl;
             throw std::logic_error("invalid solution");
         }
     }
