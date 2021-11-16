@@ -105,7 +105,7 @@ public:
     //! Prepagates the constraint.
     [[nodiscard]] virtual bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) = 0;
     //! Check if the solver meets the state invariants.
-    virtual void check_full(Solver &solver) = 0;
+    virtual void check_full(Solver &solver, int thread_id) = 0;
 
     //! @}
 
@@ -688,7 +688,7 @@ public:
     [[nodiscard]] std::optional<sum_t> minimize_bound() const;
 
     //! Updates the bound of the minimize constraint in this state.
-    void update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound);
+    void update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound, int thread_id);
 
     //! Watch the given variable notifying given constraint state on changes.
     //!
@@ -721,7 +721,7 @@ public:
     //!
     //! Precondition: update should be called before this function to really
     //! integrate all bounds.
-    [[nodiscard]] bool update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state);
+    [[nodiscard]] bool update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state, int thread_id);
 
     //! Adds a new VarState object and returns its index;
     [[nodiscard]] var_t add_variable(val_t min_int, val_t max_int);
@@ -804,13 +804,13 @@ public:
 
     //! This functions propagates facts that have not been integrated on the
     //! current level and propagates constraints gathered during Solver::propagate.
-    [[nodiscard]] bool check(AbstractClauseCreator &cc, bool check_state);
+    [[nodiscard]] bool check(AbstractClauseCreator &cc, bool check_state, int thread_id);
 
     //! This function selects a variable that is not fully assigned w.r.t. the
     //! current assignment and introduces an additional order literal for it.
     //!
     //! This function should only be called total assignments.
-    void check_full(AbstractClauseCreator &cc, bool check_solution);
+    void check_full(AbstractClauseCreator &cc, bool check_solution, int thread_id);
 
     //! This function undos decision level specific state.
     //!

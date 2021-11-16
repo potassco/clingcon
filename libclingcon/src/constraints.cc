@@ -116,7 +116,7 @@ public:
         return true;
     }
 
-    void check_full(Solver &solver) override {
+    void check_full(Solver &solver, int thread_id) override {
         if (!T::has_rhs(solver)) {
             return;
         }
@@ -133,26 +133,26 @@ public:
 
         if (T::marked_inactive()) {
             if (lhs > T::upper_bound_) {
-                std::cerr << "invalid inactive constraint: " << typeid(this).name() << std::endl;
+                std::cerr << "invalid inactive constraint[" << thread_id << "]: " << typeid(this).name() << std::endl;
                 throw std::logic_error("invalid solution");
             }
         }
         else {
             if (lhs != T::upper_bound_) {
-                std::cerr << "invalid upper bound: " << typeid(this).name() << std::endl;
-                std::cerr << "  " << lhs << " > " << T::upper_bound_ << std::endl;
+                printf("invalid upper bound[%d]: %s\n", thread_id, typeid(this).name());
+                printf("fail[%d]: %d != %d\n", thread_id, (int)lhs, (int)T::upper_bound_);
                 throw std::logic_error("invalid solution");
             }
             if (lhs > T::lower_bound_) {
-                std::cerr << "invalid lower bound: " << typeid(this).name() << std::endl;
-                std::cerr << "  " << lhs << " > " << T::lower_bound_ << std::endl;
+                printf("invalid lower bound[%d]: %s\n", thread_id, typeid(this).name());
+                printf("fail[%d]: %d != %d\n", thread_id, (int)lhs, (int)T::lower_bound_);
                 throw std::logic_error("invalid solution");
             }
         }
 
         if (lhs > rhs) {
-            std::cerr << "conflicting constraint: " << typeid(this).name() << std::endl;
-            std::cerr << "  " << lhs << " > " << rhs << std::endl;
+            printf("conflicting constraint[%d]: %s\n", thread_id, typeid(this).name());
+            printf("fail[%d]: %d < %d\n", thread_id, (int)lhs, (int)rhs);
             throw std::logic_error("invalid solution");
         }
     }
@@ -1044,7 +1044,8 @@ public:
         return true;
     }
 
-    void check_full(Solver &solver) override {
+    void check_full(Solver &solver, int thread_id) override {
+        static_cast<void>(thread_id);
         std::set<sum_t> values;
         for (auto const &element : constraint_)  {
             sum_t value = element.fixed();
@@ -1638,7 +1639,8 @@ public:
             Algorithm<PropagateType::Upper>::run(solver, cc, constraint_.literal(), force_update, intervals_.begin(), intervals_.end());
     }
 
-    void check_full(Solver &solver) override {
+    void check_full(Solver &solver, int thread_id) override {
+        static_cast<void>(thread_id);
         IntervalSet<val_t> assignment;
         for (auto [val, var] : constraint_) {
             auto &vs = solver.var_state(var);

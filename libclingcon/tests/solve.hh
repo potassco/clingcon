@@ -100,6 +100,7 @@ inline S solve(Config const &config, std::string const &prg) {
     p.config() = config;
     SolveEventHandler handler{p};
 
+    printf("******* Solve Step 1 *******\n");
     Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
@@ -138,6 +139,7 @@ inline S solve(Config const &config, std::string const &prg) {
         config.refine_reasons = !config.refine_reasons;
         config.propagate_chain = !config.propagate_chain;
     }
+    printf("******* Solve Step 2 *******\n");
     if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
         throw std::runtime_error("interrupted");
     }

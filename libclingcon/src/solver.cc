@@ -445,15 +445,20 @@ std::optional<sum_t> Solver::minimize_bound() const {
     return minimize_bound_;
 }
 
-void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound) {
+void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound, int thread_id) {
     if (!minimize_bound_.has_value() || bound < *minimize_bound_) {
         minimize_bound_ = bound;
         minimize_level_ = level;
+        printf("make bound smaller[%d@%d]: constraint enqueued: %d\n", thread_id, (int)level, constraint_state(constraint).marked_todo());
         Level::mark_todo(*this, constraint_state(constraint));
     }
     else if (level < minimize_level_) {
+        printf("adjust minimize level[%d@%d]: constraint enqueued: %d\n", thread_id, (int)level, constraint_state(constraint).marked_todo());
         minimize_level_ = level;
         Level::mark_todo(*this, constraint_state(constraint));
+    }
+    else {
+        printf("minimize is unaffected[%d@%d]: previous level was %d\n", thread_id, (int)level, (int)minimize_level_);
     }
 }
 
@@ -700,7 +705,7 @@ bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
         }
         trail_offset_ = trail_offset;
 
-        if (!check(cc, check_state)) {
+        if (!check(cc, check_state, 0)) {
             return false;
         }
     }
@@ -858,7 +863,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
     return true;
 }
 
-bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
+bool Solver::check(AbstractClauseCreator &cc, bool check_state, int thread_id) {
     Timer timer(stats_.time_check);
 
     auto ass = cc.assignment();
@@ -906,6 +911,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
 
             if (!ass.is_false(cs->constraint().literal())) {
                 if (!cs->propagate(*this, cc, check_state)) {
+                    printf("a constraint became conflicting[%d@%d]: assignment has conflict: %d\n", thread_id, (int)ass.decision_level(), (int)ass.has_conflict());
                     ret = false;
                 }
             }
@@ -960,7 +966,7 @@ lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
     return fallback;
 }
 
-void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
+void Solver::check_full(AbstractClauseCreator &cc, bool check_solution, int thread_id) {
     auto split = [&](VarState &vs) {
         if (!vs.is_assigned()) {
             auto value = midpoint(vs.lower_bound(), vs.upper_bound());
@@ -1008,7 +1014,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
         auto ass = cc.assignment();
         for (auto [lit, cs] : lit2cs_) {
             if (ass.is_true(lit)) {
-                cs->check_full(*this);
+                cs->check_full(*this, thread_id);
             }
 
         }
@@ -1035,7 +1041,7 @@ void Solver::update(AbstractClauseCreator &cc) {
     }
 }
 
-bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state) {
+bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state, int thread_id) {
     auto it = var2vs_.begin();
     for (auto &vs_other : other.var2vs_) {
         auto &vs = *it++;
@@ -1058,7 +1064,7 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
     }
 
     // update_domain_ in check makes sure that unnecassary facts are removed
-    return check(cc, check_state);
+    return check(cc, check_state, thread_id);
 }
 
 bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
