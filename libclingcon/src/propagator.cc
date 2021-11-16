@@ -413,7 +413,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
 
     // gather bounds of states in master
     for (auto it = solvers_.begin() + 1, ie = solvers_.end(); it != ie; ++it) {
-        if (!master.update_bounds(cc, *it, config_.check_state)) {
+        if (!master.update_bounds(cc, *it, config_.check_state, 0)) {
             return;
         }
     }
@@ -506,21 +506,25 @@ void Propagator::check(Clingo::PropagateControl &control) {
     auto ass = control.assignment();
     auto size = ass.size();
     auto &solver = solver_(control.thread_id());
+    int thread_id = control.thread_id();
     auto dl = ass.decision_level();
 
     if (minimize_ != nullptr) {
         auto minimize_bound = minimize_bound_.load(std::memory_order_relaxed);
         if (minimize_bound != no_bound) {
             auto bound = minimize_bound + minimize_->adjust();
-            solver.update_minimize(*minimize_, dl, bound);
+            printf("Solver::update_minimize[%d@%d]: set bound to %d\n", (int)thread_id, (int)dl, (int)bound);
+            solver.update_minimize(*minimize_, dl, bound, thread_id);
         }
     }
 
     ControlClauseCreator cc{control, solver.statistics()};
-
-    if (!solver.check(cc, config_.check_state)) {
+    printf("Solver::check[%d@%d]\n", (int)thread_id, (int)dl);
+    if (!solver.check(cc, config_.check_state, thread_id)) {
+        printf("Solver::check[%d@%d]: conflict\n", (int)thread_id, (int)dl);
         return;
     }
+    printf("Solver::check[%d@%d]: no conflict\n", (int)thread_id, (int)dl);
 
     // Note: Makes sure that all variables are assigned in the end. But even if
     // the assignment is total, we do not have to introduce fresh variables if
@@ -528,7 +532,8 @@ void Propagator::check(Clingo::PropagateControl &control) {
     // guaranteed follow-up propagate call because all newly introduced
     // variables are watched.
     if (size == ass.size() && ass.is_total()) {
-        solver.check_full(cc, config_.check_solution);
+        printf("Solver::check_full[%d@%d]: \n", (int)thread_id, (int)dl);
+        solver.check_full(cc, config_.check_solution, control.thread_id());
     }
 }
 
