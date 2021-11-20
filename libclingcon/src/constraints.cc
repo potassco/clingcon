@@ -1367,7 +1367,6 @@ public:
     }
 
     NonlinearConstraintState() = delete;
-    NonlinearConstraintState(NonlinearConstraintState const &) = delete;
     NonlinearConstraintState(NonlinearConstraintState &&) = delete;
     NonlinearConstraintState &operator=(NonlinearConstraintState const &) = delete;
     NonlinearConstraintState &operator=(NonlinearConstraintState &&) = delete;
@@ -1380,14 +1379,20 @@ public:
 
     //! Attach the constraint to a solver.
     void attach(Solver &solver) override {
-        static_cast<void>(solver);
-        throw std::logic_error("implement me!!!");
+        solver.add_var_watch(constraint_.var_a(), 0, *this);
+        solver.add_var_watch(constraint_.var_b(), 1, *this);
+        if (constraint_.has_co_c()) {
+            solver.add_var_watch(constraint_.var_c(), 2, *this);
+        }
     }
 
     //! Detach the constraint from a solver.
     void detach(Solver &solver) override {
-        static_cast<void>(solver);
-        throw std::logic_error("implement me!!!");
+        solver.remove_var_watch(constraint_.var_a(), 0, *this);
+        solver.remove_var_watch(constraint_.var_b(), 1, *this);
+        if (constraint_.has_co_c()) {
+            solver.remove_var_watch(constraint_.var_c(), 2, *this);
+        }
     }
 
     //! Translate a constraint to simpler constraints.
@@ -1396,12 +1401,12 @@ public:
         static_cast<void>(solver);
         static_cast<void>(cc);
         static_cast<void>(added);
-        throw std::logic_error("implement me!!!");
+        return {true, false};
     }
 
     //! Copy the constraint state (for another solver)
     [[nodiscard]] UniqueConstraintState copy() const override {
-        throw std::logic_error("implement me!!!");
+        return std::unique_ptr<NonlinearConstraintState>{new NonlinearConstraintState(*this)};
     }
 
     //! Inform the solver about updated bounds of a variable.
@@ -1409,19 +1414,21 @@ public:
     //! Value i depends on the value passed when registering the watch and diff
     //! is the change to the bound of the watched variable.
     [[nodiscard]] bool update(val_t i, val_t diff) override {
+        // Note: there is no need to calculate intermediate state because the
+        // bound propagation is constant time. The function simply returns true
+        // to enqueue the constraint for propagation.
         static_cast<void>(i);
         static_cast<void>(diff);
-        throw std::logic_error("implement me!!!");
+        return true;
     }
 
     //! Similar to update but when the bound of a variable is backtracked.
     void undo(val_t i, val_t diff) override {
         static_cast<void>(i);
         static_cast<void>(diff);
-        throw std::logic_error("implement me!!!");
     }
 
-    //! Prepagates the constraint.
+    //! Propagates the constraint.
     [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
         static_cast<void>(solver);
         static_cast<void>(cc);
@@ -1431,39 +1438,57 @@ public:
 
     //! Check if the solver meets the state invariants.
     void check_full(Solver &solver) override {
-        static_cast<void>(solver);
-        throw std::logic_error("implement me!!!");
+        // This function asserts that a*b <= (rhs - co_c*c) / co_ab.
+        auto &vs_a = solver.var_state(constraint_.var_a());
+        auto &vs_b = solver.var_state(constraint_.var_b());
+        auto lhs = static_cast<sum_t>(vs_a.lower_bound()) * vs_b.lower_bound();
+        sum_t val_c = 0;
+        if (constraint_.has_co_c()) {
+            auto vs_c = solver.var_state(constraint_.var_c());
+            val_c = static_cast<sum_t>(constraint_.co_c()) * vs_c.lower_bound();
+        }
+        auto rhs = std::lldiv(constraint_.rhs() - val_c, constraint_.co_ab());
+        if (lhs > rhs.quot || (lhs == rhs.quot && rhs.rem < 0)) {
+            throw std::logic_error("invalid solution");
+        }
     }
 
     //! Mark the constraint state as todo item.
     bool mark_todo(bool todo) override {
-        static_cast<void>(todo);
-        throw std::logic_error("implement me!!!");
+        auto ret = todo_;
+        todo_ = todo;
+        return ret;
     }
     //! Returns true if the constraint is marked as todo item.
     [[nodiscard]] bool marked_todo() const override {
-        throw std::logic_error("implement me!!!");
+        return todo_;
     }
 
     //! Returns true if the constraint is removable.
     [[nodiscard]] bool removable() override {
-        throw std::logic_error("implement me!!!");
+        return true;
     }
 
 protected:
     //! Get the level on which the constraint became inactive.
     [[nodiscard]] level_t inactive_level() const override {
-        throw std::logic_error("implement me!!!");
+        return inactive_level_;
     }
 
     //! Set the level on which the constraint became inactive.
     void inactive_level(level_t level) override {
-        static_cast<void>(level);
-        throw std::logic_error("implement me!!!");
+        inactive_level_ = level;
     }
 
 private:
+    NonlinearConstraintState(NonlinearConstraintState const &other)
+    : constraint_{other.constraint_}
+    , inactive_level_{other.inactive_level_}
+    , todo_{other.todo_} { }
+
     NonlinearConstraint &constraint_;
+    level_t inactive_level_{0};
+    bool todo_{false};
 };
 
 //! Capture the state of a disjoint constraint.
