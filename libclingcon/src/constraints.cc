@@ -1428,12 +1428,66 @@ public:
         static_cast<void>(diff);
     }
 
+    std::tuple<val_t, val_t, sum_t> get_bound(val_t co_ab, VarState &vs_a, VarState &vs_b) {
+        auto lhs_ll = static_cast<sum_t>(vs_a.lower_bound()) * vs_b.lower_bound();
+        auto lhs_lu = static_cast<sum_t>(vs_a.lower_bound()) * vs_b.upper_bound();
+        auto lhs_ul = static_cast<sum_t>(vs_a.upper_bound()) * vs_b.lower_bound();
+        auto lhs_uu = static_cast<sum_t>(vs_a.upper_bound()) * vs_b.upper_bound();
+
+        sum_t lhs = co_ab > 0
+            ? std::min({lhs_ll, lhs_lu, lhs_ul, lhs_uu})
+            : std::max({lhs_ll, lhs_lu, lhs_ul, lhs_uu});
+
+        if (lhs == lhs_ll) {
+            return {vs_a.lower_bound(), vs_b.lower_bound(), lhs};
+        }
+        if (lhs == lhs_lu) {
+            return {vs_a.lower_bound(), vs_b.upper_bound(), lhs};
+        }
+        if (lhs == lhs_ul) {
+            return {vs_a.upper_bound(), vs_b.lower_bound(), lhs};
+        }
+        return {vs_a.upper_bound(), vs_b.upper_bound(), lhs};
+    }
+
     //! Propagates the constraint.
     [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
-        static_cast<void>(solver);
+        // this function should be made more similar to the propagation of the sum constraint
         static_cast<void>(cc);
         static_cast<void>(check_state);
-        throw std::logic_error("implement me!!!");
+
+        auto &vs_a = solver.var_state(constraint_.var_a());
+        auto &vs_b = solver.var_state(constraint_.var_b());
+        sum_t co_ab = constraint_.co_ab();
+
+        auto [val_a, val_b, lhs] = get_bound(co_ab, vs_a, vs_b);
+
+        sum_t co_c = constraint_.co_c();
+        sum_t val_c{0};
+        if (co_c != 0) {
+            auto vs_c = solver.var_state(constraint_.var_c());
+            if (co_c < 0) {
+                val_c = vs_c.upper_bound();
+            }
+            else {
+                val_c = vs_c.lower_bound();
+            }
+        }
+
+        auto rhs = floor_div(constraint_.rhs() - co_c * val_c, co_ab);
+        if (co_ab < 0) {
+            auto tmp = lhs;
+            lhs = rhs.quot;
+            rhs.quot = tmp;
+            rhs.rem *= -1;
+        }
+        std::cerr << "check " << co_ab << "*" << val_a << "*" << val_b << " + " << co_c << "*" << val_c << " <= " << constraint_.rhs() << "    constraint_.rhs()(" << (co_ab * val_a * val_b + co_c * val_c) << " <= " << constraint_.rhs() << ")" << std::endl;
+        if (lhs > rhs.quot || (lhs == rhs.quot && rhs.rem < 0)) {
+            std::cerr << "  the constraint is conflicting" << std::endl;
+            throw std::logic_error("the constraint is conflicting");
+        }
+        std::cerr << "  the constraint is not conflicting" << std::endl;
+        return true;
     }
 
     //! Check if the solver meets the state invariants.
@@ -1447,7 +1501,13 @@ public:
             auto vs_c = solver.var_state(constraint_.var_c());
             val_c = static_cast<sum_t>(constraint_.co_c()) * vs_c.lower_bound();
         }
-        auto rhs = std::lldiv(constraint_.rhs() - val_c, constraint_.co_ab());
+        auto rhs = floor_div<sum_t>(constraint_.rhs() - val_c, constraint_.co_ab());
+        if (constraint_.co_ab() < 0) {
+            auto tmp = lhs;
+            lhs = rhs.quot;
+            rhs.quot = tmp;
+            rhs.rem *= -1;
+        }
         if (lhs > rhs.quot || (lhs == rhs.quot && rhs.rem < 0)) {
             throw std::logic_error("invalid solution");
         }
