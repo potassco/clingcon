@@ -90,6 +90,18 @@ public:
         return true;
     }
 
+    [[nodiscard]] bool add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs, bool strict) override {
+        static_cast<void>(lit);
+        static_cast<void>(co_ab);
+        static_cast<void>(var_a);
+        static_cast<void>(var_b);
+        static_cast<void>(co_c);
+        static_cast<void>(var_c);
+        static_cast<void>(rhs);
+        static_cast<void>(strict);
+        throw std::logic_error("implement me!!!");
+    }
+
     void add_minimize(val_t co, var_t var) override {
         minimize_elems_.emplace_back(co, var);
     }

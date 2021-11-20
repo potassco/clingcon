@@ -228,7 +228,7 @@ struct TheoryRewriter {
         }
         if (ast.type() == Type::TheoryAtom) {
             auto term = ast.get<Node>(Attribute::Term);
-            if (match(term, "sum", "diff", "distinct", "disjoint", "minimize", "maximize")) {
+            if (match(term, "sum", "nsum", "diff", "distinct", "disjoint", "minimize", "maximize")) {
                 auto atom = ast.copy();
 
                 auto elements = atom.get<NodeVector>(Attribute::Elements);
@@ -237,7 +237,7 @@ struct TheoryRewriter {
                     *it = rewrite_tuple(*it, number++);
                 }
 
-                if (match(term, "sum", "diff")) {
+                if (match(term, "sum", "nsum", "diff")) {
                     atom.set(Attribute::Term, tag_terms(term, in_literal ? "_b" : "_h"));
                 }
 
@@ -363,25 +363,158 @@ Clingo::Symbol evaluate(Clingo::TheoryTerm const &term) {
     return throw_syntax_error<Clingo::Symbol>();
 }
 
-void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term, bool is_sum, CoVarVec &res) {
-    if (!is_sum) {
+using VarVec = std::vector<var_t>;
+using NonlinearTerm = std::pair<val_t, VarVec>;
+using NonlinearTermVec = std::vector<NonlinearTerm>;
+
+// Note: in our scenario we do not need a good hash function
+struct VectorHash {
+    template <class T>
+    std::size_t operator()(std::vector<T> const &vec) const {
+        std::size_t ret = 0;
+        for (auto &i : vec) {
+            ret += std::hash<T>()(i);
+        }
+        return ret;
+    }
+};
+
+void push_co(val_t co, CoVarVec &res) {
+    res.emplace_back(co, INVALID_VAR);
+}
+
+void push_co_var(val_t co, var_t var, CoVarVec &res) {
+    res.emplace_back(co, var);
+}
+
+void push_co(val_t co, NonlinearTermVec &res) {
+    res.emplace_back(co, VarVec{});
+}
+
+void push_co_var(val_t co, var_t var, NonlinearTermVec &res) {
+    res.emplace_back(co, VarVec{var});
+}
+
+void push_co_vars(val_t co, var_t l_var, var_t r_var, CoVarVec &res) {
+    if (!is_valid_var(l_var)) {
+        res.emplace_back(co, r_var);
+    }
+    else if (!is_valid_var(r_var)) {
+        res.emplace_back(co, l_var);
+    }
+    else {
+        throw_syntax_error("Invalid Syntax: only linear sum constraints are supported");
+    }
+}
+
+void push_co_vars(val_t co, VarVec const &l_vars, VarVec const &r_vars, NonlinearTermVec &res) {
+    auto vars = l_vars;
+    vars.insert(vars.end(), r_vars.begin(), r_vars.end());
+    res.emplace_back(co, std::move(vars));
+}
+
+using Clingcon::simplify;
+
+val_t simplify(NonlinearTermVec &vec, bool drop_zero) {
+    static thread_local std::unordered_map<VarVec, NonlinearTermVec::iterator, VectorHash> seen;
+    val_t rhs = 0;
+
+    seen.clear();
+
+    auto jt = vec.begin();
+    for (auto it = jt, ie = vec.end(); it != ie; ++it) {
+        auto &[co, vars] = *it;
+        std::sort(vars.begin(), vars.end());
+        if (drop_zero && co == 0) {
+            continue;
+        }
+        if (vars.empty()) {
+            rhs = safe_sub(rhs, co);
+        }
+        else if (auto [kt, ins] = seen.try_emplace(vars, jt); !ins) {
+            kt->second->first = safe_add(kt->second->first, co);
+        }
+        else {
+            if (it != jt) {
+                *jt = *it;
+            }
+            ++jt;
+        }
+    }
+
+    if (drop_zero) {
+        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; } );
+    }
+
+    vec.erase(jt, vec.end());
+
+    // overflow checking (maybe put in seperate function)
+    check_valid_value(rhs);
+    sum_t min = rhs;
+    sum_t max = rhs;
+    for (auto const &[co, vars] : vec) {
+        check_valid_value(co);
+        // Note: we only consider the linear part here. The coefficient of the
+        // non-linear part will be handled specially during propagation to
+        // prevent overflows.
+        if (vars.size() == 1) {
+            min = safe_add<sum_t>(min, safe_mul<sum_t>(co, co > 0 ? MIN_VAL : MAX_VAL));
+            max = safe_add<sum_t>(max, safe_mul<sum_t>(co, co > 0 ? MAX_VAL : MIN_VAL));
+        }
+    }
+    safe_inv(min);
+    safe_inv(max);
+
+    return rhs;
+}
+
+[[nodiscard]] bool add_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec const &elements, val_t rhs, bool strict) {
+    return builder.add_constraint(literal, elements, rhs, strict);
+}
+
+[[nodiscard]] bool add_constraint(AbstractConstraintBuilder &builder, lit_t literal, NonlinearTermVec const &elements, val_t rhs, bool strict) {
+    var_t var_a{INVALID_VAR};
+    var_t var_b{INVALID_VAR};
+    val_t co_ab{0};
+    var_t var_c{INVALID_VAR};
+    val_t co_c{0};
+    for (auto const &[co, vars] : elements) {
+        check_syntax(vars.size() <= 2, "nonlinear terms with more than 2 variables are not supported");
+        if (vars.size() == 1) {
+            check_syntax(co_c == 0, "nonlinear sums can have at most one linear term");
+            co_c = co;
+            var_c = vars.front();
+        }
+        if (vars.size() == 2) {
+            check_syntax(co_c == 0, "nonlinear sums can have at most one nonlinear term");
+            co_ab = co;
+            var_a = vars.front();
+            var_b = vars.back();
+        }
+    }
+    return builder.add_nonlinear(literal, co_ab, var_a, var_b, co_c, var_c, rhs, strict);
+}
+
+template <class TermVec, bool is_sum=true>
+void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term, TermVec &res) {
+    if constexpr(!is_sum) {
         if (match(term, "-", 2)) {
             auto args = term.arguments();
 
             auto a = evaluate(args.front());
             if (a.type() == Clingo::SymbolType::Number) {
-                res.emplace_back(a.number(), INVALID_VAR);
+                push_co(a.number(), res);
             }
             else {
-                res.emplace_back(1, builder.add_variable(a));
+                push_co_var(1, builder.add_variable(a), res);
             }
 
             auto b = evaluate(args.back());
             if (b.type() == Clingo::SymbolType::Number) {
-                res.emplace_back(-b.number(), INVALID_VAR);
+                push_co(-b.number(), res);
             }
             else {
-                res.emplace_back(-1, builder.add_variable(b));
+                push_co_var(-1, builder.add_variable(b), res);
             }
         }
         else {
@@ -389,53 +522,45 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
         }
     }
     else if (term.type() == Clingo::TheoryTermType::Number) {
-        res.emplace_back(term.number(), INVALID_VAR);
+        push_co(term.number(), res);
     }
     else if (match(term, "+", 2)) {
         auto args = term.arguments();
-        parse_constraint_elem(builder, args.front(), true, res);
-        parse_constraint_elem(builder, args.back(), true, res);
+        parse_constraint_elem<TermVec>(builder, args.front(), res);
+        parse_constraint_elem<TermVec>(builder, args.back(), res);
     }
     else if (match(term, "-", 2)) {
         auto args = term.arguments();
-        parse_constraint_elem(builder, args.front(), true, res);
+        parse_constraint_elem<TermVec>(builder, args.front(), res);
         auto pos = res.size();
-        parse_constraint_elem(builder, args.back(), true, res);
+        parse_constraint_elem<TermVec>(builder, args.back(), res);
         for (auto it = res.begin() + pos, ie = res.end(); it != ie; ++it) {
             it->first = safe_inv(it->first);
         }
     }
     else if (match(term, "-", 1)) {
         auto pos = res.size();
-        parse_constraint_elem(builder, term.arguments().front(), true, res);
+        parse_constraint_elem<TermVec>(builder, term.arguments().front(), res);
         for (auto it = res.begin() + pos, ie = res.end(); it != ie; ++it) {
             it->first = safe_inv(it->first);
         }
     }
     else if (match(term, "+", 1)) {
-        parse_constraint_elem(builder, term.arguments().front(), true, res);
+        parse_constraint_elem<TermVec>(builder, term.arguments().front(), res);
     }
     else if (match(term, "*", 2)) {
         auto args = term.arguments();
-        CoVarVec lhs, rhs; // NOLINT
-        parse_constraint_elem(builder, args.front(), true, lhs);
-        parse_constraint_elem(builder, args.back(), true, rhs);
-        for (auto &l : lhs) {
-            for (auto &r : rhs) {
-                if (!is_valid_var(l.second)) {
-                    res.emplace_back(safe_mul(l.first, r.first), r.second);
-                }
-                else if (!is_valid_var(r.second)) {
-                    res.emplace_back(safe_mul(l.first, r.first), l.second);
-                }
-                else {
-                    throw_syntax_error("Invalid Syntax: only linear sum constraints are supported");
-                }
+        TermVec lhs, rhs; // NOLINT
+        parse_constraint_elem<TermVec>(builder, args.front(), lhs);
+        parse_constraint_elem<TermVec>(builder, args.back(), rhs);
+        for (auto &[l_co, l_vars] : lhs) {
+            for (auto &[r_co, r_vars] : rhs) {
+                push_co_vars(safe_mul(l_co, r_co), l_vars, r_vars, res);
             }
         }
     }
     else if (term.type() == Clingo::TheoryTermType::Symbol || term.type() == Clingo::TheoryTermType::Function || term.type() == Clingo::TheoryTermType::Tuple) {
-        res.emplace_back(1, builder.add_variable(evaluate(term)));
+        push_co_var(1, builder.add_variable(evaluate(term)), res);
     }
     else {
         throw_syntax_error("Invalid Syntax: invalid sum constraint");
@@ -443,19 +568,20 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
 }
 
 
-void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan elements, Clingo::TheoryTerm const *rhs, bool is_sum, CoVarVec &res) {
+template <class TermVec, bool is_sum=true>
+void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan elements, Clingo::TheoryTerm const *rhs, TermVec &res) {
     check_syntax(is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
 
     for (auto const &element : elements) {
         auto tuple = element.tuple();
         check_syntax(!tuple.empty() && element.condition().empty(), "Invalid Syntax: invalid sum constraint");
-        parse_constraint_elem(builder, element.tuple().front(), is_sum, res);
+        parse_constraint_elem<TermVec, is_sum>(builder, element.tuple().front(), res);
     }
 
     if (rhs != nullptr) {
-        if (is_sum) {
+        if constexpr(is_sum) {
             auto pos = res.size();
-            parse_constraint_elem(builder, *rhs, is_sum, res);
+            parse_constraint_elem<TermVec, is_sum>(builder, *rhs, res);
             for (auto it = res.begin() + pos, ie = res.end(); it != ie; ++it) {
                 it->first = safe_inv(it->first);
             }
@@ -463,14 +589,15 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
         else {
             auto term = evaluate(*rhs);
             check_syntax(term.type() == Clingo::SymbolType::Number, "Invalid Syntax: invalid difference constraint");
-            res.emplace_back(safe_inv(term.number()), INVALID_VAR);
+            push_co(safe_inv(term.number()), res);
         }
     }
 }
 
-[[nodiscard]] bool normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, CoVarVec const &elements, char const *op, val_t rhs, bool strict) {
-    CoVarVec copy;
-    CoVarVec const *elems = &elements;
+template <class TermVec>
+[[nodiscard]] bool normalize_constraint(AbstractConstraintBuilder &builder, lit_t literal, TermVec const &elements, char const *op, val_t rhs, bool strict) {
+    TermVec copy;
+    TermVec const *elems = &elements;
 
     // rewrite '>', '<', and '>=' into '<='
     if (std::strcmp(op, ">") == 0) {
@@ -494,9 +621,9 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
     // hanle remainig '<=', '=', and '!='
     if (std::strcmp(op, "<=") == 0) {
         if (strict && elems->size() == 1) {
-            return builder.add_constraint(literal, *elems, rhs, true);
+            return add_constraint(builder, literal, *elems, rhs, true);
         }
-        if (!builder.is_true(-literal) && !builder.add_constraint(literal, *elems, rhs, false)) {
+        if (!builder.is_true(-literal) && !add_constraint(builder, literal, *elems, rhs, false)) {
             return false;
         }
     }
@@ -592,16 +719,17 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
 //
 // Contraints are represented as a triple of a literal, its elements, and an
 // upper bound.
-[[nodiscard]] bool parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool is_sum, bool strict) {
+template <class TermVec, bool is_sum=true>
+[[nodiscard]] bool parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool strict) {
     check_syntax(atom.has_guard());
 
-    CoVarVec elements;
+    TermVec elements;
     val_t rhs{0};
     auto guard{atom.guard()};
     auto literal = builder.solver_literal(atom.literal());
 
     // combine coefficients
-    parse_constraint_elems(builder, atom.elements(), &guard.second, is_sum, elements);
+    parse_constraint_elems<TermVec, is_sum>(builder, atom.elements(), &guard.second, elements);
     rhs = simplify(elements, true);
 
     // divide by gcd
@@ -622,7 +750,7 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
 // Parses minimize and maximize directives.
 void parse_objective(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, int factor) {
     CoVarVec elems;
-    parse_constraint_elems(builder, atom.elements(), nullptr, true, elems);
+    parse_constraint_elems<CoVarVec>(builder, atom.elements(), nullptr, elems);
     for (auto &[co, var] : elems) {
         builder.add_minimize(safe_mul(factor, co), var);
     }
@@ -704,7 +832,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
         check_syntax(!tuple.empty() && elem.condition().empty(), "Invalid Syntax: invalid distinct statement");
         elements.emplace_back();
         auto &term = elements.back();
-        parse_constraint_elem(builder, tuple.front(), true, term.first);
+        parse_constraint_elem<CoVarVec>(builder, tuple.front(), term.first);
         term.second = safe_inv(simplify(term.first));
     }
 
@@ -793,8 +921,21 @@ bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
         bool is_sum_h = match(atom.term(), "__sum_h", 0);
         bool is_diff_b = match(atom.term(), "__diff_b", 0);
         bool is_diff_h = match(atom.term(), "__diff_h", 0);
-        if (is_sum_b || is_diff_b || is_sum_h || is_diff_h) {
-            if (!parse_constraint(builder, atom, is_sum_b || is_sum_h, is_sum_b || is_diff_b)) {
+        bool is_nsum_h = match(atom.term(), "__nsum_b", 0);
+        bool is_nsum_b = match(atom.term(), "__nsum_h", 0);
+        if (is_sum_b || is_sum_h) {
+            if (!parse_constraint<CoVarVec>(builder, atom, is_sum_b)) {
+                return false;
+            }
+        }
+        if (is_diff_b || is_diff_h) {
+            if (!parse_constraint<CoVarVec, false>(builder, atom, is_diff_b)) {
+                return false;
+            }
+        }
+        else if (is_nsum_b || is_nsum_h) {
+            // could be done more cleverly by merging into sum constraint
+            if (!parse_constraint<NonlinearTermVec>(builder, atom, is_nsum_b)) {
                 return false;
             }
         }
