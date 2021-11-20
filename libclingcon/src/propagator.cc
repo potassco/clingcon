@@ -91,15 +91,18 @@ public:
     }
 
     [[nodiscard]] bool add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs, bool strict) override {
-        static_cast<void>(lit);
-        static_cast<void>(co_ab);
-        static_cast<void>(var_a);
-        static_cast<void>(var_b);
-        static_cast<void>(co_c);
-        static_cast<void>(var_c);
-        static_cast<void>(rhs);
-        static_cast<void>(strict);
-        throw std::logic_error("implement me!!!");
+        if (co_ab == 0) {
+            CoVarVec vars;
+            if (co_c != 0) {
+                vars.emplace_back(co_c, var_c);
+            }
+            return add_constraint(lit, vars, rhs, strict);
+        }
+        propagator_.add_constraint(std::make_unique<NonlinearConstraint>(lit, co_ab, var_a, var_b, co_c, var_c, rhs));
+        if (strict) {
+            propagator_.add_constraint(std::make_unique<NonlinearConstraint>(lit, safe_inv(co_ab), var_a, var_b, safe_inv(co_c), var_c, safe_inv(safe_add(rhs, 1))));
+        }
+        return true;
     }
 
     void add_minimize(val_t co, var_t var) override {

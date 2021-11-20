@@ -1359,6 +1359,113 @@ private:
     bool todo_{false};
 };
 
+//! Capture the state of a nonlinear constraint.
+class NonlinearConstraintState : public AbstractConstraintState {
+public:
+    NonlinearConstraintState(NonlinearConstraint &constraint)
+    : constraint_{constraint} {
+    }
+
+    NonlinearConstraintState() = delete;
+    NonlinearConstraintState(NonlinearConstraintState const &) = delete;
+    NonlinearConstraintState(NonlinearConstraintState &&) = delete;
+    NonlinearConstraintState &operator=(NonlinearConstraintState const &) = delete;
+    NonlinearConstraintState &operator=(NonlinearConstraintState &&) = delete;
+    ~NonlinearConstraintState() override = default;
+
+    //! Get the associated nonlinear constraint.
+    AbstractConstraint& constraint() override {
+        return constraint_;
+    }
+
+    //! Attach the constraint to a solver.
+    void attach(Solver &solver) override {
+        static_cast<void>(solver);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Detach the constraint from a solver.
+    void detach(Solver &solver) override {
+        static_cast<void>(solver);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Translate a constraint to simpler constraints.
+    [[nodiscard]] std::pair<bool, bool> translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added) override {
+        static_cast<void>(config);
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(added);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Copy the constraint state (for another solver)
+    [[nodiscard]] UniqueConstraintState copy() const override {
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Inform the solver about updated bounds of a variable.
+    //!
+    //! Value i depends on the value passed when registering the watch and diff
+    //! is the change to the bound of the watched variable.
+    [[nodiscard]] bool update(val_t i, val_t diff) override {
+        static_cast<void>(i);
+        static_cast<void>(diff);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Similar to update but when the bound of a variable is backtracked.
+    void undo(val_t i, val_t diff) override {
+        static_cast<void>(i);
+        static_cast<void>(diff);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Prepagates the constraint.
+    [[nodiscard]] bool propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) override {
+        static_cast<void>(solver);
+        static_cast<void>(cc);
+        static_cast<void>(check_state);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Check if the solver meets the state invariants.
+    void check_full(Solver &solver) override {
+        static_cast<void>(solver);
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Mark the constraint state as todo item.
+    bool mark_todo(bool todo) override {
+        static_cast<void>(todo);
+        throw std::logic_error("implement me!!!");
+    }
+    //! Returns true if the constraint is marked as todo item.
+    [[nodiscard]] bool marked_todo() const override {
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Returns true if the constraint is removable.
+    [[nodiscard]] bool removable() override {
+        throw std::logic_error("implement me!!!");
+    }
+
+protected:
+    //! Get the level on which the constraint became inactive.
+    [[nodiscard]] level_t inactive_level() const override {
+        throw std::logic_error("implement me!!!");
+    }
+
+    //! Set the level on which the constraint became inactive.
+    void inactive_level(level_t level) override {
+        static_cast<void>(level);
+        throw std::logic_error("implement me!!!");
+    }
+
+private:
+    NonlinearConstraint &constraint_;
+};
+
 //! Capture the state of a disjoint constraint.
 class DisjointConstraintState final : public AbstractConstraintState {
     struct Interval {
@@ -1693,6 +1800,10 @@ UniqueConstraintState SumConstraint::create_state() {
 
 UniqueConstraintState MinimizeConstraint::create_state() {
     return std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState>>(*this);
+}
+
+UniqueConstraintState NonlinearConstraint::create_state() {
+    return std::make_unique<NonlinearConstraintState>(*this);
 }
 
 DistinctElement::DistinctElement(val_t fixed, size_t size, co_var_t *elements, bool sort)

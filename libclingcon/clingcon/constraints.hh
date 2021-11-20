@@ -114,6 +114,77 @@ private:
     std::pair<val_t, var_t> elements_[]; // NOLINT
 };
 
+//! Class to capture nonlinear constraints of form `ab*v_a*v_b + c*v_c <= rhs`
+class NonlinearConstraint final : public AbstractConstraint {
+public:
+    NonlinearConstraint(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs)
+    : lit_{lit}
+    , rhs_{rhs}
+    , co_ab_{co_ab}
+    , var_a_{var_a}
+    , var_b_{var_b}
+    , co_c_{co_c}
+    , var_c_{var_c} { }
+    NonlinearConstraint() = delete;
+    NonlinearConstraint(NonlinearConstraint const &) = delete;
+    NonlinearConstraint(NonlinearConstraint &&) = delete;
+    NonlinearConstraint &operator=(NonlinearConstraint const &) = delete;
+    NonlinearConstraint &operator=(NonlinearConstraint &&) = delete;
+    ~NonlinearConstraint() override = default;
+
+    //! Create thread specific state for the constraint.
+    [[nodiscard]] UniqueConstraintState create_state() override;
+
+    //! Get the literal associated with the constraint.
+    [[nodiscard]] lit_t literal() const override {
+        return lit_;
+    }
+    //! Get the coefficient of the nonlinear term.
+    [[nodiscard]] val_t co_ab() const {
+        return co_ab_;
+    }
+    //! Get the first variable of the nonlinear term.
+    [[nodiscard]] var_t var_a() const {
+        return var_a_;
+    }
+    //! Get the second variable of the nonlinear term.
+    [[nodiscard]] var_t var_b() const {
+        return var_b_;
+    }
+    //! Check if the costraint has a linear term.
+    [[nodiscard]] bool has_co_c() const {
+        return co_c_ != 0;
+    }
+    //! Get the coefficient of the linear term.
+    [[nodiscard]] val_t co_c() const {
+        return co_c_;
+    }
+    //! Get the variable of the linear term.
+    [[nodiscard]] var_t var_c() const {
+        return var_c_;
+    }
+    //! Get the rhs of the consraint.
+    [[nodiscard]] val_t rhs() const {
+        return rhs_;
+    }
+
+private:
+    //! Solver literal associated with the constraint.
+    lit_t lit_;
+    //! Integer bound of the constraint.
+    val_t rhs_;
+    //! Nonzero coefficient of the nonlinear term.
+    val_t co_ab_;
+    //! First variable of the nonlinear term.
+    var_t var_a_;
+    //! Second variable of the nonlinear term.
+    var_t var_b_;
+    //! Coefficient of the linear term.
+    val_t co_c_;
+    //! Variable of the linear term.
+    var_t var_c_;
+};
+
 //! Class to capture minimize constraints of form `a_0*x_0 + ... + a_n * x_n + adjust`.
 class MinimizeConstraint final : public AbstractConstraint {
 public:

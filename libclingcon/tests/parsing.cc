@@ -352,7 +352,7 @@ TEST_CASE("parsing", "[parsing]") {
             REQUIRE(parse("&maximize { x - z }.") ==
                 "#minimize { -1*x + 1*z }.");
         }
-        SECTION("dom") {
+        SECTION("nonlinear") {
             REQUIRE(parse("&nsum { 2*x*y + 3*z + 4 } <= 5.") ==
                 "2 -> 2*x*y + 3*z <= 1."
                 "-2 -> -2*x*y + -3*z <= -2.");
