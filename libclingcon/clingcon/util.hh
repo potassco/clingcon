@@ -46,8 +46,9 @@ I midpoint(I a, I b) noexcept {
 }
 
 template<typename I>
-auto floor_div(I n, I m) {
-    auto a = std::div(n, m);
+auto floor_div_rem(I n, I m) {
+    using std::div;
+    auto a = div(n, m);
     if (((n < 0) ^ (m < 0)) && a.rem != 0) {
         a.quot--;
         a.rem += m;
@@ -57,7 +58,8 @@ auto floor_div(I n, I m) {
 
 template<typename I>
 I floordiv(I n, I m) {
-    auto a = std::div(n, m);
+    using std::div;
+    auto a = div(n, m);
     if (((n < 0) ^ (m < 0)) && a.rem != 0) {
         a.quot--;
     }

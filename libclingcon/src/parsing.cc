@@ -450,16 +450,16 @@ val_t simplify(NonlinearTermVec &vec, bool drop_zero) {
 
     // overflow checking (maybe put in seperate function)
     check_valid_value(rhs);
-    sum_t min = rhs;
-    sum_t max = rhs;
+    nsum_t min = rhs;
+    nsum_t max = rhs;
     for (auto const &[co, vars] : vec) {
         check_valid_value(co);
         // Note: we only consider the linear part here. The coefficient of the
         // non-linear part will be handled specially during propagation to
         // prevent overflows.
         if (vars.size() == 1) {
-            min = safe_add<sum_t>(min, safe_mul<sum_t>(co, co > 0 ? MIN_VAL : MAX_VAL));
-            max = safe_add<sum_t>(max, safe_mul<sum_t>(co, co > 0 ? MAX_VAL : MIN_VAL));
+            min = safe_add<nsum_t>(min, safe_mul<nsum_t>(co, co > 0 ? MIN_VAL : MAX_VAL));
+            max = safe_add<nsum_t>(max, safe_mul<nsum_t>(co, co > 0 ? MAX_VAL : MIN_VAL));
         }
     }
     safe_inv(min);

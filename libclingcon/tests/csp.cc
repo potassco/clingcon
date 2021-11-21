@@ -313,6 +313,30 @@ TEST_CASE("sum", "[solving]") {
     }
 }
 
+TEST_CASE("nsum", "[solving]") {
+    SECTION("simple") {
+        REQUIRE(solve(
+            "&dom { 1..2 } = a.\n"
+            "&dom { 1..2 } = b.\n"
+            "&dom { -5..5 } = c.\n"
+            "&nsum { a*b } = c.\n") == S({
+                "a=1 b=1 c=1",
+                "a=1 b=2 c=2",
+                "a=2 b=1 c=2",
+                "a=2 b=2 c=4"}));
+        REQUIRE(solve(
+            "&dom { -2..2 } = a.\n"
+            "&dom { -2..2 } = b.\n"
+            "&dom { -5..5 } = c.\n"
+            "&nsum { a*b } = c.\n") == S({
+                "a=-1 b=-1 c=1", "a=-1 b=-2 c=2", "a=-1 b=0 c=0", "a=-1 b=1 c=-1", "a=-1 b=2 c=-2",
+                "a=-2 b=-1 c=2", "a=-2 b=-2 c=4", "a=-2 b=0 c=0", "a=-2 b=1 c=-2", "a=-2 b=2 c=-4",
+                "a=0 b=-1 c=0",  "a=0 b=-2 c=0",  "a=0 b=0 c=0",  "a=0 b=1 c=0",   "a=0 b=2 c=0",
+                "a=1 b=-1 c=-1", "a=1 b=-2 c=-2", "a=1 b=0 c=0",  "a=1 b=1 c=1",   "a=1 b=2 c=2",
+                "a=2 b=-1 c=-2", "a=2 b=-2 c=-4", "a=2 b=0 c=0",  "a=2 b=1 c=2",   "a=2 b=2 c=4"}));
+    }
+}
+
 TEST_CASE("multishot", "[solving]") {
     SECTION("optimize") {
         REQUIRE(solve_opt(

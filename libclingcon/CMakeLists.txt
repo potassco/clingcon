@@ -56,6 +56,7 @@ if (CLINGCON_BUILD_SHARED AND NOT clingcon_build_interface)
     set_target_properties(libclingcon PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 target_link_libraries(libclingcon ${clingcon_public_scope_} libclingo)
+target_link_libraries(libclingcon ${clingcon_private_scope_} libwide-integer)
 if (NOT CLINGCON_BUILD_SHARED)
     target_compile_definitions(libclingcon ${clingcon_public_scope_} CLINGCON_NO_VISIBILITY)
 elseif(NOT clingcon_build_interface)
@@ -95,7 +96,7 @@ if (CLINGCON_BUILD_TESTS)
     add_library(libclingcon_t STATIC ${header} ${source})
     target_include_directories(libclingcon_t PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
     target_compile_definitions(libclingcon_t PUBLIC CLINGCON_NO_VISIBILITY)
-    target_link_libraries(libclingcon_t PUBLIC libclingo)
+    target_link_libraries(libclingcon_t PUBLIC libwide-integer libclingo)
     set_target_properties(libclingcon_t PROPERTIES
         OUTPUT_NAME clingcon_t
         LIBRARY_OUTPUT_NAME clingcon_t
