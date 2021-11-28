@@ -1,8 +1,10 @@
 name: clingcon
 channels:
   - potassco/label/dev
+  - potassco
 dependencies:
-  - clingo 
   - cmake
   - ninja
+  - bison
+  - re2c
   - gxx_linux-64
