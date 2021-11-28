@@ -23,6 +23,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Cache build files
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.ccache
+        key: ${{ runner.os }}-clingcon-test-ccache
+
     - name: setup miniconda
       uses: conda-incubator/setup-miniconda@v2
       with:
@@ -45,5 +52,5 @@ jobs:
         --build-config "${{ matrix.build_type }}"
         --build-generator "${{ matrix.generator }}"
         --build-and-test . build
-        --build-options -DCLINGCON_BUILD_TESTS=On
+        --build-options -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCLINGCON_BUILD_TESTS=On
         --test-command ctest -V --build-config "${{ matrix.build_type }}"

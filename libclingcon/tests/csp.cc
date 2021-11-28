@@ -30,7 +30,8 @@
 using namespace Clingcon;
 
 TEST_CASE("minimizebug", "[solving]") {
-    for (int i = 0; i < 10000; ++i) {
+    int n = 10000;
+    for (int i = 0; i < n; ++i) {
         REQUIRE( solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}) );
     }
 }

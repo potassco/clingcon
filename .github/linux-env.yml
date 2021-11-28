@@ -8,3 +8,4 @@ dependencies:
   - bison
   - re2c
   - gxx_linux-64
+  - ccache
