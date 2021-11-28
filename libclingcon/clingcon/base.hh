@@ -442,7 +442,12 @@ public:
     }
 
     bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
-        return control_.add_clause(clause, type) && propagate();
+        auto thread_id = control_.thread_id();
+        auto dl = control_.thread_id();
+        auto r1 = control_.add_clause(clause, type);
+        auto r2 = r1 && propagate();
+        printf("ControlClauseCreator::add_clause[%d@%d]: add_clause=%d propagate=%d\n", (int)thread_id, (int)dl, (int)r1, (int)r2);
+        return r1 && r2;
     }
 
     Clingo::Assignment assignment() override {

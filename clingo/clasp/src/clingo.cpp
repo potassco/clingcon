@@ -309,7 +309,11 @@ void ClingoPropagator::toClause(Solver& s, const Potassco::LitSpan& clause, Pota
 	}
 }
 bool ClingoPropagator::addClause(Solver& s, uint32 st) {
-	if (s.hasConflict()) { todo_.clear(); return false; }
+	if (s.hasConflict()) {
+        POTASSCO_REQUIRE(todo_.empty(), "Assignment not propagated");
+        todo_.clear();
+        return false;
+    }
 	if (todo_.empty())   { return true; }
 	const ClauseRep& clause = todo_.clause;
 	Literal w0 = clause.size > 0 ? clause.lits[0] : lit_false();
