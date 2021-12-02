@@ -19,8 +19,8 @@ pip:
     build_depends_dev: |
         python3 -m pip install --user --extra-index-url https://test.pypi.org/simple/ clingo
     winmac_images:
-        macos-10.15:
-        windows-2016:
+        macos-latest:
+        windows-latest:
 
 conda:
     package_name:
@@ -28,7 +28,7 @@ conda:
     os: 
         - 'ubuntu-latest'
         - 'macos-latest'
-        - 'windows-2016'
+        - 'windows-latest'
     macosx-sdk:
         'MacOSX10.9.sdk.tar.xz'
     channels_release:
@@ -80,13 +80,13 @@ conda:
         cd build
 
         cmake .. \
-            -DCMAKE_CXX_COMPILER="${CXX}" \
-            -DPython_ROOT_DIR="${PREFIX}" \
-            -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-            -DCMAKE_INSTALL_LIBDIR="lib" \
             -DCLINGCON_MANAGE_RPATH=Off \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
+            -DCMAKE_INSTALL_LIBDIR="lib" \
+            -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
             -DPYCLINGCON_ENABLE="require" \
-            -DCMAKE_BUILD_TYPE=Release
+            -DPython_ROOT_DIR="${PREFIX}"
 
         make -j${CPU_COUNT}
         make install
@@ -94,16 +94,17 @@ conda:
     build_bat: |
         mkdir build
 
-        cmake -G "%CMAKE_GENERATOR%" -H. -Bbuild ^
-            -DCMAKE_CXX_COMPILER="%CXX%" ^
-            -DPython_ROOT_DIR="%PREFIX%" ^
-            -DCMAKE_INSTALL_PREFIX="%PREFIX%" ^
-            -DCMAKE_INSTALL_BINDIR="." ^
+        cmake -G "Ninja" -H. -Bbuild ^
             -DCLINGCON_MANAGE_RPATH=Off ^
-            -DPYCLINGCON_ENABLE="require"
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_CXX_COMPILER="%CXX%" ^
+            -DCMAKE_INSTALL_BINDIR="." ^
+            -DCMAKE_INSTALL_PREFIX="%PREFIX%" ^
+            -DPYCLINGCON_ENABLE="require" ^
+            -DPython_ROOT_DIR="%PREFIX%"
 
-        cmake --build build --config Release
-        cmake --build build --config Release --target install
+        cmake --build build
+        cmake --build build --target install
 
     build_config: |
         python:
