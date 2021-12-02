@@ -49,6 +49,7 @@ conda:
         requirements:
             build:
                 - cmake
+                - ninja [win]
                 - "{{ compiler('c') }}"
                 - "{{ compiler('cxx') }}"
             host:
