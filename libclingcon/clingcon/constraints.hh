@@ -117,14 +117,14 @@ private:
 //! Class to capture nonlinear constraints of form `ab*v_a*v_b + c*v_c <= rhs`
 class NonlinearConstraint final : public AbstractConstraint {
 public:
-    NonlinearConstraint(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs)
+    NonlinearConstraint(lit_t lit, val_t co_a, var_t var_x, var_t var_y, val_t co_b, var_t var_z, val_t rhs)
     : lit_{lit}
     , rhs_{rhs}
-    , co_ab_{co_ab}
-    , var_a_{var_a}
-    , var_b_{var_b}
-    , co_c_{co_c}
-    , var_c_{var_c} { }
+    , co_a_{co_a}
+    , var_x_{var_x}
+    , var_y_{var_y}
+    , co_b_{co_b}
+    , var_z_{var_z} { }
     NonlinearConstraint() = delete;
     NonlinearConstraint(NonlinearConstraint const &) = delete;
     NonlinearConstraint(NonlinearConstraint &&) = delete;
@@ -140,28 +140,28 @@ public:
         return lit_;
     }
     //! Get the coefficient of the nonlinear term.
-    [[nodiscard]] val_t co_ab() const {
-        return co_ab_;
+    [[nodiscard]] val_t co_a() const {
+        return co_a_;
     }
     //! Get the first variable of the nonlinear term.
-    [[nodiscard]] var_t var_a() const {
-        return var_a_;
+    [[nodiscard]] var_t var_x() const {
+        return var_x_;
     }
     //! Get the second variable of the nonlinear term.
-    [[nodiscard]] var_t var_b() const {
-        return var_b_;
+    [[nodiscard]] var_t var_y() const {
+        return var_y_;
     }
     //! Check if the costraint has a linear term.
     [[nodiscard]] bool has_co_c() const {
-        return co_c_ != 0;
+        return co_b_ != 0;
     }
     //! Get the coefficient of the linear term.
-    [[nodiscard]] val_t co_c() const {
-        return co_c_;
+    [[nodiscard]] val_t co_b() const {
+        return co_b_;
     }
     //! Get the variable of the linear term.
-    [[nodiscard]] var_t var_c() const {
-        return var_c_;
+    [[nodiscard]] var_t var_z() const {
+        return var_z_;
     }
     //! Get the rhs of the consraint.
     [[nodiscard]] val_t rhs() const {
@@ -174,15 +174,15 @@ private:
     //! Integer bound of the constraint.
     val_t rhs_;
     //! Nonzero coefficient of the nonlinear term.
-    val_t co_ab_;
+    val_t co_a_;
     //! First variable of the nonlinear term.
-    var_t var_a_;
+    var_t var_x_;
     //! Second variable of the nonlinear term.
-    var_t var_b_;
+    var_t var_y_;
     //! Coefficient of the linear term.
-    val_t co_c_;
+    val_t co_b_;
     //! Variable of the linear term.
-    var_t var_c_;
+    var_t var_z_;
 };
 
 //! Class to capture minimize constraints of form `a_0*x_0 + ... + a_n * x_n + adjust`.

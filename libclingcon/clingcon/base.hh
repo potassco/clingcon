@@ -458,5 +458,19 @@ private:
 
 } // namespace Clingcon
 
+namespace math::wide_integer {
+
+using Clingcon::nsum_t;
+
+struct ndiv_t {
+    nsum_t quot{0};
+    nsum_t rem{0};
+};
+
+inline ndiv_t div(nsum_t a, nsum_t b) {
+    return {a / b, a % b};
+}
+
+} // namespace math::wideinteger
 
 #endif // CLINGCON_BASE_H

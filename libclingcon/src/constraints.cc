@@ -1379,19 +1379,19 @@ public:
 
     //! Attach the constraint to a solver.
     void attach(Solver &solver) override {
-        solver.add_var_watch(constraint_.var_a(), 0, *this);
-        solver.add_var_watch(constraint_.var_b(), 1, *this);
+        solver.add_var_watch(constraint_.var_x(), 0, *this);
+        solver.add_var_watch(constraint_.var_y(), 1, *this);
         if (constraint_.has_co_c()) {
-            solver.add_var_watch(constraint_.var_c(), 2, *this);
+            solver.add_var_watch(constraint_.var_z(), 2, *this);
         }
     }
 
     //! Detach the constraint from a solver.
     void detach(Solver &solver) override {
-        solver.remove_var_watch(constraint_.var_a(), 0, *this);
-        solver.remove_var_watch(constraint_.var_b(), 1, *this);
+        solver.remove_var_watch(constraint_.var_x(), 0, *this);
+        solver.remove_var_watch(constraint_.var_y(), 1, *this);
         if (constraint_.has_co_c()) {
-            solver.remove_var_watch(constraint_.var_c(), 2, *this);
+            solver.remove_var_watch(constraint_.var_z(), 2, *this);
         }
     }
 
@@ -1428,30 +1428,30 @@ public:
         static_cast<void>(diff);
     }
 
-    std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> get_bound(nsum_t co_ab, VarState &vs_a, VarState &vs_b) {
-        nsum_t lower_a = vs_a.lower_bound();
-        nsum_t upper_a = vs_a.upper_bound();
-        nsum_t lower_b = vs_b.lower_bound();
-        nsum_t upper_b = vs_b.upper_bound();
+    std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> get_bound(nsum_t co_a, VarState &vs_x, VarState &vs_y) {
+        nsum_t lower_x = vs_x.lower_bound();
+        nsum_t upper_x = vs_x.upper_bound();
+        nsum_t lower_y = vs_y.lower_bound();
+        nsum_t upper_y = vs_y.upper_bound();
 
-        auto lhs_ll = co_ab * lower_a * lower_b;
-        auto lhs_lu = co_ab * lower_a * upper_b;
-        auto lhs_ul = co_ab * upper_a * lower_b;
-        auto lhs_uu = co_ab * upper_a * upper_b;
+        auto lhs_ll = co_a * lower_x * lower_y;
+        auto lhs_lu = co_a * lower_x * upper_y;
+        auto lhs_ul = co_a * upper_x * lower_y;
+        auto lhs_uu = co_a * upper_x * upper_y;
 
         nsum_t lower = std::min({lhs_ll, lhs_lu, lhs_ul, lhs_uu});
         nsum_t upper = std::max({lhs_ll, lhs_lu, lhs_ul, lhs_uu});
 
         if (lower == lhs_ll) {
-            return {lower_a, upper_a, lower_b, upper_b, lower, upper};
+            return {lower_x, upper_x, lower_y, upper_y, lower, upper};
         }
         if (lower == lhs_lu) {
-            return {lower_a, upper_a, upper_b, lower_b, lower, upper};
+            return {lower_x, upper_x, upper_y, lower_y, lower, upper};
         }
         if (lower == lhs_ul) {
-            return {upper_a, lower_a, lower_b, upper_b, lower, upper};
+            return {upper_x, lower_x, lower_y, upper_y, lower, upper};
         }
-        return {upper_a, lower_a, upper_b, lower_b, lower, upper};
+        return {upper_x, lower_x, upper_y, lower_y, lower, upper};
     }
 
     //! Propagates the constraint.
@@ -1461,37 +1461,41 @@ public:
         static_cast<void>(cc);
         static_cast<void>(check_state);
 
-        auto &vs_a = solver.var_state(constraint_.var_a());
-        auto &vs_b = solver.var_state(constraint_.var_b());
-        nsum_t co_ab = constraint_.co_ab();
+        auto &vs_x = solver.var_state(constraint_.var_x());
+        auto &vs_y = solver.var_state(constraint_.var_y());
+        nsum_t co_a = constraint_.co_a();
 
-        auto [lower_a, upper_a, lower_b, upper_b, lower_lhs, upper_lhs] = get_bound(co_ab, vs_a, vs_b);
+        auto [lower_x, upper_x, lower_y, upper_y, lower_t, upper_t] = get_bound(co_a, vs_x, vs_y);
 
-        VarState *vs_c{nullptr};
-        nsum_t co_c = constraint_.co_c();
-        nsum_t lower_c{0};
-        nsum_t upper_c{0};
-        if (co_c != 0) {
-            vs_c = &solver.var_state(constraint_.var_c());
-            if (co_c < 0) {
-                lower_c = vs_c->upper_bound();
-                upper_c = vs_c->lower_bound();
+        VarState *vs_z{nullptr};
+        nsum_t co_b = constraint_.co_b();
+        nsum_t lower_z{0};
+        nsum_t upper_z{0};
+        nsum_t lower_u{0};
+        nsum_t upper_u{0};
+        if (co_b != 0) {
+            vs_z = &solver.var_state(constraint_.var_z());
+            if (co_b < 0) {
+                lower_z = vs_z->upper_bound();
+                upper_z = vs_z->lower_bound();
             }
             else {
-                lower_c = vs_c->lower_bound();
-                upper_c = vs_c->upper_bound();
+                lower_z = vs_z->lower_bound();
+                upper_z = vs_z->upper_bound();
             }
-            lower_lhs += co_c * lower_c;
-            upper_lhs += co_c * upper_c;
+            lower_u += co_b * lower_z;
+            upper_u += co_b * upper_z;
         }
         nsum_t rhs = constraint_.rhs();
+        nsum_t lower_lhs = lower_t + lower_u;
+        nsum_t upper_lhs = upper_t + upper_u;
 
         if (upper_lhs <= rhs) {
             solver.mark_inactive(*this);
             return true;
         }
 
-        //std::cerr << "check lower: " << co_ab << "*" << lower_a << "*" << lower_b << " + " << co_c << "*" << lower_c << " <= " << constraint_.rhs() << "    (" << (co_ab * lower_a * lower_b + co_c * lower_c) << " <= " << constraint_.rhs() << ")" << std::endl;
+        //std::cerr << "check lower: " << co_a << "*" << lower_x << "*" << lower_y << " + " << co_b << "*" << lower_z << " <= " << constraint_.rhs() << "    (" << (co_a * lower_x * lower_y + co_b * lower_z) << " <= " << constraint_.rhs() << ")" << std::endl;
         if (lower_lhs > rhs) {
             // TODO: For nonlinear constraints it is probably necessary to add
             // the range, in general. But there should also be some cases where
@@ -1499,38 +1503,80 @@ public:
             // (or negative) the term a*b should behave monotonely.
             //std::cerr << "  the constraint is conflicting" << std::endl;
             auto &reason = solver.temp_reason();
-            reason.emplace_back(-solver.get_literal(cc, vs_a, vs_a.upper_bound()));
-            reason.emplace_back(solver.get_literal(cc, vs_a, vs_a.lower_bound() - 1));
-            reason.emplace_back(-solver.get_literal(cc, vs_b, vs_b.upper_bound()));
-            reason.emplace_back(solver.get_literal(cc, vs_b, vs_b.lower_bound() - 1));
-            if (vs_c != nullptr) {
-                if (co_c < 0) {
-                    reason.emplace_back(-solver.get_literal(cc, *vs_c, vs_c->upper_bound()));
+            reason.emplace_back(-solver.get_literal(cc, vs_x, vs_x.upper_bound()));
+            reason.emplace_back(solver.get_literal(cc, vs_x, vs_x.lower_bound() - 1));
+            reason.emplace_back(-solver.get_literal(cc, vs_y, vs_y.upper_bound()));
+            reason.emplace_back(solver.get_literal(cc, vs_y, vs_y.lower_bound() - 1));
+            if (vs_z != nullptr) {
+                if (co_b < 0) {
+                    reason.emplace_back(-solver.get_literal(cc, *vs_z, vs_z->upper_bound()));
                 }
                 else {
-                    reason.emplace_back(solver.get_literal(cc, *vs_c, vs_c->lower_bound() - 1));
+                    reason.emplace_back(solver.get_literal(cc, *vs_z, vs_z->lower_bound() - 1));
                 }
             }
             return cc.add_clause(reason);
         }
-        // TODO: In the monotone case, as indicated above, it should be
-        // possible to propagate the constraint. And it should always be
-        // possible to propagate w.r.t. variable c.
-        //std::cerr << "  the constraint is not conflicting (and should be propagated)" << std::endl;
+
+        // TODO: the code has to be refined.
+        // Some first throw to propagate the linear term. This should be quite
+        // similar to the propagation of linear constraints.
+        // - we want: lower_t + co_b * bound_u <= rhs;
+        // - co_b * bound_u <= rhs - lower_t;
+        //   - case co_b > 0:
+        //     - bound_u <= floor((rhs - lower_t) / co_b)
+        //     - we get a new upper bound for term u
+        //   - case co_b < 0:
+        //     - bound_u >= ceil((rhs - lower_t) / co_b)
+        //     - we get a new lower bound for term u
+        if (vs_z != nullptr) {
+            if (co_b > 0) {
+                nsum_t bound_y = floordiv(rhs - lower_t, co_b);
+                if (bound_y < upper_y) {
+                    //std::cerr << "we got a new lower bound for y: " << bound_y << " < " << upper_y << std::endl;
+                    auto &reason = solver.temp_reason();
+                    reason.emplace_back(-solver.get_literal(cc, vs_x, vs_x.upper_bound()));
+                    reason.emplace_back(solver.get_literal(cc, vs_x, vs_x.lower_bound() - 1));
+                    reason.emplace_back(-solver.get_literal(cc, vs_y, vs_y.upper_bound()));
+                    reason.emplace_back(solver.get_literal(cc, vs_y, vs_y.lower_bound() - 1));
+
+                    reason.emplace_back(solver.get_literal(cc, *vs_z, static_cast<val_t>(bound_y)));
+                    return cc.add_clause(reason);
+                }
+
+            }
+            if (co_b < 0) {
+                nsum_t bound_y = ceildiv(rhs - lower_t, co_b);
+                if (bound_y > upper_y) {
+                    //std::cerr << "we got a new lower bound for y: " << bound_y << " > " << upper_y << std::endl;
+                    auto &reason = solver.temp_reason();
+                    reason.emplace_back(-solver.get_literal(cc, vs_x, vs_x.upper_bound()));
+                    reason.emplace_back(solver.get_literal(cc, vs_x, vs_x.lower_bound() - 1));
+                    reason.emplace_back(-solver.get_literal(cc, vs_y, vs_y.upper_bound()));
+                    reason.emplace_back(solver.get_literal(cc, vs_y, vs_y.lower_bound() - 1));
+
+                    reason.emplace_back(-solver.get_literal(cc, *vs_z, static_cast<val_t>(bound_y) - 1));
+
+                    return cc.add_clause(reason);
+                }
+            }
+        }
+        // TODO: the nonlinear terms should be propagated too
+
         return true;
     }
 
     //! Check if the solver meets the state invariants.
     void check_full(Solver &solver) override {
-        // This function asserts that co_ab*a*b + co_c*c <= rhs
-        auto &vs_a = solver.var_state(constraint_.var_a());
-        auto &vs_b = solver.var_state(constraint_.var_b());
-        nsum_t co_ab = constraint_.co_ab();
-        nsum_t lhs = co_ab * vs_a.lower_bound() * vs_b.lower_bound();
+        // This function asserts that co_a*a*b + co_b*c <= rhs
+        auto &vs_x = solver.var_state(constraint_.var_x());
+        auto &vs_y = solver.var_state(constraint_.var_y());
+        nsum_t co_a = constraint_.co_a();
+        nsum_t lhs = co_a * vs_x.lower_bound() * vs_y.lower_bound();
         if (constraint_.has_co_c()) {
-            auto vs_c = solver.var_state(constraint_.var_c());
-            nsum_t co_c = constraint_.co_c();
-            lhs += co_c * vs_c.lower_bound();
+            auto vs_z = solver.var_state(constraint_.var_z());
+            nsum_t co_b = constraint_.co_b();
+            lhs += co_b * vs_z.lower_bound();
         }
         nsum_t rhs = constraint_.rhs();
         if (lhs > rhs) {
