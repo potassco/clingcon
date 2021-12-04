@@ -1521,18 +1521,18 @@ public:
         // TODO: the code has to be refined.
         // Some first throw to propagate the linear term. This should be quite
         // similar to the propagation of linear constraints.
-        // - we want: lower_t + co_b * bound_u <= rhs;
-        // - co_b * bound_u <= rhs - lower_t;
+        // - we want: lower_t + co_b * bound_z <= rhs;
+        // - co_b * bound_z <= rhs - lower_t;
         //   - case co_b > 0:
-        //     - bound_u <= floor((rhs - lower_t) / co_b)
+        //     - bound_z <= floor((rhs - lower_t) / co_b)
         //     - we get a new upper bound for term u
         //   - case co_b < 0:
-        //     - bound_u >= ceil((rhs - lower_t) / co_b)
+        //     - bound_z >= ceil((rhs - lower_t) / co_b)
         //     - we get a new lower bound for term u
         if (vs_z != nullptr) {
             if (co_b > 0) {
-                nsum_t bound_y = floordiv(rhs - lower_t, co_b);
-                if (bound_y < upper_y) {
+                nsum_t bound_z = floordiv(rhs - lower_t, co_b);
+                if (bound_z < upper_z) {
                     //std::cerr << "we got a new lower bound for y: " << bound_y << " < " << upper_y << std::endl;
                     auto &reason = solver.temp_reason();
                     reason.emplace_back(-solver.get_literal(cc, vs_x, vs_x.upper_bound()));
@@ -1540,28 +1540,50 @@ public:
                     reason.emplace_back(-solver.get_literal(cc, vs_y, vs_y.upper_bound()));
                     reason.emplace_back(solver.get_literal(cc, vs_y, vs_y.lower_bound() - 1));
 
-                    reason.emplace_back(solver.get_literal(cc, *vs_z, static_cast<val_t>(bound_y)));
-                    return cc.add_clause(reason);
+                    reason.emplace_back(solver.get_literal(cc, *vs_z, static_cast<val_t>(bound_z)));
+                    if (!cc.add_clause(reason)) {
+                        return false;
+                    }
                 }
 
             }
             if (co_b < 0) {
-                nsum_t bound_y = ceildiv(rhs - lower_t, co_b);
-                if (bound_y > upper_y) {
-                    //std::cerr << "we got a new lower bound for y: " << bound_y << " > " << upper_y << std::endl;
+                nsum_t bound_z = ceildiv(rhs - lower_t, co_b);
+                if (bound_z > upper_z) {
+                    //std::cerr << "we got a new lower bound for y: " << bound_z << " > " << upper_z << std::endl;
                     auto &reason = solver.temp_reason();
                     reason.emplace_back(-solver.get_literal(cc, vs_x, vs_x.upper_bound()));
                     reason.emplace_back(solver.get_literal(cc, vs_x, vs_x.lower_bound() - 1));
                     reason.emplace_back(-solver.get_literal(cc, vs_y, vs_y.upper_bound()));
                     reason.emplace_back(solver.get_literal(cc, vs_y, vs_y.lower_bound() - 1));
 
-                    reason.emplace_back(-solver.get_literal(cc, *vs_z, static_cast<val_t>(bound_y) - 1));
-
-                    return cc.add_clause(reason);
+                    reason.emplace_back(-solver.get_literal(cc, *vs_z, static_cast<val_t>(bound_z) - 1));
+                    if (!cc.add_clause(reason)) {
+                        return false;
+                    }
                 }
             }
         }
+
         // TODO: the nonlinear terms should be propagated too
+        if (co_a > 0) {
+            nsum_t bound_xy = floordiv(rhs - lower_u, co_a);
+            if (bound_xy < upper_x * upper_y) {
+                //std::cerr << "better upper bound for x*y: " << bound_xy << " < " << upper_x << "*" << upper_y << " = " << (upper_x * upper_y) << std::endl;
+                // ub(x*y) = xy
+                // case lb(y) > 0
+                //   (the sign of xy determines the maximum)
+                //   x <= ceil(max(xy / l(y), xy / u(y)))
+                // case ub(y) < 0:
+                //   should be similar to the previous case
+                // the other cases are more complicated
+                //   we can get different bound combinations for reasons for ub(x*y)
+                //   we can get a conjunction of x => l | x <= u as reason
+                //   if one of the terms is false, we can stil propgate
+                //   or by relaxing the bounds until one of the becomes false and the other can be propgate
+                //   this looks tedious and is probably best developed on paper
+            }
+        }
 
         return true;
     }
