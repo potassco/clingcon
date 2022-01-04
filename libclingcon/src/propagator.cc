@@ -513,18 +513,18 @@ void Propagator::check(Clingo::PropagateControl &control) {
         auto minimize_bound = minimize_bound_.load(std::memory_order_relaxed);
         if (minimize_bound != no_bound) {
             auto bound = minimize_bound + minimize_->adjust();
-            printf("Solver::update_minimize[%d@%d]: set bound to %d\n", (int)thread_id, (int)dl, (int)bound);
+            printf("Propagator::update_minimize[%d@%d]: set bound to %d\n", (int)thread_id, (int)dl, (int)bound);
             solver.update_minimize(*minimize_, dl, bound, thread_id);
         }
     }
 
     ControlClauseCreator cc{control, solver.statistics()};
-    printf("Solver::check[%d@%d]\n", (int)thread_id, (int)dl);
+    printf("Propagator::check[%d@%d]\n", (int)thread_id, (int)dl);
     if (!solver.check(cc, config_.check_state, thread_id)) {
-        printf("Solver::check[%d@%d]: conflict\n", (int)thread_id, (int)dl);
+        printf("Propagator::check[%d@%d]: conflict\n", (int)thread_id, (int)dl);
         return;
     }
-    printf("Solver::check[%d@%d]: no conflict\n", (int)thread_id, (int)dl);
+    printf("Propagator::check[%d@%d]: no conflict\n", (int)thread_id, (int)dl);
 
     // Note: Makes sure that all variables are assigned in the end. But even if
     // the assignment is total, we do not have to introduce fresh variables if
@@ -532,12 +532,15 @@ void Propagator::check(Clingo::PropagateControl &control) {
     // guaranteed follow-up propagate call because all newly introduced
     // variables are watched.
     if (size == ass.size() && ass.is_total()) {
-        printf("Solver::check_full[%d@%d]: \n", (int)thread_id, (int)dl);
+        printf("Propagator::check_full[%d@%d]: \n", (int)thread_id, (int)dl);
         solver.check_full(cc, config_.check_solution, control.thread_id());
     }
 }
 
 void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept {
+    auto thread_id = control.thread_id();
+    auto dl = control.assignment().decision_level();
+    printf("Propagator::undo[%d@%d]: \n", (int)thread_id, (int)dl);
     static_cast<void>(changes);
     solver_(control.thread_id()).undo();
 }

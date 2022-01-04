@@ -873,6 +873,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state, int thread_id) {
     // also been propagated. The exception is if a minimize constraint has to
     // be integrated when backtracking from a bound update.
     if (ass.decision_level() != lvl.level() && lvl.level() > minimize_level_) {
+        printf("Solver::check[%d@%d]: skipping check\n", (int)thread_id, (int)ass.decision_level());
         return true;
     }
 
