@@ -308,7 +308,8 @@ void ParallelSolve::SharedData::updateSplitFlag() {
 /////////////////////////////////////////////////////////////////////////////////////////
 // ParallelSolve
 /////////////////////////////////////////////////////////////////////////////////////////
-#define TRACE(s, fmt, ...) printf("%s[%u@%u]: " fmt "\n", __FUNCTION__, (s).id(), (s).decisionLevel(), ##__VA_ARGS__)
+//#define TRACE(s, fmt, ...) printf("%s[%u@%u]: " fmt "\n", __FUNCTION__, (s).id(), (s).decisionLevel(), ##__VA_ARGS__)
+#define TRACE(s, fmt, ...)
 
 ParallelSolve::ParallelSolve(const ParallelSolveOptions& opts)
 	: SolveAlgorithm(opts.limit)

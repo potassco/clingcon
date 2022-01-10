@@ -28,6 +28,7 @@
 #include <clingo.hh>
 #include <optional>
 #include <forward_list>
+#include <clingcon/util.hh>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -446,7 +447,7 @@ public:
         auto dl = control_.assignment().decision_level();
         auto r1 = control_.add_clause(clause, type);
         auto r2 = r1 && propagate();
-        printf("ControlClauseCreator::add_clause[%d@%d]: add_clause=%d propagate=%d\n", (int)thread_id, (int)dl, (int)r1, (int)r2);
+        TRACE("ControlClauseCreator::add_clause[%d@%d]: add_clause=%d propagate=%d\n", (int)thread_id, (int)dl, (int)r1, (int)r2);
         return r1 && r2;
     }
 

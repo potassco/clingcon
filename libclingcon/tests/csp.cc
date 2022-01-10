@@ -29,34 +29,35 @@
 
 using namespace Clingcon;
 
+/*
 TEST_CASE("minimizebug", "[solving]") {
-    int n = 10000;
-    for (int i = 0; i < n; ++i) {
-        REQUIRE( solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}) );
     }
 }
-
-#if false
+*/
 
 TEST_CASE("optimize", "[solving]") {
+    int n = 1000;
     SECTION("minimize") {
-        REQUIRE(solve("&minimize { x }.", -3, 3) == S({"x=-3"}));
-        REQUIRE(solve("&minimize { x+6 }.", -3, 3) == S({"x=-3"}));
-        REQUIRE(solve("&minimize { 2*x }.", -3, 3) == S({"x=-3"}));
-        REQUIRE(solve("&minimize { x+y }.", -3, 3) == S({"x=-3 y=-3"}));
-        REQUIRE(solve("&minimize { x+y }. &sum{ x + y } >= 2.", -3, 3) == S({"x=-1 y=3", "x=0 y=2", "x=1 y=1", "x=2 y=0", "x=3 y=-1"}));
-        REQUIRE(solve("&minimize { x }. &sum{ x } >= 0 :- a. {a}.", -3, 3) == S({"x=-3"}));
-        REQUIRE(solve("&minimize { x }. a :- &sum{ x } <= 0.", -3, 3) == S({"a x=-3"}));
+        for (int i = 0; i < n; ++i) {
+            REQUIRE(solve("&minimize { x }.", -3, 3) == S({"x=-3"}));
+            REQUIRE(solve("&minimize { x+6 }.", -3, 3) == S({"x=-3"}));
+            REQUIRE(solve("&minimize { 2*x }.", -3, 3) == S({"x=-3"}));
+            REQUIRE(solve("&minimize { x+y }.", -3, 3) == S({"x=-3 y=-3"}));
+            REQUIRE(solve("&minimize { x+y }. &sum{ x + y } >= 2.", -3, 3) == S({"x=-1 y=3", "x=0 y=2", "x=1 y=1", "x=2 y=0", "x=3 y=-1"}));
+            REQUIRE(solve("&minimize { x }. &sum{ x } >= 0 :- a. {a}.", -3, 3) == S({"x=-3"}));
+            REQUIRE(solve("&minimize { x }. a :- &sum{ x } <= 0.", -3, 3) == S({"a x=-3"}));
+        }
     }
     SECTION("maximize") {
-        REQUIRE(solve("&maximize { x }.", -3, 3) == S({"x=3"}));
-        REQUIRE(solve("&maximize { x+6 }.", -3, 3) == S({"x=3"}));
-        REQUIRE(solve("&maximize { 2*x }.", -3, 3) == S({"x=3"}));
-        REQUIRE(solve("&maximize { x+y }.", -3, 3) == S({"x=3 y=3"}));
-        REQUIRE(solve("&maximize { x+y }. &sum{ x + y } <= 5.", -3, 3) == S({"x=2 y=3", "x=3 y=2"}));
-        REQUIRE(solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}));
-        REQUIRE(solve("&maximize { x }. a :- &sum{ x } >= 0.", -3, 3) == S({"a x=3"}));
+        for (int i = 0; i < n; ++i) {
+            REQUIRE(solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}) );
+            REQUIRE(solve("&maximize { x }.", -3, 3) == S({"x=3"}));
+            REQUIRE(solve("&maximize { x+6 }.", -3, 3) == S({"x=3"}));
+            REQUIRE(solve("&maximize { 2*x }.", -3, 3) == S({"x=3"}));
+            REQUIRE(solve("&maximize { x+y }.", -3, 3) == S({"x=3 y=3"}));
+            REQUIRE(solve("&maximize { x+y }. &sum{ x + y } <= 5.", -3, 3) == S({"x=2 y=3", "x=3 y=2"}));
+            REQUIRE(solve("&maximize { x }. &sum{ x } <= 0 :- a. {a}.", -3, 3) == S({"x=3"}));
+            REQUIRE(solve("&maximize { x }. a :- &sum{ x } >= 0.", -3, 3) == S({"a x=3"}));
+        }
     }
 }
-
-#endif

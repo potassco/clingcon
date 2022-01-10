@@ -31,6 +31,8 @@
 #include <cstdlib>
 #include <stdexcept>
 
+#define TRACE(...)
+
 //! @file clingcon/util.hh
 //! Very general utility functions.
 //!

@@ -133,26 +133,26 @@ public:
 
         if (T::marked_inactive()) {
             if (lhs > T::upper_bound_) {
-                std::cerr << "invalid inactive constraint[" << thread_id << "]: " << typeid(this).name() << std::endl;
+                TRACE("invalid inactive constraint[%d]: %s\n", (int)thread_id, typeid(this).name());
                 throw std::logic_error("invalid solution");
             }
         }
         else {
             if (lhs != T::upper_bound_) {
-                printf("invalid upper bound[%d]: %s\n", thread_id, typeid(this).name());
-                printf("fail[%d]: %d != %d\n", thread_id, (int)lhs, (int)T::upper_bound_);
+                TRACE("invalid upper bound[%d]: %s\n", thread_id, typeid(this).name());
+                TRACE("fail[%d]: %d != %d\n", thread_id, (int)lhs, (int)T::upper_bound_);
                 throw std::logic_error("invalid solution");
             }
             if (lhs > T::lower_bound_) {
-                printf("invalid lower bound[%d]: %s\n", thread_id, typeid(this).name());
-                printf("fail[%d]: %d != %d\n", thread_id, (int)lhs, (int)T::lower_bound_);
+                TRACE("invalid lower bound[%d]: %s\n", thread_id, typeid(this).name());
+                TRACE("fail[%d]: %d != %d\n", thread_id, (int)lhs, (int)T::lower_bound_);
                 throw std::logic_error("invalid solution");
             }
         }
 
         if (lhs > rhs) {
-            printf("conflicting constraint[%d]: %s\n", thread_id, typeid(this).name());
-            printf("fail[%d]: %d < %d\n", thread_id, (int)lhs, (int)rhs);
+            TRACE("conflicting constraint[%d]: %s\n", thread_id, typeid(this).name());
+            TRACE("fail[%d]: %d < %d\n", thread_id, (int)lhs, (int)rhs);
             throw std::logic_error("invalid solution");
         }
     }

@@ -162,7 +162,8 @@ void ClingoPropagator::Control::removeWatch(Lit_t lit) {
 /////////////////////////////////////////////////////////////////////////////////////////
 // ClingoPropagator
 /////////////////////////////////////////////////////////////////////////////////////////
-#define TRACE(s, fmt, ...) printf("%s[%u@%u]: " fmt "\n", __FUNCTION__, (s).id(), (s).decisionLevel(), ##__VA_ARGS__)
+//#define TRACE(s, fmt, ...) printf("%s[%u@%u]: " fmt "\n", __FUNCTION__, (s).id(), (s).decisionLevel(), ##__VA_ARGS__)
+#define TRACE(s, fmt, ...)
 
 static const uint32 CHECK_BIT = 31;
 // flags for clauses from propagator

@@ -449,16 +449,16 @@ void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_
     if (!minimize_bound_.has_value() || bound < *minimize_bound_) {
         minimize_bound_ = bound;
         minimize_level_ = level;
-        printf("make bound smaller[%d@%d]: constraint enqueued: %d\n", thread_id, (int)level, constraint_state(constraint).marked_todo());
+        TRACE("make bound smaller[%d@%d]: constraint enqueued: %d\n", thread_id, (int)level, constraint_state(constraint).marked_todo());
         Level::mark_todo(*this, constraint_state(constraint));
     }
     else if (level < minimize_level_) {
-        printf("adjust minimize level[%d@%d]: constraint enqueued: %d\n", thread_id, (int)level, constraint_state(constraint).marked_todo());
+        TRACE("adjust minimize level[%d@%d]: constraint enqueued: %d\n", thread_id, (int)level, constraint_state(constraint).marked_todo());
         minimize_level_ = level;
         Level::mark_todo(*this, constraint_state(constraint));
     }
     else {
-        printf("minimize is unaffected[%d@%d]: previous level was %d\n", thread_id, (int)level, (int)minimize_level_);
+        TRACE("minimize is unaffected[%d@%d]: previous level was %d\n", thread_id, (int)level, (int)minimize_level_);
     }
 }
 
@@ -873,7 +873,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state, int thread_id) {
     // also been propagated. The exception is if a minimize constraint has to
     // be integrated when backtracking from a bound update.
     if (ass.decision_level() != lvl.level() && lvl.level() > minimize_level_) {
-        printf("Solver::check[%d@%d]: skipping check\n", (int)thread_id, (int)ass.decision_level());
+        TRACE("Solver::check[%d@%d]: skipping check\n", (int)thread_id, (int)ass.decision_level());
         return true;
     }
 
@@ -912,7 +912,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state, int thread_id) {
 
             if (!ass.is_false(cs->constraint().literal())) {
                 if (!cs->propagate(*this, cc, check_state)) {
-                    printf("a constraint became conflicting[%d@%d]: assignment has conflict: %d\n", thread_id, (int)ass.decision_level(), (int)ass.has_conflict());
+                    TRACE("a constraint became conflicting[%d@%d]: assignment has conflict: %d\n", thread_id, (int)ass.decision_level(), (int)ass.has_conflict());
                     ret = false;
                 }
             }
