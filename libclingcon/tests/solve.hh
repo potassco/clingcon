@@ -178,11 +178,14 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     return *last;
 }
 
-inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) {
+inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts, bool null_enum) {
     Propagator p;
     p.config() = config;
-
-    Clingo::Control ctl{{"0", "-t8"}};
+    std::vector<char const *> opts{"0", "-t8"};
+    if (null_enum) {
+        opts.emplace_back("--enum-mode=user");
+    }
+    Clingo::Control ctl{opts};
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
@@ -224,7 +227,8 @@ inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t 
         std::ostringstream oss;
         oss << "configuration: " << i << "\nprogram: " << prg;
         INFO(oss.str());
-        auto current = solve_opt(config, prg, parts);
+        INFO("  with backtracking enumerator")
+        auto current = solve_opt(config, prg, parts, false);
         if (i == 0) {
             bounds = std::move(current);
         }
@@ -232,6 +236,9 @@ inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t 
             REQUIRE(bounds == current);
         }
         ++i;
+        INFO("  with null enumerator")
+        current = solve_opt(config, prg, parts, true);
+        REQUIRE(bounds == current);
     }
     return bounds;
 }
