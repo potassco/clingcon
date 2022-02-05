@@ -28,6 +28,7 @@
 #include <clingo.hh>
 #include <optional>
 #include <forward_list>
+#include <math/wide_integer/uintwide_t.h>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -36,12 +37,13 @@
 
 namespace Clingcon {
 
-using level_t = uint32_t;                 //!< type for decision levels
-using lit_t = Clingo::literal_t;          //!< type for solver and program literals
-using var_t = uint32_t;                   //!< indexes of variables
-using val_t = int32_t;                    //!< type for values of variables and coefficients
-using sum_t = int64_t;                    //!< type for summing up value
-using co_var_t = std::pair<val_t, var_t>; //!< coeffcient/variable pair
+using level_t = uint32_t;                    //!< type for decision levels
+using lit_t = Clingo::literal_t;             //!< type for solver and program literals
+using var_t = uint32_t;                      //!< indexes of variables
+using val_t = int32_t;                       //!< type for values of variables and coefficients
+using sum_t = int64_t;                       //!< type for summing up values
+using nsum_t = math::wide_integer::int128_t; //!< type for summing up values of nonlinear terms
+using co_var_t = std::pair<val_t, var_t>;    //!< coeffcient/variable pair
 using CoVarVec = std::vector<co_var_t>;
 
 enum class Heuristic : val_t { None, MaxChain };
@@ -456,5 +458,19 @@ private:
 
 } // namespace Clingcon
 
+namespace math::wide_integer {
+
+using Clingcon::nsum_t;
+
+struct ndiv_t {
+    nsum_t quot{0};
+    nsum_t rem{0};
+};
+
+inline ndiv_t div(nsum_t a, nsum_t b) {
+    return {a / b, a % b};
+}
+
+} // namespace math::wideinteger
 
 #endif // CLINGCON_BASE_H

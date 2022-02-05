@@ -122,6 +122,21 @@ public:
         return true;
     }
 
+    bool add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs, bool strict) override {
+        oss_ << lit << (strict ? " <> " : " -> ");
+        if (co_ab != 0) {
+            oss_ << co_ab << "*" << vars_[var_a] << "*" << vars_[var_b];
+        }
+        if (co_c != 0) {
+            oss_ << (co_ab != 0 ? " + " : "") << co_c << "*" << vars_[var_c];
+        }
+        if (co_ab == 0 && co_c == 0) {
+            oss_ << "0";
+        }
+        oss_ << " <= " << rhs << ".";
+        return true;
+    }
+
     void add_minimize(val_t co, var_t var) override {
         minimize_.emplace_back(co, var);
     }
@@ -336,6 +351,11 @@ TEST_CASE("parsing", "[parsing]") {
                 "#minimize { 1*x + -1*z }.");
             REQUIRE(parse("&maximize { x - z }.") ==
                 "#minimize { -1*x + 1*z }.");
+        }
+        SECTION("nonlinear") {
+            REQUIRE(parse("&nsum { 2*x*y + 3*z + 4 } <= 5.") ==
+                "2 -> 2*x*y + 3*z <= 1."
+                "-2 -> -2*x*y + -3*z <= -2.");
         }
     }
 }
