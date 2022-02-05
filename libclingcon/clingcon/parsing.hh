@@ -68,10 +68,12 @@ constexpr char const *THEORY = R"(
     -  : 1, binary, left;
     @  : 0, binary, left
     };
-    &__sum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
-    &__sum_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &__diff_h/0 : sum_term, {<=}, sum_term, any;
     &__diff_b/0 : sum_term, {<=}, sum_term, any;
+    &__sum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
+    &__sum_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
+    &__nsum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
+    &__nsum_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &minimize/0 : sum_term, directive;
     &maximize/0 : sum_term, directive;
     &show/0 : sum_term, directive;
@@ -109,6 +111,8 @@ public:
     [[nodiscard]] virtual var_t add_variable(Clingo::Symbol var) = 0;
     //! Add a constraint.
     [[nodiscard]] virtual bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) = 0;
+    //! Add a non-linear sum constraint.
+    [[nodiscard]] virtual bool add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs, bool strict) = 0;
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
