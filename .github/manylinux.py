@@ -92,6 +92,7 @@ def run():
 
     if ARCH != "x86_64":
         check_call(['sed', '-i', 's/, "cmake"//', 'pyproject.toml'])
+    check_call(['yum', 'install', '-y', 'libffi-devel'])
 
     compile_wheels(idx)
 

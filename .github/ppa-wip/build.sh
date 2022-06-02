@@ -55,6 +55,7 @@ for act in "${@}"; do
                 ../../app \
                 ../../cmake \
                 ../../lib* \
+                ../../third_party \
                 ../../CMakeLists.txt \
                 ../../README.md \
                 ../../INSTALL.md \
@@ -91,6 +92,7 @@ EOF
                 "${rep}"/app \
                 "${rep}"/cmake \
                 "${rep}"/lib* \
+                "${rep}"/third_party \
                 "${rep}"/CMakeLists.txt \
                 "${rep}"/README.md \
                 "${rep}"/INSTALL.md \

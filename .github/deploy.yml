@@ -14,6 +14,7 @@ pip:
     install: |
         if ARCH != "x86_64":
             check_call(['sed', '-i', 's/, "cmake"//', 'pyproject.toml'])
+        check_call(['yum', 'install', '-y', 'libffi-devel'])
     build_depends_release: |
         python3 -m pip install --user clingo
     build_depends_dev: |
