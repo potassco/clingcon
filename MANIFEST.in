@@ -6,6 +6,7 @@ include README.md
 recursive-include app *
 recursive-include cmake *
 recursive-include libclingcon *
+recursive-include third_party *
 include libpyclingcon/*.c
 include libpyclingcon/*.h
 include libpyclingcon/CMakeLists.txt

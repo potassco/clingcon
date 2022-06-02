@@ -55,7 +55,6 @@ for act in "${@}"; do
                 ../../app \
                 ../../cmake \
                 ../../lib* \
-                ../../third_party \
                 ../../CMakeLists.txt \
                 ../../README.md \
                 ../../INSTALL.md \
