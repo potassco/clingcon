@@ -154,6 +154,7 @@ ppa:
         - 'LICENSE.md'
         - 'CHANGES.md'
     distributions:
+        jammy:
         focal:
         bionic:
             source:
