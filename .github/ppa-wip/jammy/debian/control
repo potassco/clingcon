@@ -1,0 +1,36 @@
+Source: clingcon
+Section: devel
+Priority: optional
+Maintainer: Roland Kaminski <kaminski@cs.uni-potsdam.de>
+Build-Depends: debhelper-compat (= 12), dh-python, cmake, python3-dev, python3-cffi, libclingo-dev
+Standards-Version: 4.4.1
+Homepage: https://potassco.org/clingcon
+Vcs-Browser: https://github.com/potassco/clingcon
+Vcs-Git: https://github.com/potassco/clingcon.git
+
+Package: clingcon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libclingcon (= ${binary:Version})
+Description: A solver for logic programs with linear constraints
+ This package contains the executables.
+
+Package: python3-clingcon
+Section: python
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, libclingcon (= ${binary:Version}), python3-cffi-backend
+Description: A solver for logic programs with linear constraints
+ This package contains python bindings for clingcon.
+
+Package: libclingcon
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libclingo
+Description: A solver for logic programs with linear constraints
+ This package contains the shared library.
+
+Package: libclingcon-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, libclingcon (= ${binary:Version})
+Description: A solver for logic programs with linear constraints
+ This package contains the development files.
