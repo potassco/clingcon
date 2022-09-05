@@ -18,8 +18,8 @@ public:
     , builder_{builder} {
     }
 
-    void rewrite(Clingo::StringSpan files) {
-        handle_error(clingo_ast_parse_files(files.begin(), files.size(), rewrite_, this, nullptr, nullptr, 0));
+    void rewrite(Clingo::Control &control, Clingo::StringSpan files) {
+        handle_error(clingo_ast_parse_files(files.begin(), files.size(), rewrite_, this, control.to_c(), nullptr, nullptr, 0));
     }
 
 private:
@@ -133,7 +133,7 @@ public:
 
         Clingo::AST::with_builder(control, [&](Clingo::AST::ProgramBuilder &builder) {
             Rewriter rewriter{theory_, builder.to_c()};
-            rewriter.rewrite(files);
+            rewriter.rewrite(control, files);
         });
         control.ground({{"base", {}}});
         handle_error(clingcon_prepare(theory_, control.to_c()));
