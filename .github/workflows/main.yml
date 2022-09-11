@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-latest', 'macos-latest', 'windows-2016', 'windows-2019']
+        os: ['ubuntu-latest', 'macos-latest', 'windows-2019']
         python-version: ['3.7']
         include:
           - os: 'ubuntu-latest'
@@ -22,10 +22,6 @@ jobs:
           - os: 'macos-latest'
             generator: 'Ninja'
             build_type: 'Debug'
-            env_file: '.github/generic-env.yml'
-          - os: 'windows-2016'
-            generator: 'Visual Studio 15 2017 Win64'
-            build_type: 'Release'
             env_file: '.github/generic-env.yml'
           - os: 'windows-2019'
             generator: 'Visual Studio 16 2019'

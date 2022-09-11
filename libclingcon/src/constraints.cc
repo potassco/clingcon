@@ -1406,7 +1406,7 @@ public:
 
     //! Copy the constraint state (for another solver)
     [[nodiscard]] UniqueConstraintState copy() const override {
-        return std::unique_ptr<NonlinearConstraintState>{new NonlinearConstraintState(*this)};
+        return std::unique_ptr<NonlinearConstraintState>{new NonlinearConstraintState{constraint_, inactive_level_, todo_}};
     }
 
     //! Inform the solver about updated bounds of a variable.
@@ -1634,10 +1634,10 @@ protected:
     }
 
 private:
-    NonlinearConstraintState(NonlinearConstraintState const &other)
-    : constraint_{other.constraint_}
-    , inactive_level_{other.inactive_level_}
-    , todo_{other.todo_} { }
+    explicit NonlinearConstraintState(NonlinearConstraint &constraint, level_t inactive_level, bool todo)
+    : constraint_{constraint}
+    , inactive_level_{inactive_level}
+    , todo_{todo} { }
 
     NonlinearConstraint &constraint_;
     level_t inactive_level_{0};
