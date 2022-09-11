@@ -1,5 +1,9 @@
 # Changes
 
+## clingcon 5.2.0
+
+- add support for ASPIF parsing
+
 ## clingcon 5.1.0
 
 - improve translation of linear constraints (#73)

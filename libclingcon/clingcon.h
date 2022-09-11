@@ -36,11 +36,11 @@
 //! Major version number.
 #define CLINGCON_VERSION_MAJOR 5
 //! Minor version number.
-#define CLINGCON_VERSION_MINOR 1
+#define CLINGCON_VERSION_MINOR 2
 //! Revision number.
 #define CLINGCON_VERSION_REVISION 0
 //! String representation of version.
-#define CLINGCON_VERSION "5.1.0"
+#define CLINGCON_VERSION "5.2.0"
 
 #ifdef __cplusplus
 extern "C" {
