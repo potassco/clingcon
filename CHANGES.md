@@ -1,5 +1,9 @@
 # Changes
 
+## clingcon 5.2.1
+
+- add option `--enable-python`
+
 ## clingcon 5.2.0
 
 - add support for ASPIF parsing
