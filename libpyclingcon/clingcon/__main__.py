@@ -11,6 +11,7 @@ from clingo.application import Application, ApplicationOptions, Flag, clingo_mai
 from clingo.control import Control
 from clingo.script import enable_python
 from clingo.solving import Model
+from clingo.statistics import StatisticsMap
 from clingo.symbol import Symbol, SymbolType
 
 from . import ClingconTheory
@@ -92,7 +93,7 @@ class ClingconApp(Application):
         """
         self.__theory.on_model(model)
 
-    def __on_statistics(self, step, accu):
+    def __on_statistics(self, step: StatisticsMap, accu: StatisticsMap):
         """
         Pass statistics to theory.
         """
