@@ -28,9 +28,11 @@
 #include <clingcon/propagator.hh>
 #include <clingcon/parsing.hh>
 
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_message.hpp>
+
 #include <sstream>
 #include <array>
-#include "catch.hpp"
 
 using namespace Clingcon;
 
@@ -227,7 +229,7 @@ inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t 
         std::ostringstream oss;
         oss << "configuration: " << i << "\nprogram: " << prg;
         INFO(oss.str());
-        INFO("  with backtracking enumerator")
+        INFO("  with backtracking enumerator");
         auto current = solve_opt(config, prg, parts, false);
         if (i == 0) {
             bounds = std::move(current);
@@ -236,7 +238,7 @@ inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t 
             REQUIRE(bounds == current);
         }
         ++i;
-        INFO("  with null enumerator")
+        INFO("  with null enumerator");
         current = solve_opt(config, prg, parts, true);
         REQUIRE(bounds == current);
     }

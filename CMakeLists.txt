@@ -24,6 +24,9 @@ include(CMakeDependentOption)
 option(CLINGCON_MANAGE_RPATH "set rpath if not installed into system directory" ON)
 option(CLINGCON_BUILD_TESTS "build tests" OFF)
 option(CLINGCON_BUILD_SHARED "build clingcon library shared" ON)
+option(CLINGCON_USE_LOCAL_CATCH
+"Advanced option to build against bundled or installed catch."
+ON)
 
 set(PYCLINGCON_ENABLE "auto" CACHE STRING "build with python support: OFF, auto, require, pip
 auto: enable python support if python is available
