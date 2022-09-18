@@ -24,7 +24,7 @@
 
 #include "clingcon/util.hh"
 #include "clingcon/solver.hh"
-#include "catch.hpp"
+#include <catch2/catch_test_macros.hpp>
 
 using namespace Clingcon;
 
