@@ -454,7 +454,7 @@ public:
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.lower_bound(value)}, litmap_.rend());
         }
-        auto offset = std::min<val_t>(std::max(0, value - offset_), litvec_.size());
+        auto offset = std::min<val_t>(std::max(0, value - offset_), static_cast<val_t>(litvec_.size()));
         return call_vec_(std::forward<F>(f), ReverseIteratorVec{litvec_.begin() + offset}, litvec_.rend());
 
     }
@@ -464,7 +464,7 @@ public:
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.upper_bound(value)}, litmap_.rend());
         }
-        auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), litvec_.size());
+        auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), static_cast<val_t>(litvec_.size()));
         return call_vec_(std::forward<F>(f), ReverseIteratorVec{litvec_.begin() + offset}, litvec_.rend());
     }
     //! Traverse literals succeeding value.
@@ -473,7 +473,7 @@ public:
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), litmap_.upper_bound(value), litmap_.end());
         }
-        auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), litvec_.size());
+        auto offset = std::min<val_t>(std::max(0, value - offset_ + 1), static_cast<val_t>(litvec_.size()));
         return call_vec_(std::forward<F>(f), litvec_.begin() + offset, litvec_.end());
     }
 
@@ -483,7 +483,7 @@ public:
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), litmap_.lower_bound(value), litmap_.end());
         }
-        auto offset = std::min<val_t>(std::max(0, value - offset_), litvec_.size());
+        auto offset = std::min<val_t>(std::max(0, value - offset_), static_cast<val_t>(litvec_.size()));
         return call_vec_(std::forward<F>(f), litvec_.begin() + offset, litvec_.end());
     }
 

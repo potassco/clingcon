@@ -31,7 +31,6 @@
 #include <sstream>
 #include <locale>
 #include <cstring>
-#include <sstream>
 #include <map>
 
 #define CLINGCON_TRY try // NOLINT

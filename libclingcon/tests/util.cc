@@ -28,6 +28,7 @@
 
 using namespace Clingcon;
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
 struct Element {
     Element(int value)
@@ -128,8 +129,8 @@ TEST_CASE("util", "[util]") { // NOLINT
         }
 
         REQUIRE(uniq.empty());
-        REQUIRE(uniq.append(&elems[0]));
-        REQUIRE(!uniq.append(&elems[0]));
+        REQUIRE(uniq.append(elems.data()));
+        REQUIRE(!uniq.append(elems.data()));
         REQUIRE(uniq.size() == 1);
         REQUIRE(!uniq.empty());
         REQUIRE(uniq.append(&elems[1]));
@@ -256,3 +257,5 @@ TEST_CASE("util", "[util]") { // NOLINT
         REQUIRE_THROWS_AS(safe_inv(b), O);
     }
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers)

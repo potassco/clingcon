@@ -25,6 +25,7 @@
 #include "clingcon/solver.hh"
 #include "clingcon/util.hh"
 
+#include <clingo.hh>
 #include <unordered_set>
 
 namespace Clingcon {
@@ -120,7 +121,7 @@ public:
     //! that where not propagated on the current decision level.
     void undo(Solver &solver) const {
         // undo lower bound changes
-        for (auto it = solver.undo_lower_.begin() + undo_lower_offset_, ie = solver.undo_lower_.end(); it != ie; ++it) {
+        for (auto it = solver.undo_lower_.begin() + static_cast<ptrdiff_t>(undo_lower_offset_), ie = solver.undo_lower_.end(); it != ie; ++it) {
             auto var = *it;
             auto &vs = solver.var_state(var);
             auto value = vs.lower_bound();
@@ -137,7 +138,7 @@ public:
         solver.in_ldiff_.clear();
 
         // undo upper bound changes
-        for (auto it = solver.undo_upper_.begin() + undo_upper_offset_, ie = solver.undo_upper_.end(); it != ie; ++it) {
+        for (auto it = solver.undo_upper_.begin() + static_cast<ptrdiff_t>(undo_upper_offset_), ie = solver.undo_upper_.end(); it != ie; ++it) {
             auto var = *it;
             auto &vs = solver.var_state(var);
             auto value = vs.upper_bound();
@@ -154,14 +155,14 @@ public:
         solver.in_udiff_.clear();
 
         // mark constraints as active again
-        for (auto it = solver.inactive_.begin() + inactive_offset_, ie = solver.inactive_.end(); it != ie; ++it) {
+        for (auto it = solver.inactive_.begin() + static_cast<ptrdiff_t>(inactive_offset_), ie = solver.inactive_.end(); it != ie; ++it) {
             auto *cs = *it;
             cs->mark_active();
         }
         solver.inactive_.resize(inactive_offset_);
 
         // add removed watches
-        for (auto it = solver.removed_var_watches_.begin() + removed_var_watches_offset_, ie = solver.removed_var_watches_.end(); it != ie; ++it) {
+        for (auto it = solver.removed_var_watches_.begin() + static_cast<ptrdiff_t>(removed_var_watches_offset_), ie = solver.removed_var_watches_.end(); it != ie; ++it) {
             auto [var, val, cs] = *it;
             solver.var_watches_[var].emplace_back(val, cs);
         }
@@ -625,7 +626,7 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     // avoid potentially quadratic overhead if a large number of constraints
     // has to be removed.
     if (jdx < constraints.size()) {
-        std::sort(constraints.begin() + jdx, constraints.end());
+        std::sort(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end());
         auto in_removed = [jdx, &constraints] (AbstractConstraintState &cs) {
             struct {
                 bool operator()(UniqueConstraint const &a, AbstractConstraint const *b) {
@@ -635,7 +636,7 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
                     return b < a.get();
                 }
             } pred;
-            return std::binary_search(constraints.begin() + jdx, constraints.end(), &cs.constraint(), pred);
+            return std::binary_search(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end(), &cs.constraint(), pred);
         };
 
         level_().remove_constraints(*this, in_removed);
@@ -648,12 +649,12 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
                 ++it;
             }
         }
-        for (auto it = constraints.begin() + jdx, ie = constraints.end(); it != ie; ++it) {
+        for (auto it = constraints.begin() + static_cast<ptrdiff_t>(jdx), ie = constraints.end(); it != ie; ++it) {
             c2cs_.erase(it->get());
         }
     }
 
-    constraints.erase(constraints.begin() + jdx, constraints.end());
+    constraints.erase(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end());
 
     // This readds binary clauses when multishot-solving. Probably clasp can
     // handle this.
@@ -695,7 +696,7 @@ bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
             return true;
         }
 
-        if (!propagate_(cc, trail.begin() + trail_offset_, trail.begin() + trail_offset)) {
+        if (!propagate_(cc, trail.begin() + static_cast<int32_t>(trail_offset_), trail.begin() + static_cast<int32_t>(trail_offset))) {
             return false;
         }
         trail_offset_ = trail_offset;
@@ -1113,7 +1114,7 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
 
     auto &vs = var_state(var);
 
-    Clingo::TruthValue truth;
+    Clingo::TruthValue truth{Clingo::TruthValue::Free};
     val_t value{0};
     if (co > 0) {
         truth = ass.truth_value(clit);

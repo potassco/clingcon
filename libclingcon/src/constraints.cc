@@ -25,6 +25,7 @@
 #include "clingcon/constraints.hh"
 
 #include <set>
+#include <stdexcept>
 
 namespace Clingcon {
 
@@ -338,7 +339,7 @@ private:
         if (co > 0) {
             sum_t current = vs.lower_bound();
             // the direct reason literal
-            auto lit_reason = solver.get_literal(cc, vs, current-1);
+            auto lit_reason = solver.get_literal(cc, vs, static_cast<val_t>(current-1));
             lit = lit_reason;
             assert (ass.is_false(lit));
             if (solver.config().refine_reasons && slack + co < 0 && ass.decision_level() > 0) {
@@ -346,7 +347,7 @@ private:
                 auto value = std::max<sum_t>(current + delta, vs.min_bound());
                 if (value < current) {
                     // refine reason literal
-                    if (auto olit = vs.order_lit_ge(value - 1); olit.has_value() && olit->second + 1 < current) {
+                    if (auto olit = vs.order_lit_ge(static_cast<val_t>(value - 1)); olit.has_value() && olit->second + 1 < current) {
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (olit->second + 1 - current);
                         current = olit->second + 1;
@@ -369,7 +370,7 @@ private:
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
-                        auto refined = solver.get_literal(cc, vs, value - 1);
+                        auto refined = solver.get_literal(cc, vs, static_cast<val_t>(value - 1));
                         assert(!ass.is_true(refined));
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
@@ -380,7 +381,7 @@ private:
         else {
             // symmetric case
             sum_t current = vs.upper_bound();
-            auto lit_reason = -solver.get_literal(cc, vs, current);
+            auto lit_reason = -solver.get_literal(cc, vs, static_cast<val_t>(current));
             lit = lit_reason;
             assert(ass.is_false(lit));
             if (solver.config().refine_reasons && slack - co < 0 && ass.decision_level() > 0) {
@@ -388,7 +389,7 @@ private:
                 auto value = std::min<sum_t>(current + delta, vs.max_bound());
                 if (value > current) {
                     // refine reason literal
-                    if (auto olit = vs.order_lit_le(value); olit.has_value() && olit->second > current) {
+                    if (auto olit = vs.order_lit_le(static_cast<val_t>(value)); olit.has_value() && olit->second > current) {
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (olit->second - current);
                         current = olit->second;
@@ -405,7 +406,7 @@ private:
                         found = 1;
                         slack -= static_cast<sum_t>(co) * (value - current);
                         assert(slack < 0);
-                        auto refined = -solver.get_literal(cc, vs, value);
+                        auto refined = -solver.get_literal(cc, vs, static_cast<val_t>(value));
                         assert(!ass.is_true(refined));
                         ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
                         lit = refined;
@@ -511,7 +512,7 @@ private:
                 estimate += vs.upper_bound() - std::max<sum_t>(value - 1, vs.lower_bound());
             }
         }
-        return n > 0 ? static_cast<double>(estimate) / n : 0;
+        return n > 0 ? static_cast<double>(estimate) / static_cast<double>(n) : 0;
     }
 
     //! Translate the constraint to weight a constraint.
@@ -527,7 +528,7 @@ private:
                 auto value = floordiv<sum_t>(diff, co);
                 assert (value >= vs.lower_bound());
                 for (sum_t i = vs.lower_bound(), e = std::min<sum_t>(value + 1, vs.upper_bound()); i != e; ++i) {
-                    wlits.emplace_back(-solver.get_literal(cc, vs, i), co);
+                    wlits.emplace_back(-solver.get_literal(cc, vs, static_cast<val_t>(i)), co);
                 }
             }
             else {
@@ -535,7 +536,7 @@ private:
                 auto value = -floordiv<sum_t>(diff, -co);
                 assert(value <= vs.upper_bound());
                 for (sum_t i = std::max<sum_t>(value - 1, vs.lower_bound()), e = vs.upper_bound(); i != e; ++i) {
-                    wlits.emplace_back(solver.get_literal(cc, vs, i), -co);
+                    wlits.emplace_back(solver.get_literal(cc, vs, static_cast<val_t>(i)), -co);
                 }
             }
         }
@@ -547,7 +548,7 @@ private:
             // might be a good idea in general to add translation constraints
             // later because we can run into the problem of successivly adding
             // variables and constraints here.
-            return {cc.add_weight_constraint(constraint_.literal(), wlits, slack, Clingo::WeightConstraintType::RightImplication), true};
+            return {cc.add_weight_constraint(constraint_.literal(), wlits, static_cast<val_t>(slack), Clingo::WeightConstraintType::RightImplication), true};
         }
         return {true, false};
     }
@@ -683,11 +684,11 @@ private:
                 auto &vs = solver.var_state(var);
                 if (co > 0) {
                     todo.back() = std::tuple(i, j, value_lower, value_upper - 1, lower + co, upper + co);
-                    lit = solver.get_literal(cc, vs, value_upper);
+                    lit = solver.get_literal(cc, vs, static_cast<val_t>(value_upper));
                 }
                 else {
                     todo.back() = std::tuple(i, j, value_lower + 1, value_upper, lower - co, upper - co);
-                    lit = -solver.get_literal(cc, vs, value_lower);
+                    lit = -solver.get_literal(cc, vs, static_cast<val_t>(value_lower));
                 }
             }
             else {
@@ -808,7 +809,11 @@ private:
     }
 
     [[nodiscard]] static val_t rhs(Solver &solver) {
-        return *solver.minimize_bound();
+        auto ret = *solver.minimize_bound();
+        if (MIN_VAL > ret || ret > MAX_VAL) {
+            throw std::overflow_error("bound value out of range");
+        }
+        return static_cast<val_t>(ret);
     }
 
     MinimizeConstraint &constraint_;
@@ -921,8 +926,8 @@ public:
                     auto &vs = solver.var_state(var);
 
                     auto adjust = (value - fixed) / co;
-                    auto a = solver.get_literal(cc, vs, adjust);
-                    auto b = -solver.get_literal(cc, vs, adjust - 1);
+                    auto a = solver.get_literal(cc, vs, static_cast<val_t>(adjust));
+                    auto b = -solver.get_literal(cc, vs, static_cast<val_t>(adjust - 1));
 
                     if (a == TRUE_LIT) {
                         lit = b;
@@ -1088,7 +1093,7 @@ private:
             return {elements.fixed(), elements.begin()->first, elements.begin()->second};
         }
 
-        auto var = solver.add_variable(lower, upper);
+        auto var = solver.add_variable(static_cast<val_t>(lower), static_cast<val_t>(upper));
         CoVarVec sum_elems;
         sum_elems.emplace_back(-1, var);
         sum_elems.insert(sum_elems.end(), elements.begin(), elements.end());
@@ -1367,6 +1372,7 @@ public:
     }
 
     NonlinearConstraintState() = delete;
+    NonlinearConstraintState(NonlinearConstraintState const &) = delete;
     NonlinearConstraintState(NonlinearConstraintState &&) = delete;
     NonlinearConstraintState &operator=(NonlinearConstraintState const &) = delete;
     NonlinearConstraintState &operator=(NonlinearConstraintState &&) = delete;
@@ -1428,7 +1434,7 @@ public:
         static_cast<void>(diff);
     }
 
-    std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> get_bound(nsum_t co_a, VarState &vs_x, VarState &vs_y) {
+    static std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> get_bound(nsum_t co_a, VarState &vs_x, VarState &vs_y) {
         nsum_t lower_x = vs_x.lower_bound();
         nsum_t upper_x = vs_x.upper_bound();
         nsum_t lower_y = vs_y.lower_bound();

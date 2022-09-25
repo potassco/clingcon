@@ -93,7 +93,7 @@ inline std::vector<Config> create_configs(val_t min_int = Clingcon::DEFAULT_MIN_
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
     constexpr double r = 1.0;
-    constexpr uint64_t f = m * 10;
+    constexpr uint64_t f = static_cast<uint64_t>(m) * 10;
     constexpr uint32_t o = std::numeric_limits<uint32_t>::max();
     auto configs = {
         Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, false, false, false, true, true},  // basic

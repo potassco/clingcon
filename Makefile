@@ -1,14 +1,15 @@
 BUILD_TYPE:=debug
 CLINGO_DIR:=${HOME}/.local/opt/potassco/$(BUILD_TYPE)/lib/cmake/Clingo
-CLANG_TIDY_WARNINGS:=clang-analyzer-*,readability-*,modernize-*,cppcoreguidelines-*,performance-*,bugprone-*,-modernize-use-trailing-return-type,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-readability-magic-numbers,-cppcoreguidelines-pro-type-union-access,-bugprone-suspicious-semicolon,-readability-braces-around-statements,-cppcoreguidelines-pro-type-vararg,-readability-identifier-length,-readability-function-cognitive-complexity,-bugprone-easily-swappable-parameters,-readability-convert-member-functions-to-static
-CLANG_TIDY_ERRORS:=
-CLANG_TIDY:=clang-tidy;--extra-arg-before=-stdlib=libc++;-header-filter=.*hh;-checks=$(CLANG_TIDY_WARNINGS);-warnings-as-errors=$(CLANG_TIDY_ERRORS)
+CLANG_TIDY:=clang-tidy;--config-file;$(CURDIR)/.clang-tidy
 CXXFLAGS=-Wall -Wextra -Wpedantic -Werror
 
 .PHONY: all configure compdb
 
 all: configure
-	@MAKEFLAGS= MFLAGS= cmake --build "build/$(BUILD_TYPE)" --target all
+	@TERM=dumb MAKEFLAGS= MFLAGS= cmake --build "build/$(BUILD_TYPE)" --target all
+
+test: all
+	@cmake --build "build/$(BUILD_TYPE)" --target "test"
 
 %: configure
 	@cmake --build "build/$(BUILD_TYPE)" --target "$@"
