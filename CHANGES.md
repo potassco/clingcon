@@ -3,6 +3,7 @@
 ## clingcon 5.2.1
 
 - add option `--enable-python`
+- fix api configure call to have an effect
 
 ## clingcon 5.2.0
 

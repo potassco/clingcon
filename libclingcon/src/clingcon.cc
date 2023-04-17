@@ -379,7 +379,7 @@ extern "C" bool clingcon_destroy(clingcon_theory_t *theory) {
 
 extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, char const *value) {
     CLINGCON_TRY {
-        auto& config = theory->propagator.config();
+        auto &config = theory->propagator.config();
         // translation
         if (std::strcmp(key, "shift-constraints") == 0) {
             theory->shift_constraints = parse_bool(value);
