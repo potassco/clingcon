@@ -347,4 +347,32 @@ TEST_CASE("multishot", "[solving]") {
             "&sum { x } >= 5.",
             {{"base", {}}, {"next", {}}}) == O({-3, 5}));
     }
+    SECTION("enumerate") {
+        REQUIRE(solve_multi(
+            "#program prog(id).\n"
+            "{selected(id)}.\n"
+            "&dom{ 1..2 } = val(id).\n",
+            {{"prog", {Clingo::Function("a", {})}}, {"prog", {Clingo::Function("b", {})}}}) == S{{
+                "selected(a) val(a)=1",
+                "selected(a) val(a)=2",
+                "val(a)=1",
+                "val(a)=2",
+                "---",
+                "selected(a) selected(b) val(a)=1 val(b)=1",
+                "selected(a) selected(b) val(a)=1 val(b)=2",
+                "selected(a) selected(b) val(a)=2 val(b)=1",
+                "selected(a) selected(b) val(a)=2 val(b)=2",
+                "selected(a) val(a)=1 val(b)=1",
+                "selected(a) val(a)=1 val(b)=2",
+                "selected(a) val(a)=2 val(b)=1",
+                "selected(a) val(a)=2 val(b)=2",
+                "selected(b) val(a)=1 val(b)=1",
+                "selected(b) val(a)=1 val(b)=2",
+                "selected(b) val(a)=2 val(b)=1",
+                "selected(b) val(a)=2 val(b)=2",
+                "val(a)=1 val(b)=1",
+                "val(a)=1 val(b)=2",
+                "val(a)=2 val(b)=1",
+                "val(a)=2 val(b)=2" }});
+    }
 }

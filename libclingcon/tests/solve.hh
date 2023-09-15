@@ -180,6 +180,59 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     return *last;
 }
 
+inline S solve_multi(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) {
+    Propagator p;
+    p.config() = config;
+    std::vector<char const *> opts{"0", "-t8"};
+    Clingo::Control ctl{opts};
+    ctl.add("base", {}, THEORY);
+    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) {
+                builder.add(stm);
+            }, true);
+        });
+    });
+    ctl.register_propagator(p);
+
+    S result;
+    bool sep = false;
+    for (auto const &part : parts) {
+        ctl.ground({part});
+
+        SolveEventHandler handler{p};
+        if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+            throw std::runtime_error("interrupted");
+        }
+        if (sep) {
+            result.emplace_back("---");
+        }
+        else {
+            sep = true;
+        }
+        std::sort(handler.models.begin(), handler.models.end());
+        std::copy(handler.models.begin(), handler.models.end(), std::back_inserter(result));
+    }
+    return result;
+}
+
+inline S solve_multi(std::string const &prg, Clingo::PartSpan const &parts, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+    std::optional<S> last = std::nullopt;
+    int i = 0;
+    for (auto const &config : create_configs(min_int, max_int)) {
+        std::ostringstream oss;
+        oss << "configuration: " << i++ << "\nprogram: " << prg;
+        INFO(oss.str());
+        auto current = solve_multi(config, prg, parts);
+        if (last.has_value()) {
+            INFO(oss.str());
+            REQUIRE(current == *last);
+        }
+        last = current;
+    }
+    return *last;
+}
+
 inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts, bool null_enum) {
     Propagator p;
     p.config() = config;
