@@ -84,7 +84,7 @@ class ClingconApp(Application):
 
         for name in ["a", "b"]:
             print("*****************************************************")
-            control.ground([("prog", [Function(name)])])
+            control.ground([(name, [])])
             self.__theory.prepare(control)
             control.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
             print("*****************************************************")

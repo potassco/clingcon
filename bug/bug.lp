@@ -1,4 +1,7 @@
-#program prog(id).
-{selected(id)}.
-&dom{ 1..3 } = val(id).
+#program a.
+&dom{ 1..2 } = a.
+
+#program b.
+{b}.
+&dom{ 1..1 } = b.
 
