@@ -180,41 +180,6 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     return *last;
 }
 
-inline S solve_bug(std::string const &prg, Clingo::PartSpan const &parts) {
-    Propagator p;
-    std::vector<char const *> opts{"0"};
-    Clingo::Control ctl{opts};
-    ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) {
-                builder.add(stm);
-            }, true);
-        });
-    });
-    ctl.register_propagator(p);
-
-    S result;
-    bool sep = false;
-    for (auto const &part : parts) {
-        ctl.ground({part});
-
-        SolveEventHandler handler{p};
-        if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
-            throw std::runtime_error("interrupted");
-        }
-        if (sep) {
-            result.emplace_back("---");
-        }
-        else {
-            sep = true;
-        }
-        std::sort(handler.models.begin(), handler.models.end());
-        std::copy(handler.models.begin(), handler.models.end(), std::back_inserter(result));
-    }
-    return result;
-}
-
 inline S solve_multi(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) {
     Propagator p;
     p.config() = config;

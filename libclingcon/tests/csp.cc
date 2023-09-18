@@ -338,14 +338,21 @@ TEST_CASE("nsum", "[solving]") {
 }
 
 TEST_CASE("multishot", "[solving]") {
-    SECTION("optimize") {
-        REQUIRE(solve_opt(
-            "#program base. "
-            "&dom {-3..9} = x. "
-            "&minimize { x }. "
-            "#program next. "
-            "&sum { x } >= 5.",
-            {{"base", {}}, {"next", {}}}) == O({-3, 5}));
+    SECTION("simple") {
+        REQUIRE(solve_multi(
+            "#program a.\n"
+            "&dom{ 1..2 } = a.\n"
+            "#program b.\n"
+            "{ b }.\n"
+            "&dom{ 1..1 } = b.\n",
+            {{"a", {}}, {"b", {}}}) == S{{
+                "a=1",
+                "a=2",
+                "---",
+                "a=1 b=1",
+                "a=2 b=1",
+                "b a=1 b=1",
+                "b a=2 b=1" }});
     }
     SECTION("enumerate") {
         REQUIRE(solve_multi(
@@ -375,21 +382,13 @@ TEST_CASE("multishot", "[solving]") {
                 "val(a)=2 val(b)=1",
                 "val(a)=2 val(b)=2" }});
     }
-}
-
-TEST_CASE("bug", "[solving]") {
-    REQUIRE(solve_bug(
-        "#program a.\n"
-        "&dom{ 1..2 } = a.\n"
-        "#program b.\n"
-        "{ b }.\n"
-        "&dom{ 1..1 } = b.\n",
-        {{"a", {}}, {"b", {}}}) == S{{
-            "a=1",
-            "a=2",
-            "---",
-            "a=1 b=1",
-            "a=2 b=1",
-            "b a=1 b=1",
-            "b a=2 b=1" }});
+    SECTION("optimize") {
+        REQUIRE(solve_opt(
+            "#program base. "
+            "&dom {-3..9} = x. "
+            "&minimize { x }. "
+            "#program next. "
+            "&sum { x } >= 5.",
+            {{"base", {}}, {"next", {}}}) == O({-3, 5}));
+    }
 }

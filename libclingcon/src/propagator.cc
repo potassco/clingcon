@@ -413,7 +413,7 @@ void Propagator::init(Clingo::PropagateInit &init) {
 
     // remove solve step local and fixed literals
     for (auto &solver : solvers_) {
-        solver.update(cc);
+        solver.update();
     }
 
     // add constraints
@@ -469,6 +469,11 @@ void Propagator::init(Clingo::PropagateInit &init) {
     if (has_minimize()) {
         init.set_check_mode(Clingo::PropagatorCheckMode::Both);
         update_minimize(no_bound);
+    }
+
+    auto max_var = static_cast<var_t>(cc.assignment().size());
+    for (auto &solver : solvers_) {
+        solver.mark_variables(max_var);
     }
 }
 
