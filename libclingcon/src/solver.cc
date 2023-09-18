@@ -962,6 +962,7 @@ lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
 }
 
 void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
+    std::cerr << "performing a full check on level " << cc.assignment().decision_level() << "..." << std::endl;
     auto split = [&](VarState &vs) {
         if (!vs.is_assigned()) {
             auto value = midpoint(vs.lower_bound(), vs.upper_bound());
@@ -987,6 +988,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
 
         auto split_once = [&](auto it) {
             if (split(*it)) {
+                std::cerr << "a domain has been split..." << std::endl;
                 split_last_ = it - ib;
                 return true;;
             }
@@ -1063,6 +1065,9 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
 }
 
 bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
+    if (!domain.empty()) {
+        std::cerr << "domain constraint for " << var << " with literal " << lit << " and domain " << domain.begin()->first << ".." << (domain.rbegin()->second - 1) << std::endl;
+    }
     auto ass = cc.assignment();
     if (ass.is_false(lit)) {
         return true;
@@ -1071,6 +1076,7 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
         lit = TRUE_LIT;
     }
     auto &vs = var_state(var);
+    std::cerr << "adding clauses..." << std::endl;
 
     std::optional<val_t> py;
     for (auto [x, y] : domain) {
@@ -1100,6 +1106,7 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
         }
         px = x;
     }
+    std::cerr << "adding clauses done!" << std::endl;
 
     return true;
 }
@@ -1113,6 +1120,7 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
     }
 
     auto &vs = var_state(var);
+    std::cerr << "adding a simple constraint..." << std::endl;
 
     Clingo::TruthValue truth{Clingo::TruthValue::Free};
     val_t value{0};

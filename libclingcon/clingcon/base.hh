@@ -312,6 +312,7 @@ public:
     [[nodiscard]] lit_t add_literal() override {
         auto lit = init_.add_literal();
         ++stats_.num_literals;
+        std::cerr << "adding literal: " << lit << std::endl;
         if (state_ == InitState::Translate) {
             ++stats_.translate_literals;
         }
@@ -319,6 +320,7 @@ public:
     }
 
     void add_watch(lit_t lit) override {
+        std::cerr << "adding watch: " << lit << std::endl;
         init_.add_watch(lit);
     }
 
@@ -335,9 +337,12 @@ public:
             ++stats_.translate_clauses;
         }
 
+        std::cerr << "adding clause:";
         for (auto lit : clause) {
             clauses_.emplace_back(lit);
+            std::cerr << " " << lit;
         }
+        std::cerr << std::endl;
         clauses_.emplace_back(0);
 
         return true;
@@ -432,10 +437,13 @@ public:
 
     lit_t add_literal() override {
         ++stats_.literals;
-        return control_.add_literal();
+        auto lit = control_.add_literal();
+        std::cerr << "adding literal: " << lit << std::endl;
+        return lit;
     }
 
     void add_watch(lit_t lit) override {
+        std::cerr << "adding watch: " << lit << std::endl;
         control_.add_watch(lit);
     }
 
@@ -444,6 +452,11 @@ public:
     }
 
     bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
+        std::cerr << "adding clause:";
+        for (auto lit : clause) {
+            std::cerr << " " << lit;
+        }
+        std::cerr << std::endl;
         return control_.add_clause(clause, type) && propagate();
     }
 
