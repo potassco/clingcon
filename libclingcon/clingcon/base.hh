@@ -264,7 +264,7 @@ public:
     virtual ~AbstractClauseCreator() = default;
 
     //! Add a new solver literal.
-    virtual lit_t add_literal() = 0;
+    [[nodiscard]] virtual lit_t add_literal() = 0;
 
     //! Watch the given solver literal.
     virtual void add_watch(lit_t lit) = 0;

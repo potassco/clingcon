@@ -711,7 +711,7 @@ public:
     //! This function removes all solve step local variables from the state, maps
     //! fixed global literals to the true/false literal, and resets the minimize
     //! constraint.
-    void update(AbstractClauseCreator &cc);
+    void update();
 
     //! Integrate the lower and upper bounds from State `other`.
     //!
@@ -790,6 +790,16 @@ public:
     //!
     //! This function must be called on the top level.
     void copy_state(Solver const &master);
+
+    //! Mark the number of static variables.
+    //!
+    //! This function has to be called at the end of propagator initialization
+    //! when all static order variables have been introduced.
+    //! The marker can then be used in update() to discard order variables introduced during propagation.
+    void mark_variables(var_t var) {
+        assert(max_static_var_ <= var);
+        max_static_var_ = var;
+    }
 
     //! @}
 
@@ -920,6 +930,8 @@ private:
     //! The minimize constraint might not have been fully propagated below this
     //! level. See Solver::update_minimize.
     level_t minimize_level_{0};
+    //! The number of static variables in the solver.
+    var_t max_static_var_{0};
     //! Flag that indicates whether the minimize constraint is to be translated.
     bool translate_minimize_{false};
 };

@@ -1016,9 +1016,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
     }
 }
 
-void Solver::update(AbstractClauseCreator &cc) {
-    auto ass = cc.assignment();
-
+void Solver::update() {
     // reset minimize state
     minimize_bound_.reset();
     minimize_level_ = 0;
@@ -1026,7 +1024,7 @@ void Solver::update(AbstractClauseCreator &cc) {
     // remove solve step local variables from litmap_
     size_t offset = 0;
     for (auto &olit : litmap_) {
-        if (lit_t lit = olit.map_lit(offset); lit != 0 && !ass.has_literal(lit)) {
+        if (var_t var = static_cast<var_t>(std::abs(olit.map_lit(offset))); var != 0 && var > max_static_var_) {
             auto &vs = var_state(olit.var());
             vs.unset_literal(olit.value());
             update_litmap_(vs, 0, olit.value());

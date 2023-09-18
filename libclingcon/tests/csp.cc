@@ -338,6 +338,50 @@ TEST_CASE("nsum", "[solving]") {
 }
 
 TEST_CASE("multishot", "[solving]") {
+    SECTION("simple") {
+        REQUIRE(solve_multi(
+            "#program a.\n"
+            "&dom{ 1..2 } = a.\n"
+            "#program b.\n"
+            "{ b }.\n"
+            "&dom{ 1..1 } = b.\n",
+            {{"a", {}}, {"b", {}}}) == S{{
+                "a=1",
+                "a=2",
+                "---",
+                "a=1 b=1",
+                "a=2 b=1",
+                "b a=1 b=1",
+                "b a=2 b=1" }});
+    }
+    SECTION("enumerate") {
+        REQUIRE(solve_multi(
+            "#program prog(id).\n"
+            "{selected(id)}.\n"
+            "&dom{ 1..2 } = val(id).\n",
+            {{"prog", {Clingo::Function("a", {})}}, {"prog", {Clingo::Function("b", {})}}}) == S{{
+                "selected(a) val(a)=1",
+                "selected(a) val(a)=2",
+                "val(a)=1",
+                "val(a)=2",
+                "---",
+                "selected(a) selected(b) val(a)=1 val(b)=1",
+                "selected(a) selected(b) val(a)=1 val(b)=2",
+                "selected(a) selected(b) val(a)=2 val(b)=1",
+                "selected(a) selected(b) val(a)=2 val(b)=2",
+                "selected(a) val(a)=1 val(b)=1",
+                "selected(a) val(a)=1 val(b)=2",
+                "selected(a) val(a)=2 val(b)=1",
+                "selected(a) val(a)=2 val(b)=2",
+                "selected(b) val(a)=1 val(b)=1",
+                "selected(b) val(a)=1 val(b)=2",
+                "selected(b) val(a)=2 val(b)=1",
+                "selected(b) val(a)=2 val(b)=2",
+                "val(a)=1 val(b)=1",
+                "val(a)=1 val(b)=2",
+                "val(a)=2 val(b)=1",
+                "val(a)=2 val(b)=2" }});
+    }
     SECTION("optimize") {
         REQUIRE(solve_opt(
             "#program base. "
