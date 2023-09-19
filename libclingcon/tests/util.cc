@@ -31,8 +31,7 @@ using namespace Clingcon;
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
 struct Element {
-    Element(int value)
-    : value{value} { }
+    Element(int value) : value{value} {}
     int value;
     bool flag_unique{false};
 };
@@ -121,8 +120,8 @@ TEST_CASE("util", "[util]") { // NOLINT
 
     SECTION("unique-vec") {
         std::vector<Element> elems{1, 2, 3, 4, 5};
-        std::vector<Element*> ptrs;
-        UniqueVector<Element*> uniq;
+        std::vector<Element *> ptrs;
+        UniqueVector<Element *> uniq;
         ptrs.reserve(elems.size());
         for (auto &x : elems) {
             ptrs.emplace_back(&x);

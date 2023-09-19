@@ -85,22 +85,22 @@ constexpr char const *THEORY = R"(
 
 //! CSP builder to use with the Clingcon::parse_theory function.
 class AbstractConstraintBuilder {
-public:
+  public:
     AbstractConstraintBuilder() = default;
     AbstractConstraintBuilder(AbstractConstraintBuilder const &) = delete;
     AbstractConstraintBuilder(AbstractConstraintBuilder &&) noexcept = delete;
-    AbstractConstraintBuilder& operator=(AbstractConstraintBuilder const &) = delete;
-    AbstractConstraintBuilder& operator=(AbstractConstraintBuilder &&) noexcept = delete;
+    auto operator=(AbstractConstraintBuilder const &) -> AbstractConstraintBuilder & = delete;
+    auto operator=(AbstractConstraintBuilder &&) noexcept -> AbstractConstraintBuilder & = delete;
     virtual ~AbstractConstraintBuilder() = default;
 
     //! Map a program to a solver literal.
-    [[nodiscard]] virtual lit_t solver_literal(lit_t literal) = 0;
+    [[nodiscard]] virtual auto solver_literal(lit_t literal) -> lit_t = 0;
     //! Add a new solver literal.
-    [[nodiscard]] virtual lit_t add_literal() = 0;
+    [[nodiscard]] virtual auto add_literal() -> lit_t = 0;
     //! Check whether the given solver literal is true.
-    [[nodiscard]] virtual bool is_true(lit_t literal) = 0;
+    [[nodiscard]] virtual auto is_true(lit_t literal) -> bool = 0;
     //! Add a clause over solver literals.
-    [[nodiscard]] virtual bool add_clause(Clingo::LiteralSpan clause) = 0;
+    [[nodiscard]] virtual auto add_clause(Clingo::LiteralSpan clause) -> bool = 0;
     //! Inform the builder that there is a show statement.
     virtual void add_show() = 0;
     //! Show variables with the given signature.
@@ -108,26 +108,28 @@ public:
     //! Show the given variable.
     virtual void show_variable(var_t idx) = 0;
     //! Get the integer representing a variable.
-    [[nodiscard]] virtual var_t add_variable(Clingo::Symbol var) = 0;
+    [[nodiscard]] virtual auto add_variable(Clingo::Symbol var) -> var_t = 0;
     //! Add a constraint.
-    [[nodiscard]] virtual bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) = 0;
+    [[nodiscard]] virtual auto add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) -> bool = 0;
     //! Add a non-linear sum constraint.
-    [[nodiscard]] virtual bool add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs, bool strict) = 0;
+    [[nodiscard]] virtual auto add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c,
+                                             val_t rhs, bool strict) -> bool = 0;
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
-    [[nodiscard]] virtual bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) = 0;
+    [[nodiscard]] virtual auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems)
+        -> bool = 0;
     //! Add a disjoint constraint.
-    [[nodiscard]] virtual bool add_disjoint(lit_t lit, CoVarVec const &elems) = 0;
+    [[nodiscard]] virtual auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool = 0;
     //! Add a domain for the given variable.
-    [[nodiscard]] virtual bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) = 0;
+    [[nodiscard]] virtual auto add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) -> bool = 0;
 };
 
 //! Combine coefficients of terms with the same variable and optionally drop
 //! zero weights and sum up terms without a variable.
 //!
 //! This functions throws if there is a (potential) overflow.
-[[nodiscard]] val_t simplify(CoVarVec &vec, bool drop_zero=true);
+[[nodiscard]] auto simplify(CoVarVec &vec, bool drop_zero = true) -> val_t;
 
 using NodeCallback = std::function<void(Clingo::AST::Node &&ast)>;
 
@@ -141,10 +143,10 @@ void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift)
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.
-[[nodiscard]] bool parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms);
+[[nodiscard]] auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) -> bool;
 
 //! Check if the theory term has the given signature.
-[[nodiscard]] bool match(Clingo::TheoryTerm const &term, char const *name, size_t arity);
+[[nodiscard]] auto match(Clingo::TheoryTerm const &term, char const *name, size_t arity) -> bool;
 
 } // namespace Clingcon
 

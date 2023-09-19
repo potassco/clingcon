@@ -23,18 +23,23 @@
 // }}}
 
 #include "clingcon.h"
-#include "clingcon/propagator.hh"
 #include "clingcon/parsing.hh"
+#include "clingcon/propagator.hh"
 
 #include <clingo.hh>
-#include <stdexcept>
-#include <sstream>
-#include <locale>
 #include <cstring>
+#include <locale>
 #include <map>
+#include <sstream>
+#include <stdexcept>
 
 #define CLINGCON_TRY try // NOLINT
-#define CLINGCON_CATCH catch (...){ Clingo::Detail::handle_cxx_error(); return false; } return true // NOLINT
+#define CLINGCON_CATCH                                                                                                 \
+    catch (...) {                                                                                                      \
+        Clingo::Detail::handle_cxx_error();                                                                            \
+        return false;                                                                                                  \
+    }                                                                                                                  \
+    return true // NOLINT
 
 using Clingo::Detail::handle_error;
 
@@ -56,49 +61,48 @@ struct clingcon_theory {
 
 namespace {
 
-bool init(clingo_propagate_init_t* c_init, void* data) {
+auto init(clingo_propagate_init_t *c_init, void *data) -> bool {
     CLINGCON_TRY {
         Clingo::PropagateInit init{c_init};
-        static_cast<Propagator*>(data)->init(init);
+        static_cast<Propagator *>(data)->init(init);
     }
     CLINGCON_CATCH;
 }
 
-bool propagate(clingo_propagate_control_t* c_ctl, const clingo_literal_t *changes, size_t size, void* data) {
+auto propagate(clingo_propagate_control_t *c_ctl, const clingo_literal_t *changes, size_t size, void *data) -> bool {
     CLINGCON_TRY {
         Clingo::PropagateControl ctl{c_ctl};
-        static_cast<Propagator*>(data)->propagate(ctl, {changes, size});
+        static_cast<Propagator *>(data)->propagate(ctl, {changes, size});
     }
     CLINGCON_CATCH;
 }
 
-void undo(clingo_propagate_control_t const *c_ctl, clingo_literal_t const *changes, size_t size, void* data) {
+void undo(clingo_propagate_control_t const *c_ctl, clingo_literal_t const *changes, size_t size, void *data) {
     Clingo::PropagateControl ctl(const_cast<clingo_propagate_control_t *>(c_ctl)); // NOLINT
-    static_cast<Propagator*>(data)->undo(ctl, {changes, size});
+    static_cast<Propagator *>(data)->undo(ctl, {changes, size});
 }
 
-bool check(clingo_propagate_control_t *c_ctl, void* data) {
+auto check(clingo_propagate_control_t *c_ctl, void *data) -> bool {
     CLINGCON_TRY {
         Clingo::PropagateControl ctl{c_ctl};
-        static_cast<Propagator*>(data)->check(ctl);
+        static_cast<Propagator *>(data)->check(ctl);
     }
     CLINGCON_CATCH;
 }
 
-bool decide(clingo_id_t thread_id, clingo_assignment_t const *c_ass, clingo_literal_t fallback, void* data, clingo_literal_t *result) {
+auto decide(clingo_id_t thread_id, clingo_assignment_t const *c_ass, clingo_literal_t fallback, void *data,
+            clingo_literal_t *result) -> bool {
     CLINGCON_TRY {
         Clingo::Assignment ass{c_ass};
-        *result = static_cast<Propagator*>(data)->decide(thread_id, ass, fallback);
+        *result = static_cast<Propagator *>(data)->decide(thread_id, ass, fallback);
     }
     CLINGCON_CATCH;
 }
 
-char const *flag_str(bool value) {
-    return value ? "yes" : "no";
-}
+auto flag_str(bool value) -> char const * { return value ? "yes" : "no"; }
 
-char const *heuristic_str(Heuristic heu) {
-    switch(heu) {
+auto heuristic_str(Heuristic heu) -> char const * {
+    switch (heu) {
         case Heuristic::None: {
             return "none";
         }
@@ -110,15 +114,13 @@ char const *heuristic_str(Heuristic heu) {
     return "";
 }
 
-template <typename... Args>
-[[nodiscard]] std::string format(Args &&... args) {
+template <typename... Args> [[nodiscard]] auto format(Args &&...args) -> std::string {
     std::ostringstream oss;
     (oss << ... << std::forward<Args>(args));
     return oss.str();
 }
 
-template<class T>
-[[nodiscard]] T strtonum(char const *ib, char const *ie) {
+template <class T> [[nodiscard]] auto strtonum(char const *ib, char const *ie) -> T {
     if (!ie) {
         ie = ib + std::strlen(ib); // NOLINT
     }
@@ -134,8 +136,10 @@ template<class T>
     return val;
 }
 
-template<class T>
-[[nodiscard]] T parse_range_num(char const *begin, char const *end = nullptr, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+template <class T>
+[[nodiscard]] auto parse_range_num(char const *begin, char const *end = nullptr,
+                                   T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
+    -> T {
     assert(min <= max);
     if (strncmp(begin, "min", end - begin) == 0) {
         return min;
@@ -150,13 +154,15 @@ template<class T>
     throw std::invalid_argument("invalid argument");
 }
 
-template<class T>
-[[nodiscard]] T parse_num(char const *begin, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+template <class T>
+[[nodiscard]] auto parse_num(char const *begin, T min = std::numeric_limits<T>::lowest(),
+                             T max = std::numeric_limits<T>::max()) -> T {
     return parse_range_num(begin, nullptr, min, max);
 }
 
-template<class T>
-[[nodiscard]] std::function<bool (const char *)> parser_num(T &dest, T min=std::numeric_limits<T>::lowest(), T max=std::numeric_limits<T>::max()) {
+template <class T>
+[[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
+    -> std::function<bool(const char *)> {
     return [&dest, min, max](char const *value) {
         dest = parse_num<T>(value, min, max);
         return true;
@@ -196,8 +202,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     auto const &[val, thread] = value;
     if (thread.has_value()) {
         set_value(target, config.solver_config(*thread), val);
-    }
-    else {
+    } else {
         set_value(target, config.default_solver_config, val);
         for (auto &sconf : config.solver_configs) {
             set_value(target, sconf, val);
@@ -205,25 +210,27 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     }
 }
 
-[[nodiscard]] bool parse_bool(char const *begin, char const *end = nullptr) {
+[[nodiscard]] auto parse_bool(char const *begin, char const *end = nullptr) -> bool {
     size_t len = end != nullptr ? end - begin : std::strlen(begin);
-    if (std::strncmp(begin, "true", len) == 0 || std::strncmp(begin, "yes", len) == 0 || std::strncmp(begin, "1", len) == 0) {
+    if (std::strncmp(begin, "true", len) == 0 || std::strncmp(begin, "yes", len) == 0 ||
+        std::strncmp(begin, "1", len) == 0) {
         return true;
     }
-    if (std::strncmp(begin, "false", len) == 0 || std::strncmp(begin, "no", len) == 0 || std::strncmp(begin, "0", len) == 0) {
+    if (std::strncmp(begin, "false", len) == 0 || std::strncmp(begin, "no", len) == 0 ||
+        std::strncmp(begin, "0", len) == 0) {
         return false;
     }
     throw std::invalid_argument("invalid argument");
 }
 
-[[nodiscard]] char const *find_str(char const *s, char c) {
+[[nodiscard]] auto find_str(char const *s, char c) -> char const * {
     if (char const *t = std::strchr(s, c); t != nullptr) {
         return t;
     }
     return s + std::strlen(s); // NOLINT
 }
 
-[[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_bool_thread(char const *value) {
+[[nodiscard]] auto parse_bool_thread(char const *value) -> std::pair<val_t, std::optional<uint32_t>> {
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
@@ -233,7 +240,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     return {parse_bool(value, comma) ? 1 : 0, thread};
 }
 
-[[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_sign_value(char const *value) {
+[[nodiscard]] auto parse_sign_value(char const *value) -> std::pair<val_t, std::optional<uint32_t>> {
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
@@ -249,7 +256,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     return {parse_range_num<val_t>(value, comma), thread};
 }
 
-[[nodiscard]] std::pair<uint32_t, std::optional<uint64_t>> parse_translate_clause(char const *value) {
+[[nodiscard]] auto parse_translate_clause(char const *value) -> std::pair<uint32_t, std::optional<uint64_t>> {
     std::optional<val_t> total = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
@@ -258,7 +265,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     return {parse_range_num<uint32_t>(value, comma), total};
 }
 
-[[nodiscard]] std::pair<val_t, std::optional<uint32_t>> parse_heuristic(char const *value) {
+[[nodiscard]] auto parse_heuristic(char const *value) -> std::pair<val_t, std::optional<uint32_t>> {
     std::optional<uint32_t> thread = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
@@ -274,29 +281,30 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     throw std::invalid_argument("invalid argument");
 }
 
-[[nodiscard]] std::function<bool (const char *)> parser_bool_thread(clingcon_theory &theory, Target target) {
+[[nodiscard]] auto parser_bool_thread(clingcon_theory &theory, Target target) -> std::function<bool(const char *)> {
     return [&theory, target](char const *value) {
         auto [val, thread] = parse_bool_thread(value);
         return theory.deferred.emplace(std::pair(target, thread), val).second;
     };
 }
 
-[[nodiscard]] std::function<bool (const char *)> parser_sign_value(clingcon_theory &theory, Target target) {
+[[nodiscard]] auto parser_sign_value(clingcon_theory &theory, Target target) -> std::function<bool(const char *)> {
     return [&theory, target](char const *value) {
         auto [val, thread] = parse_sign_value(value);
         return theory.deferred.emplace(std::pair(target, thread), val).second;
     };
 }
 
-[[nodiscard]] std::function<bool (const char *)> parser_heuristic(clingcon_theory &theory) {
+[[nodiscard]] auto parser_heuristic(clingcon_theory &theory) -> std::function<bool(const char *)> {
     return [&theory](char const *value) {
         auto [val, thread] = parse_heuristic(value);
         return theory.deferred.emplace(std::pair(Target::Heuristic, thread), val).second;
     };
 }
 
-template<class T, class U>
-[[nodiscard]] std::function<bool (const char *)> parser_translate_clause(T &translate_clauses, U &translate_clauses_total) {
+template <class T, class U>
+[[nodiscard]] auto parser_translate_clause(T &translate_clauses, U &translate_clauses_total)
+    -> std::function<bool(const char *)> {
     return [&translate_clauses, &translate_clauses_total](char const *value) {
         auto [clauses, clauses_total] = parse_translate_clause(value);
         translate_clauses = clauses;
@@ -309,7 +317,7 @@ template<class T, class U>
 
 } // namespace
 
-extern "C" bool clingcon_create(clingcon_theory_t **theory) {
+extern "C" auto clingcon_create(clingcon_theory_t **theory) -> bool {
     CLINGCON_TRY {
         *theory = new clingcon_theory(); // NOLINT
     }
@@ -328,33 +336,35 @@ extern "C" void clingcon_version(int *major, int *minor, int *patch) {
     }
 }
 
-extern "C" bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control) {
+extern "C" auto clingcon_register(clingcon_theory_t *theory, clingo_control_t *control) -> bool {
     // Note: The decide function is passed here for performance reasons.
     auto &config = theory->propagator.config();
     bool has_heuristic = config.default_solver_config.heuristic != Heuristic::None;
     for (auto &sconfig : config.solver_configs) {
-        if (has_heuristic) { break; }
+        if (has_heuristic) {
+            break;
+        }
         has_heuristic = sconfig.heuristic != Heuristic::None;
     }
 
-    static clingo_propagator_t propagator = { init, propagate, undo, check, has_heuristic ? decide : nullptr };
-    return
-        clingo_control_add(control, "base", nullptr, 0, Clingcon::THEORY) &&
-        clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
+    static clingo_propagator_t propagator = {init, propagate, undo, check, has_heuristic ? decide : nullptr};
+    return clingo_control_add(control, "base", nullptr, 0, Clingcon::THEORY) &&
+           clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
 }
 
-extern "C" bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast, clingcon_ast_callback_t add, void *data) {
+extern "C" auto clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast, clingcon_ast_callback_t add,
+                                     void *data) -> bool {
     CLINGCON_TRY {
         clingo_ast_acquire(ast);
         Clingo::AST::Node ast_cpp{ast};
-        transform(ast_cpp, [add, data](Clingo::AST::Node &&ast_trans){
-            handle_error(add(ast_trans.to_c(), data));
-        }, theory->shift_constraints);
+        transform(
+            ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) { handle_error(add(ast_trans.to_c(), data)); },
+            theory->shift_constraints);
     }
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control) {
+extern "C" auto clingcon_prepare(clingcon_theory_t *theory, clingo_control_t *control) -> bool {
     static_cast<void>(theory);
     CLINGCON_TRY {
         Clingo::Control ctl{control, false};
@@ -372,80 +382,65 @@ extern "C" bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* co
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_destroy(clingcon_theory_t *theory) {
+extern "C" auto clingcon_destroy(clingcon_theory_t *theory) -> bool {
     delete theory; // NOLINT
     return true;
 }
 
-extern "C" bool clingcon_configure(clingcon_theory_t *theory, char const *key, char const *value) {
+extern "C" auto clingcon_configure(clingcon_theory_t *theory, char const *key, char const *value) -> bool {
     CLINGCON_TRY {
         auto &config = theory->propagator.config();
         // translation
         if (std::strcmp(key, "shift-constraints") == 0) {
             theory->shift_constraints = parse_bool(value);
-        }
-        else if (std::strcmp(key, "sort-constraints") == 0) {
+        } else if (std::strcmp(key, "sort-constraints") == 0) {
             config.sort_constraints = parse_bool(value);
-        }
-        else if (std::strcmp(key, "translate-clauses") == 0) {
+        } else if (std::strcmp(key, "translate-clauses") == 0) {
             auto [clauses, clauses_total] = parse_translate_clause(value);
             config.clause_limit = clauses;
             if (clauses_total) {
                 config.clause_limit_total = *clauses_total;
             }
-        }
-        else if (std::strcmp(key, "literals-only") == 0) {
+        } else if (std::strcmp(key, "literals-only") == 0) {
             config.literals_only = parse_bool(value);
-        }
-        else if (std::strcmp(key, "translate-pb") == 0) {
+        } else if (std::strcmp(key, "translate-pb") == 0) {
             config.weight_constraint_ratio = parse_num<double>(value);
-        }
-        else if (std::strcmp(key, "translate-distinct") == 0) {
+        } else if (std::strcmp(key, "translate-distinct") == 0) {
             config.distinct_limit = parse_num<uint32_t>(value);
-        }
-        else if (std::strcmp(key, "translate-opt") == 0) {
+        } else if (std::strcmp(key, "translate-opt") == 0) {
             config.translate_minimize = parse_num<uint32_t>(value);
-        }
-        else if (std::strcmp(key, "add-order-clauses") == 0) {
+        } else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
         }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
             config.min_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
-        }
-        else if (std::strcmp(key, "max-int") == 0) {
+        } else if (std::strcmp(key, "max-int") == 0) {
             config.max_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
-        }
-        else if (std::strcmp(key, "check-solution") == 0) {
+        } else if (std::strcmp(key, "check-solution") == 0) {
             config.check_solution = parse_bool(value);
-        }
-        else if (std::strcmp(key, "check-state") == 0) {
+        } else if (std::strcmp(key, "check-state") == 0) {
             config.check_state = parse_bool(value);
         }
         // propagation
         else if (std::strcmp(key, "order-heuristic") == 0) {
             set_value(Target::Heuristic, config, parse_heuristic(value));
-        }
-        else if (std::strcmp(key, "sign-value") == 0) {
+        } else if (std::strcmp(key, "sign-value") == 0) {
             set_value(Target::SignValue, config, parse_sign_value(value));
-        }
-        else if (std::strcmp(key, "refine-reasons") == 0) {
+        } else if (std::strcmp(key, "refine-reasons") == 0) {
             set_value(Target::RefineReasons, config, parse_bool_thread(value));
-        }
-        else if (std::strcmp(key, "refine-introduce") == 0) {
+        } else if (std::strcmp(key, "refine-introduce") == 0) {
             set_value(Target::RefineIntroduce, config, parse_bool_thread(value));
-        }
-        else if (std::strcmp(key, "propagate-chain") == 0) {
+        } else if (std::strcmp(key, "propagate-chain") == 0) {
             set_value(Target::PropagateChain, config, parse_bool_thread(value));
-        }
-        else if (std::strcmp(key, "split-all") == 0) {
+        } else if (std::strcmp(key, "split-all") == 0) {
             set_value(Target::SplitAll, config, parse_bool_thread(value));
         }
     }
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_options_t* options) {
+extern "C" auto clingcon_register_options(clingcon_theory_t *theory, clingo_options_t *options) -> bool {
     CLINGCON_TRY {
         char const *group = "CSP Options";
         auto &config = theory->propagator.config();
@@ -454,115 +449,114 @@ extern "C" bool clingcon_register_options(clingcon_theory_t *theory, clingo_opti
         // translation
         opts.add_flag(
             group, "shift-constraints",
-            format("Shift constraints into head of integrity constraints [", flag_str(theory->shift_constraints), "]").c_str(),
+            format("Shift constraints into head of integrity constraints [", flag_str(theory->shift_constraints), "]")
+                .c_str(),
             theory->shift_constraints);
-        opts.add_flag(
-            group, "sort-constraints",
-            format("Sort constraint elements [", flag_str(config.sort_constraints), "]").c_str(),
-            config.sort_constraints);
-        opts.add(
-            group, "translate-clauses",
-            format(
-                "Restrict translation to clauses [", config.clause_limit, ",", config.clause_limit_total,"]\n",
-                "      <n>: maximum clauses per constraint\n"
-                "      <m>: maximum clauses total").c_str(),
-            parser_translate_clause(config.clause_limit, config.clause_limit_total), false, "<n>[,<m>]");
+        opts.add_flag(group, "sort-constraints",
+                      format("Sort constraint elements [", flag_str(config.sort_constraints), "]").c_str(),
+                      config.sort_constraints);
+        opts.add(group, "translate-clauses",
+                 format("Restrict translation to clauses [", config.clause_limit, ",", config.clause_limit_total, "]\n",
+                        "      <n>: maximum clauses per constraint\n"
+                        "      <m>: maximum clauses total")
+                     .c_str(),
+                 parser_translate_clause(config.clause_limit, config.clause_limit_total), false, "<n>[,<m>]");
         opts.add_flag(
             group, "literals-only",
-            format("Only create literals during translation but no clauses [", flag_str(config.literals_only), "]").c_str(),
+            format("Only create literals during translation but no clauses [", flag_str(config.literals_only), "]")
+                .c_str(),
             config.literals_only);
-        opts.add(
-            group, "translate-pb",
-            format("Translate to weight constraints if ratio of variables and literals is less equal <r> [", config.weight_constraint_ratio, "]").c_str(),
-            parser_num(config.weight_constraint_ratio), false, "<r>");
+        opts.add(group, "translate-pb",
+                 format("Translate to weight constraints if ratio of variables and literals is less equal <r> [",
+                        config.weight_constraint_ratio, "]")
+                     .c_str(),
+                 parser_num(config.weight_constraint_ratio), false, "<r>");
         opts.add(
             group, "translate-distinct",
-            format("Restrict translation of distinct constraints to <n> pb constraints [", config.distinct_limit, "]").c_str(),
+            format("Restrict translation of distinct constraints to <n> pb constraints [", config.distinct_limit, "]")
+                .c_str(),
             parser_num<uint32_t>(config.distinct_limit), false, "<n>");
-        opts.add(
-            group, "translate-opt",
-            format(
-                "Configure translation of minimize constraint [", config.translate_minimize, "]\n"
-                "      <n>: translate if required literals less than <n>\n"
-                "        0  : never translate\n"
-                "        max: always translate").c_str(),
-            parser_num<uint32_t>(config.translate_minimize), false, "<n>");
+        opts.add(group, "translate-opt",
+                 format("Configure translation of minimize constraint [", config.translate_minimize,
+                        "]\n"
+                        "      <n>: translate if required literals less than <n>\n"
+                        "        0  : never translate\n"
+                        "        max: always translate")
+                     .c_str(),
+                 parser_num<uint32_t>(config.translate_minimize), false, "<n>");
         opts.add_flag(
             group, "add-order-clauses",
-            format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]").c_str(),
+            format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]")
+                .c_str(),
             config.add_order_clauses);
 
         // propagation
-        opts.add(
-            group, "order-heuristic",
-            format(
-                "Make the decision heuristic aware of order literls [", heuristic_str(config.default_solver_config.heuristic), "]\n"
-                "      <arg>: {none,max-chain}[,<i>]\n"
-                "        none     : use clasp's heuristic\n"
-                "        max-chain: assign chains of literals\n"
-                "      <i>  : Only enable for thread <i>").c_str(),
-            parser_heuristic(*theory), true);
-        opts.add(
-            group, "sign-value",
-            format(
-                "Configure the sign of order literals [", config.default_solver_config.sign_value, "]\n"
-                "      <arg>: {<n>|+|-}[,<i>]\n"
-                "        <n>: negative iff its value is greater or equal to <n>\n"
-                "        +  : always positive\n"
-                "        -  : always negative\n"
-                "      <i>  : Only enable for thread <i>").c_str(),
-            parser_sign_value(*theory, Target::SignValue), true);
-        opts.add(
-            group, "refine-reasons",
-            format(
-                "Refine reasons during propagation [", flag_str(config.default_solver_config.refine_reasons), "]\n"
-                "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>  : Only enable for thread <i>").c_str(),
-            parser_bool_thread(*theory, Target::RefineReasons), true);
-        opts.add(
-            group, "refine-introduce",
-            format(
-                "Introduce order literals when generating reasons [", flag_str(config.default_solver_config.refine_introduce), "]\n"
-                "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>  : Only enable for thread <i>").c_str(),
-            parser_bool_thread(*theory, Target::RefineIntroduce), true);
-        opts.add(
-            group, "propagate-chain",
-            format(
-                "Use closest order literal as reason [", flag_str(config.default_solver_config.propagate_chain), "]\n"
-                "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>  : Only enable for thread <i>").c_str(),
-            parser_bool_thread(*theory, Target::PropagateChain), true);
-        opts.add(
-            group, "split-all",
-            format(
-                "Split all domains on total assignment [", flag_str(config.default_solver_config.split_all), "]\n"
-                "      <arg>: {yes|no}[,<i>]\n"
-                "      <i>  : Only enable for thread <i>").c_str(),
-            parser_bool_thread(*theory, Target::SplitAll), true);
+        opts.add(group, "order-heuristic",
+                 format("Make the decision heuristic aware of order literls [",
+                        heuristic_str(config.default_solver_config.heuristic),
+                        "]\n"
+                        "      <arg>: {none,max-chain}[,<i>]\n"
+                        "        none     : use clasp's heuristic\n"
+                        "        max-chain: assign chains of literals\n"
+                        "      <i>  : Only enable for thread <i>")
+                     .c_str(),
+                 parser_heuristic(*theory), true);
+        opts.add(group, "sign-value",
+                 format("Configure the sign of order literals [", config.default_solver_config.sign_value,
+                        "]\n"
+                        "      <arg>: {<n>|+|-}[,<i>]\n"
+                        "        <n>: negative iff its value is greater or equal to <n>\n"
+                        "        +  : always positive\n"
+                        "        -  : always negative\n"
+                        "      <i>  : Only enable for thread <i>")
+                     .c_str(),
+                 parser_sign_value(*theory, Target::SignValue), true);
+        opts.add(group, "refine-reasons",
+                 format("Refine reasons during propagation [", flag_str(config.default_solver_config.refine_reasons),
+                        "]\n"
+                        "      <arg>: {yes|no}[,<i>]\n"
+                        "      <i>  : Only enable for thread <i>")
+                     .c_str(),
+                 parser_bool_thread(*theory, Target::RefineReasons), true);
+        opts.add(group, "refine-introduce",
+                 format("Introduce order literals when generating reasons [",
+                        flag_str(config.default_solver_config.refine_introduce),
+                        "]\n"
+                        "      <arg>: {yes|no}[,<i>]\n"
+                        "      <i>  : Only enable for thread <i>")
+                     .c_str(),
+                 parser_bool_thread(*theory, Target::RefineIntroduce), true);
+        opts.add(group, "propagate-chain",
+                 format("Use closest order literal as reason [", flag_str(config.default_solver_config.propagate_chain),
+                        "]\n"
+                        "      <arg>: {yes|no}[,<i>]\n"
+                        "      <i>  : Only enable for thread <i>")
+                     .c_str(),
+                 parser_bool_thread(*theory, Target::PropagateChain), true);
+        opts.add(group, "split-all",
+                 format("Split all domains on total assignment [", flag_str(config.default_solver_config.split_all),
+                        "]\n"
+                        "      <arg>: {yes|no}[,<i>]\n"
+                        "      <i>  : Only enable for thread <i>")
+                     .c_str(),
+                 parser_bool_thread(*theory, Target::SplitAll), true);
 
         // hidden/debug
-        opts.add(
-            group, "min-int,@2",
-            format("Set minimum integer [", config.min_int, "]").c_str(),
-            parser_num<val_t>(config.min_int, MIN_VAL, MAX_VAL), false, "<i>");
-        opts.add(
-            group, "max-int,@2",
-            format("Set maximum integer [", config.max_int, "]").c_str(),
-            parser_num<val_t>(config.max_int, MIN_VAL, MAX_VAL), false, "<i>");
-        opts.add_flag(
-            group, "check-solution,@2",
-            format("Verify solutions [", flag_str(config.check_solution), "]").c_str(),
-            config.check_solution);
-        opts.add_flag(
-            group, "check-state,@2",
-            format("Check state invariants [", flag_str(config.check_state), "]").c_str(),
-            config.check_state);
+        opts.add(group, "min-int,@2", format("Set minimum integer [", config.min_int, "]").c_str(),
+                 parser_num<val_t>(config.min_int, MIN_VAL, MAX_VAL), false, "<i>");
+        opts.add(group, "max-int,@2", format("Set maximum integer [", config.max_int, "]").c_str(),
+                 parser_num<val_t>(config.max_int, MIN_VAL, MAX_VAL), false, "<i>");
+        opts.add_flag(group, "check-solution,@2",
+                      format("Verify solutions [", flag_str(config.check_solution), "]").c_str(),
+                      config.check_solution);
+        opts.add_flag(group, "check-state,@2",
+                      format("Check state invariants [", flag_str(config.check_state), "]").c_str(),
+                      config.check_state);
     }
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_validate_options(clingcon_theory_t *theory) {
+extern "C" auto clingcon_validate_options(clingcon_theory_t *theory) -> bool {
     CLINGCON_TRY {
         auto &config = theory->propagator.config();
 
@@ -583,7 +577,7 @@ extern "C" bool clingcon_validate_options(clingcon_theory_t *theory) {
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t* model) {
+extern "C" auto clingcon_on_model(clingcon_theory_t *theory, clingo_model_t *model) -> bool {
     CLINGCON_TRY {
         Clingo::Model m{model};
         theory->propagator.on_model(m);
@@ -591,7 +585,7 @@ extern "C" bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t* mod
     CLINGCON_CATCH;
 }
 
-extern "C" bool clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_t symbol, size_t *index) {
+extern "C" auto clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_t symbol, size_t *index) -> bool {
     if (auto var = theory->propagator.get_index(Clingo::Symbol{symbol}); var.has_value()) {
         *index = *var + 1;
         return true;
@@ -599,7 +593,7 @@ extern "C" bool clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_
     return false;
 }
 
-extern "C" clingo_symbol_t clingcon_get_symbol(clingcon_theory_t *theory, size_t index) {
+extern "C" auto clingcon_get_symbol(clingcon_theory_t *theory, size_t index) -> clingo_symbol_t {
     auto sym = theory->propagator.get_symbol(index - 1);
     assert(sym.has_value());
     return sym->to_c();
@@ -611,7 +605,7 @@ extern "C" void clingcon_assignment_begin(clingcon_theory_t *theory, uint32_t th
     *index = 0;
 }
 
-extern "C" bool clingcon_assignment_next(clingcon_theory_t *theory, uint32_t thread_id, size_t *index) {
+extern "C" auto clingcon_assignment_next(clingcon_theory_t *theory, uint32_t thread_id, size_t *index) -> bool {
     static_cast<void>(thread_id);
     auto const &map = theory->propagator.var_map();
     auto it = map.lower_bound(*index);
@@ -622,17 +616,19 @@ extern "C" bool clingcon_assignment_next(clingcon_theory_t *theory, uint32_t thr
     return false;
 }
 
-extern "C" bool clingcon_assignment_has_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index) {
+extern "C" auto clingcon_assignment_has_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index) -> bool {
     static_cast<void>(thread_id);
     return theory->propagator.get_symbol(index - 1).has_value();
 }
 
-extern "C" void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index, clingcon_value_t *value) {
-    value->type = clingcon_value_type_int; // NOLINT
+extern "C" void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index,
+                                              clingcon_value_t *value) {
+    value->type = clingcon_value_type_int;                                  // NOLINT
     value->int_number = theory->propagator.get_value(index - 1, thread_id); // NOLINT
 }
 
-extern "C" bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t* step, clingo_statistics_t* accu) {
+extern "C" auto clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t *step, clingo_statistics_t *accu)
+    -> bool {
     uint64_t step_root, accu_root; // NOLINT
     if (!clingo_statistics_root(step, &step_root) || !clingo_statistics_root(accu, &accu_root)) {
         return false;

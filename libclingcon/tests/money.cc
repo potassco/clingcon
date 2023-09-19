@@ -62,26 +62,16 @@ letter(s;e;n;d;m;o;r;y).
 
 TEST_CASE("money", "[money]") {
     SECTION("money") {
-        REQUIRE(solve(DIST + DOM + SMM) == S({
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2" }));
-        REQUIRE(solve(DIST + DOMC + SMM) == S({
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2" }));
-        REQUIRE(solve(DIST + SMM, 0, 9) == S({
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2" }));
-        REQUIRE(solve(DIST + SMM, 0, 10) == S({
-            "d=5 e=8 m=1 n=0 o=2 r=7 s=10 y=3",
-            "d=6 e=8 m=1 n=0 o=2 r=7 s=10 y=4",
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DIST + DOM + SMM) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DIST + DOMC + SMM) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DIST + SMM, 0, 9) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DIST + SMM, 0, 10) == S({"d=5 e=8 m=1 n=0 o=2 r=7 s=10 y=3", "d=6 e=8 m=1 n=0 o=2 r=7 s=10 y=4",
+                                               "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
 
-        REQUIRE(solve(DISTC + DOM + SMM) == S({
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2" }));
-        REQUIRE(solve(DISTC + DOMC + SMM) == S({
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2" }));
-        REQUIRE(solve(DISTC + SMM, 0, 9) == S({
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2" }));
-        REQUIRE(solve(DISTC + SMM, 0, 10) == S({
-            "d=5 e=8 m=1 n=0 o=2 r=7 s=10 y=3",
-            "d=6 e=8 m=1 n=0 o=2 r=7 s=10 y=4",
-            "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DISTC + DOM + SMM) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DISTC + DOMC + SMM) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DISTC + SMM, 0, 9) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
+        REQUIRE(solve(DISTC + SMM, 0, 10) == S({"d=5 e=8 m=1 n=0 o=2 r=7 s=10 y=3", "d=6 e=8 m=1 n=0 o=2 r=7 s=10 y=4",
+                                                "d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
     }
 }

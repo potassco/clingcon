@@ -32,23 +32,17 @@ namespace Clingcon {
 
 //! Class that helps to maintain per decision level state.
 class Solver::Level {
-public:
+  public:
     Level(Solver &solver, level_t level)
-    : level_{level}
-    , undo_lower_offset_{solver.undo_lower_.size()}
-    , undo_upper_offset_{solver.undo_upper_.size()}
-    , inactive_offset_{solver.inactive_.size()}
-    , removed_var_watches_offset_{solver.removed_var_watches_.size()} {
-    }
+        : level_{level}, undo_lower_offset_{solver.undo_lower_.size()}, undo_upper_offset_{solver.undo_upper_.size()},
+          inactive_offset_{solver.inactive_.size()}, removed_var_watches_offset_{solver.removed_var_watches_.size()} {}
 
-    [[nodiscard]] level_t level() const {
-        return level_;
-    }
+    [[nodiscard]] auto level() const -> level_t { return level_; }
 
     //! Update the lower bound of a var state.
     void update_lower(Solver &solver, VarState &vs, val_t value) const {
         val_t diff = value + 1 - vs.lower_bound();
-        if (level_ > 0 && !vs.pushed_lower(level_) ) {
+        if (level_ > 0 && !vs.pushed_lower(level_)) {
             vs.push_lower(level_);
             solver.undo_lower_.emplace_back(vs.var());
         }
@@ -64,7 +58,7 @@ public:
     void update_upper(Solver &solver, VarState &vs, val_t value) const {
         val_t diff = value - vs.upper_bound();
 
-        if (level_ > 0 && !vs.pushed_upper(level_) ) {
+        if (level_ > 0 && !vs.pushed_upper(level_)) {
             vs.push_upper(level_);
             solver.undo_upper_.emplace_back(vs.var());
         }
@@ -82,16 +76,18 @@ public:
     //! bounds are used.
     void update_constraints_(Solver &solver, var_t var, val_t diff) const {
         auto &watches = solver.var_watches_[var];
-        watches.erase(std::remove_if(watches.begin(), watches.end(), [&](auto const &value_cs) {
-            if (!value_cs.second->removable(level_)) {
-                if (value_cs.second->update(value_cs.first, diff)) {
-                    Level::mark_todo(solver, *value_cs.second);
-                }
-                return false;
-            }
-            solver.removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
-            return true;
-        }), watches.end());
+        watches.erase(std::remove_if(watches.begin(), watches.end(),
+                                     [&](auto const &value_cs) {
+                                         if (!value_cs.second->removable(level_)) {
+                                             if (value_cs.second->update(value_cs.first, diff)) {
+                                                 Level::mark_todo(solver, *value_cs.second);
+                                             }
+                                             return false;
+                                         }
+                                         solver.removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
+                                         return true;
+                                     }),
+                      watches.end());
     }
 
     //! Mark a constraint state as inactive.
@@ -121,7 +117,9 @@ public:
     //! that where not propagated on the current decision level.
     void undo(Solver &solver) const {
         // undo lower bound changes
-        for (auto it = solver.undo_lower_.begin() + static_cast<ptrdiff_t>(undo_lower_offset_), ie = solver.undo_lower_.end(); it != ie; ++it) {
+        for (auto it = solver.undo_lower_.begin() + static_cast<ptrdiff_t>(undo_lower_offset_),
+                  ie = solver.undo_lower_.end();
+             it != ie; ++it) {
             auto var = *it;
             auto &vs = solver.var_state(var);
             auto value = vs.lower_bound();
@@ -138,7 +136,9 @@ public:
         solver.in_ldiff_.clear();
 
         // undo upper bound changes
-        for (auto it = solver.undo_upper_.begin() + static_cast<ptrdiff_t>(undo_upper_offset_), ie = solver.undo_upper_.end(); it != ie; ++it) {
+        for (auto it = solver.undo_upper_.begin() + static_cast<ptrdiff_t>(undo_upper_offset_),
+                  ie = solver.undo_upper_.end();
+             it != ie; ++it) {
             auto var = *it;
             auto &vs = solver.var_state(var);
             auto value = vs.upper_bound();
@@ -155,14 +155,17 @@ public:
         solver.in_udiff_.clear();
 
         // mark constraints as active again
-        for (auto it = solver.inactive_.begin() + static_cast<ptrdiff_t>(inactive_offset_), ie = solver.inactive_.end(); it != ie; ++it) {
+        for (auto it = solver.inactive_.begin() + static_cast<ptrdiff_t>(inactive_offset_), ie = solver.inactive_.end();
+             it != ie; ++it) {
             auto *cs = *it;
             cs->mark_active();
         }
         solver.inactive_.resize(inactive_offset_);
 
         // add removed watches
-        for (auto it = solver.removed_var_watches_.begin() + static_cast<ptrdiff_t>(removed_var_watches_offset_), ie = solver.removed_var_watches_.end(); it != ie; ++it) {
+        for (auto it = solver.removed_var_watches_.begin() + static_cast<ptrdiff_t>(removed_var_watches_offset_),
+                  ie = solver.removed_var_watches_.end();
+             it != ie; ++it) {
             auto [var, val, cs] = *it;
             solver.var_watches_[var].emplace_back(val, cs);
         }
@@ -191,26 +194,29 @@ public:
     }
 
     //! Remove a set of constraints from the propagation state.
-    template <class F>
-    void remove_constraints(Solver &solver, F in_removed) const {
+    template <class F> void remove_constraints(Solver &solver, F in_removed) const {
         static_cast<void>(level_);
         assert(level_ == 0);
 
         for (auto &watches : solver.var_watches_) {
-            watches.erase(std::remove_if(watches.begin(), watches.end(), [in_removed](auto &watch) {
-                return in_removed(*watch.second);
-            }), watches.end());
+            watches.erase(std::remove_if(watches.begin(), watches.end(),
+                                         [in_removed](auto &watch) { return in_removed(*watch.second); }),
+                          watches.end());
         }
 
-        solver.inactive_.erase(std::remove_if(solver.inactive_.begin(), solver.inactive_.end(), [in_removed](auto *cs) {
-            cs->mark_active();
-            return in_removed(*cs);
-        }), solver.inactive_.end());
+        solver.inactive_.erase(std::remove_if(solver.inactive_.begin(), solver.inactive_.end(),
+                                              [in_removed](auto *cs) {
+                                                  cs->mark_active();
+                                                  return in_removed(*cs);
+                                              }),
+                               solver.inactive_.end());
 
-        solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(), [in_removed](auto *cs) {
-            cs->mark_todo(false);
-            return in_removed(*cs);
-        }), solver.todo_.end());
+        solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(),
+                                          [in_removed](auto *cs) {
+                                              cs->mark_todo(false);
+                                              return in_removed(*cs);
+                                          }),
+                           solver.todo_.end());
     }
 
     //! Copy the given level.
@@ -267,7 +273,7 @@ public:
         }
     }
 
-private:
+  private:
     //! The associated decision level.
     level_t level_;
     size_t undo_lower_offset_;
@@ -278,115 +284,80 @@ private:
 
 //! Helper class to efficiently handle order literal lookups
 class Solver::LitmapEntry {
-public:
-    LitmapEntry()
-    : var_{0}
-    , sign_{0} {
-    }
+  public:
+    LitmapEntry() : var_{0}, sign_{0} {}
 
     LitmapEntry(lit_t lit, var_t var, val_t value, lit_t prev, lit_t succ)
-    : var_{var}
-    , sign_{get_sign_(lit)}
-    , value_{value}
-    , prev_{prev}
-    , succ_{succ} {
-        assert(!invalid()) ;
+        : var_{var}, sign_{get_sign_(lit)}, value_{value}, prev_{prev}, succ_{succ} {
+        assert(!invalid());
     }
 
-    [[nodiscard]] bool valid(lit_t lit) const {
-        return prev_ != 0 && get_sign_(lit) == sign_;
-    }
+    [[nodiscard]] auto valid(lit_t lit) const -> bool { return prev_ != 0 && get_sign_(lit) == sign_; }
 
-    [[nodiscard]] bool invalid() const {
-        return prev_ == 0;
-    }
+    [[nodiscard]] auto invalid() const -> bool { return prev_ == 0; }
 
-    [[nodiscard]] var_t var() const {
-        assert(!invalid()) ;
+    [[nodiscard]] auto var() const -> var_t {
+        assert(!invalid());
         return var_;
     }
 
-    [[nodiscard]] val_t value() const {
-        assert(!invalid()) ;
+    [[nodiscard]] auto value() const -> val_t {
+        assert(!invalid());
         return value_;
     }
 
-    [[nodiscard]] lit_t prev() const {
-        assert(!invalid()) ;
+    [[nodiscard]] auto prev() const -> lit_t {
+        assert(!invalid());
         return prev_;
     }
 
     void set_prev(lit_t prev) {
-        assert(!invalid()) ;
+        assert(!invalid());
         prev_ = prev;
     }
 
-    [[nodiscard]] lit_t succ() const {
-        assert(!invalid()) ;
+    [[nodiscard]] auto succ() const -> lit_t {
+        assert(!invalid());
         return succ_;
     }
 
     void set_succ(lit_t succ) {
-        assert(!invalid()) ;
+        assert(!invalid());
         succ_ = succ;
     }
 
-    void unset() {
-        prev_ = 0;
-    }
+    void unset() { prev_ = 0; }
 
-    [[nodiscard]] static size_t map_offset(lit_t lit) {
-        return std::abs(lit) - 1;
-    }
+    [[nodiscard]] static auto map_offset(lit_t lit) -> size_t { return std::abs(lit) - 1; }
 
-    [[nodiscard]] lit_t map_lit(size_t offset) const {
-        return prev_ != 0 ? add_sign_(offset + 1) : 0;
-    }
+    [[nodiscard]] auto map_lit(size_t offset) const -> lit_t { return prev_ != 0 ? add_sign_(offset + 1) : 0; }
 
-private:
-    [[nodiscard]] val_t add_sign_(size_t offset) const {
+  private:
+    [[nodiscard]] auto add_sign_(size_t offset) const -> val_t {
         return sign_ == 1 ? -static_cast<val_t>(offset) : static_cast<val_t>(offset);
     }
-    [[nodiscard]] static var_t get_sign_(lit_t lit) {
-        return lit > 0 ? 1 : 0;
-    }
+    [[nodiscard]] static auto get_sign_(lit_t lit) -> var_t { return lit > 0 ? 1 : 0; }
 
-    var_t var_: 31;
-    var_t sign_: 1;
+    var_t var_ : 31;
+    var_t sign_ : 1;
     val_t value_{0};
     lit_t prev_{0};
     lit_t succ_{0};
 };
 
-Solver::Solver(SolverConfig const &config, SolverStatistics &stats)
-: config_{config}
-, stats_{stats} {
+Solver::Solver(SolverConfig const &config, SolverStatistics &stats) : config_{config}, stats_{stats} {
     levels_.emplace_back(*this, 0);
 }
 
 #ifdef _MSC_VER
 Solver::Solver(Solver &&x) noexcept
-: config_{x.config_}
-, stats_{x.stats_}
-, var2vs_{std::move(x.var2vs_)}
-, levels_{std::move(x.levels_)}
-, litmap_{std::move(x.litmap_)}
-, factmap_{std::move(x.factmap_)}
-, c2cs_{std::move(x.c2cs_)}
-, var_watches_{std::move(x.var_watches_)}
-, udiff_{std::move(x.udiff_)}
-, in_udiff_{std::move(x.in_udiff_)}
-, ldiff_{std::move(x.ldiff_)}
-, in_ldiff_{std::move(x.in_ldiff_)}
-, todo_{std::move(x.todo_)}
-, lit2cs_{std::move(x.lit2cs_)}
-, temp_reason_{std::move(x.temp_reason_)}
-, split_last_{x.split_last_}
-, trail_offset_{x.trail_offset_}
-, minimize_bound_{std::move(x.minimize_bound_)}
-, minimize_level_{x.minimize_level_}
-{
-}
+    : config_{x.config_}, stats_{x.stats_}, var2vs_{std::move(x.var2vs_)}, levels_{std::move(x.levels_)},
+      litmap_{std::move(x.litmap_)}, factmap_{std::move(x.factmap_)}, c2cs_{std::move(x.c2cs_)},
+      var_watches_{std::move(x.var_watches_)}, udiff_{std::move(x.udiff_)}, in_udiff_{std::move(x.in_udiff_)},
+      ldiff_{std::move(x.ldiff_)}, in_ldiff_{std::move(x.in_ldiff_)}, todo_{std::move(x.todo_)},
+      lit2cs_{std::move(x.lit2cs_)}, temp_reason_{std::move(x.temp_reason_)}, split_last_{x.split_last_},
+      trail_offset_{x.trail_offset_}, minimize_bound_{std::move(x.minimize_bound_)},
+      minimize_level_{x.minimize_level_} {}
 #else
 Solver::Solver(Solver &&x) noexcept = default;
 #endif
@@ -433,7 +404,7 @@ void Solver::copy_state(Solver const &master) {
     Level::copy_state(*this, master);
 }
 
-var_t Solver::add_variable(val_t min_int, val_t max_int) {
+auto Solver::add_variable(val_t min_int, val_t max_int) -> var_t {
     var_t idx = var2vs_.size();
     var2vs_.emplace_back(idx, min_int, max_int);
     var_watches_.emplace_back();
@@ -442,27 +413,22 @@ var_t Solver::add_variable(val_t min_int, val_t max_int) {
     return idx;
 }
 
-std::optional<sum_t> Solver::minimize_bound() const {
-    return minimize_bound_;
-}
+auto Solver::minimize_bound() const -> std::optional<sum_t> { return minimize_bound_; }
 
 void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound) {
     if (!minimize_bound_.has_value() || bound < *minimize_bound_) {
         minimize_bound_ = bound;
         minimize_level_ = level;
         Level::mark_todo(*this, constraint_state(constraint));
-    }
-    else if (level < minimize_level_) {
+    } else if (level < minimize_level_) {
         minimize_level_ = level;
         Level::mark_todo(*this, constraint_state(constraint));
     }
 }
 
-val_t Solver::get_value(var_t var) const {
-    return var2vs_[var].lower_bound();
-}
+auto Solver::get_value(var_t var) const -> val_t { return var2vs_[var].lower_bound(); }
 
-Solver::Level &Solver::level_() {
+auto Solver::level_() -> Solver::Level & {
     assert(!levels_.empty());
     return levels_.back();
 }
@@ -474,7 +440,7 @@ void Solver::push_level_(level_t level) {
     }
 }
 
-Solver::LitmapEntry &Solver::litmap_at_(lit_t lit) {
+auto Solver::litmap_at_(lit_t lit) -> Solver::LitmapEntry & {
     static LitmapEntry invalid;
     auto offset{LitmapEntry::map_offset(lit)};
     return offset < litmap_.size() ? litmap_[offset] : invalid;
@@ -489,7 +455,7 @@ void Solver::litmap_add_(VarState &vs, val_t val, lit_t lit) {
     litmap_[offset] = LitmapEntry{lit, vs.var(), val, ps.first, ps.second};
 }
 
-lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) {
+auto Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) -> lit_t {
     if (value < vs.min_bound()) {
         return -TRUE_LIT;
     }
@@ -513,7 +479,7 @@ lit_t Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) 
     return lit;
 }
 
-std::pair<lit_t, lit_t> Solver::update_litmap_(VarState &vs, lit_t lit, val_t value) {
+auto Solver::update_litmap_(VarState &vs, lit_t lit, val_t value) -> std::pair<lit_t, lit_t> {
     std::pair<lit_t, lit_t> ret{-TRUE_LIT, TRUE_LIT};
     if (auto prev = vs.lit_lt(value); prev != 0) {
         ret.first = prev;
@@ -530,7 +496,7 @@ std::pair<lit_t, lit_t> Solver::update_litmap_(VarState &vs, lit_t lit, val_t va
     return ret;
 }
 
-lit_t Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) {
+auto Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) -> lit_t {
     // order literals can only be update on level 0
     if (truth == Clingo::TruthValue::Free || cc.assignment().decision_level() > 0) {
         return get_literal(cc, vs, value);
@@ -564,11 +530,9 @@ void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
     watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, &cs)));
 }
 
-void Solver::mark_inactive(AbstractConstraintState &cs) {
-    level_().mark_inactive(*this, cs);
-}
+void Solver::mark_inactive(AbstractConstraintState &cs) { level_().mark_inactive(*this, cs); }
 
-AbstractConstraintState &Solver::add_constraint(AbstractConstraint &constraint) {
+auto Solver::add_constraint(AbstractConstraint &constraint) -> AbstractConstraintState & {
     auto &cs = c2cs_.emplace(&constraint, std::unique_ptr<AbstractConstraintState>{nullptr}).first->second;
 
     if (cs == nullptr) {
@@ -598,7 +562,8 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     c2cs_.erase(it);
 }
 
-bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints) {
+auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints)
+    -> bool {
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
     for (size_t idx = jdx; idx < constraints.size(); ++idx) {
         auto &cs = add_constraint(*constraints[idx]);
@@ -613,8 +578,7 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
         if (ret.second) {
             --stats.num_constraints;
             ++stats.translate_removed;
-        }
-        else {
+        } else {
             if (idx != jdx) {
                 std::swap(constraints[idx], constraints[jdx]);
             }
@@ -627,25 +591,21 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     // has to be removed.
     if (jdx < constraints.size()) {
         std::sort(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end());
-        auto in_removed = [jdx, &constraints] (AbstractConstraintState &cs) {
+        auto in_removed = [jdx, &constraints](AbstractConstraintState &cs) {
             struct {
-                bool operator()(UniqueConstraint const &a, AbstractConstraint const *b) {
-                    return a.get() < b;
-                }
-                bool operator()(AbstractConstraint const *b, UniqueConstraint const &a) {
-                    return b < a.get();
-                }
+                auto operator()(UniqueConstraint const &a, AbstractConstraint const *b) -> bool { return a.get() < b; }
+                auto operator()(AbstractConstraint const *b, UniqueConstraint const &a) -> bool { return b < a.get(); }
             } pred;
-            return std::binary_search(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end(), &cs.constraint(), pred);
+            return std::binary_search(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end(),
+                                      &cs.constraint(), pred);
         };
 
         level_().remove_constraints(*this, in_removed);
 
-        for (auto it = lit2cs_.begin(); it != lit2cs_.end(); ) {
+        for (auto it = lit2cs_.begin(); it != lit2cs_.end();) {
             if (in_removed(*it->second)) {
                 it = lit2cs_.erase(it);
-            }
-            else {
+            } else {
                 ++it;
             }
         }
@@ -661,17 +621,17 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     if (conf.add_order_clauses) {
         for (auto &vs : var2vs_) {
             if (!vs.with([&](auto ib, auto ie, auto get_lit, auto, auto inc) { // NOLINT(readability-named-parameter)
-                lit_t prev = -TRUE_LIT;
-                for (auto it = ib; it != ie; inc(it)) {
-                    auto lit = get_lit(it);
-                    // lit<=val-1  => lit<=val
-                    if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
-                        return false;
+                    lit_t prev = -TRUE_LIT;
+                    for (auto it = ib; it != ie; inc(it)) {
+                        auto lit = get_lit(it);
+                        // lit<=val-1  => lit<=val
+                        if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
+                            return false;
+                        }
+                        prev = lit;
                     }
-                    prev = lit;
-                }
-                return true;
-            })) {
+                    return true;
+                })) {
                 return false;
             }
         }
@@ -680,7 +640,7 @@ bool Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     return true;
 }
 
-bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
+auto Solver::simplify(AbstractClauseCreator &cc, bool check_state) -> bool {
     auto ass = cc.assignment();
     auto trail = ass.trail();
 
@@ -696,7 +656,8 @@ bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
             return true;
         }
 
-        if (!propagate_(cc, trail.begin() + static_cast<int32_t>(trail_offset_), trail.begin() + static_cast<int32_t>(trail_offset))) {
+        if (!propagate_(cc, trail.begin() + static_cast<int32_t>(trail_offset_),
+                        trail.begin() + static_cast<int32_t>(trail_offset))) {
             return false;
         }
         trail_offset_ = trail_offset;
@@ -707,12 +668,11 @@ bool Solver::simplify(AbstractClauseCreator &cc, bool check_state) {
     }
 }
 
-[[nodiscard]] bool Solver::propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes) {
+[[nodiscard]] auto Solver::propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes) -> bool {
     return propagate_(cc, changes.begin(), changes.end());
 }
 
-template <class It>
-[[nodiscard]] bool Solver::propagate_(AbstractClauseCreator &cc, It begin, It end) {
+template <class It> [[nodiscard]] auto Solver::propagate_(AbstractClauseCreator &cc, It begin, It end) -> bool {
     Timer timer{stats_.time_propagate};
 
     auto ass = cc.assignment();
@@ -730,7 +690,7 @@ template <class It>
     return true;
 }
 
-bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
+auto Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) -> bool {
     for (auto it = lit2cs_.find(lit), ie = lit2cs_.end(); it != ie && it->first == lit; ++it) {
         Level::mark_todo(*this, *it->second);
     }
@@ -738,7 +698,8 @@ bool Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) {
 }
 
 template <int sign, class It, class L, class I>
-bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc) {
+auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc)
+    -> bool {
     auto ass = cc.assignment();
 
     for (; begin != end; inc(begin)) {
@@ -746,7 +707,8 @@ bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
         if (ass.is_true(lit)) {
             break;
         }
-        if (!cc.add_clause({-reason_lit, lit}, reason_lit != TRUE_LIT ? Clingo::ClauseType::Learnt : Clingo::ClauseType::Static)) {
+        if (!cc.add_clause({-reason_lit, lit},
+                           reason_lit != TRUE_LIT ? Clingo::ClauseType::Learnt : Clingo::ClauseType::Static)) {
             return false;
         }
         // Note: Literal reason_lit is already guaranteed to be a fact on level 0.
@@ -758,7 +720,8 @@ bool Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
     return true;
 }
 
-bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t succ_lit) {
+auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t succ_lit)
+    -> bool {
     auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
@@ -772,11 +735,13 @@ bool Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     assert(vs.lower_bound() <= vs.upper_bound());
     return ass.is_true(succ_lit) || vs.with_gt(value, [&](auto it, auto ie, auto &&get_lit, auto get_val, auto &&inc) {
         static_cast<void>(get_val);
-        return propagate_variables_<1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit), std::forward<decltype(inc)>(inc));
+        return propagate_variables_<1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
+                                       std::forward<decltype(inc)>(inc));
     });
 }
 
-bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit) {
+auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit)
+    -> bool {
     auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
@@ -790,11 +755,12 @@ bool Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     assert(vs.lower_bound() <= vs.upper_bound());
     return ass.is_true(-prev_lit) || vs.with_lt(value, [&](auto it, auto ie, auto &&get_lit, auto get_val, auto &&inc) {
         static_cast<void>(get_val);
-        return propagate_variables_<-1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit), std::forward<decltype(inc)>(inc));
+        return propagate_variables_<-1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
+                                        std::forward<decltype(inc)>(inc));
     });
 }
 
-bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
+auto Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) -> bool {
     auto &lvl = level_();
     auto ass = cc.assignment();
     assert(ass.is_true(lit));
@@ -835,8 +801,7 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
                 assert(vs.get_literal(value) == TRUE_LIT);
                 update_litmap_(vs, 0, value);
                 vs.unset_literal(value);
-            }
-            else {
+            } else {
                 if (!update_lower_(lvl, cc, var, TRUE_LIT, value, prec_lit)) {
                     return false;
                 }
@@ -849,17 +814,19 @@ bool Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) {
         return true;
     }
 
-    if (auto const &olit = litmap_at_(lit); olit.valid(lit) && !update_upper_(lvl, cc, olit.var(), lit, olit.value(), olit.succ())) {
+    if (auto const &olit = litmap_at_(lit);
+        olit.valid(lit) && !update_upper_(lvl, cc, olit.var(), lit, olit.value(), olit.succ())) {
         return false;
     }
-    if (auto const &olit = litmap_at_(-lit); olit.valid(-lit) && !update_lower_(lvl, cc, olit.var(), lit, olit.value(), olit.prev())) {
+    if (auto const &olit = litmap_at_(-lit);
+        olit.valid(-lit) && !update_lower_(lvl, cc, olit.var(), lit, olit.value(), olit.prev())) {
         return false; // NOLINT
     }
 
     return true;
 }
 
-bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
+auto Solver::check(AbstractClauseCreator &cc, bool check_state) -> bool {
     Timer timer(stats_.time_check);
 
     auto ass = cc.assignment();
@@ -909,8 +876,7 @@ bool Solver::check(AbstractClauseCreator &cc, bool check_state) {
                 if (!cs->propagate(*this, cc, check_state)) {
                     ret = false;
                 }
-            }
-            else {
+            } else {
                 lvl.mark_inactive(*this, *cs);
             }
         }
@@ -934,7 +900,7 @@ void Solver::undo() {
     assert(!levels_.empty());
 }
 
-lit_t Solver::decide(Clingo::Assignment const &assign, lit_t fallback) {
+auto Solver::decide(Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
     static_cast<void>(assign);
     switch (config_.heuristic) {
         case Heuristic::None: {
@@ -979,8 +945,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
         if (res) {
             return;
         }
-    }
-    else {
+    } else {
         auto ib = var2vs_.begin();
         auto im = ib + split_last_;
         auto ie = var2vs_.end();
@@ -988,7 +953,8 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
         auto split_once = [&](auto it) {
             if (split(*it)) {
                 split_last_ = it - ib;
-                return true;;
+                return true;
+                ;
             }
             return false;
         };
@@ -1011,7 +977,6 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
             if (ass.is_true(lit)) {
                 cs->check_full(*this);
             }
-
         }
     }
 }
@@ -1024,7 +989,7 @@ void Solver::update() {
     // remove solve step local variables from litmap_
     size_t offset = 0;
     for (auto &olit : litmap_) {
-        if (var_t var = static_cast<var_t>(std::abs(olit.map_lit(offset))); var != 0 && var > max_static_var_) {
+        if (auto var = static_cast<var_t>(std::abs(olit.map_lit(offset))); var != 0 && var > max_static_var_) {
             auto &vs = var_state(olit.var());
             vs.unset_literal(olit.value());
             update_litmap_(vs, 0, olit.value());
@@ -1034,7 +999,7 @@ void Solver::update() {
     }
 }
 
-bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state) {
+auto Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_state) -> bool {
     auto it = var2vs_.begin();
     for (auto &vs_other : other.var2vs_) {
         auto &vs = *it++;
@@ -1049,7 +1014,7 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
 
         // update lower bounds
         if (vs.lower_bound() < vs_other.lower_bound()) {
-            auto lit = update_literal(cc, vs, vs_other.lower_bound()-1, Clingo::TruthValue::False);
+            auto lit = update_literal(cc, vs, vs_other.lower_bound() - 1, Clingo::TruthValue::False);
             if (!cc.add_clause({-lit})) {
                 return false;
             }
@@ -1060,7 +1025,7 @@ bool Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
     return check(cc, check_state);
 }
 
-bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
+auto Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) -> bool {
     auto ass = cc.assignment();
     if (ass.is_false(lit)) {
         return true;
@@ -1077,7 +1042,7 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
         if (lit == TRUE_LIT && ass.is_true(ly)) {
             truth = Clingo::TruthValue::False;
         }
-        auto lx = update_literal(cc, vs, x-1, truth);
+        auto lx = update_literal(cc, vs, x - 1, truth);
         if (!cc.add_clause({-lit, -ly, -lx})) {
             return false;
         }
@@ -1092,7 +1057,7 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
         if (lit == TRUE_LIT && ass.is_true(lx)) {
             truth = Clingo::TruthValue::True;
         }
-        auto ly = update_literal(cc, vs, y-1, truth);
+        auto ly = update_literal(cc, vs, y - 1, truth);
         if (!cc.add_clause({-lit, -lx, ly})) {
             return false;
         }
@@ -1102,7 +1067,7 @@ bool Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
     return true;
 }
 
-bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict) {
+auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict) -> bool {
     auto ass = cc.assignment();
 
     // the constraint is never propagated
@@ -1117,8 +1082,7 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
     if (co > 0) {
         truth = ass.truth_value(clit);
         value = floordiv(rhs, co);
-    }
-    else {
+    } else {
         truth = ass.truth_value(-clit);
         value = -floordiv(rhs, -co) - 1;
     }
@@ -1140,9 +1104,9 @@ bool Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
             cc.add_watch(lit);
             cc.add_watch(-lit);
             litmap_add_(vs, value, lit);
-        }
-        else {
-            lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;;
+        } else {
+            lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
+            ;
             auto ps = update_litmap_(vs, lit, value);
             factmap_.emplace_back(lit, vs.var(), value, truth == Clingo::TruthValue::True ? ps.second : ps.first);
         }

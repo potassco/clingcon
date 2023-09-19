@@ -25,12 +25,12 @@
 #ifndef CLINGCON_PROPAGATOR_H
 #define CLINGCON_PROPAGATOR_H
 
-#include <clingcon/solver.hh>
 #include <clingcon/constraints.hh>
+#include <clingcon/solver.hh>
 
+#include <atomic>
 #include <unordered_map>
 #include <unordered_set>
-#include <atomic>
 
 //! @file clingcon/propagator.hh
 //! This module implements a theory propagator for CSP constraints.
@@ -43,7 +43,7 @@ using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
 
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Heuristic {
-public:
+  public:
     using VarMap = std::map<var_t, Clingo::Symbol>;
     using SymMap = std::unordered_map<Clingo::Symbol, var_t>;
     using VarSet = std::unordered_set<var_t>;
@@ -52,16 +52,14 @@ public:
     Propagator() = default;
     Propagator(Propagator const &) = delete;
     Propagator(Propagator &&) = delete;
-    Propagator& operator=(Propagator const &) = delete;
-    Propagator& operator=(Propagator &&) = delete;
+    auto operator=(Propagator const &) -> Propagator & = delete;
+    auto operator=(Propagator &&) -> Propagator & = delete;
     ~Propagator() override = default;
 
     //! Return statistics object.
-    Statistics const &statistics() {
-        return stats_step_;
-    }
+    auto statistics() -> Statistics const & { return stats_step_; }
 
-    Config &config() { return config_; }
+    auto config() -> Config & { return config_; }
 
     //! Extend the model with the assignment and take care of minimization.
     void on_model(Clingo::Model &model);
@@ -70,15 +68,13 @@ public:
     void on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu);
 
     //! Add a variable to the program.
-    var_t add_variable(Clingo::Symbol sym);
+    auto add_variable(Clingo::Symbol sym) -> var_t;
 
     //! Enable show statement.
     //!
     //! If the show statement has not been enabled, then all variables are
     //! shown.
-    void show() {
-        show_ = true;
-    }
+    void show() { show_ = true; }
 
     //! Show the given variable.
     void show_variable(var_t var);
@@ -87,10 +83,12 @@ public:
     void show_signature(char const *name, size_t arity);
 
     //! Add a domain for the given variable.
-    [[nodiscard]] bool add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain);
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
+        -> bool;
 
     //! Add a constraint that can be represented by an order literal.
-    [[nodiscard]] bool add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict);
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+        -> bool;
 
     //! Add a constraint to the program.
     void add_constraint(UniqueConstraint constraint);
@@ -111,34 +109,31 @@ public:
     //! Delegates undoing to the respective solver.
     void undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept override;
 
-    [[nodiscard]] lit_t decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) override;
+    [[nodiscard]] auto decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback)
+        -> lit_t override;
 
     //! Determine if the given variable should be shown.
-    [[nodiscard]] bool shown(var_t var);
+    [[nodiscard]] auto shown(var_t var) -> bool;
 
     //! Get the map from indices to variable names.
-    [[nodiscard]] VarMap const &var_map() const {
-        return var_map_;
-    }
+    [[nodiscard]] auto var_map() const -> VarMap const & { return var_map_; }
 
     //! Get the index associated with the given variable index.
-    [[nodiscard]] std::optional<var_t> get_index(Clingo::Symbol sym) const;
+    [[nodiscard]] auto get_index(Clingo::Symbol sym) const -> std::optional<var_t>;
 
     //! Get the symbol associated with the given variable index.
-    [[nodiscard]] std::optional<Clingo::Symbol> get_symbol(var_t var) const;
+    [[nodiscard]] auto get_symbol(var_t var) const -> std::optional<Clingo::Symbol>;
 
     //! Get the value of the variable with the given index in the solver
     //! associated with `thread_id`.
     //!
     //! Should be called on total assignments.
-    [[nodiscard]] val_t get_value(var_t var, uint32_t thread_id) const;
+    [[nodiscard]] auto get_value(var_t var, uint32_t thread_id) const -> val_t;
 
     //! Check if the propagator has a minimize constraint.
-    [[nodiscard]] bool has_minimize() const {
-        return minimize_ != nullptr;
-    }
+    [[nodiscard]] auto has_minimize() const -> bool { return minimize_ != nullptr; }
     //! Get a reference to the propagator's minimize constraint.
-    MinimizeConstraint const &get_minimize() {
+    auto get_minimize() -> MinimizeConstraint const & {
         assert(has_minimize());
         return *minimize_;
     }
@@ -146,30 +141,29 @@ public:
     //! Evaluates the minimize constraint w.r.t. the given thread.
     //!
     //! Should be called on total assignments.
-    sum_t get_minimize_value(uint32_t thread_id);
+    auto get_minimize_value(uint32_t thread_id) -> sum_t;
 
     //! Set the `bound` of the minimize constraint.
     void update_minimize(sum_t bound);
 
     //! Removes the minimize constraint from the lookup lists.
-    UniqueMinimizeConstraint remove_minimize();
-private:
+    auto remove_minimize() -> UniqueMinimizeConstraint;
+
+  private:
     //! Get the solver associated with the given `thread_id`.
-    [[nodiscard]] Solver &solver_(uint32_t thread_id) {
+    [[nodiscard]] auto solver_(uint32_t thread_id) -> Solver & {
         assert(thread_id < solvers_.size());
         return solvers_[thread_id];
     }
     //! Get the solver associated with the given `thread_id`.
-    [[nodiscard]] Solver const &solver_(uint32_t thread_id) const {
-        return solvers_[thread_id];
-    }
+    [[nodiscard]] auto solver_(uint32_t thread_id) const -> Solver const & { return solvers_[thread_id]; }
 
     //! Get the master config.
     //!
     //! Upon first use this will also apply the default config to the master.
     //! This means that the default config should be modified before the first
     //! functions in this class are accessed.
-    Solver &master_() {
+    auto master_() -> Solver & {
         if (solvers_.empty()) {
             solvers_.emplace_back(config_.solver_config(0), stats_step_.solver_stats(0));
         }
@@ -184,11 +178,11 @@ private:
     void add_constraint_(UniqueConstraint constraint);
 
     //! Propagate constraints refining bounds.
-    bool simplify_(AbstractClauseCreator &cc);
+    auto simplify_(AbstractClauseCreator &cc) -> bool;
 
     //! Translates constraints and take care of handling the minimize
     //! constraint.
-    bool translate_(InitClauseCreator &cc, UniqueMinimizeConstraint minimize);
+    auto translate_(InitClauseCreator &cc, UniqueMinimizeConstraint minimize) -> bool;
 
     //! Add a new minimize constraint.
     //!

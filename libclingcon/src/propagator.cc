@@ -31,44 +31,25 @@ namespace {
 
 //! CSP builder to use with the parse_theory function.
 class ConstraintBuilder final : public AbstractConstraintBuilder {
-public:
+  public:
     ConstraintBuilder(Propagator &propgator, InitClauseCreator &cc, UniqueMinimizeConstraint minimize)
-    : propagator_{propgator}
-    , cc_{cc}
-    , minimize_{std::move(minimize)} {
-    }
+        : propagator_{propgator}, cc_{cc}, minimize_{std::move(minimize)} {}
 
     ConstraintBuilder(ConstraintBuilder const &) = delete;
     ConstraintBuilder(ConstraintBuilder &&) noexcept = delete;
-    ConstraintBuilder& operator=(ConstraintBuilder const &) = delete;
-    ConstraintBuilder& operator=(ConstraintBuilder &&) noexcept = delete;
+    auto operator=(ConstraintBuilder const &) -> ConstraintBuilder & = delete;
+    auto operator=(ConstraintBuilder &&) noexcept -> ConstraintBuilder & = delete;
     ~ConstraintBuilder() override = default;
 
-    [[nodiscard]] lit_t solver_literal(lit_t literal) override {
-        return cc_.solver_literal(literal);
-    }
-    [[nodiscard]] lit_t add_literal() override {
-        return cc_.add_literal();
-    }
-    [[nodiscard]] bool is_true(lit_t literal) override {
-        return cc_.assignment().is_true(literal);
-    }
-    [[nodiscard]] bool add_clause(Clingo::LiteralSpan clause) override {
-        return cc_.add_clause(clause);
-    }
-    void add_show() override {
-        propagator_.show();
-    }
-    void show_signature(char const *name, size_t arity) override {
-        propagator_.show_signature(name, arity);
-    }
-    void show_variable(var_t var) override {
-        propagator_.show_variable(var);
-    }
-    [[nodiscard]] var_t add_variable(Clingo::Symbol sym) override {
-        return propagator_.add_variable(sym);
-    }
-    [[nodiscard]] bool add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) override {
+    [[nodiscard]] auto solver_literal(lit_t literal) -> lit_t override { return cc_.solver_literal(literal); }
+    [[nodiscard]] auto add_literal() -> lit_t override { return cc_.add_literal(); }
+    [[nodiscard]] auto is_true(lit_t literal) -> bool override { return cc_.assignment().is_true(literal); }
+    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause) -> bool override { return cc_.add_clause(clause); }
+    void add_show() override { propagator_.show(); }
+    void show_signature(char const *name, size_t arity) override { propagator_.show_signature(name, arity); }
+    void show_variable(var_t var) override { propagator_.show_variable(var); }
+    [[nodiscard]] auto add_variable(Clingo::Symbol sym) -> var_t override { return propagator_.add_variable(sym); }
+    [[nodiscard]] auto add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) -> bool override {
         if (!strict && cc_.assignment().is_false(lit)) {
             return true;
         }
@@ -85,12 +66,14 @@ public:
             for (auto const &elem : elems) {
                 ielems.emplace_back(safe_inv(elem.first), elem.second);
             }
-            propagator_.add_constraint(SumConstraint::create(-lit, safe_inv(safe_add(rhs, 1)), ielems, propagator_.config().sort_constraints));
+            propagator_.add_constraint(
+                SumConstraint::create(-lit, safe_inv(safe_add(rhs, 1)), ielems, propagator_.config().sort_constraints));
         }
         return true;
     }
 
-    [[nodiscard]] bool add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c, val_t rhs, bool strict) override {
+    [[nodiscard]] auto add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c,
+                                     val_t rhs, bool strict) -> bool override {
         if (co_ab == 0) {
             CoVarVec vars;
             if (co_c != 0) {
@@ -100,19 +83,18 @@ public:
         }
         propagator_.add_constraint(std::make_unique<NonlinearConstraint>(lit, co_ab, var_a, var_b, co_c, var_c, rhs));
         if (strict) {
-            propagator_.add_constraint(std::make_unique<NonlinearConstraint>(lit, safe_inv(co_ab), var_a, var_b, safe_inv(co_c), var_c, safe_inv(safe_add(rhs, 1))));
+            propagator_.add_constraint(std::make_unique<NonlinearConstraint>(
+                lit, safe_inv(co_ab), var_a, var_b, safe_inv(co_c), var_c, safe_inv(safe_add(rhs, 1))));
         }
         return true;
     }
 
-    void add_minimize(val_t co, var_t var) override {
-        minimize_elems_.emplace_back(co, var);
-    }
+    void add_minimize(val_t co, var_t var) override { minimize_elems_.emplace_back(co, var); }
 
     //! Add a distinct constraint.
     //!
     //! Binary distinct constraints will be represented with a sum constraint.
-    [[nodiscard]] bool add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) override {
+    [[nodiscard]] auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) -> bool override {
         auto truth = cc_.assignment().truth_value(lit);
         if (truth == Clingo::TruthValue::False) {
             return true;
@@ -163,13 +145,13 @@ public:
                     }
                 }
 
-                if (!add_constraint(a, celems, check_valid_value(rhs-1), false)) {
+                if (!add_constraint(a, celems, check_valid_value(rhs - 1), false)) {
                     return false;
                 }
                 for (auto &co_var : celems) {
                     co_var.first = -co_var.first;
                 }
-                if (!add_constraint(b, celems, check_valid_value(-rhs-1), false)) {
+                if (!add_constraint(b, celems, check_valid_value(-rhs - 1), false)) {
                     return false;
                 }
             }
@@ -178,7 +160,7 @@ public:
         return true;
     }
 
-    static std::tuple<lit_t, CoVarVec, val_t> translate_disjoint_(var_t const &i, var_t const &j, val_t rhs) {
+    static auto translate_disjoint_(var_t const &i, var_t const &j, val_t rhs) -> std::tuple<lit_t, CoVarVec, val_t> {
         CoVarVec elems;
         elems.emplace_back(1, i);
         elems.emplace_back(-1, j);
@@ -190,7 +172,7 @@ public:
         return {lit, elems, rhs};
     }
 
-    bool translate_disjoint_(lit_t &lit, CoVarVec const &elems, val_t rhs) {
+    auto translate_disjoint_(lit_t &lit, CoVarVec const &elems, val_t rhs) -> bool {
         if (lit == 0) {
             lit = add_literal();
             if (!add_constraint(lit, elems, rhs, true)) {
@@ -200,8 +182,8 @@ public:
         return true;
     }
 
-    bool translate_disjoint_(lit_t lit, co_var_t const &i, co_var_t const &j) {
-        assert (i.first > 0 && j.first > 0);
+    auto translate_disjoint_(lit_t lit, co_var_t const &i, co_var_t const &j) -> bool {
+        assert(i.first > 0 && j.first > 0);
 
         // lower_i >= lower_j    (lower_j - lower_i <= 0)
         auto [lit_a, elems_a, rhs_a] = translate_disjoint_(j.second, i.second, 0);
@@ -224,7 +206,7 @@ public:
         return cc_.add_clause({-lit, -lit_a, -lit_b});
     }
 
-    [[nodiscard]] bool add_disjoint(lit_t lit, CoVarVec const &elems) override {
+    [[nodiscard]] auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool override {
         if (cc_.assignment().is_false(lit)) {
             return true;
         }
@@ -259,12 +241,12 @@ public:
         return true;
     }
 
-    [[nodiscard]] bool add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) override {
+    [[nodiscard]] auto add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) -> bool override {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
 
     //! Prepare the minimize constraint.
-    UniqueMinimizeConstraint prepare_minimize() {
+    auto prepare_minimize() -> UniqueMinimizeConstraint {
         // copy values of old minimize constraint
         if (minimize_ != nullptr) {
             for (auto elem : *minimize_) {
@@ -280,7 +262,8 @@ public:
 
         return std::move(minimize_);
     }
-private:
+
+  private:
     Propagator &propagator_;
     InitClauseCreator &cc_;
     UniqueMinimizeConstraint minimize_;
@@ -339,14 +322,18 @@ void Propagator::add_statistics_(Clingo::UserStatistics &root, Statistics &stats
     problem.add_subkey("Literals", StatisticsType::Value).set_value(static_cast<double>(stats.num_literals));
 
     auto translate = clingcon.add_subkey("Translate", StatisticsType::Map);
-    translate.add_subkey("Constraints removed", StatisticsType::Value).set_value(static_cast<double>(stats.translate_removed));
-    translate.add_subkey("Constraints added", StatisticsType::Value).set_value(static_cast<double>(stats.translate_added));
+    translate.add_subkey("Constraints removed", StatisticsType::Value)
+        .set_value(static_cast<double>(stats.translate_removed));
+    translate.add_subkey("Constraints added", StatisticsType::Value)
+        .set_value(static_cast<double>(stats.translate_added));
     translate.add_subkey("Clauses", StatisticsType::Value).set_value(static_cast<double>(stats.translate_clauses));
-    translate.add_subkey("Weight constraints", StatisticsType::Value).set_value(static_cast<double>(stats.translate_wcs));
+    translate.add_subkey("Weight constraints", StatisticsType::Value)
+        .set_value(static_cast<double>(stats.translate_wcs));
     translate.add_subkey("Literals", StatisticsType::Value).set_value(static_cast<double>(stats.translate_literals));
 
     UserStatistics threads = clingcon.add_subkey("Thread", StatisticsType::Array);
-    threads.ensure_size(std::distance(stats.solver_statistics.begin(), stats.solver_statistics.end()), StatisticsType::Map);
+    threads.ensure_size(std::distance(stats.solver_statistics.begin(), stats.solver_statistics.end()),
+                        StatisticsType::Map);
     size_t i = 0;
     for (auto &solver_stat : stats.solver_statistics) {
         auto thread = threads[i++];
@@ -358,13 +345,16 @@ void Propagator::add_statistics_(Clingo::UserStatistics &root, Statistics &stats
         time.add_subkey("Check", StatisticsType::Value).set_value(solver_stat.time_check);
         time.add_subkey("Undo", StatisticsType::Value).set_value(solver_stat.time_undo);
 
-        thread.add_subkey("Refined reason", StatisticsType::Value).set_value(static_cast<double>(solver_stat.refined_reason));
-        thread.add_subkey("Introduced reason", StatisticsType::Value).set_value(static_cast<double>(solver_stat.introduced_reason));
-        thread.add_subkey("Literals introduced", StatisticsType::Value).set_value(static_cast<double>(solver_stat.literals));
+        thread.add_subkey("Refined reason", StatisticsType::Value)
+            .set_value(static_cast<double>(solver_stat.refined_reason));
+        thread.add_subkey("Introduced reason", StatisticsType::Value)
+            .set_value(static_cast<double>(solver_stat.introduced_reason));
+        thread.add_subkey("Literals introduced", StatisticsType::Value)
+            .set_value(static_cast<double>(solver_stat.literals));
     }
 }
 
-var_t Propagator::add_variable(Clingo::Symbol sym) {
+auto Propagator::add_variable(Clingo::Symbol sym) -> var_t {
     auto [it, ret] = sym_map_.emplace(sym, 0);
 
     if (ret) {
@@ -376,25 +366,20 @@ var_t Propagator::add_variable(Clingo::Symbol sym) {
     return it->second;
 }
 
-void Propagator::show_variable(var_t var) {
-    show_variable_.emplace(var);
-}
+void Propagator::show_variable(var_t var) { show_variable_.emplace(var); }
 
-void Propagator::show_signature(char const *name, size_t arity) {
-    show_signature_.emplace(Clingo::Signature(name, arity));
-}
+void Propagator::show_signature(char const *name, size_t arity) { show_signature_.emplace(name, arity); }
 
-bool Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) {
+auto Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) -> bool {
     return master_().add_dom(cc, lit, var, domain);
 }
 
-bool Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict) {
+auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+    -> bool {
     return master_().add_simple(cc, clit, co, var, rhs, strict);
 }
 
-void Propagator::add_constraint_(UniqueConstraint constraint) {
-    constraints_.emplace_back(std::move(constraint));
-}
+void Propagator::add_constraint_(UniqueConstraint constraint) { constraints_.emplace_back(std::move(constraint)); }
 
 void Propagator::add_constraint(UniqueConstraint constraint) {
     ++stats_step_.num_constraints;
@@ -477,9 +462,9 @@ void Propagator::init(Clingo::PropagateInit &init) {
     }
 }
 
-bool Propagator::simplify_(AbstractClauseCreator &cc) {
+auto Propagator::simplify_(AbstractClauseCreator &cc) -> bool {
     Timer timer{stats_step_.time_simplify};
-    struct Reset{ // NOLINT
+    struct Reset { // NOLINT
         ~Reset() {
             master.statistics().time_propagate = 0;
             master.statistics().time_check = 0;
@@ -489,7 +474,7 @@ bool Propagator::simplify_(AbstractClauseCreator &cc) {
     return master_().simplify(cc, config_.check_state);
 }
 
-bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint minimize ) {
+auto Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint minimize) -> bool {
     Timer timer{stats_step_.time_translate};
 
     // add minimize constraint
@@ -513,7 +498,6 @@ bool Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     }
 
     return true;
-
 }
 
 void Propagator::propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) {
@@ -557,11 +541,11 @@ void Propagator::undo(Clingo::PropagateControl const &control, Clingo::LiteralSp
     solver_(control.thread_id()).undo();
 }
 
-lit_t Propagator::decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) {
+auto Propagator::decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
     return solver_(thread_id).decide(assign, fallback);
 }
 
-bool Propagator::shown(var_t var) {
+auto Propagator::shown(var_t var) -> bool {
     auto sym = get_symbol(var);
     if (!sym.has_value()) {
         return false;
@@ -575,12 +559,11 @@ bool Propagator::shown(var_t var) {
         return true;
     }
 
-    return
-        sym->type() == Clingo::SymbolType::Function &&
-        show_signature_.find(Clingo::Signature(sym->name(), sym->arguments().size())) != show_signature_.end();
+    return sym->type() == Clingo::SymbolType::Function &&
+           show_signature_.find(Clingo::Signature(sym->name(), sym->arguments().size())) != show_signature_.end();
 }
 
-std::optional<var_t> Propagator::get_index(Clingo::Symbol sym) const {
+auto Propagator::get_index(Clingo::Symbol sym) const -> std::optional<var_t> {
     auto it = sym_map_.find(sym);
     if (it != sym_map_.end()) {
         return it->second;
@@ -588,7 +571,7 @@ std::optional<var_t> Propagator::get_index(Clingo::Symbol sym) const {
     return std::nullopt;
 }
 
-std::optional<Clingo::Symbol> Propagator::get_symbol(var_t var) const {
+auto Propagator::get_symbol(var_t var) const -> std::optional<Clingo::Symbol> {
     auto it = var_map_.find(var);
     if (it != var_map_.end()) {
         return it->second;
@@ -596,9 +579,7 @@ std::optional<Clingo::Symbol> Propagator::get_symbol(var_t var) const {
     return std::nullopt;
 }
 
-val_t Propagator::get_value(var_t var, uint32_t thread_id) const {
-    return solver_(thread_id).get_value(var);
-}
+auto Propagator::get_value(var_t var, uint32_t thread_id) const -> val_t { return solver_(thread_id).get_value(var); }
 
 void Propagator::add_minimize_(UniqueMinimizeConstraint minimize) {
     assert(minimize_ == nullptr);
@@ -606,16 +587,15 @@ void Propagator::add_minimize_(UniqueMinimizeConstraint minimize) {
     add_constraint(std::move(minimize));
 }
 
-UniqueMinimizeConstraint Propagator::remove_minimize() {
+auto Propagator::remove_minimize() -> UniqueMinimizeConstraint {
     if (minimize_ == nullptr) {
         return nullptr;
     }
 
     --stats_step_.num_constraints;
 
-    auto it = std::find_if(constraints_.begin(), constraints_.end(), [this](UniqueConstraint const &x) {
-        return x.get() == minimize_;
-    });
+    auto it = std::find_if(constraints_.begin(), constraints_.end(),
+                           [this](UniqueConstraint const &x) { return x.get() == minimize_; });
     assert(it != constraints_.end());
 
     UniqueMinimizeConstraint minimize{(it->release(), minimize_)};
@@ -627,8 +607,8 @@ UniqueMinimizeConstraint Propagator::remove_minimize() {
     return minimize;
 }
 
-sum_t Propagator::get_minimize_value(uint32_t thread_id) {
-    assert (has_minimize());
+auto Propagator::get_minimize_value(uint32_t thread_id) -> sum_t {
+    assert(has_minimize());
     auto &solver = solver_(thread_id);
 
     sum_t bound = 0;
@@ -639,7 +619,7 @@ sum_t Propagator::get_minimize_value(uint32_t thread_id) {
 }
 
 void Propagator::update_minimize(sum_t bound) {
-    assert (has_minimize());
+    assert(has_minimize());
     minimize_bound_ = bound;
 }
 

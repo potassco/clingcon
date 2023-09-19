@@ -26,9 +26,9 @@
 #define CLINGCON_BASE_H
 
 #include <clingo.hh>
-#include <optional>
 #include <forward_list>
 #include <math/wide_integer/uintwide_t.h>
+#include <optional>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -53,7 +53,7 @@ enum class Heuristic : val_t { None, MaxChain };
 //! This is the largest supported integer value. It is chosen like this so that
 //! MAX_VAL-MIN_VAL does not overflow and we can always add 1 even to the
 //! difference.
-constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max()/2;
+constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max() / 2;
 //! The minimum value for variables/coefficionts in clingcon.
 //!
 //! The minimum is chosen so that the product of two values will always fit
@@ -81,16 +81,13 @@ constexpr bool DEFAULT_CHECK_SOLUTION{true};
 constexpr bool DEFAULT_CHECK_STATE{false};
 constexpr bool DEFAULT_ADD_ORDER_CLAUSES{false};
 
-constexpr lit_t TRUE_LIT{1};          //!< The true literal.
+constexpr lit_t TRUE_LIT{1}; //!< The true literal.
 constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
 
 //! Test whether a variable is valid.
-inline bool is_valid_var(var_t var) {
-    return var < INVALID_VAR;
-}
+inline auto is_valid_var(var_t var) -> bool { return var < INVALID_VAR; }
 
-template <class I>
-inline val_t check_valid_value(I val) {
+template <class I> inline auto check_valid_value(I val) -> val_t {
     if (val < MIN_VAL) {
         throw std::underflow_error("value too small");
     }
@@ -104,9 +101,7 @@ static_assert(std::is_same<Clingo::weight_t, val_t>::value);
 //! Solver specific statistics.
 struct SolverStatistics {
     //! Reset all statistics to their starting values.
-    void reset() {
-        *this = SolverStatistics();
-    }
+    void reset() { *this = SolverStatistics(); }
 
     //! Accumulate statistics in `stats`.
     void accu(SolverStatistics const &stats) {
@@ -125,7 +120,6 @@ struct SolverStatistics {
     uint64_t introduced_reason{0};
     uint64_t literals{0};
 };
-
 
 //! Propagator specific statistics.
 struct Statistics {
@@ -170,14 +164,13 @@ struct Statistics {
             auto jt = it++;
             if (it != solver_statistics.end()) {
                 it->accu(solver_stat);
-            }
-            else {
+            } else {
                 it = solver_statistics.emplace_after(jt, solver_stat);
             }
         }
     }
 
-    SolverStatistics &solver_stats(uint32_t thread_id) {
+    auto solver_stats(uint32_t thread_id) -> SolverStatistics & {
         auto it = solver_statistics.before_begin();
 
         for (uint32_t i = 0; i <= thread_id; ++i) {
@@ -216,11 +209,10 @@ struct SolverConfig {
     bool refine_introduce{DEFAULT_REFINE_INTRODUCE};
 };
 
-
 //! Global configuration.
 struct Config {
     //! Get solver specific configuration.
-    SolverConfig &solver_config(uint32_t thread_id) {
+    auto solver_config(uint32_t thread_id) -> SolverConfig & {
         auto it = solver_configs.before_begin();
 
         for (uint32_t i = 0; i <= thread_id; ++i) {
@@ -249,67 +241,60 @@ struct Config {
     bool check_state{DEFAULT_CHECK_STATE};
 };
 
-
 //! Class to add solver literals, create clauses, and access the current
 //! assignment.
 class AbstractClauseCreator {
-public:
+  public:
     AbstractClauseCreator() = default;
 
     AbstractClauseCreator(AbstractClauseCreator &&) = delete;
     AbstractClauseCreator(AbstractClauseCreator const &) = delete;
-    AbstractClauseCreator &operator=(AbstractClauseCreator &&) = delete;
-    AbstractClauseCreator &operator=(AbstractClauseCreator const &) = delete;
+    auto operator=(AbstractClauseCreator &&) -> AbstractClauseCreator & = delete;
+    auto operator=(AbstractClauseCreator const &) -> AbstractClauseCreator & = delete;
 
     virtual ~AbstractClauseCreator() = default;
 
     //! Add a new solver literal.
-    [[nodiscard]] virtual lit_t add_literal() = 0;
+    [[nodiscard]] virtual auto add_literal() -> lit_t = 0;
 
     //! Watch the given solver literal.
     virtual void add_watch(lit_t lit) = 0;
 
     //! Call unit propagation on the solver.
-    virtual bool propagate() = 0;
+    virtual auto propagate() -> bool = 0;
 
     //! Add the given clause to the sovler.
-    virtual bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) = 0;
+    virtual auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
+        -> bool = 0;
 
     //! Get the assignment.
-    virtual Clingo::Assignment assignment() = 0;
+    virtual auto assignment() -> Clingo::Assignment = 0;
 };
 
-enum class InitState {
-    Init = 0,
-    Translate = 1
-};
+enum class InitState { Init = 0, Translate = 1 };
 
 //! Implement an `AbstractClauseCreator` using a `Clingo::PropagateInit`
 //! object and extra functions.
 class InitClauseCreator final : public AbstractClauseCreator {
-public:
+  public:
     using Clause = std::vector<lit_t>;
-    using WeightConstraint = std::tuple<lit_t, std::vector<Clingo::WeightedLiteral>, val_t, Clingo::WeightConstraintType>;
+    using WeightConstraint =
+        std::tuple<lit_t, std::vector<Clingo::WeightedLiteral>, val_t, Clingo::WeightConstraintType>;
     using MinimizeLiteral = std::tuple<lit_t, val_t, int>;
 
-    InitClauseCreator(Clingo::PropagateInit &init, Statistics &stats)
-    : init_{init}
-    , stats_{stats} {
-    }
+    InitClauseCreator(Clingo::PropagateInit &init, Statistics &stats) : init_{init}, stats_{stats} {}
 
     InitClauseCreator(InitClauseCreator &&) = delete;
     InitClauseCreator(InitClauseCreator const &) = delete;
-    InitClauseCreator &operator=(InitClauseCreator &&) = delete;
-    InitClauseCreator &operator=(InitClauseCreator const &) = delete;
+    auto operator=(InitClauseCreator &&) -> InitClauseCreator & = delete;
+    auto operator=(InitClauseCreator const &) -> InitClauseCreator & = delete;
 
     ~InitClauseCreator() override = default;
 
     //! Get the propagator statistics.
-    [[nodiscard]] Statistics const &statistics() const {
-        return stats_;
-    }
+    [[nodiscard]] auto statistics() const -> Statistics const & { return stats_; }
 
-    [[nodiscard]] lit_t add_literal() override {
+    [[nodiscard]] auto add_literal() -> lit_t override {
         auto lit = init_.add_literal();
         ++stats_.num_literals;
         if (state_ == InitState::Translate) {
@@ -318,15 +303,12 @@ public:
         return lit;
     }
 
-    void add_watch(lit_t lit) override {
-        init_.add_watch(lit);
-    }
+    void add_watch(lit_t lit) override { init_.add_watch(lit); }
 
-    [[nodiscard]] bool propagate() override {
-        return commit() && init_.propagate();
-    }
+    [[nodiscard]] auto propagate() -> bool override { return commit() && init_.propagate(); }
 
-    [[nodiscard]] bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
+    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
+        -> bool override {
         assert(type != Clingo::ClauseType::Volatile && type != Clingo::ClauseType::VolatileStatic);
         static_cast<void>(type);
 
@@ -343,30 +325,24 @@ public:
         return true;
     }
 
-    [[nodiscard]] Clingo::Assignment assignment() override {
-        return init_.assignment();
-    }
+    [[nodiscard]] auto assignment() -> Clingo::Assignment override { return init_.assignment(); }
 
     //! Set the state to log either init literals or additionally translation
     //! literals.
-    void set_state(InitState state) {
-        state_ = state;
-    }
+    void set_state(InitState state) { state_ = state; }
 
     //! Map the literal to a solver literal.
-    [[nodiscard]] lit_t solver_literal(lit_t literal) {
-        return init_.solver_literal(literal);
-    }
+    [[nodiscard]] auto solver_literal(lit_t literal) -> lit_t { return init_.solver_literal(literal); }
 
     //! Add a weight constraint of form `lit == (wlits <= bound)`.
-    [[nodiscard]] bool add_weight_constraint(lit_t lit, Clingo::WeightedLiteralSpan wlits, val_t bound, Clingo::WeightConstraintType type) {
+    [[nodiscard]] auto add_weight_constraint(lit_t lit, Clingo::WeightedLiteralSpan wlits, val_t bound,
+                                             Clingo::WeightConstraintType type) -> bool {
         auto ass = assignment();
         if (ass.is_true(lit)) {
             if (type < 0) {
                 return true;
             }
-        }
-        else if (ass.is_false(lit)) {
+        } else if (ass.is_false(lit)) {
             if (type > 0) {
                 return true;
             }
@@ -375,20 +351,21 @@ public:
         if (state_ == InitState::Translate) {
             ++stats_.translate_wcs;
         }
-        weight_constraints_.emplace_back(lit, std::vector<Clingo::WeightedLiteral>{wlits.begin(), wlits.end()}, bound, type);
+        weight_constraints_.emplace_back(lit, std::vector<Clingo::WeightedLiteral>{wlits.begin(), wlits.end()}, bound,
+                                         type);
         return true;
     }
 
     //! Add a literal to the objective function.
-    void add_minimize(lit_t lit, val_t weight, int level) {
-        minimize_.emplace_back(lit, weight, level);
-    }
+    void add_minimize(lit_t lit, val_t weight, int level) { minimize_.emplace_back(lit, weight, level); }
 
     //! Commit accumulated constraints.
-    [[nodiscard]] bool commit() {
+    [[nodiscard]] auto commit() -> bool {
         for (auto it = clauses_.begin(), ie = clauses_.end(); it != ie; ++it) {
             auto ib = it;
-            while (*it != 0) { ++it; }
+            while (*it != 0) {
+                ++it;
+            }
             if (!init_.add_clause(Clingo::LiteralSpan{&*ib, &*it})) {
                 return false;
             }
@@ -397,7 +374,7 @@ public:
 
         for (auto const &[lit, wlits, bound, type] : weight_constraints_) {
             auto inv = static_cast<Clingo::WeightConstraintType>(-type);
-            if (!init_.add_weight_constraint(-lit, wlits, bound+1, inv)) {
+            if (!init_.add_weight_constraint(-lit, wlits, bound + 1, inv)) {
                 return false;
             }
         }
@@ -411,7 +388,7 @@ public:
         return true;
     }
 
-private:
+  private:
     InitState state_{InitState::Init};
     Clingo::PropagateInit &init_;
     Statistics &stats_;
@@ -420,38 +397,29 @@ private:
     std::vector<MinimizeLiteral> minimize_;
 };
 
-
 //! Implement an `AbstractClauseCreator` using a `Clingo::PropagateControl`
 //! object.
 class ControlClauseCreator final : public AbstractClauseCreator {
-public:
+  public:
     ControlClauseCreator(Clingo::PropagateControl &control, SolverStatistics &stats)
-    : control_{control}
-    , stats_{stats} {
-    }
+        : control_{control}, stats_{stats} {}
 
-    lit_t add_literal() override {
+    auto add_literal() -> lit_t override {
         ++stats_.literals;
         return control_.add_literal();
     }
 
-    void add_watch(lit_t lit) override {
-        control_.add_watch(lit);
-    }
+    void add_watch(lit_t lit) override { control_.add_watch(lit); }
 
-    bool propagate() override {
-        return control_.propagate();
-    }
+    auto propagate() -> bool override { return control_.propagate(); }
 
-    bool add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) override {
+    auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) -> bool override {
         return control_.add_clause(clause, type) && propagate();
     }
 
-    Clingo::Assignment assignment() override {
-        return control_.assignment();
-    }
+    auto assignment() -> Clingo::Assignment override { return control_.assignment(); }
 
-private:
+  private:
     Clingo::PropagateControl &control_;
     SolverStatistics &stats_;
 };
@@ -467,10 +435,8 @@ struct ndiv_t {
     nsum_t rem{0};
 };
 
-inline ndiv_t div(nsum_t a, nsum_t b) {
-    return {a / b, a % b};
-}
+inline auto div(nsum_t a, nsum_t b) -> ndiv_t { return {a / b, a % b}; }
 
-} // namespace math::wideinteger
+} // namespace math::wide_integer
 
 #endif // CLINGCON_BASE_H

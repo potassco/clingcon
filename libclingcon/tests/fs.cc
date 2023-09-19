@@ -90,27 +90,26 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
 #show permutation/2.
 )";
 
-S const SOL16{
-    "permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=4 (c,2)=11",
-    "permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=5 (c,2)=11",
-    "permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=6 (c,2)=11",
-    "permutation(a,c) permutation(b,a) (a,1)=2 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=5 (c,2)=11",
-    "permutation(a,c) permutation(b,a) (a,1)=2 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=6 (c,2)=11",
-    "permutation(a,c) permutation(b,a) (a,1)=3 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=6 (c,2)=11",
-    "permutation(b,c) permutation(c,a) (a,1)=6 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
-    "permutation(b,c) permutation(c,a) (a,1)=7 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
-    "permutation(b,c) permutation(c,a) (a,1)=7 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=2 (c,2)=7",
-    "permutation(b,c) permutation(c,a) (a,1)=8 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
-    "permutation(b,c) permutation(c,a) (a,1)=8 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=2 (c,2)=7",
-    "permutation(b,c) permutation(c,a) (a,1)=9 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
-    "permutation(b,c) permutation(c,a) (a,1)=9 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=2 (c,2)=7"};
+S const SOL16{"permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=4 (c,2)=11",
+              "permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=5 (c,2)=11",
+              "permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=6 (c,2)=11",
+              "permutation(a,c) permutation(b,a) (a,1)=2 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=5 (c,2)=11",
+              "permutation(a,c) permutation(b,a) (a,1)=2 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=6 (c,2)=11",
+              "permutation(a,c) permutation(b,a) (a,1)=3 (a,2)=7 (b,1)=0 (b,2)=1 (c,1)=6 (c,2)=11",
+              "permutation(b,c) permutation(c,a) (a,1)=6 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
+              "permutation(b,c) permutation(c,a) (a,1)=7 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
+              "permutation(b,c) permutation(c,a) (a,1)=7 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=2 (c,2)=7",
+              "permutation(b,c) permutation(c,a) (a,1)=8 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
+              "permutation(b,c) permutation(c,a) (a,1)=8 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=2 (c,2)=7",
+              "permutation(b,c) permutation(c,a) (a,1)=9 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=1 (c,2)=7",
+              "permutation(b,c) permutation(c,a) (a,1)=9 (a,2)=12 (b,1)=0 (b,2)=1 (c,1)=2 (c,2)=7"};
 
 S const SOL11{SOL16.begin(), SOL16.begin() + 6};
 
-std::string remove_bound(std::string const &str) {
+auto remove_bound(std::string const &str) -> std::string {
     return std::regex_replace(str, std::regex{"bound=[^ ]* "}, "");
 }
-S remove_bound(S &&res) {
+auto remove_bound(S &&res) -> S {
     for (auto &str : res) {
         str = remove_bound(str);
     }
@@ -130,7 +129,5 @@ TEST_CASE("fs", "[fs]") {
         REQUIRE(solve(FSB + FSD + FSI, 0, 11) == SOL11);
         REQUIRE(solve(FSB + FSD + FSI) == SOL16);
     }
-    SECTION("fso") {
-        REQUIRE(remove_bound(solve(FSO + FSE + FSI, -256, 256)) == SOL16);
-    }
+    SECTION("fso") { REQUIRE(remove_bound(solve(FSO + FSE + FSI, -256, 256)) == SOL16); }
 }

@@ -61,7 +61,7 @@ auto packed(int a, int b) {
     return Clingo::SymbolicLiteral{Clingo::Function("packed", {Clingo::Number(a), Clingo::Number(b)}), true};
 }
 
-auto step(Propagator &prp, Clingo::Control &ctl, Clingo::SymbolicLiteralSpan assumptions={}) {
+auto step(Propagator &prp, Clingo::Control &ctl, Clingo::SymbolicLiteralSpan assumptions = {}) {
     SolveEventHandler hnd{prp};
     if (ctl.solve(assumptions, &hnd, false, false).get().is_interrupted()) {
         throw std::runtime_error("interrupted");
@@ -85,9 +85,8 @@ TEST_CASE("assumptions", "[assumptions]") {
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(ENC.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) {
-                builder.add(stm);
-            }, true);
+            transform(
+                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.ground({{"base", {}}});

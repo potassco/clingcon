@@ -47,29 +47,31 @@ extern "C" {
 #endif
 
 #if defined _WIN32 || defined __CYGWIN__
-#   define CLINGCON_WIN
+#define CLINGCON_WIN
 #endif
 #ifdef CLINGCON_NO_VISIBILITY
-#   define CLINGCON_VISIBILITY_DEFAULT
-#   define CLINGCON_VISIBILITY_PRIVATE
+#define CLINGCON_VISIBILITY_DEFAULT
+#define CLINGCON_VISIBILITY_PRIVATE
 #else
-#   ifdef CLINGCON_WIN
-#       ifdef CLINGCON_BUILD_LIBRARY
-#           define CLINGCON_VISIBILITY_DEFAULT __declspec (dllexport)
-#       else
-#           define CLINGCON_VISIBILITY_DEFAULT __declspec (dllimport)
-#       endif
-#       define CLINGCON_VISIBILITY_PRIVATE
-#   else
-#       if __GNUC__ >= 4
-#           define CLINGCON_VISIBILITY_DEFAULT  __attribute__ ((visibility ("default")))
-#           define CLINGCON_VISIBILITY_PRIVATE __attribute__ ((visibility ("hidden")))
-#       else
-#           define CLINGCON_VISIBILITY_DEFAULT
-#           define CLINGCON_VISIBILITY_PRIVATE
-#       endif
-#   endif
+#ifdef CLINGCON_WIN
+#ifdef CLINGCON_BUILD_LIBRARY
+#define CLINGCON_VISIBILITY_DEFAULT __declspec(dllexport)
+#else
+#define CLINGCON_VISIBILITY_DEFAULT __declspec(dllimport)
 #endif
+#define CLINGCON_VISIBILITY_PRIVATE
+#else
+#if __GNUC__ >= 4
+#define CLINGCON_VISIBILITY_DEFAULT __attribute__((visibility("default")))
+#define CLINGCON_VISIBILITY_PRIVATE __attribute__((visibility("hidden")))
+#else
+#define CLINGCON_VISIBILITY_DEFAULT
+#define CLINGCON_VISIBILITY_PRIVATE
+#endif
+#endif
+#endif
+
+// NOLINTBEGIN(modernize-use-using,modernize-use-trailing-return-type)
 
 //! Value types that can be returned by a theory.
 enum clingcon_value_type {
@@ -103,13 +105,14 @@ CLINGCON_VISIBILITY_DEFAULT void clingcon_version(int *major, int *minor, int *p
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_create(clingcon_theory_t **theory);
 
 //! Register the theory with a control object.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_register(clingcon_theory_t *theory, clingo_control_t* control);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_register(clingcon_theory_t *theory, clingo_control_t *control);
 
 //! Rewrite asts before adding them via the given callback.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast, clingcon_ast_callback_t add, void *data);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *ast,
+                                                      clingcon_ast_callback_t add, void *data);
 
 //! Prepare the theory between grounding and solving.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t* control);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_prepare(clingcon_theory_t *theory, clingo_control_t *control);
 
 //! Destroy the theory.
 //!
@@ -123,19 +126,20 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_destroy(clingcon_theory_t *theory);
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_configure(clingcon_theory_t *theory, char const *key, char const *value);
 
 //! Register options of the theory.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_register_options(clingcon_theory_t *theory, clingo_options_t* options);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_register_options(clingcon_theory_t *theory, clingo_options_t *options);
 
 //! Validate options of the theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_validate_options(clingcon_theory_t *theory);
 
 //! Callback for models.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t* model);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t *model);
 
 //! Obtain a symbol index which can be used to get the value of a symbol.
 //!
 //! Returns true if the symbol exists.
 //! Does not throw.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_t symbol, size_t *index);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_lookup_symbol(clingcon_theory_t *theory, clingo_symbol_t symbol,
+                                                        size_t *index);
 
 //! Obtain the symbol at the given index.
 //!
@@ -145,7 +149,8 @@ CLINGCON_VISIBILITY_DEFAULT clingo_symbol_t clingcon_get_symbol(clingcon_theory_
 //! Initialize index so that it can be used with clingcon_assignment_next.
 //!
 //! Does not throw.
-CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_begin(clingcon_theory_t *theory, uint32_t thread_id, size_t *index);
+CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_begin(clingcon_theory_t *theory, uint32_t thread_id,
+                                                           size_t *index);
 
 //! Move to the next index that has a value.
 //!
@@ -156,17 +161,22 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_assignment_next(clingcon_theory_t *the
 //! Check if the symbol at the given index has a value.
 //!
 //! Does not throw.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_assignment_has_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_assignment_has_value(clingcon_theory_t *theory, uint32_t thread_id,
+                                                               size_t index);
 
 //! Get the symbol and it's value at the given index.
 //!
 //! Does not throw.
-CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id, size_t index, clingcon_value_t *value);
+CLINGCON_VISIBILITY_DEFAULT void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_t thread_id,
+                                                               size_t index, clingcon_value_t *value);
 
 //! Callback for statistic updates.
 //!
 //! Best add statistics under a subkey with the name of your theory.
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t* step, clingo_statistics_t* accu);
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t *step,
+                                                        clingo_statistics_t *accu);
+
+// NOLINTEND(modernize-use-using,modernize-use-trailing-return-type)
 
 #ifdef __cplusplus
 }

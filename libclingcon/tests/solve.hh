@@ -25,14 +25,14 @@
 #ifndef CLINGCON_TEST_SOLVE_H
 #define CLINGCON_TEST_SOLVE_H
 
-#include <clingcon/propagator.hh>
 #include <clingcon/parsing.hh>
+#include <clingcon/propagator.hh>
 
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_message.hpp>
+#include <catch2/catch_test_macros.hpp>
 
-#include <sstream>
 #include <array>
+#include <sstream>
 
 using namespace Clingcon;
 
@@ -40,19 +40,18 @@ using S = std::vector<std::string>;
 using O = std::vector<std::optional<val_t>>;
 
 class SolveEventHandler : public Clingo::SolveEventHandler {
-public:
-    SolveEventHandler(Propagator &p) : p{p} { }
+  public:
+    SolveEventHandler(Propagator &p) : p{p} {}
     void on_statistics(Clingo::UserStatistics step, Clingo::UserStatistics accu) override {
         p.on_statistics(step, accu);
     }
-    bool on_model(Clingo::Model &model) override {
+    auto on_model(Clingo::Model &model) -> bool override {
         if (model.optimality_proven()) {
             if (!proven) {
                 models.clear();
                 proven = true;
             }
-        }
-        else {
+        } else {
             proven = false;
         }
         p.on_model(model);
@@ -89,24 +88,27 @@ public:
     bool proven = false;
 };
 
-inline std::vector<Config> create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT)
+    -> std::vector<Config> {
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
     constexpr double r = 1.0;
     constexpr uint64_t f = static_cast<uint64_t>(m) * 10;
     constexpr uint32_t o = std::numeric_limits<uint32_t>::max();
     auto configs = {
-        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, false, false, false, true, true},  // basic
-        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, true,  false, false, true, true},  // sort constraints
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true,  false, false, true, true},  // translate
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true,  false, true,  true, true},  // translate + order clauses
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true,  true,  false, true, true},  // translate literals only
-        Config{{}, sconfig, r, f, 0, m, o, min_int, max_int, true,  false, false, true, true},  // translate weight constraints
+        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, false, false, false, true, true}, // basic
+        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, true, false, false, true, true},  // sort constraints
+        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true, false, false, true, true},  // translate
+        Config{
+            {}, sconfig, 0, f, m, m, o, min_int, max_int, true, false, true, true, true}, // translate + order clauses
+        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true, true, false, true, true},  // translate literals only
+        Config{{}, sconfig, r, f, 0, m, o, min_int, max_int, true, false, false, true, true}, // translate weight
+                                                                                              // constraints
     };
     return configs;
 }
 
-inline S solve(Config const &config, std::string const &prg) {
+inline auto solve(Config const &config, std::string const &prg) -> S {
     Propagator p;
     p.config() = config;
     SolveEventHandler handler{p};
@@ -115,9 +117,8 @@ inline S solve(Config const &config, std::string const &prg) {
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) {
-                builder.add(stm);
-            }, true);
+            transform(
+                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -156,14 +157,14 @@ inline S solve(Config const &config, std::string const &prg) {
 
     if (!has_minimize || models.empty()) {
         REQUIRE(models == handler.models);
-    }
-    else {
+    } else {
         REQUIRE(std::binary_search(handler.models.begin(), handler.models.end(), models.front()));
     }
 
     return handler.models;
 }
-inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+inline auto solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT,
+                  val_t max_int = Clingcon::DEFAULT_MAX_INT) -> S {
     std::optional<S> last = std::nullopt;
     int i = 0;
     for (auto const &config : create_configs(min_int, max_int)) {
@@ -180,7 +181,7 @@ inline S solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT
     return *last;
 }
 
-inline S solve_multi(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) {
+inline auto solve_multi(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) -> S {
     Propagator p;
     p.config() = config;
     std::vector<char const *> opts{"0", "-t8"};
@@ -188,9 +189,8 @@ inline S solve_multi(Config const &config, std::string const &prg, Clingo::PartS
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) {
-                builder.add(stm);
-            }, true);
+            transform(
+                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -206,8 +206,7 @@ inline S solve_multi(Config const &config, std::string const &prg, Clingo::PartS
         }
         if (sep) {
             result.emplace_back("---");
-        }
-        else {
+        } else {
             sep = true;
         }
         std::sort(handler.models.begin(), handler.models.end());
@@ -216,7 +215,8 @@ inline S solve_multi(Config const &config, std::string const &prg, Clingo::PartS
     return result;
 }
 
-inline S solve_multi(std::string const &prg, Clingo::PartSpan const &parts, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+inline auto solve_multi(std::string const &prg, Clingo::PartSpan const &parts,
+                        val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) -> S {
     std::optional<S> last = std::nullopt;
     int i = 0;
     for (auto const &config : create_configs(min_int, max_int)) {
@@ -233,7 +233,8 @@ inline S solve_multi(std::string const &prg, Clingo::PartSpan const &parts, val_
     return *last;
 }
 
-inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts, bool null_enum) {
+inline auto solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts, bool null_enum)
+    -> O {
     Propagator p;
     p.config() = config;
     std::vector<char const *> opts{"0", "-t8"};
@@ -244,9 +245,8 @@ inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpa
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) {
-                builder.add(stm);
-            }, true);
+            transform(
+                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -263,8 +263,7 @@ inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpa
         auto stat = ctl.statistics()["user_step"]["Clingcon"];
         if (stat.has_subkey("Cost")) {
             bound = static_cast<val_t>(stat["Cost"].value());
-        }
-        else {
+        } else {
             stat = ctl.statistics()["summary"];
             if (stat.has_subkey("costs")) {
                 bound = static_cast<val_t>(stat["costs"][size_t(0)].value());
@@ -275,7 +274,8 @@ inline O solve_opt(Config const &config, std::string const &prg, Clingo::PartSpa
     return bounds;
 }
 
-inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT) {
+inline auto solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t min_int = Clingcon::DEFAULT_MIN_INT,
+                      val_t max_int = Clingcon::DEFAULT_MAX_INT) -> O {
     int i = 0;
     O bounds;
     for (auto const &config : create_configs(min_int, max_int)) {
@@ -286,8 +286,7 @@ inline O solve_opt(std::string const &prg, Clingo::PartSpan const &parts, val_t 
         auto current = solve_opt(config, prg, parts, false);
         if (i == 0) {
             bounds = std::move(current);
-        }
-        else {
+        } else {
             REQUIRE(bounds == current);
         }
         ++i;
