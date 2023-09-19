@@ -91,6 +91,12 @@ if (NOT clingcon_build_interface)
         FOLDER lib)
 endif()
 
+if (CLINGCON_PROFILE)
+    find_package(Gperftools REQUIRED)
+    target_compile_definitions(libclingcon PUBLIC CLINGCON_PROFILE)
+    target_link_libraries(libclingcon PUBLIC Gperftools::Profiler)
+endif()
+
 if (CLINGCON_BUILD_TESTS)
     # NOTE: we build statically without hiding symbols
     add_library(libclingcon_t STATIC ${header} ${source})

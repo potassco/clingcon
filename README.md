@@ -30,8 +30,8 @@ Binary packages can be installed using on of the following package managers:
 
 ## Development
 
-The Makefile is meant for development and sets up cmake to use `clang-tidy`. It
-is also possible to create a compile database to use with linting plugins.
+The Makefile is meant for development. It is also possible to create a compile
+database to use with linting plugins.
 
     conda install -n clingcon -c conda-forge -c programfan \
           compdb libcxx clang-tools
@@ -40,6 +40,22 @@ is also possible to create a compile database to use with linting plugins.
 
 With this, plugins like [vim-ale] should be able to lint the source code while
 editing.
+
+### Profiling
+
+The makefile enables easy setup of profiling. To profile, use
+
+    make BUILD_TYPE=profile
+    ./build/profile/bin/clingcon <options>
+
+To visualize the callgraph, use
+
+    pprof --gv ./build/profile/bin/clingcon clingcon.solve.prof
+
+To browse the profiling data, use
+
+    pprof --callgrind ./build/profile/bin/clingcon clingcon.solve.prof > clingcon.solve.out
+    kcachegrind clingcon.solve.out
 
 [vim-ale]: https://github.com/dense-analysis/ale/
 [release]: https://github.com/potassco/clingcon/releases/

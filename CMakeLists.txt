@@ -1,12 +1,9 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 
 file(READ "libclingcon/clingcon.h" main)
 string(REGEX MATCH "#define CLINGCON_VERSION \"([^\"]*)\"" clingov ${main})
 
 project(CLINGCON VERSION "${CMAKE_MATCH_1}" LANGUAGES C CXX)
-if (POLICY CMP0063)
-    cmake_policy(SET CMP0063 NEW)
-endif()
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "No build type selected - using 'Release'")
     set(CMAKE_BUILD_TYPE "Release")
@@ -20,6 +17,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 include(GNUInstallDirs)
 include(CMakeDependentOption)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(CLINGCON_MANAGE_RPATH "set rpath if not installed into system directory" ON)
 option(CLINGCON_BUILD_TESTS "build tests" OFF)
@@ -27,6 +25,7 @@ option(CLINGCON_BUILD_SHARED "build clingcon library shared" ON)
 option(CLINGCON_USE_LOCAL_CATCH
 "Advanced option to build against bundled or installed catch."
 ON)
+option(CLINGCON_PROFILE "profile clingcon" OFF)
 
 set(PYCLINGCON_ENABLE "auto" CACHE STRING "build with python support: OFF, auto, require, pip
 auto: enable python support if python is available
@@ -55,7 +54,7 @@ if (MSVC)
     add_definitions("-D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 endif()
 
-if (POLICY CMP0063 AND CLINGCON_BUILD_SHARED)
+if (CLINGCON_BUILD_SHARED)
     set(CMAKE_CXX_VISIBILITY_PRESET hidden)
     set(CMAKE_C_VISIBILITY_PRESET hidden)
 endif()
