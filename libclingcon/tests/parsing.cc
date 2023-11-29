@@ -248,6 +248,7 @@ TEST_CASE("parsing", "[parsing]") {
     }
     SECTION("parse") {
         SECTION("sum head") {
+            REQUIRE(parse("&sum { 7; 2**3 } >= 0.") == "2 -> 0 <= 15.");
             REQUIRE(parse("&sum { x; y; z } = 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
                                                       "2 -> -1*x + -1*y + -1*z <= 0.");
             REQUIRE(parse("&sum { x; y; z } != 0.") == "{ 3, 4, -2 }."
@@ -311,8 +312,8 @@ TEST_CASE("parsing", "[parsing]") {
             REQUIRE(parse("&maximize { x - z }.") == "#minimize { -1*x + 1*z }.");
         }
         SECTION("nonlinear") {
-            REQUIRE(parse("&nsum { 2*x*y + 3*z + 4 } <= 5.") == "2 -> 2*x*y + 3*z <= 1."
-                                                                "-2 -> -2*x*y + -3*z <= -2.");
+            REQUIRE(parse("&nsum { 2*x*y + 3*z + 4 } <= 5.") == "2 -> 2*x*y + 3*z <= 1.");
+            REQUIRE(parse("&nsum { (2**3)*x*y + (3**4)*z + (5**6) } <= 5.") == "2 -> 8*x*y + 81*z <= -15620.");
         }
     }
 }
