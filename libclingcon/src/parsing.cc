@@ -374,9 +374,9 @@ struct VectorHash {
 
 void push_co(val_t co, CoVarVec &res) { res.emplace_back(co, INVALID_VAR); }
 
-void push_co_var(val_t co, var_t var, CoVarVec &res) { res.emplace_back(co, var); }
-
 void push_co(val_t co, NonlinearTermVec &res) { res.emplace_back(co, VarVec{}); }
+
+void push_co_var(val_t co, var_t var, CoVarVec &res) { res.emplace_back(co, var); }
 
 void push_co_var(val_t co, var_t var, NonlinearTermVec &res) { res.emplace_back(co, VarVec{var}); }
 
@@ -396,6 +396,15 @@ void push_co_vars(val_t co, VarVec const &l_vars, VarVec const &r_vars, Nonlinea
     res.emplace_back(co, std::move(vars));
 }
 
+void push_value(Clingo::Symbol const &sym, CoVarVec &res) {
+    check_syntax(sym.type() == Clingo::SymbolType::Number);
+    push_co(sym.number(), res);
+}
+
+void push_value(Clingo::Symbol const &sym, NonlinearTermVec &res) {
+    check_syntax(sym.type() == Clingo::SymbolType::Number);
+    push_co(sym.number(), res);
+}
 using Clingcon::simplify;
 
 auto simplify(NonlinearTermVec &vec, bool drop_zero) -> val_t {
@@ -493,7 +502,7 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
 
             auto b = evaluate(args.back());
             if (b.type() == Clingo::SymbolType::Number) {
-                push_co(-b.number(), res);
+                push_co(safe_inv(b.number()), res);
             } else {
                 push_co_var(-1, builder.add_variable(b), res);
             }
@@ -532,6 +541,8 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
                 push_co_vars(safe_mul(l_co, r_co), l_vars, r_vars, res);
             }
         }
+    } else if (match(term, "**", 2) || match(term, "/", 2) || match(term, "\\", 2)) {
+        push_value(evaluate(term), res);
     } else if (term.type() == Clingo::TheoryTermType::Symbol || term.type() == Clingo::TheoryTermType::Function ||
                term.type() == Clingo::TheoryTermType::Tuple) {
         push_co_var(1, builder.add_variable(evaluate(term)), res);
@@ -887,8 +898,8 @@ auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
         bool is_sum_h = match(atom.term(), "__sum_h", 0);
         bool is_diff_b = match(atom.term(), "__diff_b", 0);
         bool is_diff_h = match(atom.term(), "__diff_h", 0);
-        bool is_nsum_h = match(atom.term(), "__nsum_b", 0);
-        bool is_nsum_b = match(atom.term(), "__nsum_h", 0);
+        bool is_nsum_h = match(atom.term(), "__nsum_h", 0);
+        bool is_nsum_b = match(atom.term(), "__nsum_b", 0);
         if (is_sum_b || is_sum_h) {
             if (!parse_constraint<CoVarVec>(builder, atom, is_sum_b)) {
                 return false;
