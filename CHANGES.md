@@ -4,6 +4,8 @@
 
 - add option `--enable-python`
 - fix `clingcon_configure` to have an effect (#102)
+- fix multi-shot solving (#104)
+- fix parsing of numbers (#107)
 
 ## clingcon 5.2.0
 
