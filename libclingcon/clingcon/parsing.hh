@@ -67,8 +67,8 @@ constexpr char const *THEORY = R"(
     -  : 1, binary, left;
     @  : 0, binary, left
     };
-    &__diff_h/0 : sum_term, {<=}, sum_term, any;
-    &__diff_b/0 : sum_term, {<=}, sum_term, any;
+    &__diff_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
+    &__diff_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &__sum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &__sum_b/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
     &__nsum_h/0 : sum_term, {<=,=,!=,<,>,>=}, sum_term, any;
