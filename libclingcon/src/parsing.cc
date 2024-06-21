@@ -30,7 +30,6 @@
 #include <numeric>
 #include <set>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace Clingcon {
 
@@ -698,8 +697,8 @@ template <class TermVec>
 // Contraints are represented as a triple of a literal, its elements, and an
 // upper bound.
 template <class TermVec, bool is_sum = true>
-[[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool strict)
-    -> bool {
+[[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom,
+                                    bool strict) -> bool {
     check_syntax(atom.has_guard());
 
     TermVec elements;
@@ -797,6 +796,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
 
     check_syntax(atom.has_guard(), "Invalid Syntax: invalid dom statement");
     auto var = evaluate(atom.guard().second);
+    check_syntax(var.type() != Clingo::SymbolType::Number, "Invalid Syntax: invalid dom statement");
 
     return builder.add_dom(builder.solver_literal(atom.literal()), builder.add_variable(var), elements);
 }

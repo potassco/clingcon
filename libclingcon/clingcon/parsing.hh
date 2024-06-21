@@ -38,7 +38,6 @@ namespace Clingcon {
 //! This theory has to be loaded to use CSP constraints.
 constexpr char const *THEORY = R"(
 #theory cp {
-    var_term  { };
     sum_term {
     -  : 3, unary;
     ** : 2, binary, right;
@@ -79,7 +78,7 @@ constexpr char const *THEORY = R"(
     &show/0 : sum_term, directive;
     &distinct/0 : sum_term, head;
     &disjoint/0 : disjoint_term, head;
-    &dom/0 : dom_term, {=}, var_term, head
+    &dom/0 : dom_term, {=}, sum_term, head
 }.
 )";
 
@@ -117,8 +116,8 @@ class AbstractConstraintBuilder {
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
-    [[nodiscard]] virtual auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems)
-        -> bool = 0;
+    [[nodiscard]] virtual auto add_distinct(lit_t lit,
+                                            std::vector<std::pair<CoVarVec, val_t>> const &elems) -> bool = 0;
     //! Add a disjoint constraint.
     [[nodiscard]] virtual auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool = 0;
     //! Add a domain for the given variable.
