@@ -32,8 +32,8 @@ namespace {
 //! CSP builder to use with the parse_theory function.
 class ConstraintBuilder final : public AbstractConstraintBuilder {
   public:
-    ConstraintBuilder(Propagator &propgator, InitClauseCreator &cc, UniqueMinimizeConstraint minimize)
-        : propagator_{propgator}, cc_{cc}, minimize_{std::move(minimize)} {}
+    ConstraintBuilder(Propagator &propagator, InitClauseCreator &cc, UniqueMinimizeConstraint minimize)
+        : propagator_{propagator}, cc_{cc}, minimize_{std::move(minimize)} {}
 
     ConstraintBuilder(ConstraintBuilder const &) = delete;
     ConstraintBuilder(ConstraintBuilder &&) noexcept = delete;

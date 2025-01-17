@@ -437,7 +437,7 @@ auto simplify(NonlinearTermVec &vec, bool drop_zero) -> val_t {
 
     vec.erase(jt, vec.end());
 
-    // overflow checking (maybe put in seperate function)
+    // overflow checking (maybe put in separate function)
     check_valid_value(rhs);
     nsum_t min = rhs;
     nsum_t max = rhs;
@@ -600,7 +600,7 @@ template <class TermVec>
         elems = &copy;
     }
 
-    // hanle remainig '<=', '=', and '!='
+    // handle remaining '<=', '=', and '!='
     if (std::strcmp(op, "<=") == 0) {
         if (strict && elems->size() == 1) {
             return add_constraint(builder, literal, *elems, rhs, true);
@@ -694,7 +694,7 @@ template <class TermVec>
 // If `is_sum` is true parses a sum constraint. Otherwise, it parses a
 // difference constraint as supported by clingo-dl.
 //
-// Contraints are represented as a triple of a literal, its elements, and an
+// Constraints are represented as a triple of a literal, its elements, and an
 // upper bound.
 template <class TermVec, bool is_sum = true>
 [[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom,
@@ -870,7 +870,7 @@ auto simplify(CoVarVec &vec, bool drop_zero) -> val_t {
 
     vec.erase(jt, vec.end());
 
-    // overflow checking (maybe put in seperate function)
+    // overflow checking (maybe put in separate function)
     check_valid_value(rhs);
     sum_t min = rhs;
     sum_t max = rhs;

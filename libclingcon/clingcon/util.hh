@@ -43,7 +43,7 @@ namespace detail {
 template <int X> using int_type = std::integral_constant<int, X>;
 template <class T, class S> inline void sc_check(S s, int_type<0> t) { // same sign
     static_cast<void>(t);
-    if (!std::is_same<T, S>::value && (s < std::numeric_limits<T>::min() || s > std::numeric_limits<T>::max())) {
+    if (!std::is_same_v<T, S> && (s < std::numeric_limits<T>::min() || s > std::numeric_limits<T>::max())) {
         throw std::overflow_error("safe cast failed");
     }
 }
@@ -55,7 +55,7 @@ template <class T, class S> inline void sc_check(S s, int_type<-1> t) { // Signe
 }
 template <class T, class S> inline void sc_check(S s, int_type<1> t) { // Unsigned -> Signed
     static_cast<void>(t);
-    if (s > static_cast<typename std::make_unsigned<T>::type>(std::numeric_limits<T>::max())) {
+    if (s > static_cast<std::make_unsigned_t<T>>(std::numeric_limits<T>::max())) {
         throw std::overflow_error("safe cast failed");
     }
 }
@@ -132,7 +132,7 @@ template <class T> struct FlagUnique {
 //! Like a vector but only adds an element if it is not contained yet.
 template <typename T, class Flagger = FlagUnique<T>> class UniqueVector : private Flagger {
   public:
-    using Vector = typename std::vector<T>;
+    using Vector = std::vector<T>;
     using Iterator = typename Vector::iterator;
     using ConstIterator = typename Vector::const_iterator;
 
@@ -155,6 +155,7 @@ template <typename T, class Flagger = FlagUnique<T>> class UniqueVector : privat
     auto operator=(UniqueVector &&x) noexcept -> UniqueVector & {
         *static_cast<Flagger *>(this) = std::move(*static_cast<Flagger *>(x));
         std::swap(vec_, x.vec_);
+        return *this;
     }
 
     UniqueVector(UniqueVector const &) = delete;
@@ -229,7 +230,7 @@ template <typename T, class Flagger = FlagUnique<T>> class UniqueVector : privat
 //! `&dom` statements.
 template <typename T> class IntervalSet {
   public:
-    using Map = typename std::map<T, T>;
+    using Map = std::map<T, T>;
     using Iterator = typename Map::const_iterator;
     using ReverseIterator = typename Map::const_reverse_iterator;
 

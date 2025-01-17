@@ -43,7 +43,7 @@ using var_t = uint32_t;                      //!< indexes of variables
 using val_t = int32_t;                       //!< type for values of variables and coefficients
 using sum_t = int64_t;                       //!< type for summing up values
 using nsum_t = math::wide_integer::int128_t; //!< type for summing up values of nonlinear terms
-using co_var_t = std::pair<val_t, var_t>;    //!< coeffcient/variable pair
+using co_var_t = std::pair<val_t, var_t>;    //!< coefficient/variable pair
 using CoVarVec = std::vector<co_var_t>;
 
 enum class Heuristic : val_t { None, MaxChain };
@@ -54,7 +54,7 @@ enum class Heuristic : val_t { None, MaxChain };
 //! MAX_VAL-MIN_VAL does not overflow and we can always add 1 even to the
 //! difference.
 constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max() / 2;
-//! The minimum value for variables/coefficionts in clingcon.
+//! The minimum value for variables/coefficients in clingcon.
 //!
 //! The minimum is chosen so that the product of two values will always fit
 //! into Clingcon::sum_t.
@@ -96,7 +96,7 @@ template <class I> inline auto check_valid_value(I val) -> val_t {
     }
     return val;
 }
-static_assert(std::is_same<Clingo::weight_t, val_t>::value);
+static_assert(std::is_same_v<Clingo::weight_t, val_t>);
 
 //! Solver specific statistics.
 struct SolverStatistics {
@@ -263,7 +263,7 @@ class AbstractClauseCreator {
     //! Call unit propagation on the solver.
     virtual auto propagate() -> bool = 0;
 
-    //! Add the given clause to the sovler.
+    //! Add the given clause to the solver.
     virtual auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
         -> bool = 0;
 

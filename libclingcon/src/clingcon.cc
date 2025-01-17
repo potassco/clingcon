@@ -108,7 +108,6 @@ auto heuristic_str(Heuristic heu) -> char const * {
         }
         case Heuristic::MaxChain: {
             return "max-chain";
-            break;
         }
     };
     return "";
@@ -492,7 +491,7 @@ extern "C" auto clingcon_register_options(clingcon_theory_t *theory, clingo_opti
 
         // propagation
         opts.add(group, "order-heuristic",
-                 format("Make the decision heuristic aware of order literls [",
+                 format("Make the decision heuristic aware of order literals [",
                         heuristic_str(config.default_solver_config.heuristic),
                         "]\n"
                         "      <arg>: {none,max-chain}[,<i>]\n"

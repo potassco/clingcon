@@ -67,7 +67,7 @@ class SumConstraint final : public AbstractConstraint {
     //! Get the literal associated with the constraint.
     [[nodiscard]] auto literal() const -> lit_t override { return lit_; }
 
-    //! Get the rhs of the consraint.
+    //! Get the rhs of the constraint.
     [[nodiscard]] auto rhs() const -> val_t { return rhs_; }
 
     //! Get the number of elements in the constraint.
@@ -126,13 +126,13 @@ class NonlinearConstraint final : public AbstractConstraint {
     [[nodiscard]] auto var_x() const -> var_t { return var_x_; }
     //! Get the second variable of the nonlinear term.
     [[nodiscard]] auto var_y() const -> var_t { return var_y_; }
-    //! Check if the costraint has a linear term.
+    //! Check if the constraint has a linear term.
     [[nodiscard]] auto has_co_c() const -> bool { return co_b_ != 0; }
     //! Get the coefficient of the linear term.
     [[nodiscard]] auto co_b() const -> val_t { return co_b_; }
     //! Get the variable of the linear term.
     [[nodiscard]] auto var_z() const -> var_t { return var_z_; }
-    //! Get the rhs of the consraint.
+    //! Get the rhs of the constraint.
     [[nodiscard]] auto rhs() const -> val_t { return rhs_; }
 
   private:
@@ -175,7 +175,7 @@ class MinimizeConstraint final : public AbstractConstraint {
     //! Get the literal associated with the constraint.
     [[nodiscard]] auto literal() const -> lit_t override { return TRUE_LIT; }
 
-    //! Get the adjustment of the consraint.
+    //! Get the adjustment of the constraint.
     [[nodiscard]] auto adjust() const -> val_t { return adjust_; }
 
     //! Get the number of elements in the constraint.
