@@ -2,7 +2,7 @@
 #include <clingo.hh>
 #include <fstream>
 #include <optional>
-#include <sstream>
+#include <iostream>
 
 #ifdef CLINGCON_PROFILE
 #include <gperftools/profiler.h>

@@ -70,7 +70,7 @@ class Solver::Level {
         solver.udiff_[vs.var()] += diff;
     }
 
-    //! Update watches and enque constraints.
+    //! Update watches and enqueue constraints.
     //!
     //! The parameters determine whether the lookup tables for lower or upper
     //! bounds are used.
@@ -111,7 +111,7 @@ class Solver::Level {
         }
     }
 
-    //! This function undos decision level specific state.
+    //! This function undoes decision level specific state.
     //!
     //! This includes undoing changed bounds of variables clearing constraints
     //! that where not propagated on the current decision level.
@@ -497,7 +497,7 @@ auto Solver::update_litmap_(VarState &vs, lit_t lit, val_t value) -> std::pair<l
 }
 
 auto Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) -> lit_t {
-    // order literals can only be update on level 0
+    // order literals can only be updated on level 0
     if (truth == Clingo::TruthValue::Free || cc.assignment().decision_level() > 0) {
         return get_literal(cc, vs, value);
     }
@@ -616,7 +616,7 @@ auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
 
     constraints.erase(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end());
 
-    // This readds binary clauses when multishot-solving. Probably clasp can
+    // This re-adds binary clauses when multishot-solving. Probably clasp can
     // handle this.
     if (conf.add_order_clauses) {
         for (auto &vs : var2vs_) {
@@ -852,7 +852,7 @@ auto Solver::check(AbstractClauseCreator &cc, bool check_state) -> bool {
         }
 
         // update the bounds of the constraints (this is the only place where
-        // the todo queue is filled after initializaton)
+        // the todo queue is filled after initialization)
         for (auto var : in_udiff_) {
             lvl.update_constraints_(*this, var, udiff_[var]);
             udiff_[var] = 0;
@@ -1021,7 +1021,7 @@ auto Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
         }
     }
 
-    // update_domain_ in check makes sure that unnecassary facts are removed
+    // update_domain_ in check makes sure that unnecessary facts are removed
     return check(cc, check_state);
 }
 
@@ -1130,7 +1130,7 @@ auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
 }
 
 #if 0
-// This is a usefull function for debugging.
+// This is a useful function for debugging.
 void Solver::check_litmap_() {
     for (auto [lit, tup] : litmap_) {
         auto [var, value, prev_lit, succ_lit] = tup;

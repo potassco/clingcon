@@ -116,7 +116,7 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_prepare(clingcon_theory_t *theory, cli
 
 //! Destroy the theory.
 //!
-//! Currently no way to unregister a theory.
+//! Currently, there is no way to unregister a theory.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_destroy(clingcon_theory_t *theory);
 
 //! Configure theory manually (without using clingo's options facility).

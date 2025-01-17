@@ -92,7 +92,7 @@ class AbstractConstraintState {
 
     //! @}
 
-    //! @name Functions for Constraint Progation
+    //! @name Functions for Constraint Propagation
     //! @{
 
     //! Inform the solver about updated bounds of a variable.
@@ -102,7 +102,7 @@ class AbstractConstraintState {
     [[nodiscard]] virtual auto update(val_t i, val_t diff) -> bool = 0;
     //! Similar to update but when the bound of a variable is backtracked.
     virtual void undo(val_t i, val_t diff) = 0;
-    //! Prepagates the constraint.
+    //! Propagates the constraint.
     [[nodiscard]] virtual auto propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) -> bool = 0;
     //! Check if the solver meets the state invariants.
     virtual void check_full(Solver &solver) = 0;
@@ -158,7 +158,7 @@ class AbstractConstraintState {
 //! contain the smallest and largest allowed integer.
 class VarState {
     using OrderMap = std::map<val_t, lit_t>;                     //!< Map to store order literals.
-    using OrderVec = std::vector<lit_t>;                         //!< Vetor to store order literals.
+    using OrderVec = std::vector<lit_t>;                         //!< Vector to store order literals.
     using ReverseIteratorMap = OrderMap::const_reverse_iterator; //!< Reverse iterator over order literals in map.
     using IteratorVec = OrderVec::const_iterator;                //!< Iterator over order literals in vector.
     using ReverseIteratorVec = OrderVec::const_reverse_iterator; //!< Reverse iterator over order literals in vector.
@@ -402,7 +402,7 @@ class VarState {
         return call_vec_(std::forward<F>(f), litvec_.begin(), litvec_.end());
     }
 
-    //! Traverse literals preceeding value.
+    //! Traverse literals preceding value.
     template <typename F> [[nodiscard]] auto with_lt(val_t value, F &&f) const -> RetType<F, ReverseIteratorVec> {
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.lower_bound(value)}, litmap_.rend());
@@ -410,7 +410,7 @@ class VarState {
         auto offset = std::min<val_t>(std::max(0, value - offset_), static_cast<val_t>(litvec_.size()));
         return call_vec_(std::forward<F>(f), ReverseIteratorVec{litvec_.begin() + offset}, litvec_.rend());
     }
-    //! Traverse literals preceeding and including value.
+    //! Traverse literals preceding and including value.
     template <typename F> [[nodiscard]] auto with_le(val_t value, F &&f) const -> RetType<F, ReverseIteratorVec> {
         if (offset_ == unused) {
             return call_map_(std::forward<F>(f), ReverseIteratorMap{litmap_.upper_bound(value)}, litmap_.rend());
@@ -436,7 +436,7 @@ class VarState {
         return call_vec_(std::forward<F>(f), litvec_.begin() + offset, litvec_.end());
     }
 
-    //! Get preceeding literal.
+    //! Get preceding literal.
     [[nodiscard]] auto lit_lt(val_t value) const -> lit_t {
         return with_lt(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> lit_t {
             static_cast<void>(get_val);
@@ -444,7 +444,7 @@ class VarState {
             return ib != ie ? get_lit(ib) : 0;
         });
     }
-    //! Get preceeding or equal literal.
+    //! Get preceding or equal literal.
     [[nodiscard]] auto lit_le(val_t value) const -> lit_t {
         return with_le(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> lit_t {
             static_cast<void>(get_val);
@@ -469,14 +469,14 @@ class VarState {
         });
     }
 
-    //! Get preceeding order literal.
+    //! Get preceding order literal.
     [[nodiscard]] auto order_lit_lt(val_t value) const -> OrderLiteralOpt {
         return with_lt(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> OrderLiteralOpt {
             static_cast<void>(inc);
             return ib != ie ? OrderLiteralOpt{{get_lit(ib), get_val(ib)}} : std::nullopt;
         });
     }
-    //! Get preceeding or equal order literal.
+    //! Get preceding or equal order literal.
     [[nodiscard]] auto order_lit_le(val_t value) const -> OrderLiteralOpt {
         return with_le(value, [](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> OrderLiteralOpt {
             static_cast<void>(inc);
@@ -560,7 +560,7 @@ class VarState {
     var_t var_;                    //!< variable associated with the state
     val_t lower_bound_;            //!< current lower bound of the variable
     val_t upper_bound_;            //!< current upper bound of the variable
-    val_t offset_{unused};         //!< minimium bound at the time of mogrification
+    val_t offset_{unused};         //!< minimum bound at the time of mogrification
     BoundStack lower_bound_stack_; //!< lower bounds of lower levels
     BoundStack upper_bound_stack_; //!< upper bounds of lower levels
     union {
@@ -676,7 +676,7 @@ class Solver {
     //! Adds a new VarState object and returns its index;
     [[nodiscard]] auto add_variable(val_t min_int, val_t max_int) -> var_t;
 
-    //! Integrates the given domain for varibale var.
+    //! Integrates the given domain for variable var.
     //!
     //! Consider x in {[1,3), [4,6), [7,9)}. We can simply add the binary
     //! constraints:
@@ -691,9 +691,9 @@ class Solver {
     [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
         -> bool;
 
-    //! This function integrates singleton constraints intwatches_o the state.
+    //! This function integrates singleton constraints into the state.
     //!
-    //! We explicitely handle the strict case here to avoid introducing
+    //! We explicitly handle the strict case here to avoid introducing
     //! unnecessary literals.
     [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
         -> bool;
@@ -705,7 +705,7 @@ class Solver {
     void remove_constraint(AbstractConstraint &constraint);
 
     //! Simplify the state using fixed literals in the trail up to the given
-    //! offset and the enqued constraints in the todo list.
+    //! offset and the enqueued constraints in the todo list.
     //!
     //! Note that this functions assumes that newly added constraints have been
     //! enqueued before.
@@ -770,7 +770,7 @@ class Solver {
     //! This function should only be called total assignments.
     void check_full(AbstractClauseCreator &cc, bool check_solution);
 
-    //! This function undos decision level specific state.
+    //! This function undoes decision level specific state.
     //!
     //! This includes undoing changed bounds of variables clearing constraints
     //! that where not propagated on the current decision level.
@@ -780,7 +780,7 @@ class Solver {
     //! @}
 
   private:
-    //! Update preceeding and succeeding literals of order literal with the
+    //! Update preceding and succeeding literals of order literal with the
     //! given value.
     auto update_litmap_(VarState &vs, lit_t lit, val_t value) -> std::pair<lit_t, lit_t>;
 
@@ -790,22 +790,22 @@ class Solver {
     //! See Solver::propagate.
     [[nodiscard]] auto propagate_(AbstractClauseCreator &cc, lit_t lit) -> bool;
 
-    //! Propagates the preceeding or succeeding order literals of lit until a
+    //! Propagates the preceding or succeeding order literals of lit until a
     //! true literal is found or the end is reached.
     template <int sign, class It, class L, class I>
     [[nodiscard]] auto propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit,
                                             I inc) -> bool;
 
-    //! Update and propgate the given variable due to a lower bound change.
+    //! Update and propagate the given variable due to a lower bound change.
     [[nodiscard]] auto update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
                                      lit_t prev_lit) -> bool;
 
-    //! Update and propgate the given variable due to an upper bound change.
+    //! Update and propagate the given variable due to an upper bound change.
     [[nodiscard]] auto update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
                                      lit_t succ_lit) -> bool;
 
     //! If the given literal is an order literal, this function updates the lower
-    //! or upper bound of the corresponding variables. Furthermore, the preceeding
+    //! or upper bound of the corresponding variables. Furthermore, the preceding
     //! or succeeding order literals are propagated.
     [[nodiscard]] auto update_domain_(AbstractClauseCreator &cc, lit_t lit) -> bool;
 
@@ -830,7 +830,7 @@ class Solver {
 
     //! Solver configuration.
     SolverConfig const &config_;
-    //! Solver statitstics;
+    //! Solver statistics;
     SolverStatistics &stats_;
     //! Vector of all VarState objects.
     std::vector<VarState> var2vs_;
