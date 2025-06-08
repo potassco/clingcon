@@ -99,7 +99,9 @@ auto decide(clingo_id_t thread_id, clingo_assignment_t const *c_ass, clingo_lite
     CLINGCON_CATCH;
 }
 
-auto flag_str(bool value) -> char const * { return value ? "yes" : "no"; }
+auto flag_str(bool value) -> char const * {
+    return value ? "yes" : "no";
+}
 
 auto heuristic_str(Heuristic heu) -> char const * {
     switch (heu) {
@@ -137,8 +139,8 @@ template <class T> [[nodiscard]] auto strtonum(char const *ib, char const *ie) -
 
 template <class T>
 [[nodiscard]] auto parse_range_num(char const *begin, char const *end = nullptr,
-                                   T min = std::numeric_limits<T>::lowest(),
-                                   T max = std::numeric_limits<T>::max()) -> T {
+                                   T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
+    -> T {
     assert(min <= max);
     if (strncmp(begin, "min", end - begin) == 0) {
         return min;
@@ -160,8 +162,8 @@ template <class T>
 }
 
 template <class T>
-[[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(),
-                              T max = std::numeric_limits<T>::max()) -> std::function<bool(const char *)> {
+[[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
+    -> std::function<bool(const char *)> {
     return [&dest, min, max](char const *value) {
         dest = parse_num<T>(value, min, max);
         return true;
@@ -302,8 +304,8 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
 }
 
 template <class T, class U>
-[[nodiscard]] auto parser_translate_clause(T &translate_clauses,
-                                           U &translate_clauses_total) -> std::function<bool(const char *)> {
+[[nodiscard]] auto parser_translate_clause(T &translate_clauses, U &translate_clauses_total)
+    -> std::function<bool(const char *)> {
     return [&translate_clauses, &translate_clauses_total](char const *value) {
         auto [clauses, clauses_total] = parse_translate_clause(value);
         translate_clauses = clauses;
@@ -626,8 +628,8 @@ extern "C" void clingcon_assignment_get_value(clingcon_theory_t *theory, uint32_
     value->int_number = theory->propagator.get_value(index - 1, thread_id); // NOLINT
 }
 
-extern "C" auto clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t *step,
-                                       clingo_statistics_t *accu) -> bool {
+extern "C" auto clingcon_on_statistics(clingcon_theory_t *theory, clingo_statistics_t *step, clingo_statistics_t *accu)
+    -> bool {
     uint64_t step_root, accu_root; // NOLINT
     if (!clingo_statistics_root(step, &step_root) || !clingo_statistics_root(accu, &accu_root)) {
         return false;

@@ -119,4 +119,3 @@ if(CLINGCON_INSTALL_DEFAULT)
         NAMESPACE clingcon::
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/clingcon")
 endif()
-

@@ -15,63 +15,51 @@
 #include <examples/example_uintwide_t.h>
 #include <math/wide_integer/uintwide_t.h>
 
-bool math::wide_integer::example008_miller_rabin_prime()
-{
-  using wide_integer_type   = math::wide_integer::uintwide_t<512U>;
-  using distribution_type   = math::wide_integer::uniform_int_distribution<wide_integer_type::my_width2, typename wide_integer_type::limb_type>;
-  using random_engine1_type = std::linear_congruential_engine<std::uint32_t, UINT32_C(48271), UINT32_C(0), UINT32_C(2147483647)>;
-  using random_engine2_type = std::mt19937;
+bool math::wide_integer::example008_miller_rabin_prime() {
+    using wide_integer_type = math::wide_integer::uintwide_t<512U>;
+    using distribution_type = math::wide_integer::uniform_int_distribution<wide_integer_type::my_width2,
+                                                                           typename wide_integer_type::limb_type>;
+    using random_engine1_type =
+        std::linear_congruential_engine<std::uint32_t, UINT32_C(48271), UINT32_C(0), UINT32_C(2147483647)>;
+    using random_engine2_type = std::mt19937;
 
-  // Use a fixed seed in order to obtain deterministic
-  // and reproducible result for this test.
+    // Use a fixed seed in order to obtain deterministic
+    // and reproducible result for this test.
 
-  random_engine1_type generator1(static_cast<typename random_engine1_type::result_type>(std::clock()));
-  random_engine2_type generator2(static_cast<typename random_engine2_type::result_type>(std::clock()));
+    random_engine1_type generator1(static_cast<typename random_engine1_type::result_type>(std::clock()));
+    random_engine2_type generator2(static_cast<typename random_engine2_type::result_type>(std::clock()));
 
-  distribution_type distribution1;
-  distribution_type distribution2;
+    distribution_type distribution1;
+    distribution_type distribution2;
 
-  wide_integer_type p0;
-  wide_integer_type p1;
+    wide_integer_type p0;
+    wide_integer_type p1;
 
-  for(;;)
-  {
-    p0 = distribution1(generator1);
+    for (;;) {
+        p0 = distribution1(generator1);
 
-    const bool miller_rabin_result = miller_rabin(p0,
-                                                  25U,
-                                                  distribution2,
-                                                  generator2);
+        const bool miller_rabin_result = miller_rabin(p0, 25U, distribution2, generator2);
 
-    if(miller_rabin_result)
-    {
-      break;
+        if (miller_rabin_result) {
+            break;
+        }
     }
-  }
 
-  for(;;)
-  {
-    p1 = distribution1(generator1);
+    for (;;) {
+        p1 = distribution1(generator1);
 
-    const bool miller_rabin_result = miller_rabin(p1,
-                                                  25U,
-                                                  distribution2,
-                                                  generator2);
+        const bool miller_rabin_result = miller_rabin(p1, 25U, distribution2, generator2);
 
-    if(miller_rabin_result)
-    {
-      break;
+        if (miller_rabin_result) {
+            break;
+        }
     }
-  }
 
-  const wide_integer_type gd = gcd(p0, p1);
+    const wide_integer_type gd = gcd(p0, p1);
 
-  const bool result_is_ok = (   (p0 != 0U)
-                             && (p1 != 0U)
-                             && (p0 != p1)
-                             && (gd == 1U));
+    const bool result_is_ok = ((p0 != 0U) && (p1 != 0U) && (p0 != p1) && (gd == 1U));
 
-  return result_is_ok;
+    return result_is_ok;
 }
 
 // Enable this if you would like to activate this main() as a standalone example.

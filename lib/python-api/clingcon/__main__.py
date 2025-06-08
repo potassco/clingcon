@@ -21,6 +21,7 @@ class ClingconApp(Application):
     """
     The clingcon application.
     """
+
     def __init__(self, name: str):
         self._enable_python = Flag()
         self.__theory = ClingconTheory()
@@ -31,7 +32,12 @@ class ClingconApp(Application):
         """
         Register clingcon related options.
         """
-        options.add_flag("Basic Options", "enable-python", "Enable Python script tags", self._enable_python)
+        options.add_flag(
+            "Basic Options",
+            "enable-python",
+            "Enable Python script tags",
+            self._enable_python,
+        )
         self.__theory.register_options(options)
 
     def validate_options(self) -> bool:
@@ -47,11 +53,15 @@ class ClingconApp(Application):
         """
         # print model
         symbols = model.symbols(shown=True)
-        sys.stdout.write(" ".join(str(symbol) for symbol in sorted(symbols) if not self.__hidden(symbol)))
-        sys.stdout.write('\n')
+        sys.stdout.write(
+            " ".join(
+                str(symbol) for symbol in sorted(symbols) if not self.__hidden(symbol)
+            )
+        )
+        sys.stdout.write("\n")
 
         # print assignment
-        sys.stdout.write('Assignment:\n')
+        sys.stdout.write("Assignment:\n")
         symbols = model.symbols(theory=True)
         assignment = []
         cost = None
@@ -62,7 +72,7 @@ class ClingconApp(Application):
             if symbol.match("__csp_cost", 1):
                 cost = symbol.arguments[0].string
         sys.stdout.write(" ".join(assignment))
-        sys.stdout.write('\n')
+        sys.stdout.write("\n")
 
         # print cost
         if cost is not None:

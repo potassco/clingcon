@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <clingcon.h>
 #include <clingo.hh>
 #include <fstream>
@@ -71,7 +72,7 @@ class ClingconApp final : public Clingo::Application, private Clingo::SolveEvent
             bool comma = false;
             auto symbols = model.symbols(Clingo::ShowType::Shown);
             symvec_.assign(symbols.begin(), symbols.end());
-            std::sort(symbols.begin(), symbols.end());
+            std::ranges::sort(symbols);
             for (auto &sym : symbols) {
                 std::cout << (comma ? " " : "") << sym;
                 comma = true;
@@ -82,7 +83,7 @@ class ClingconApp final : public Clingo::Application, private Clingo::SolveEvent
             comma = false;
             symbols = model.symbols(Clingo::ShowType::Theory);
             symvec_.assign(symbols.begin(), symbols.end());
-            std::sort(symbols.begin(), symbols.end());
+            std::ranges::sort(symbols);
             char const *cost = nullptr;
             std::cout << "Assignment:\n";
             for (auto &sym : symbols) {

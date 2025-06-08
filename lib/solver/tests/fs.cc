@@ -129,5 +129,7 @@ TEST_CASE("fs", "[fs]") {
         REQUIRE(solve(FSB + FSD + FSI, 0, 11) == SOL11);
         REQUIRE(solve(FSB + FSD + FSI) == SOL16);
     }
-    SECTION("fso") { REQUIRE(remove_bound(solve(FSO + FSE + FSI, -256, 256)) == SOL16); }
+    SECTION("fso") {
+        REQUIRE(remove_bound(solve(FSO + FSE + FSI, -256, 256)) == SOL16);
+    }
 }

@@ -1,17 +1,18 @@
 from clingo import Control
-from clingo.ast import parse_string, ProgramBuilder
+from clingo.ast import ProgramBuilder, parse_string
+
 from clingcon import ClingconTheory
 
-prg = '&sum { x } >= 1. &sum { x } <= 3.'
+prg = "&sum { x } >= 1. &sum { x } <= 3."
 
 thy = ClingconTheory()
-ctl = Control(['0'])
+ctl = Control(["0"])
 thy.register(ctl)
 with ProgramBuilder(ctl) as bld:
     parse_string(prg, lambda ast: thy.rewrite_ast(ast, bld.add))
 
-ctl.ground([('base', [])])
+ctl.ground([("base", [])])
 thy.prepare(ctl)
 with ctl.solve(yield_=True, on_model=thy.on_model) as hnd:
     for mdl in hnd:
-        print([f'{key}={val}' for key, val in thy.assignment(mdl.thread_id)])
+        print([f"{key}={val}" for key, val in thy.assignment(mdl.thread_id)])

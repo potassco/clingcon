@@ -358,7 +358,8 @@ Solver::Solver(Solver &&x) noexcept
       ldiff_{std::move(x.ldiff_)}, in_ldiff_{std::move(x.in_ldiff_)}, todo_{std::move(x.todo_)},
       lit2cs_{std::move(x.lit2cs_)}, temp_reason_{std::move(x.temp_reason_)}, split_last_{x.split_last_},
       trail_offset_{x.trail_offset_}, minimize_bound_{std::move(x.minimize_bound_)},
-      minimize_level_{x.minimize_level_} {}
+      minimize_level_{x.minimize_level_} {
+}
 #else
 Solver::Solver(Solver &&x) noexcept = default;
 #endif
@@ -414,7 +415,9 @@ auto Solver::add_variable(val_t min_int, val_t max_int) -> var_t {
     return idx;
 }
 
-auto Solver::minimize_bound() const -> std::optional<sum_t> { return minimize_bound_; }
+auto Solver::minimize_bound() const -> std::optional<sum_t> {
+    return minimize_bound_;
+}
 
 void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_t bound) {
     if (!minimize_bound_.has_value() || bound < *minimize_bound_) {
@@ -427,7 +430,9 @@ void Solver::update_minimize(AbstractConstraint &constraint, level_t level, sum_
     }
 }
 
-auto Solver::get_value(var_t var) const -> val_t { return var2vs_[var].lower_bound(); }
+auto Solver::get_value(var_t var) const -> val_t {
+    return var2vs_[var].lower_bound();
+}
 
 auto Solver::level_() -> Solver::Level & {
     assert(!levels_.empty());
@@ -531,7 +536,9 @@ void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
     watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, &cs)));
 }
 
-void Solver::mark_inactive(AbstractConstraintState &cs) { level_().mark_inactive(*this, cs); }
+void Solver::mark_inactive(AbstractConstraintState &cs) {
+    level_().mark_inactive(*this, cs);
+}
 
 auto Solver::add_constraint(AbstractConstraint &constraint) -> AbstractConstraintState & {
     auto &cs = c2cs_.emplace(&constraint, std::unique_ptr<AbstractConstraintState>{nullptr}).first->second;
@@ -563,8 +570,8 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     c2cs_.erase(it);
 }
 
-auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf,
-                       ConstraintVec &constraints) -> bool {
+auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints)
+    -> bool {
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
     for (size_t idx = jdx; idx < constraints.size(); ++idx) {
         auto &cs = add_constraint(*constraints[idx]);
@@ -699,8 +706,8 @@ auto Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) -> bool {
 }
 
 template <int sign, class It, class L, class I>
-auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit,
-                                  I inc) -> bool {
+auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc)
+    -> bool {
     auto ass = cc.assignment();
 
     for (; begin != end; inc(begin)) {
@@ -721,8 +728,8 @@ auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
     return true;
 }
 
-auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
-                           lit_t succ_lit) -> bool {
+auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t succ_lit)
+    -> bool {
     auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
@@ -741,8 +748,8 @@ auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     });
 }
 
-auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
-                           lit_t prev_lit) -> bool {
+auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit)
+    -> bool {
     auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.

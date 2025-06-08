@@ -1,5 +1,33 @@
 ---
-Checks: "clang-diagnostic-*,clang-analyzer-*,modernize-*,readability-*,-readability-identifier-length,-readability-function-cognitive-complexity"
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  clang-diagnostic-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -modernize-use-designated-initializers,
+  -bugprone-chained-comparison,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-special-member-functions,
+  -readability-function-cognitive-complexity,
+  -readability-function-size,
+  -readability-identifier-length,
+  -readability-suspicious-call-argument,
 WarningsAsErrors: ""
 HeaderFilterRegex: ""
 FormatStyle: none
+CheckOptions:
+  - {
+      key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor,
+      value: true,
+    }
+  - {
+      key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted,
+      value: true,
+    }

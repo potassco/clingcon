@@ -3,14 +3,20 @@ from argparse import ArgumentParser
 
 if sys.version_info >= (3, 11):
     NEW_STYLE = True
-    from sysconfig import get_config_var, get_config_vars, get_preferred_scheme, get_path
+    from sysconfig import (
+        get_config_var,
+        get_config_vars,
+        get_path,
+        get_preferred_scheme,
+    )
 else:
     NEW_STYLE = False
     from site import USER_SITE
+
     try:
-        from setuptools.sysconfig import get_python_lib, get_config_vars
+        from setuptools.sysconfig import get_config_vars, get_python_lib
     except ImportError:
-        from distutils.sysconfig import get_python_lib, get_config_vars
+        from distutils.sysconfig import get_config_vars, get_python_lib
 
 parser = ArgumentParser()
 if sys.version_info >= (3, 7):
@@ -20,8 +26,8 @@ else:
 
 prefix_parser = subparser.add_parser("target")
 prefix_group = prefix_parser.add_mutually_exclusive_group()
-prefix_group.add_argument("--user", action='store_true', help='get user prefix')
-prefix_group.add_argument("--prefix", type=str, help='prepend prefix')
+prefix_group.add_argument("--user", action="store_true", help="get user prefix")
+prefix_group.add_argument("--prefix", type=str, help="prepend prefix")
 
 prefix_parser = subparser.add_parser("suffix")
 
@@ -42,7 +48,7 @@ if NEW_STYLE:
             platlib = get_path("platlib", scheme)
         print(platlib)
     elif result.action == "suffix":
-        print(get_config_var('EXT_SUFFIX'))
+        print(get_config_var("EXT_SUFFIX"))
 else:
     # TODO: remove once python 3.10 is eol
     if result.action == "target":
@@ -55,7 +61,7 @@ else:
         if EXT_SUFFIX is not None:
             ext = EXT_SUFFIX
         elif SOABI is not None:
-            ext = ''.join('.', SOABI, SO)
+            ext = "".join(".", SOABI, SO)
         else:
             ext = SO
         print(ext)

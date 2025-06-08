@@ -86,4 +86,3 @@ if(CLINGCON_BUILD_TESTS)
             DEPENDS pyclingcon)
     endif()
 endif()
-

@@ -1,2 +1,29 @@
+[project]
+name = "clingcon"
+version = "5.2.1"
+dependencies = ["clingo"]
+
+# [project.scripts]
+# pyclingo = "clingo.app:_pyclingodl"
+
 [build-system]
-requires = ["setuptools", "wheel", "scikit-build", "cmake", "ninja", "clingo"]
+requires = ["scikit-build-core", "pybind11", "clingo"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build.sdist]
+include = ["lib/*", "third_party/*", "app/*", "CMakeLists.txt"]
+exclude = ["*.pyc"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--ignore=third_party",
+    "--ignore=doc",
+    "--ignore=.git",
+]
+testpaths = ["lib"]
+
+[tool.ruff]
+ignore = ["E741"]
+
+[tool.pylint.design]
+min-public-methods = 1

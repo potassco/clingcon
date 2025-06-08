@@ -366,20 +366,26 @@ auto Propagator::add_variable(Clingo::Symbol sym) -> var_t {
     return it->second;
 }
 
-void Propagator::show_variable(var_t var) { show_variable_.emplace(var); }
+void Propagator::show_variable(var_t var) {
+    show_variable_.emplace(var);
+}
 
-void Propagator::show_signature(char const *name, size_t arity) { show_signature_.emplace(name, arity); }
+void Propagator::show_signature(char const *name, size_t arity) {
+    show_signature_.emplace(name, arity);
+}
 
 auto Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain) -> bool {
     return master_().add_dom(cc, lit, var, domain);
 }
 
-auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
-                            bool strict) -> bool {
+auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+    -> bool {
     return master_().add_simple(cc, clit, co, var, rhs, strict);
 }
 
-void Propagator::add_constraint_(UniqueConstraint constraint) { constraints_.emplace_back(std::move(constraint)); }
+void Propagator::add_constraint_(UniqueConstraint constraint) {
+    constraints_.emplace_back(std::move(constraint));
+}
 
 void Propagator::add_constraint(UniqueConstraint constraint) {
     ++stats_step_.num_constraints;
@@ -579,7 +585,9 @@ auto Propagator::get_symbol(var_t var) const -> std::optional<Clingo::Symbol> {
     return std::nullopt;
 }
 
-auto Propagator::get_value(var_t var, uint32_t thread_id) const -> val_t { return solver_(thread_id).get_value(var); }
+auto Propagator::get_value(var_t var, uint32_t thread_id) const -> val_t {
+    return solver_(thread_id).get_value(var);
+}
 
 void Propagator::add_minimize_(UniqueMinimizeConstraint minimize) {
     assert(minimize_ == nullptr);

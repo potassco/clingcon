@@ -71,27 +71,27 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_GETARG(cffi_opcode) (((intptr_t)cffi_opcode) >> 8)
 
 enum {
-_CFFI_OP_PRIMITIVE = 1,
-_CFFI_OP_POINTER = 3,
-_CFFI_OP_ARRAY = 5,
-_CFFI_OP_OPEN_ARRAY = 7,
-_CFFI_OP_STRUCT_UNION = 9,
-_CFFI_OP_ENUM = 11,
-_CFFI_OP_FUNCTION = 13,
-_CFFI_OP_FUNCTION_END = 15,
-_CFFI_OP_NOOP = 17,
-_CFFI_OP_BITFIELD = 19,
-_CFFI_OP_TYPENAME = 21,
-_CFFI_OP_CPYTHON_BLTN_V = 23, // varargs
-_CFFI_OP_CPYTHON_BLTN_N = 25, // noargs
-_CFFI_OP_CPYTHON_BLTN_O = 27, // O  (i.e. a single arg)
-_CFFI_OP_CONSTANT = 29,
-_CFFI_OP_CONSTANT_INT = 31,
-_CFFI_OP_GLOBAL_VAR = 33,
-_CFFI_OP_DLOPEN_FUNC = 35,
-_CFFI_OP_DLOPEN_CONST = 37,
-_CFFI_OP_GLOBAL_VAR_F = 39,
-_CFFI_OP_EXTERN_PYTHON = 41
+    _CFFI_OP_PRIMITIVE = 1,
+    _CFFI_OP_POINTER = 3,
+    _CFFI_OP_ARRAY = 5,
+    _CFFI_OP_OPEN_ARRAY = 7,
+    _CFFI_OP_STRUCT_UNION = 9,
+    _CFFI_OP_ENUM = 11,
+    _CFFI_OP_FUNCTION = 13,
+    _CFFI_OP_FUNCTION_END = 15,
+    _CFFI_OP_NOOP = 17,
+    _CFFI_OP_BITFIELD = 19,
+    _CFFI_OP_TYPENAME = 21,
+    _CFFI_OP_CPYTHON_BLTN_V = 23, // varargs
+    _CFFI_OP_CPYTHON_BLTN_N = 25, // noargs
+    _CFFI_OP_CPYTHON_BLTN_O = 27, // O  (i.e. a single arg)
+    _CFFI_OP_CONSTANT = 29,
+    _CFFI_OP_CONSTANT_INT = 31,
+    _CFFI_OP_GLOBAL_VAR = 33,
+    _CFFI_OP_DLOPEN_FUNC = 35,
+    _CFFI_OP_DLOPEN_CONST = 37,
+    _CFFI_OP_GLOBAL_VAR_F = 39,
+    _CFFI_OP_EXTERN_PYTHON = 41
 };
 
 #define _CFFI_PRIM_VOID 0
@@ -153,9 +153,7 @@ _CFFI_OP_EXTERN_PYTHON = 41
 #define _CFFI__UNKNOWN_FLOAT_PRIM (-2)
 #define _CFFI__UNKNOWN_LONG_DOUBLE (-3)
 
-enum {
-_CFFI__IO_FILE_STRUCT = (-1)
-};
+enum { _CFFI__IO_FILE_STRUCT = (-1) };
 
 struct _cffi_global_s {
     const char *name;
@@ -181,13 +179,12 @@ struct _cffi_struct_union_s {
     int num_fields;
 };
 enum {
-_CFFI_F_UNION = 0x01, // is a union, not a struct
-_CFFI_F_CHECK_FIELDS =                                                                                           \
-    0x02,                      // complain if fields are not in the
-                              // "standard layout" or if some are missing
-_CFFI_F_PACKED = 0x04,   // for CHECK_FIELDS, assume a packed struct
-_CFFI_F_EXTERNAL = 0x08, // in some other ffi.include()
-_CFFI_F_OPAQUE = 0x10   // opaque
+    _CFFI_F_UNION = 0x01,        // is a union, not a struct
+    _CFFI_F_CHECK_FIELDS = 0x02, // complain if fields are not in the
+                                 // "standard layout" or if some are missing
+    _CFFI_F_PACKED = 0x04,       // for CHECK_FIELDS, assume a packed struct
+    _CFFI_F_EXTERNAL = 0x08,     // in some other ffi.include()
+    _CFFI_F_OPAQUE = 0x10        // opaque
 };
 
 struct _cffi_field_s {
@@ -355,12 +352,12 @@ typedef bool _Bool; /* semi-hackish: C++ has no _Bool; bool is builtin */
 #define _cffi_from_c_deref ((PyObject * (*)(char *, struct _cffi_ctypedescr *)) _cffi_exports[16])
 #define _cffi_to_c ((int (*)(char *, struct _cffi_ctypedescr *, PyObject *))_cffi_exports[17])
 #define _cffi_from_c_struct ((PyObject * (*)(char *, struct _cffi_ctypedescr *)) _cffi_exports[18])
-#define _cffi_to_c_wchar_t ((_cffi_wchar_t(*)(PyObject *))_cffi_exports[19])
+#define _cffi_to_c_wchar_t ((_cffi_wchar_t (*)(PyObject *))_cffi_exports[19])
 #define _cffi_from_c_wchar_t ((PyObject * (*)(_cffi_wchar_t)) _cffi_exports[20])
 #define _cffi_to_c_long_double ((long double (*)(PyObject *))_cffi_exports[21])
-#define _cffi_to_c__Bool ((_Bool(*)(PyObject *))_cffi_exports[22])
+#define _cffi_to_c__Bool ((_Bool (*)(PyObject *))_cffi_exports[22])
 #define _cffi_prepare_pointer_call_argument                                                                            \
-    ((Py_ssize_t(*)(struct _cffi_ctypedescr *, PyObject *, char **))_cffi_exports[23])
+    ((Py_ssize_t (*)(struct _cffi_ctypedescr *, PyObject *, char **))_cffi_exports[23])
 #define _cffi_convert_array_from_object ((int (*)(char *, struct _cffi_ctypedescr *, PyObject *))_cffi_exports[24])
 #define _CFFI_CPIDX 25
 #define _cffi_call_python ((void (*)(struct _cffi_externpy_s *, char *))_cffi_exports[_CFFI_CPIDX])
@@ -389,12 +386,12 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version, const s
     module = PyImport_ImportModule("_cffi_backend");
     if (module == NULL) {
         goto failure;
-}
+    }
 
     o_arg = PyLong_FromVoidPtr((void *)raw);
     if (o_arg == NULL) {
         goto failure;
-}
+    }
 
     new_module = PyObject_CallMethod(module, (char *)"_init_cffi_1_0_external_module", (char *)"O", o_arg);
 
@@ -416,25 +413,29 @@ typedef uint16_t _cffi_wchar_t; /* same random pick as _cffi_backend.c */
 _CFFI_UNUSED_FN static uint16_t _cffi_to_c_char16_t(PyObject *o) {
     if (sizeof(_cffi_wchar_t) == 2) {
         return (uint16_t)_cffi_to_c_wchar_t(o);
-    }         return (uint16_t)_cffi_to_c_wchar3216_t(o);
+    }
+    return (uint16_t)_cffi_to_c_wchar3216_t(o);
 }
 
 _CFFI_UNUSED_FN static PyObject *_cffi_from_c_char16_t(uint16_t x) {
     if (sizeof(_cffi_wchar_t) == 2) {
         return _cffi_from_c_wchar_t((_cffi_wchar_t)x);
-    }         return _cffi_from_c_wchar3216_t((int)x);
+    }
+    return _cffi_from_c_wchar3216_t((int)x);
 }
 
 _CFFI_UNUSED_FN static int _cffi_to_c_char32_t(PyObject *o) {
     if (sizeof(_cffi_wchar_t) == 4) {
         return (int)_cffi_to_c_wchar_t(o);
-    }         return (int)_cffi_to_c_wchar3216_t(o);
+    }
+    return (int)_cffi_to_c_wchar3216_t(o);
 }
 
 _CFFI_UNUSED_FN static PyObject *_cffi_from_c_char32_t(unsigned int x) {
     if (sizeof(_cffi_wchar_t) == 4) {
         return _cffi_from_c_wchar_t((_cffi_wchar_t)x);
-    }         return _cffi_from_c_wchar3216_t((int)x);
+    }
+    return _cffi_from_c_wchar3216_t((int)x);
 }
 
 union _cffi_union_alignment_u {
@@ -459,7 +460,7 @@ _CFFI_UNUSED_FN static int _cffi_convert_array_argument(struct _cffi_ctypedescr 
     char *p;
     if (datasize < 0) {
         return -1;
-}
+    }
 
     p = *output_data;
     if (p == NULL) {
@@ -467,7 +468,7 @@ _CFFI_UNUSED_FN static int _cffi_convert_array_argument(struct _cffi_ctypedescr 
             (struct _cffi_freeme_s *)PyObject_Malloc(offsetof(struct _cffi_freeme_s, alignment) + (size_t)datasize);
         if (fp == NULL) {
             return -1;
-}
+        }
         fp->next = *freeme;
         *freeme = fp;
         p = *output_data = (char *)&fp->alignment;
@@ -665,38 +666,40 @@ static PyObject *_cffi_f_clingcon_assignment_begin(PyObject *self, PyObject *arg
 
     if (!PyArg_UnpackTuple(args, "clingcon_assignment_begin", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     x1 = _cffi_to_c_int(arg1, uint32_t);
     if (x1 == (uint32_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(37), arg2, (char **)&x2);
     if (datasize != 0) {
         x2 = ((size_t)datasize) <= 640 ? (size_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(37), arg2, (char **)&x2, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { clingcon_assignment_begin(x0, x1, x2); }
+    {
+        clingcon_assignment_begin(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
         (void) self; /* unused */
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -722,43 +725,45 @@ static PyObject *_cffi_f_clingcon_assignment_get_value(PyObject *self, PyObject 
 
     if (!PyArg_UnpackTuple(args, "clingcon_assignment_get_value", 4, 4, &arg0, &arg1, &arg2, &arg3)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     x1 = _cffi_to_c_int(arg1, uint32_t);
     if (x1 == (uint32_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     x2 = _cffi_to_c_int(arg2, size_t);
     if (x2 == (size_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(66), arg3, (char **)&x3);
     if (datasize != 0) {
         x3 = ((size_t)datasize) <= 640 ? (clingcon_value_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(66), arg3, (char **)&x3, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { clingcon_assignment_get_value(x0, x1, x2, x3); }
+    {
+        clingcon_assignment_get_value(x0, x1, x2, x3);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
         (void) self; /* unused */
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -784,28 +789,30 @@ static PyObject *_cffi_f_clingcon_assignment_has_value(PyObject *self, PyObject 
 
     if (!PyArg_UnpackTuple(args, "clingcon_assignment_has_value", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     x1 = _cffi_to_c_int(arg1, uint32_t);
     if (x1 == (uint32_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     x2 = _cffi_to_c_int(arg2, size_t);
     if (x2 == (size_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_assignment_has_value(x0, x1, x2); }
+    {
+        result = clingcon_assignment_has_value(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -813,7 +820,7 @@ static PyObject *_cffi_f_clingcon_assignment_has_value(PyObject *self, PyObject 
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -838,31 +845,33 @@ static PyObject *_cffi_f_clingcon_assignment_next(PyObject *self, PyObject *args
 
     if (!PyArg_UnpackTuple(args, "clingcon_assignment_next", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     x1 = _cffi_to_c_int(arg1, uint32_t);
     if (x1 == (uint32_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(37), arg2, (char **)&x2);
     if (datasize != 0) {
         x2 = ((size_t)datasize) <= 640 ? (size_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(37), arg2, (char **)&x2, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_assignment_next(x0, x1, x2); }
+    {
+        result = clingcon_assignment_next(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -870,7 +879,7 @@ static PyObject *_cffi_f_clingcon_assignment_next(PyObject *self, PyObject *args
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -895,14 +904,14 @@ static PyObject *_cffi_f_clingcon_configure(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_configure", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(8), arg1, (char **)&x1);
@@ -910,7 +919,7 @@ static PyObject *_cffi_f_clingcon_configure(PyObject *self, PyObject *args) {
         x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(8), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(8), arg2, (char **)&x2);
@@ -918,11 +927,13 @@ static PyObject *_cffi_f_clingcon_configure(PyObject *self, PyObject *args) {
         x2 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(8), arg2, (char **)&x2, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_configure(x0, x1, x2); }
+    {
+        result = clingcon_configure(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -930,14 +941,16 @@ static PyObject *_cffi_f_clingcon_configure(PyObject *self, PyObject *args) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_configure _cffi_d_clingcon_configure
 #endif
 
-static _Bool _cffi_d_clingcon_create(clingcon_theory_t **x0) { return clingcon_create(x0); }
+static _Bool _cffi_d_clingcon_create(clingcon_theory_t **x0) {
+    return clingcon_create(x0);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_create(PyObject *self, PyObject *arg0) {
     clingcon_theory_t **x0;
@@ -951,11 +964,13 @@ static PyObject *_cffi_f_clingcon_create(PyObject *self, PyObject *arg0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t **)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(1), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_create(x0); }
+    {
+        result = clingcon_create(x0);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -963,14 +978,16 @@ static PyObject *_cffi_f_clingcon_create(PyObject *self, PyObject *arg0) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_create _cffi_d_clingcon_create
 #endif
 
-static _Bool _cffi_d_clingcon_destroy(clingcon_theory_t *x0) { return clingcon_destroy(x0); }
+static _Bool _cffi_d_clingcon_destroy(clingcon_theory_t *x0) {
+    return clingcon_destroy(x0);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_destroy(PyObject *self, PyObject *arg0) {
     clingcon_theory_t *x0;
@@ -984,11 +1001,13 @@ static PyObject *_cffi_f_clingcon_destroy(PyObject *self, PyObject *arg0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_destroy(x0); }
+    {
+        result = clingcon_destroy(x0);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -996,14 +1015,16 @@ static PyObject *_cffi_f_clingcon_destroy(PyObject *self, PyObject *arg0) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_destroy _cffi_d_clingcon_destroy
 #endif
 
-static uint64_t _cffi_d_clingcon_get_symbol(clingcon_theory_t *x0, size_t x1) { return clingcon_get_symbol(x0, x1); }
+static uint64_t _cffi_d_clingcon_get_symbol(clingcon_theory_t *x0, size_t x1) {
+    return clingcon_get_symbol(x0, x1);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_get_symbol(PyObject *self, PyObject *args) {
     clingcon_theory_t *x0;
@@ -1017,23 +1038,25 @@ static PyObject *_cffi_f_clingcon_get_symbol(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_get_symbol", 2, 2, &arg0, &arg1)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     x1 = _cffi_to_c_int(arg1, size_t);
     if (x1 == (size_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_get_symbol(x0, x1); }
+    {
+        result = clingcon_get_symbol(x0, x1);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1041,7 +1064,7 @@ static PyObject *_cffi_f_clingcon_get_symbol(PyObject *self, PyObject *args) {
     pyresult = _cffi_from_c_int(result, uint64_t);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -1066,31 +1089,33 @@ static PyObject *_cffi_f_clingcon_lookup_symbol(PyObject *self, PyObject *args) 
 
     if (!PyArg_UnpackTuple(args, "clingcon_lookup_symbol", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     x1 = _cffi_to_c_int(arg1, uint64_t);
     if (x1 == (uint64_t)-1 && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(37), arg2, (char **)&x2);
     if (datasize != 0) {
         x2 = ((size_t)datasize) <= 640 ? (size_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(37), arg2, (char **)&x2, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_lookup_symbol(x0, x1, x2); }
+    {
+        result = clingcon_lookup_symbol(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1098,14 +1123,16 @@ static PyObject *_cffi_f_clingcon_lookup_symbol(PyObject *self, PyObject *args) 
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_lookup_symbol _cffi_d_clingcon_lookup_symbol
 #endif
 
-static _Bool _cffi_d_clingcon_on_model(clingcon_theory_t *x0, clingo_model_t *x1) { return clingcon_on_model(x0, x1); }
+static _Bool _cffi_d_clingcon_on_model(clingcon_theory_t *x0, clingo_model_t *x1) {
+    return clingcon_on_model(x0, x1);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_on_model(PyObject *self, PyObject *args) {
     clingcon_theory_t *x0;
@@ -1119,14 +1146,14 @@ static PyObject *_cffi_f_clingcon_on_model(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_on_model", 2, 2, &arg0, &arg1)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(23), arg1, (char **)&x1);
@@ -1134,11 +1161,13 @@ static PyObject *_cffi_f_clingcon_on_model(PyObject *self, PyObject *args) {
         x1 = ((size_t)datasize) <= 640 ? (clingo_model_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(23), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_on_model(x0, x1); }
+    {
+        result = clingcon_on_model(x0, x1);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1146,7 +1175,7 @@ static PyObject *_cffi_f_clingcon_on_model(PyObject *self, PyObject *args) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -1171,14 +1200,14 @@ static PyObject *_cffi_f_clingcon_on_statistics(PyObject *self, PyObject *args) 
 
     if (!PyArg_UnpackTuple(args, "clingcon_on_statistics", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(31), arg1, (char **)&x1);
@@ -1186,7 +1215,7 @@ static PyObject *_cffi_f_clingcon_on_statistics(PyObject *self, PyObject *args) 
         x1 = ((size_t)datasize) <= 640 ? (clingo_statistics_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(31), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(31), arg2, (char **)&x2);
@@ -1194,11 +1223,13 @@ static PyObject *_cffi_f_clingcon_on_statistics(PyObject *self, PyObject *args) 
         x2 = ((size_t)datasize) <= 640 ? (clingo_statistics_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(31), arg2, (char **)&x2, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_on_statistics(x0, x1, x2); }
+    {
+        result = clingcon_on_statistics(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1206,14 +1237,16 @@ static PyObject *_cffi_f_clingcon_on_statistics(PyObject *self, PyObject *args) 
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_on_statistics _cffi_d_clingcon_on_statistics
 #endif
 
-static _Bool _cffi_d_clingcon_prepare(clingcon_theory_t *x0, clingo_control_t *x1) { return clingcon_prepare(x0, x1); }
+static _Bool _cffi_d_clingcon_prepare(clingcon_theory_t *x0, clingo_control_t *x1) {
+    return clingcon_prepare(x0, x1);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_prepare(PyObject *self, PyObject *args) {
     clingcon_theory_t *x0;
@@ -1227,14 +1260,14 @@ static PyObject *_cffi_f_clingcon_prepare(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_prepare", 2, 2, &arg0, &arg1)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(19), arg1, (char **)&x1);
@@ -1242,11 +1275,13 @@ static PyObject *_cffi_f_clingcon_prepare(PyObject *self, PyObject *args) {
         x1 = ((size_t)datasize) <= 640 ? (clingo_control_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(19), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_prepare(x0, x1); }
+    {
+        result = clingcon_prepare(x0, x1);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1254,7 +1289,7 @@ static PyObject *_cffi_f_clingcon_prepare(PyObject *self, PyObject *args) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -1277,14 +1312,14 @@ static PyObject *_cffi_f_clingcon_register(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_register", 2, 2, &arg0, &arg1)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(19), arg1, (char **)&x1);
@@ -1292,11 +1327,13 @@ static PyObject *_cffi_f_clingcon_register(PyObject *self, PyObject *args) {
         x1 = ((size_t)datasize) <= 640 ? (clingo_control_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(19), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_register(x0, x1); }
+    {
+        result = clingcon_register(x0, x1);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1304,7 +1341,7 @@ static PyObject *_cffi_f_clingcon_register(PyObject *self, PyObject *args) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -1327,14 +1364,14 @@ static PyObject *_cffi_f_clingcon_register_options(PyObject *self, PyObject *arg
 
     if (!PyArg_UnpackTuple(args, "clingcon_register_options", 2, 2, &arg0, &arg1)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(27), arg1, (char **)&x1);
@@ -1342,11 +1379,13 @@ static PyObject *_cffi_f_clingcon_register_options(PyObject *self, PyObject *arg
         x1 = ((size_t)datasize) <= 640 ? (clingo_options_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(27), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_register_options(x0, x1); }
+    {
+        result = clingcon_register_options(x0, x1);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1354,7 +1393,7 @@ static PyObject *_cffi_f_clingcon_register_options(PyObject *self, PyObject *arg
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
@@ -1382,14 +1421,14 @@ static PyObject *_cffi_f_clingcon_rewrite_ast(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_rewrite_ast", 4, 4, &arg0, &arg1, &arg2, &arg3)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(4), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(13), arg1, (char **)&x1);
@@ -1397,24 +1436,26 @@ static PyObject *_cffi_f_clingcon_rewrite_ast(PyObject *self, PyObject *args) {
         x1 = ((size_t)datasize) <= 640 ? (clingo_ast_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(13), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
-    x2 = (_Bool(*)(clingo_ast_t *, void *))_cffi_to_c_pointer(arg2, _cffi_type(14));
-    if (x2 == (_Bool(*)(clingo_ast_t *, void *))NULL && PyErr_Occurred()) {
+    x2 = (_Bool (*)(clingo_ast_t *, void *))_cffi_to_c_pointer(arg2, _cffi_type(14));
+    if (x2 == (_Bool (*)(clingo_ast_t *, void *))NULL && PyErr_Occurred()) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(15), arg3, (char **)&x3);
     if (datasize != 0) {
         x3 = ((size_t)datasize) <= 640 ? (void *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(15), arg3, (char **)&x3, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_rewrite_ast(x0, x1, x2, x3); }
+    {
+        result = clingcon_rewrite_ast(x0, x1, x2, x3);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1422,14 +1463,16 @@ static PyObject *_cffi_f_clingcon_rewrite_ast(PyObject *self, PyObject *args) {
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_rewrite_ast _cffi_d_clingcon_rewrite_ast
 #endif
 
-static _Bool _cffi_d_clingcon_validate_options(clingcon_theory_t *x0) { return clingcon_validate_options(x0); }
+static _Bool _cffi_d_clingcon_validate_options(clingcon_theory_t *x0) {
+    return clingcon_validate_options(x0);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_validate_options(PyObject *self, PyObject *arg0) {
     clingcon_theory_t *x0;
@@ -1443,11 +1486,13 @@ static PyObject *_cffi_f_clingcon_validate_options(PyObject *self, PyObject *arg
         x0 = ((size_t)datasize) <= 640 ? (clingcon_theory_t *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(4), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { result = clingcon_validate_options(x0); }
+    {
+        result = clingcon_validate_options(x0);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
@@ -1455,14 +1500,16 @@ static PyObject *_cffi_f_clingcon_validate_options(PyObject *self, PyObject *arg
     pyresult = _cffi_from_c__Bool(result);
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     return pyresult;
 }
 #else
 #define _cffi_f_clingcon_validate_options _cffi_d_clingcon_validate_options
 #endif
 
-static void _cffi_d_clingcon_version(int *x0, int *x1, int *x2) { clingcon_version(x0, x1, x2); }
+static void _cffi_d_clingcon_version(int *x0, int *x1, int *x2) {
+    clingcon_version(x0, x1, x2);
+}
 #ifndef PYPY_VERSION
 static PyObject *_cffi_f_clingcon_version(PyObject *self, PyObject *args) {
     int *x0;
@@ -1476,14 +1523,14 @@ static PyObject *_cffi_f_clingcon_version(PyObject *self, PyObject *args) {
 
     if (!PyArg_UnpackTuple(args, "clingcon_version", 3, 3, &arg0, &arg1, &arg2)) {
         return NULL;
-}
+    }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(69), arg0, (char **)&x0);
     if (datasize != 0) {
         x0 = ((size_t)datasize) <= 640 ? (int *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(69), arg0, (char **)&x0, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(69), arg1, (char **)&x1);
@@ -1491,7 +1538,7 @@ static PyObject *_cffi_f_clingcon_version(PyObject *self, PyObject *args) {
         x1 = ((size_t)datasize) <= 640 ? (int *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(69), arg1, (char **)&x1, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     datasize = _cffi_prepare_pointer_call_argument(_cffi_type(69), arg2, (char **)&x2);
@@ -1499,18 +1546,20 @@ static PyObject *_cffi_f_clingcon_version(PyObject *self, PyObject *args) {
         x2 = ((size_t)datasize) <= 640 ? (int *)alloca((size_t)datasize) : NULL;
         if (_cffi_convert_array_argument(_cffi_type(69), arg2, (char **)&x2, datasize, &large_args_free) < 0) {
             return NULL;
-}
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS _cffi_restore_errno();
-    { clingcon_version(x0, x1, x2); }
+    {
+        clingcon_version(x0, x1, x2);
+    }
     _cffi_save_errno();
     Py_END_ALLOW_THREADS
 
         (void) self; /* unused */
     if (large_args_free != NULL) {
         _cffi_free_array_arguments(large_args_free);
-}
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1649,9 +1698,13 @@ init_clingcon(void) {
 #endif
 #endif
 #elif PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit__clingcon(void) { return _cffi_init("_clingcon", 0x2601, &_cffi_type_context); }
+PyMODINIT_FUNC PyInit__clingcon(void) {
+    return _cffi_init("_clingcon", 0x2601, &_cffi_type_context);
+}
 #else
-PyMODINIT_FUNC init_clingcon(void) { _cffi_init("_clingcon", 0x2601, &_cffi_type_context); }
+PyMODINIT_FUNC init_clingcon(void) {
+    _cffi_init("_clingcon", 0x2601, &_cffi_type_context);
+}
 #endif
 
 #ifdef __GNUC__

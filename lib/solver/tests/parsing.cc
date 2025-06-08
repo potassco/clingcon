@@ -298,13 +298,17 @@ TEST_CASE("parsing", "[parsing]") {
             REQUIRE(parse("&distinct { x; y; z }.") == "2 -> 1*x != 1*y != 1*z.");
             REQUIRE(parse("&distinct { x+y; 3*y+2; z; -1 }.") == "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
         }
-        SECTION("disjoint") { REQUIRE(parse("&disjoint { x@10; y@1+11; z@ -10 }.") == "2 -> x@10 != y@12."); }
+        SECTION("disjoint") {
+            REQUIRE(parse("&disjoint { x@10; y@1+11; z@ -10 }.") == "2 -> x@10 != y@12.");
+        }
         SECTION("show") {
             REQUIRE(parse("&show { x/1; y }.") == "#show."
                                                   "#show x/1."
                                                   "#show y.");
         }
-        SECTION("dom") { REQUIRE(parse("&dom { 1..2; 5; 10..12 } = x.") == "2 -> x = { 1..3, 5..6, 10..13}."); }
+        SECTION("dom") {
+            REQUIRE(parse("&dom { 1..2; 5; 10..12 } = x.") == "2 -> x = { 1..3, 5..6, 10..13}.");
+        }
         SECTION("optimize") {
             REQUIRE(parse("&minimize { x - z }.") == "#minimize { 1*x + -1*z }.");
             REQUIRE(parse("&maximize { x - z }.") == "#minimize { -1*x + 1*z }.");

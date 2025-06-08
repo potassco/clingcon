@@ -371,13 +371,21 @@ struct VectorHash {
     }
 };
 
-void push_co(val_t co, CoVarVec &res) { res.emplace_back(co, INVALID_VAR); }
+void push_co(val_t co, CoVarVec &res) {
+    res.emplace_back(co, INVALID_VAR);
+}
 
-void push_co(val_t co, NonlinearTermVec &res) { res.emplace_back(co, VarVec{}); }
+void push_co(val_t co, NonlinearTermVec &res) {
+    res.emplace_back(co, VarVec{});
+}
 
-void push_co_var(val_t co, var_t var, CoVarVec &res) { res.emplace_back(co, var); }
+void push_co_var(val_t co, var_t var, CoVarVec &res) {
+    res.emplace_back(co, var);
+}
 
-void push_co_var(val_t co, var_t var, NonlinearTermVec &res) { res.emplace_back(co, VarVec{var}); }
+void push_co_var(val_t co, var_t var, NonlinearTermVec &res) {
+    res.emplace_back(co, VarVec{var});
+}
 
 void push_co_vars(val_t co, var_t l_var, var_t r_var, CoVarVec &res) {
     if (!is_valid_var(l_var)) {
@@ -697,8 +705,8 @@ template <class TermVec>
 // Constraints are represented as a triple of a literal, its elements, and an
 // upper bound.
 template <class TermVec, bool is_sum = true>
-[[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom,
-                                    bool strict) -> bool {
+[[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool strict)
+    -> bool {
     check_syntax(atom.has_guard());
 
     TermVec elements;

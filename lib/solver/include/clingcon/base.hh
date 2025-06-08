@@ -85,7 +85,9 @@ constexpr lit_t TRUE_LIT{1}; //!< The true literal.
 constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
 
 //! Test whether a variable is valid.
-inline auto is_valid_var(var_t var) -> bool { return var < INVALID_VAR; }
+inline auto is_valid_var(var_t var) -> bool {
+    return var < INVALID_VAR;
+}
 
 template <class I> inline auto check_valid_value(I val) -> val_t {
     if (val < MIN_VAL) {
@@ -264,8 +266,8 @@ class AbstractClauseCreator {
     virtual auto propagate() -> bool = 0;
 
     //! Add the given clause to the solver.
-    virtual auto add_clause(Clingo::LiteralSpan clause,
-                            Clingo::ClauseType type = Clingo::ClauseType::Learnt) -> bool = 0;
+    virtual auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
+        -> bool = 0;
 
     //! Get the assignment.
     virtual auto assignment() -> Clingo::Assignment = 0;
@@ -307,8 +309,8 @@ class InitClauseCreator final : public AbstractClauseCreator {
 
     [[nodiscard]] auto propagate() -> bool override { return commit() && init_.propagate(); }
 
-    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause,
-                                  Clingo::ClauseType type = Clingo::ClauseType::Learnt) -> bool override {
+    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
+        -> bool override {
         assert(type != Clingo::ClauseType::Volatile && type != Clingo::ClauseType::VolatileStatic);
         static_cast<void>(type);
 
@@ -435,7 +437,9 @@ struct ndiv_t {
     nsum_t rem{0};
 };
 
-inline auto div(nsum_t a, nsum_t b) -> ndiv_t { return {a / b, a % b}; }
+inline auto div(nsum_t a, nsum_t b) -> ndiv_t {
+    return {a / b, a % b};
+}
 
 } // namespace math::wide_integer
 
