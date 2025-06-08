@@ -85,8 +85,7 @@ TEST_CASE("assumptions", "[assumptions]") {
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(ENC.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.ground({{"base", {}}});

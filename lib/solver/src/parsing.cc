@@ -161,7 +161,7 @@ auto tag_terms(Clingo::AST::Node &ast, char const *tag) -> Clingo::AST::Node {
 }
 
 struct CStrCmp {
-    inline auto operator()(char const *a, char const *b) const -> bool { return std::strcmp(a, b) < 0; }
+    auto operator()(char const *a, char const *b) const -> bool { return std::strcmp(a, b) < 0; }
 };
 
 using VarSet = std::set<char const *, CStrCmp>;

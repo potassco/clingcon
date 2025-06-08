@@ -26,6 +26,7 @@
 #include "clingcon/util.hh"
 
 #include <clingo.hh>
+#include <ranges>
 #include <unordered_set>
 
 namespace Clingcon {
@@ -562,8 +563,8 @@ void Solver::remove_constraint(AbstractConstraint &constraint) {
     c2cs_.erase(it);
 }
 
-auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf, ConstraintVec &constraints)
-    -> bool {
+auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &conf,
+                       ConstraintVec &constraints) -> bool {
     size_t jdx = 0, kdx = constraints.size(); // NOLINT
     for (size_t idx = jdx; idx < constraints.size(); ++idx) {
         auto &cs = add_constraint(*constraints[idx]);
@@ -698,8 +699,8 @@ auto Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) -> bool {
 }
 
 template <int sign, class It, class L, class I>
-auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc)
-    -> bool {
+auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit,
+                                  I inc) -> bool {
     auto ass = cc.assignment();
 
     for (; begin != end; inc(begin)) {
@@ -720,8 +721,8 @@ auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
     return true;
 }
 
-auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t succ_lit)
-    -> bool {
+auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
+                           lit_t succ_lit) -> bool {
     auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
@@ -740,8 +741,8 @@ auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     });
 }
 
-auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit)
-    -> bool {
+auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
+                           lit_t prev_lit) -> bool {
     auto ass = cc.assignment();
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
@@ -1050,8 +1051,7 @@ auto Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
     }
 
     std::optional<val_t> px;
-    for (auto it = domain.rbegin(), ie = domain.rend(); it != ie; ++it) {
-        auto [x, y] = *it;
+    for (auto [x, y] : std::ranges::reverse_view(domain)) {
         auto lx = px.has_value() ? get_literal(cc, vs, *px - 1) : TRUE_LIT;
         auto truth = Clingo::TruthValue::Free;
         if (lit == TRUE_LIT && ass.is_true(lx)) {

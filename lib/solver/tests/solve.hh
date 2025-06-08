@@ -88,8 +88,8 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
     bool proven = false;
 };
 
-inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT)
-    -> std::vector<Config> {
+inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT,
+                           val_t max_int = Clingcon::DEFAULT_MAX_INT) -> std::vector<Config> {
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
     constexpr double r = 1.0;
@@ -117,8 +117,7 @@ inline auto solve(Config const &config, std::string const &prg) -> S {
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -189,8 +188,7 @@ inline auto solve_multi(Config const &config, std::string const &prg, Clingo::Pa
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -233,8 +231,8 @@ inline auto solve_multi(std::string const &prg, Clingo::PartSpan const &parts,
     return *last;
 }
 
-inline auto solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts, bool null_enum)
-    -> O {
+inline auto solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts,
+                      bool null_enum) -> O {
     Propagator p;
     p.config() = config;
     std::vector<char const *> opts{"0", "-t8"};
@@ -245,8 +243,7 @@ inline auto solve_opt(Config const &config, std::string const &prg, Clingo::Part
     ctl.add("base", {}, THEORY);
     Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
         Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);

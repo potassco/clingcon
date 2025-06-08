@@ -374,8 +374,8 @@ auto Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, Interv
     return master_().add_dom(cc, lit, var, domain);
 }
 
-auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
-    -> bool {
+auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
+                            bool strict) -> bool {
     return master_().add_simple(cc, clit, co, var, rhs, strict);
 }
 

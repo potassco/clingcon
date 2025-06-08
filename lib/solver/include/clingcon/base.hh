@@ -264,8 +264,8 @@ class AbstractClauseCreator {
     virtual auto propagate() -> bool = 0;
 
     //! Add the given clause to the solver.
-    virtual auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
-        -> bool = 0;
+    virtual auto add_clause(Clingo::LiteralSpan clause,
+                            Clingo::ClauseType type = Clingo::ClauseType::Learnt) -> bool = 0;
 
     //! Get the assignment.
     virtual auto assignment() -> Clingo::Assignment = 0;
@@ -307,8 +307,8 @@ class InitClauseCreator final : public AbstractClauseCreator {
 
     [[nodiscard]] auto propagate() -> bool override { return commit() && init_.propagate(); }
 
-    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
-        -> bool override {
+    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause,
+                                  Clingo::ClauseType type = Clingo::ClauseType::Learnt) -> bool override {
         assert(type != Clingo::ClauseType::Volatile && type != Clingo::ClauseType::VolatileStatic);
         static_cast<void>(type);
 

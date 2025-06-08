@@ -417,8 +417,8 @@ class SumConstraintState : public AbstractConstraintState {
     ~SumConstraintState() override = default;
 
     //! Translate a constraint to clauses or weight constraints.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
-        -> std::pair<bool, bool> final {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
+                                 ConstraintVec &added) -> std::pair<bool, bool> final {
         static_cast<void>(added);
         auto ass = cc.assignment();
 
@@ -740,8 +740,8 @@ class MinimizeConstraintState : public AbstractConstraintState {
     }
 
     //! Translate the minimize constraint into clasp's minimize constraint.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
-        -> std::pair<bool, bool> final {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
+                                 ConstraintVec &added) -> std::pair<bool, bool> final {
         static_cast<void>(added);
 
         bool translate = solver.translate_minimize();
@@ -838,8 +838,8 @@ class DistinctConstraintState final : public AbstractConstraintState {
     }
 
     //! Translate small enough distinct constraints to weight constraints.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
-        -> std::pair<bool, bool> override {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
+                                 ConstraintVec &added) -> std::pair<bool, bool> override {
         if (!estimate_(config.distinct_limit)) {
             return {true, false};
         }
@@ -1348,8 +1348,8 @@ class NonlinearConstraintState : public AbstractConstraintState {
     }
 
     //! Translate a constraint to simpler constraints.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
-        -> std::pair<bool, bool> override {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
+                                 ConstraintVec &added) -> std::pair<bool, bool> override {
         static_cast<void>(config);
         static_cast<void>(solver);
         static_cast<void>(cc);
@@ -1382,8 +1382,8 @@ class NonlinearConstraintState : public AbstractConstraintState {
         static_cast<void>(diff);
     }
 
-    static auto get_bound(nsum_t co_a, VarState &vs_x, VarState &vs_y)
-        -> std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> {
+    static auto get_bound(nsum_t co_a, VarState &vs_x,
+                          VarState &vs_y) -> std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> {
         nsum_t lower_x = vs_x.lower_bound();
         nsum_t upper_x = vs_x.upper_bound();
         nsum_t lower_y = vs_y.lower_bound();
@@ -1804,8 +1804,8 @@ class DisjointConstraintState final : public AbstractConstraintState {
         }
     }
 
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
-        -> std::pair<bool, bool> override {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
+                                 ConstraintVec &added) -> std::pair<bool, bool> override {
         static_cast<void>(config);
         static_cast<void>(solver);
         static_cast<void>(cc);

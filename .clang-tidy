@@ -1,6 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,modernize-*,readability-*,-readability-identifier-length,-readability-function-cognitive-complexity'
-WarningsAsErrors: ''
-HeaderFilterRegex: ''
-AnalyzeTemporaryDtors: false
-FormatStyle:     none
+Checks: "clang-diagnostic-*,clang-analyzer-*,modernize-*,readability-*,-readability-identifier-length,-readability-function-cognitive-complexity"
+WarningsAsErrors: ""
+HeaderFilterRegex: ""
+FormatStyle: none

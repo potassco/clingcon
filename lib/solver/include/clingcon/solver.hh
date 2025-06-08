@@ -553,8 +553,7 @@ class VarState {
     }
 
     template <typename F, typename It> auto call_map_(F &&f, It ib, It ie) const {
-        return f(
-            ib, ie, [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
+        return f(ib, ie, [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
     }
 
     var_t var_;                    //!< variable associated with the state
@@ -625,8 +624,8 @@ class Solver {
 
     //! This function is an extended version of Solver::get_literal that can
     //! assign a fact literal if the value did not have a literal before.
-    [[nodiscard]] auto update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth)
-        -> lit_t;
+    [[nodiscard]] auto update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value,
+                                      Clingo::TruthValue truth) -> lit_t;
 
     //! Get the current value of a variable.
     //!
@@ -688,15 +687,15 @@ class Solver {
     //!   - true => x >= 1
     //!   - x >= 3 => x >= 4
     //!   - x >= 6 => x >= 7
-    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
-        -> bool;
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var,
+                               IntervalSet<val_t> const &domain) -> bool;
 
     //! This function integrates singleton constraints into the state.
     //!
     //! We explicitly handle the strict case here to avoid introducing
     //! unnecessary literals.
-    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
-        -> bool;
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
+                                  bool strict) -> bool;
 
     //! Add the given constraint to the propagation queue and initialize its state.
     auto add_constraint(AbstractConstraint &constraint) -> AbstractConstraintState &;

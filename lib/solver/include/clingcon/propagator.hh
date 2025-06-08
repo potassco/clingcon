@@ -83,12 +83,12 @@ class Propagator final : public Clingo::Heuristic {
     void show_signature(char const *name, size_t arity);
 
     //! Add a domain for the given variable.
-    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
-        -> bool;
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var,
+                               IntervalSet<val_t> const &domain) -> bool;
 
     //! Add a constraint that can be represented by an order literal.
-    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
-        -> bool;
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
+                                  bool strict) -> bool;
 
     //! Add a constraint to the program.
     void add_constraint(UniqueConstraint constraint);
@@ -109,8 +109,8 @@ class Propagator final : public Clingo::Heuristic {
     //! Delegates undoing to the respective solver.
     void undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept override;
 
-    [[nodiscard]] auto decide(Clingo::id_t thread_id, Clingo::Assignment const &assign, lit_t fallback)
-        -> lit_t override;
+    [[nodiscard]] auto decide(Clingo::id_t thread_id, Clingo::Assignment const &assign,
+                              lit_t fallback) -> lit_t override;
 
     //! Determine if the given variable should be shown.
     [[nodiscard]] auto shown(var_t var) -> bool;

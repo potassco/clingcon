@@ -1,0 +1,5 @@
+add_subdirectory(solver)
+add_subdirectory(c-api)
+if(CLINGCON_BUILD_PYTHON)
+    add_subdirectory(python-api)
+endif()

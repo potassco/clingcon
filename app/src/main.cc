@@ -1,8 +1,8 @@
 #include <clingcon.h>
 #include <clingo.hh>
 #include <fstream>
-#include <optional>
 #include <iostream>
+#include <optional>
 
 #ifdef CLINGCON_PROFILE
 #include <gperftools/profiler.h>
