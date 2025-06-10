@@ -28,6 +28,8 @@
 #include "clingcon/base.hh"
 #include "clingcon/util.hh"
 
+#include <clingo/ast.hh>
+
 //! @file clingcon/parsing.hh
 //! This module contains functions for parsing and normalizing constraints.
 //!
@@ -99,7 +101,7 @@ class AbstractConstraintBuilder {
     //! Check whether the given solver literal is true.
     [[nodiscard]] virtual auto is_true(lit_t literal) -> bool = 0;
     //! Add a clause over solver literals.
-    [[nodiscard]] virtual auto add_clause(Clingo::LiteralSpan clause) -> bool = 0;
+    [[nodiscard]] virtual auto add_clause(Clingo::SolverLiteralSpan clause) -> bool = 0;
     //! Inform the builder that there is a show statement.
     virtual void add_show() = 0;
     //! Show variables with the given signature.
@@ -116,8 +118,8 @@ class AbstractConstraintBuilder {
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
-    [[nodiscard]] virtual auto add_distinct(lit_t lit,
-                                            std::vector<std::pair<CoVarVec, val_t>> const &elems) -> bool = 0;
+    [[nodiscard]] virtual auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems)
+        -> bool = 0;
     //! Add a disjoint constraint.
     [[nodiscard]] virtual auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool = 0;
     //! Add a domain for the given variable.
@@ -142,7 +144,7 @@ void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift)
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.
-[[nodiscard]] auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms) -> bool;
+[[nodiscard]] auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryBase theory_atoms) -> bool;
 
 //! Check if the theory term has the given signature.
 [[nodiscard]] auto match(Clingo::TheoryTerm const &term, char const *name, size_t arity) -> bool;

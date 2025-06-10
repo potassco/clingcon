@@ -25,8 +25,8 @@
 #include "clingcon/solver.hh"
 #include "clingcon/util.hh"
 
+#include <algorithm>
 #include <ranges>
-#include <unordered_set>
 
 namespace Clingcon {
 
@@ -76,18 +76,16 @@ class Solver::Level {
     //! bounds are used.
     void update_constraints_(Solver &solver, var_t var, val_t diff) const {
         auto &watches = solver.var_watches_[var];
-        watches.erase(std::remove_if(watches.begin(), watches.end(),
-                                     [&](auto const &value_cs) {
-                                         if (!value_cs.second->removable(level_)) {
-                                             if (value_cs.second->update(value_cs.first, diff)) {
-                                                 Level::mark_todo(solver, *value_cs.second);
-                                             }
-                                             return false;
-                                         }
-                                         solver.removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
-                                         return true;
-                                     }),
-                      watches.end());
+        erase_if(watches, [&](auto const &value_cs) {
+            if (!value_cs.second->removable(level_)) {
+                if (value_cs.second->update(value_cs.first, diff)) {
+                    Level::mark_todo(solver, *value_cs.second);
+                }
+                return false;
+            }
+            solver.removed_var_watches_.emplace_back(var, value_cs.first, value_cs.second);
+            return true;
+        });
     }
 
     //! Mark a constraint state as inactive.
@@ -185,11 +183,11 @@ class Solver::Level {
 
         if (cs.marked_inactive()) {
             cs.mark_active();
-            solver.inactive_.erase(std::find(solver.inactive_.begin(), solver.inactive_.end(), &cs));
+            solver.inactive_.erase(std::ranges::find(solver.inactive_, &cs));
         }
         if (cs.marked_todo()) {
             cs.mark_todo(false);
-            solver.todo_.erase(std::find(solver.todo_.begin(), solver.todo_.end(), &cs));
+            solver.todo_.erase(std::ranges::find(solver.todo_, &cs));
         }
     }
 
@@ -501,9 +499,9 @@ auto Solver::update_litmap_(VarState &vs, lit_t lit, val_t value) -> std::pair<l
     return ret;
 }
 
-auto Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, Clingo::TruthValue truth) -> lit_t {
+auto Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, TruthValue truth) -> lit_t {
     // order literals can only be updated on level 0
-    if (truth == Clingo::TruthValue::Free || cc.assignment().decision_level() > 0) {
+    if (truth == TruthValue::Free || cc.assignment().decision_level() > 0) {
         return get_literal(cc, vs, value);
     }
     // the value is out of bounds
@@ -516,9 +514,9 @@ auto Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value
     auto &old = vs.get_or_add_literal(value);
     // there was no literal yet
     if (old == 0) {
-        old = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
+        old = truth == TruthValue::True ? TRUE_LIT : -TRUE_LIT;
         auto ps = update_litmap_(vs, old, value);
-        factmap_.emplace_back(old, vs.var(), value, truth == Clingo::TruthValue::True ? ps.second : ps.first);
+        factmap_.emplace_back(old, vs.var(), value, truth == TruthValue::True ? ps.second : ps.first);
     }
     // we keep the literal
     return old;
@@ -532,7 +530,7 @@ void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
 void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
     assert(var < var_watches_.size());
     auto &watches = var_watches_[var];
-    watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, &cs)));
+    watches.erase(std::ranges::find(watches, std::pair(i, &cs)));
 }
 
 void Solver::mark_inactive(AbstractConstraintState &cs) {
@@ -632,7 +630,7 @@ auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
                     for (auto it = ib; it != ie; inc(it)) {
                         auto lit = get_lit(it);
                         // lit<=val-1  => lit<=val
-                        if (prev != -TRUE_LIT && !cc.add_clause({-prev, lit})) {
+                        if (prev != -TRUE_LIT && !cc.add_clause(std::to_array({-prev, lit}))) {
                             return false;
                         }
                         prev = lit;
@@ -675,7 +673,7 @@ auto Solver::simplify(AbstractClauseCreator &cc, bool check_state) -> bool {
     }
 }
 
-[[nodiscard]] auto Solver::propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes) -> bool {
+[[nodiscard]] auto Solver::propagate(AbstractClauseCreator &cc, Clingo::SolverLiteralSpan changes) -> bool {
     return propagate_(cc, changes.begin(), changes.end());
 }
 
@@ -714,8 +712,8 @@ auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
         if (ass.is_true(lit)) {
             break;
         }
-        if (!cc.add_clause({-reason_lit, lit},
-                           reason_lit != TRUE_LIT ? Clingo::ClauseType::Learnt : Clingo::ClauseType::Static)) {
+        if (!cc.add_clause(std::to_array({-reason_lit, lit}),
+                           reason_lit != TRUE_LIT ? Clingo::ClauseFlags::none : Clingo::ClauseFlags::lock)) {
             return false;
         }
         // Note: Literal reason_lit is already guaranteed to be a fact on level 0.
@@ -733,18 +731,19 @@ auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (value < vs.lower_bound()) {
-        static_cast<void>(cc.add_clause({get_literal(cc, vs, vs.lower_bound() - 1), -lit}) && cc.propagate());
+        static_cast<void>(cc.add_clause(std::to_array({get_literal(cc, vs, vs.lower_bound() - 1), -lit})) &&
+                          cc.propagate());
         return false;
     }
     if (vs.upper_bound() > value) {
         lvl.update_upper(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    return ass.is_true(succ_lit) || vs.with_gt(value, [&](auto it, auto ie, auto &&get_lit, auto get_val, auto &&inc) {
-        static_cast<void>(get_val);
-        return propagate_variables_<1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
-                                       std::forward<decltype(inc)>(inc));
-    });
+    return ass.is_true(succ_lit) ||
+           vs.with_gt(value, [&](auto it, auto ie, auto &&get_lit, [[maybe_unused]] auto const &get_val, auto &&inc) {
+               return propagate_variables_<1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
+                                              std::forward<decltype(inc)>(inc));
+           });
 }
 
 auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit)
@@ -753,17 +752,18 @@ auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     auto &vs = var_state(var);
     // Note: This keeps the state consistent.
     if (vs.upper_bound() < value + 1) {
-        static_cast<void>(cc.add_clause({-get_literal(cc, vs, vs.upper_bound()), -lit}) && cc.propagate());
+        static_cast<void>(cc.add_clause(std::to_array({-get_literal(cc, vs, vs.upper_bound()), -lit})) &&
+                          cc.propagate());
         return false;
     }
     if (vs.lower_bound() < value + 1) {
         lvl.update_lower(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    return ass.is_true(-prev_lit) || vs.with_lt(value, [&](auto it, auto ie, auto &&get_lit, auto get_val, auto &&inc) {
-        static_cast<void>(get_val);
-        return propagate_variables_<-1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
-                                        std::forward<decltype(inc)>(inc));
+    return ass.is_true(-prev_lit) || vs.with_lt(value, [&]<class It>(It &&it, It &&ie, auto &&get_lit,
+                                                                     [[maybe_unused]] auto const &get_val, auto &&inc) {
+        return propagate_variables_<-1>(cc, lit, std::forward<It>(it), std::forward<It>(ie),
+                                        std::forward<decltype(get_lit)>(get_lit), std::forward<decltype(inc)>(inc));
     });
 }
 
@@ -918,14 +918,14 @@ auto Solver::decide(Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
                 auto &vs = var_state(olit.var());
                 // make the literal as small as possible
                 auto lit = vs.lit_ge(vs.lower_bound());
-                assert(assign.truth_value(lit) == Clingo::TruthValue::Free);
+                assert(!assign.value(lit).has_value());
                 return lit;
             }
             if (auto const &olit = litmap_at_(-fallback); olit.valid(-fallback)) {
                 auto &vs = var_state(olit.var());
                 // make the literal as large as possible
                 auto lit = -vs.lit_lt(vs.upper_bound());
-                assert(assign.truth_value(lit) == Clingo::TruthValue::Free);
+                assert(!assign.value(lit).has_value());
                 return lit;
             }
             break;
@@ -1013,16 +1013,16 @@ auto Solver::update_bounds(AbstractClauseCreator &cc, Solver &other, bool check_
 
         // update upper bounds
         if (vs_other.upper_bound() < vs.upper_bound()) {
-            auto lit = update_literal(cc, vs, vs_other.upper_bound(), Clingo::TruthValue::True);
-            if (!cc.add_clause({lit})) {
+            auto lit = update_literal(cc, vs, vs_other.upper_bound(), TruthValue::True);
+            if (!cc.add_clause(std::to_array({lit}))) {
                 return false;
             }
         }
 
         // update lower bounds
         if (vs.lower_bound() < vs_other.lower_bound()) {
-            auto lit = update_literal(cc, vs, vs_other.lower_bound() - 1, Clingo::TruthValue::False);
-            if (!cc.add_clause({-lit})) {
+            auto lit = update_literal(cc, vs, vs_other.lower_bound() - 1, TruthValue::False);
+            if (!cc.add_clause(std::to_array({-lit}))) {
                 return false;
             }
         }
@@ -1045,12 +1045,12 @@ auto Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
     std::optional<val_t> py;
     for (auto [x, y] : domain) {
         auto ly = py.has_value() ? -get_literal(cc, vs, *py - 1) : TRUE_LIT;
-        auto truth = Clingo::TruthValue::Free;
+        auto truth = TruthValue::Free;
         if (lit == TRUE_LIT && ass.is_true(ly)) {
-            truth = Clingo::TruthValue::False;
+            truth = TruthValue::False;
         }
         auto lx = update_literal(cc, vs, x - 1, truth);
-        if (!cc.add_clause({-lit, -ly, -lx})) {
+        if (!cc.add_clause(std::to_array({-lit, -ly, -lx}))) {
             return false;
         }
         py = y;
@@ -1059,12 +1059,12 @@ auto Solver::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSe
     std::optional<val_t> px;
     for (auto [x, y] : std::ranges::reverse_view(domain)) {
         auto lx = px.has_value() ? get_literal(cc, vs, *px - 1) : TRUE_LIT;
-        auto truth = Clingo::TruthValue::Free;
+        auto truth = TruthValue::Free;
         if (lit == TRUE_LIT && ass.is_true(lx)) {
-            truth = Clingo::TruthValue::True;
+            truth = TruthValue::True;
         }
         auto ly = update_literal(cc, vs, y - 1, truth);
-        if (!cc.add_clause({-lit, -lx, ly})) {
+        if (!cc.add_clause(std::to_array({-lit, -lx, ly}))) {
             return false;
         }
         px = x;
@@ -1083,13 +1083,13 @@ auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
 
     auto &vs = var_state(var);
 
-    Clingo::TruthValue truth{Clingo::TruthValue::Free};
+    TruthValue truth{TruthValue::Free};
     val_t value{0};
     if (co > 0) {
-        truth = ass.truth_value(clit);
+        truth = map_truth(ass.value(clit));
         value = floordiv(rhs, co);
     } else {
-        truth = ass.truth_value(-clit);
+        truth = map_truth(ass.value(-clit));
         value = -floordiv(rhs, -co) - 1;
     }
 
@@ -1099,11 +1099,11 @@ auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
         if (co < 0) {
             lit = -lit;
         }
-        if (truth == Clingo::TruthValue::Free) {
+        if (truth == TruthValue::Free) {
             if (auto const &olit = litmap_at_(lit); !olit.invalid()) {
                 auto old = lit;
                 lit = cc.add_literal();
-                if (!cc.add_clause({-old, lit}) || !cc.add_clause({-lit, old})) {
+                if (!cc.add_clause(std::to_array({-old, lit})) || !cc.add_clause(std::to_array({-lit, old}))) {
                     return false;
                 }
             }
@@ -1111,10 +1111,10 @@ auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
             cc.add_watch(-lit);
             litmap_add_(vs, value, lit);
         } else {
-            lit = truth == Clingo::TruthValue::True ? TRUE_LIT : -TRUE_LIT;
+            lit = truth == TruthValue::True ? TRUE_LIT : -TRUE_LIT;
             ;
             auto ps = update_litmap_(vs, lit, value);
-            factmap_.emplace_back(lit, vs.var(), value, truth == Clingo::TruthValue::True ? ps.second : ps.first);
+            factmap_.emplace_back(lit, vs.var(), value, truth == TruthValue::True ? ps.second : ps.first);
         }
         vs.set_literal(value, lit);
     }
@@ -1124,10 +1124,10 @@ auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
         if (co < 0) {
             lit = -lit;
         }
-        if (!cc.add_clause({-clit, lit})) {
+        if (!cc.add_clause(std::to_array({-clit, lit}))) {
             return false;
         }
-        if (strict && !cc.add_clause({-lit, clit})) {
+        if (strict && !cc.add_clause(std::to_array({-lit, clit}))) {
             return false;
         }
     }
@@ -1135,7 +1135,7 @@ auto Solver::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t v
     return true;
 }
 
-#if 0
+#if 0 // NOLINT
 // This is a useful function for debugging.
 void Solver::check_litmap_() {
     for (auto [lit, tup] : litmap_) {

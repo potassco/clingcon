@@ -28,7 +28,10 @@
 #include <clingcon/constraints.hh>
 #include <clingcon/solver.hh>
 
+#include <clingo/solve.hh>
+
 #include <atomic>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -44,17 +47,13 @@ using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Heuristic {
   public:
+    using Sig = std::pair<std::string, size_t>;
     using VarMap = std::map<var_t, Clingo::Symbol>;
     using SymMap = std::unordered_map<Clingo::Symbol, var_t>;
     using VarSet = std::unordered_set<var_t>;
-    using SigSet = std::unordered_set<Clingo::Signature>;
+    using SigSet = std::set<Sig>;
 
-    Propagator() = default;
-    Propagator(Propagator const &) = delete;
     Propagator(Propagator &&) = delete;
-    auto operator=(Propagator const &) -> Propagator & = delete;
-    auto operator=(Propagator &&) -> Propagator & = delete;
-    ~Propagator() override = default;
 
     //! Return statistics object.
     auto statistics() -> Statistics const & { return stats_step_; }
@@ -65,7 +64,7 @@ class Propagator final : public Clingo::Heuristic {
     void on_model(Clingo::Model &model);
 
     //! Callback to update step and accumulated statistics.
-    void on_statistics(Clingo::UserStatistics &step, Clingo::UserStatistics &accu);
+    void on_statistics(Clingo::Stats &step, Clingo::Stats &accu);
 
     //! Add a variable to the program.
     auto add_variable(Clingo::Symbol sym) -> var_t;
@@ -83,12 +82,12 @@ class Propagator final : public Clingo::Heuristic {
     void show_signature(char const *name, size_t arity);
 
     //! Add a domain for the given variable.
-    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var,
-                               IntervalSet<val_t> const &domain) -> bool;
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
+        -> bool;
 
     //! Add a constraint that can be represented by an order literal.
-    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
-                                  bool strict) -> bool;
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+        -> bool;
 
     //! Add a constraint to the program.
     void add_constraint(UniqueConstraint constraint);
@@ -97,20 +96,19 @@ class Propagator final : public Clingo::Heuristic {
     //!
     //! The function handles reinitialization for multi-shot solving and
     //! multi-threaded solving.
-    void init(Clingo::PropagateInit &init) override;
+    void do_init(Clingo::PropagateInit init) override;
 
     //! Delegates propagation to the respective solver.
-    void propagate(Clingo::PropagateControl &control, Clingo::LiteralSpan changes) override;
+    void do_propagate(Clingo::PropagateControl control, Clingo::SolverLiteralSpan changes) override;
 
     //! Delegates checking to the respective solver and makes sure that all
     //! order variables are assigned if the assigment is total.
-    void check(Clingo::PropagateControl &control) override;
+    void do_check(Clingo::PropagateControl control) override;
 
     //! Delegates undoing to the respective solver.
-    void undo(Clingo::PropagateControl const &control, Clingo::LiteralSpan changes) noexcept override;
+    void do_undo(id_t thread_id, Clingo::Assignment assignment, Clingo::ProgramLiteralSpan changes) noexcept override;
 
-    [[nodiscard]] auto decide(Clingo::id_t thread_id, Clingo::Assignment const &assign,
-                              lit_t fallback) -> lit_t override;
+    [[nodiscard]] auto do_decide(id_t thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t override;
 
     //! Determine if the given variable should be shown.
     [[nodiscard]] auto shown(var_t var) -> bool;
@@ -119,7 +117,7 @@ class Propagator final : public Clingo::Heuristic {
     [[nodiscard]] auto var_map() const -> VarMap const & { return var_map_; }
 
     //! Get the index associated with the given variable index.
-    [[nodiscard]] auto get_index(Clingo::Symbol sym) const -> std::optional<var_t>;
+    [[nodiscard]] auto get_index(Clingo::Symbol const &sym) const -> std::optional<var_t>;
 
     //! Get the symbol associated with the given variable index.
     [[nodiscard]] auto get_symbol(var_t var) const -> std::optional<Clingo::Symbol>;
@@ -171,7 +169,7 @@ class Propagator final : public Clingo::Heuristic {
     }
 
     //! Add collected statistics in stats to the clingo's statistics.
-    static void add_statistics_(Clingo::UserStatistics &root, Statistics &stats);
+    static void add_statistics_(Clingo::Stats &root, Statistics &stats);
 
     //! Add a constraint to the program that has already been added to the
     //! master solver.

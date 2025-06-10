@@ -56,6 +56,13 @@ enum class TruthValue : uint8_t {
     Free,
 };
 
+inline auto map_truth(std::optional<bool> tv) {
+    if (tv) {
+        return *tv ? TruthValue::True : TruthValue::False;
+    }
+    return TruthValue::Free;
+}
+
 // NOLINTNEXTLINE
 enum class Heuristic : val_t { None, MaxChain };
 
