@@ -43,7 +43,7 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
     [[nodiscard]] auto is_true(lit_t literal) -> bool override { return cc_.assignment().is_true(literal); }
     [[nodiscard]] auto add_clause(Clingo::SolverLiteralSpan clause) -> bool override { return cc_.add_clause(clause); }
     void add_show() override { propagator_.show(); }
-    void show_signature(char const *name, size_t arity) override { propagator_.show_signature(name, arity); }
+    void show_signature(std::string_view name, size_t arity) override { propagator_.show_signature(name, arity); }
     void show_variable(var_t var) override { propagator_.show_variable(var); }
     [[nodiscard]] auto add_variable(Clingo::Symbol sym) -> var_t override { return propagator_.add_variable(sym); }
     [[nodiscard]] auto add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) -> bool override {
@@ -373,7 +373,7 @@ void Propagator::show_variable(var_t var) {
     show_variable_.emplace(var);
 }
 
-void Propagator::show_signature(char const *name, size_t arity) {
+void Propagator::show_signature(std::string_view name, size_t arity) {
     show_signature_.emplace(name, arity);
 }
 
@@ -412,7 +412,7 @@ void Propagator::do_init(Clingo::PropagateInit init) {
 
     // add constraints
     ConstraintBuilder builder{*this, cc, std::move(minimize)};
-    if (!parse(builder, init.base().theory())) {
+    if (!parse(lib_, builder, init.base().theory())) {
         return;
     }
 

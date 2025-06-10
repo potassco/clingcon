@@ -34,6 +34,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 //! @file clingcon/propagator.hh
 //! This module implements a theory propagator for CSP constraints.
@@ -53,6 +54,7 @@ class Propagator final : public Clingo::Heuristic {
     using VarSet = std::unordered_set<var_t>;
     using SigSet = std::set<Sig>;
 
+    Propagator(Clingo::Library lib) : lib_{std::move(lib)} {}
     Propagator(Propagator &&) = delete;
 
     //! Return statistics object.
@@ -79,7 +81,7 @@ class Propagator final : public Clingo::Heuristic {
     void show_variable(var_t var);
 
     //! Show variables with the given signature.
-    void show_signature(char const *name, size_t arity);
+    void show_signature(std::string_view name, size_t arity);
 
     //! Add a domain for the given variable.
     [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
@@ -194,6 +196,7 @@ class Propagator final : public Clingo::Heuristic {
     //! models found will have a value less than or equal to it.
     static constexpr sum_t no_bound = std::numeric_limits<sum_t>::max();
 
+    Clingo::Library lib_;                         //! The associated library.
     Config config_;                               //!< configuration
     ConstraintVec constraints_;                   //!< the set of constraints
     std::vector<Solver> solvers_;                 //!< map thread id to solvers

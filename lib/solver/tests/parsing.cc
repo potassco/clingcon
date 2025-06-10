@@ -23,29 +23,17 @@
 // }}}
 
 #include "clingcon/parsing.hh"
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 
+#include <clingo/ast.hh>
+#include <clingo/control.hh>
 #include <sstream>
+#include <string_view>
 
-using namespace Clingcon;
+namespace Clingcon {
 
-using sret = std::pair<CoVarVec, val_t>;
-
-auto simplify(CoVarVec const &vec, bool drop_zero = true) -> sret {
-    CoVarVec ret = vec;
-    auto rhs = Clingcon::simplify(ret, drop_zero);
-    return {ret, rhs};
-}
-
-auto transform(char const *prg, bool shift = true) -> std::string {
-    std::ostringstream oss;
-    Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
-        if (ast.type() != Clingo::AST::Type::Program) {
-            transform(ast, [&](Clingo::AST::Node const &ast) { oss << ast; }, shift);
-        }
-    });
-    return oss.str();
-}
+namespace {
 
 class TestBuilder : public Clingcon::AbstractConstraintBuilder {
   public:
@@ -65,7 +53,7 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
 
     auto add_literal() -> lit_t override { return ++literals_; }
 
-    auto add_clause(Clingo::LiteralSpan clause) -> bool override {
+    auto add_clause(Clingo::SolverLiteralSpan clause) -> bool override {
         bool sep{false};
         oss_ << "{ ";
         for (auto const &lit : clause) {
@@ -83,12 +71,14 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         }
     }
 
-    void show_signature(char const *name, size_t arity) override { oss_ << "#show " << name << "/" << arity << "."; }
+    void show_signature(std::string_view name, size_t arity) override {
+        oss_ << "#show " << name << "/" << arity << ".";
+    }
 
     void show_variable(var_t idx) override { oss_ << "#show " << vars_[idx] << "."; }
 
     auto add_variable(Clingo::Symbol var) -> var_t override {
-        auto it = std::find(vars_.begin(), vars_.end(), var);
+        auto it = std::ranges::find(vars_, var);
         if (it == vars_.end()) {
             vars_.emplace_back(var);
             return vars_.size() - 1;
@@ -202,120 +192,162 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
     CoVarVec minimize_;
 };
 
-auto parse(char const *prg) -> std::string {
-    Clingo::Control ctl;
-    {
-        Clingo::AST::ProgramBuilder builder{ctl};
+struct Fixture {
+    using sret = std::pair<CoVarVec, val_t>;
+
+    static auto simplify(CoVarVec const &vec, bool drop_zero = true) -> sret {
+        CoVarVec ret = vec;
+        auto rhs = Clingcon::simplify(ret, drop_zero);
+        return {ret, rhs};
+    }
+
+    [[nodiscard]] auto transform(std::string_view str, bool shift = true) const -> std::string {
         std::ostringstream oss;
-        Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
-            transform(ast, [&](Clingo::AST::Node &&trans) { builder.add(trans); }, true);
-        });
+        auto scn = Clingo::AST::Scanner{lib, str};
+        for (auto const &stm : scn) {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { oss << stm.to_string(); }, shift);
+        }
+        return oss.str();
     }
-    ctl.add("base", {}, THEORY);
-    ctl.ground({{"base", {}}});
 
-    std::ostringstream oss;
-    TestBuilder builder{oss};
-    static_cast<void>(parse(builder, ctl.theory_atoms()));
-    builder.commit();
-    return oss.str();
+    [[nodiscard]] auto parse(std::string_view str) const -> std::string {
+        Clingo::Control ctl{lib};
+        ctl.parse_string(THEORY);
+        {
+            auto prg = Clingo::AST::Program{lib};
+            auto scn = Clingo::AST::Scanner{lib, str};
+            for (auto const &stm : scn) {
+                Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+            }
+            ctl.join(prg);
+        }
+        ctl.ground();
+
+        auto oss = std::ostringstream{};
+        auto bld = TestBuilder{oss};
+        std::ignore = Clingcon::parse(lib, bld, ctl.base().theory());
+        bld.commit();
+        return oss.str();
+    }
+
+    Clingo::Library lib;
+};
+
+} // namespace
+
+TEST_CASE_METHOD(Fixture, "parsing simplify") {
+    REQUIRE(simplify({}) == sret({}, 0));
+    REQUIRE(simplify({{1, 0}, {1, 1}}) == sret({{1, 0}, {1, 1}}, 0));
+    REQUIRE(simplify({{1, INVALID_VAR}}) == sret({}, -1));
+    REQUIRE(simplify({{0, 0}}) == sret({}, 0));
+    REQUIRE(simplify({{0, 0}, {0, 0}}, false) == sret({{0, 0}}, 0));
+    REQUIRE(simplify({{0, 0}, {1, INVALID_VAR}, {2, INVALID_VAR}, {3, 0}, {4, 0}}) == sret({{7, 0}}, -3));
+
+    REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::max(), 0}, {std::numeric_limits<int>::max(), 0}}),
+                      std::overflow_error);
+    REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error);
 }
 
-TEST_CASE("parsing", "[parsing]") {
-    SECTION("simplify") {
-        REQUIRE(simplify({}) == sret({}, 0));
-        REQUIRE(simplify({{1, 0}, {1, 1}}) == sret({{1, 0}, {1, 1}}, 0));
-        REQUIRE(simplify({{1, INVALID_VAR}}) == sret({}, -1));
-        REQUIRE(simplify({{0, 0}}) == sret({}, 0));
-        REQUIRE(simplify({{0, 0}, {0, 0}}, false) == sret({{0, 0}}, 0));
-        REQUIRE(simplify({{0, 0}, {1, INVALID_VAR}, {2, INVALID_VAR}, {3, 0}, {4, 0}}) == sret({{7, 0}}, -3));
+TEST_CASE_METHOD(Fixture, "parsing transform") {
+    REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h { } = 0 :- &__sum_b { } = 1.");
+    REQUIRE(transform(":- &sum{ } = 0.") == "&__sum_h { } != 0.");
+    REQUIRE(transform(":- &sum{ } = 0, &sum{ } = 1.") == "&__sum_h { } != 0 :- &__sum_b { } = 1.");
 
-        REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::max(), 0}, {std::numeric_limits<int>::max(), 0}}),
-                          std::overflow_error);
-        REQUIRE_THROWS_AS(simplify({{std::numeric_limits<int>::min(), INVALID_VAR}}), std::overflow_error);
-    }
-    SECTION("transform") {
-        REQUIRE(transform("&sum{ } = 0 :- &sum{ } = 1.") == "&__sum_h { } = 0 :- &__sum_b { } = 1.");
-        REQUIRE(transform(":- &sum{ } = 0.") == "&__sum_h { } != 0.");
-        REQUIRE(transform(":- &sum{ } = 0, &sum{ } = 1.") == "&__sum_h { } != 0 :- &__sum_b { } = 1.");
-
-        REQUIRE(transform("&sum{ X } = 0.") == "&__sum_h { X } = 0.");
-        REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y: p(X,Y) } = 0.");
-        REQUIRE(transform("&sum{ X : p(X,Y); X : q(X,Y) } = 0.") == "&__sum_h { X,0,Y: p(X,Y); X,1,Y: q(X,Y) } = 0.");
-        REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X: p(X,_) } = 0.");
-    }
-    SECTION("parse") {
-        SECTION("sum head") {
-            REQUIRE(parse("&sum { 7; 2**3 } >= 0.") == "2 -> 0 <= 15.");
-            REQUIRE(parse("&sum { x; y; z } = 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
-                                                      "2 -> -1*x + -1*y + -1*z <= 0.");
-            REQUIRE(parse("&sum { x; y; z } != 0.") == "{ 3, 4, -2 }."
-                                                       "{ -3, -4 }."
-                                                       "{ 2, -3 }."
-                                                       "{ 2, -4 }."
-                                                       "3 -> 1*x + 1*y + 1*z <= -1."
-                                                       "4 -> -1*x + -1*y + -1*z <= -1.");
-            REQUIRE(parse("&sum { x; y; z } <= 0.") == "2 -> 1*x + 1*y + 1*z <= 0.");
-            REQUIRE(parse("&sum { x; y; z } < 0.") == "2 -> 1*x + 1*y + 1*z <= -1.");
-            REQUIRE(parse("&sum { x; y; z } >= 0.") == "2 -> -1*x + -1*y + -1*z <= 0.");
-            REQUIRE(parse("&sum { x; y; z } > 0.") == "2 -> -1*x + -1*y + -1*z <= -1.");
-        }
-        SECTION("sum body") {
-            REQUIRE(parse("a :- &sum { x; y; z } = 0.") == "{ -2, 3 }."
-                                                           "{ -2, 4 }."
-                                                           "{ -3, -4, 2 }."
-                                                           "3 -> 1*x + 1*y + 1*z <= 0."
-                                                           "-3 -> -1*x + -1*y + -1*z <= -1."
-                                                           "4 -> -1*x + -1*y + -1*z <= 0."
-                                                           "-4 -> 1*x + 1*y + 1*z <= -1.");
-            REQUIRE(parse("a :- &sum { x; y; z } != 0.") == "{ 2, 3 }."
-                                                            "{ 2, 4 }."
-                                                            "{ -3, -4, -2 }."
-                                                            "3 -> 1*x + 1*y + 1*z <= 0."
-                                                            "-3 -> -1*x + -1*y + -1*z <= -1."
-                                                            "4 -> -1*x + -1*y + -1*z <= 0."
-                                                            "-4 -> 1*x + 1*y + 1*z <= -1.");
-            REQUIRE(parse("a :- &sum { x; y; z } <= 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
-                                                            "-2 -> -1*x + -1*y + -1*z <= -1.");
-            REQUIRE(parse("a :- &sum { x; y; z } < 0.") == "2 -> 1*x + 1*y + 1*z <= -1."
-                                                           "-2 -> -1*x + -1*y + -1*z <= 0.");
-            REQUIRE(parse("a :- &sum { x; y; z } >= 0.") == "2 -> -1*x + -1*y + -1*z <= 0."
-                                                            "-2 -> 1*x + 1*y + 1*z <= -1.");
-            REQUIRE(parse("a :- &sum { x; y; z } > 0.") == "2 -> -1*x + -1*y + -1*z <= -1."
-                                                           "-2 -> 1*x + 1*y + 1*z <= 0.");
-        }
-        SECTION("sum misc") {
-            REQUIRE(parse("&sum { x + y + z } = 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
-                                                        "2 -> -1*x + -1*y + -1*z <= 0.");
-            REQUIRE(parse("&sum { 2 * (x + 3 * y) } <= z.") == "2 -> 2*x + 6*y + -1*z <= 0.");
-        }
-        SECTION("diff") {
-            REQUIRE(parse("&diff { x - z } <= 0.") == "2 -> 1*x + -1*z <= 0.");
-            REQUIRE(parse("a :- &diff { x - z } <= 0.") == "2 -> 1*x + -1*z <= 0."
-                                                           "-2 -> -1*x + 1*z <= -1.");
-        }
-        SECTION("distinct") {
-            REQUIRE(parse("&distinct { x; y; z }.") == "2 -> 1*x != 1*y != 1*z.");
-            REQUIRE(parse("&distinct { x+y; 3*y+2; z; -1 }.") == "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
-        }
-        SECTION("disjoint") {
-            REQUIRE(parse("&disjoint { x@10; y@1+11; z@ -10 }.") == "2 -> x@10 != y@12.");
-        }
-        SECTION("show") {
-            REQUIRE(parse("&show { x/1; y }.") == "#show."
-                                                  "#show x/1."
-                                                  "#show y.");
-        }
-        SECTION("dom") {
-            REQUIRE(parse("&dom { 1..2; 5; 10..12 } = x.") == "2 -> x = { 1..3, 5..6, 10..13}.");
-        }
-        SECTION("optimize") {
-            REQUIRE(parse("&minimize { x - z }.") == "#minimize { 1*x + -1*z }.");
-            REQUIRE(parse("&maximize { x - z }.") == "#minimize { -1*x + 1*z }.");
-        }
-        SECTION("nonlinear") {
-            REQUIRE(parse("&nsum { 2*x*y + 3*z + 4 } <= 5.") == "2 -> 2*x*y + 3*z <= 1.");
-            REQUIRE(parse("&nsum { (2**3)*x*y + (3**4)*z + (5**6) } <= 5.") == "2 -> 8*x*y + 81*z <= -15620.");
-        }
-    }
+    REQUIRE(transform("&sum{ X } = 0.") == "&__sum_h { X } = 0.");
+    REQUIRE(transform("&sum{ X : p(X,Y) } = 0.") == "&__sum_h { X,Y: p(X,Y) } = 0.");
+    REQUIRE(transform("&sum{ X : p(X,Y); X : q(X,Y) } = 0.") == "&__sum_h { X,0,Y: p(X,Y); X,1,Y: q(X,Y) } = 0.");
+    REQUIRE(transform("&sum{ X : p(X,_) } = 0.") == "&__sum_h { X,__CLINGCON_0: p(X,__CLINGCON_0) } = 0.");
+    REQUIRE(transform("&sum { 1:p(1..10,X;Y) } <= 5.") ==
+            "&__sum_h { 1,0,X,__CLINGCON_0: p(__CLINGCON_0,X), __CLINGCON_0=1..10; 1,1,Y: p(Y) } <= 5.");
+    REQUIRE(transform("&sum { 1:1 < 1..10 < 15 } <= 5.") ==
+            "&__sum_h { 1,__CLINGCON_0: 1<__CLINGCON_0<15, __CLINGCON_0=1..10 } <= 5.");
+    REQUIRE(transform("&sum { X:p(@f) } <= 5.") ==
+            "&__sum_h { X,__CLINGCON_0: p(__CLINGCON_0), __CLINGCON_0=@f } <= 5.");
+    REQUIRE(transform("&sum { X:p((X;Y)+Z) } <= 5.") == "&__sum_h { X,0,Z: p(X+Z); X,1,Y,Z: p(Y+Z) } <= 5.");
+    REQUIRE(transform("&sum { X:p(|X;Y|) } <= 5.") == "&__sum_h { X,0: p(|X|); X,1,Y: p(|Y|) } <= 5.");
+    REQUIRE(transform("&sum { X:p(-(X;Y)) } <= 5.") == "&__sum_h { X,0: p(-X); X,1,Y: p(-Y) } <= 5.");
 }
+
+TEST_CASE_METHOD(Fixture, "parsing sum head") {
+    REQUIRE(parse("&sum { 7; 2**3 } >= 0.") == "2 -> 0 <= 15.");
+    REQUIRE(parse("&sum { x; y; z } = 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
+                                              "2 -> -1*x + -1*y + -1*z <= 0.");
+    REQUIRE(parse("&sum { x; y; z } != 0.") == "{ 3, 4, -2 }."
+                                               "{ -3, -4 }."
+                                               "{ 2, -3 }."
+                                               "{ 2, -4 }."
+                                               "3 -> 1*x + 1*y + 1*z <= -1."
+                                               "4 -> -1*x + -1*y + -1*z <= -1.");
+    REQUIRE(parse("&sum { x; y; z } <= 0.") == "2 -> 1*x + 1*y + 1*z <= 0.");
+    REQUIRE(parse("&sum { x; y; z } < 0.") == "2 -> 1*x + 1*y + 1*z <= -1.");
+    REQUIRE(parse("&sum { x; y; z } >= 0.") == "2 -> -1*x + -1*y + -1*z <= 0.");
+    REQUIRE(parse("&sum { x; y; z } > 0.") == "2 -> -1*x + -1*y + -1*z <= -1.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing sum body") {
+    REQUIRE(parse("a :- &sum { x; y; z } = 0.") == "{ -2, 3 }."
+                                                   "{ -2, 4 }."
+                                                   "{ -3, -4, 2 }."
+                                                   "3 -> 1*x + 1*y + 1*z <= 0."
+                                                   "-3 -> -1*x + -1*y + -1*z <= -1."
+                                                   "4 -> -1*x + -1*y + -1*z <= 0."
+                                                   "-4 -> 1*x + 1*y + 1*z <= -1.");
+    REQUIRE(parse("a :- &sum { x; y; z } != 0.") == "{ 2, 3 }."
+                                                    "{ 2, 4 }."
+                                                    "{ -3, -4, -2 }."
+                                                    "3 -> 1*x + 1*y + 1*z <= 0."
+                                                    "-3 -> -1*x + -1*y + -1*z <= -1."
+                                                    "4 -> -1*x + -1*y + -1*z <= 0."
+                                                    "-4 -> 1*x + 1*y + 1*z <= -1.");
+    REQUIRE(parse("a :- &sum { x; y; z } <= 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
+                                                    "-2 -> -1*x + -1*y + -1*z <= -1.");
+    REQUIRE(parse("a :- &sum { x; y; z } < 0.") == "2 -> 1*x + 1*y + 1*z <= -1."
+                                                   "-2 -> -1*x + -1*y + -1*z <= 0.");
+    REQUIRE(parse("a :- &sum { x; y; z } >= 0.") == "2 -> -1*x + -1*y + -1*z <= 0."
+                                                    "-2 -> 1*x + 1*y + 1*z <= -1.");
+    REQUIRE(parse("a :- &sum { x; y; z } > 0.") == "2 -> -1*x + -1*y + -1*z <= -1."
+                                                   "-2 -> 1*x + 1*y + 1*z <= 0.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing misc") {
+    REQUIRE(parse("&sum { x + y + z } = 0.") == "2 -> 1*x + 1*y + 1*z <= 0."
+                                                "2 -> -1*x + -1*y + -1*z <= 0.");
+    REQUIRE(parse("&sum { 2 * (x + 3 * y) } <= z.") == "2 -> 2*x + 6*y + -1*z <= 0.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing diff") {
+    REQUIRE(parse("&diff { x - z } <= 0.") == "2 -> 1*x + -1*z <= 0.");
+    REQUIRE(parse("a :- &diff { x - z } <= 0.") == "2 -> 1*x + -1*z <= 0."
+                                                   "-2 -> -1*x + 1*z <= -1.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing distinct") {
+    REQUIRE(parse("&distinct { x; y; z }.") == "2 -> 1*x != 1*y != 1*z.");
+    REQUIRE(parse("&distinct { x+y; 3*y+2; z; -1 }.") == "2 -> 1*x + 1*y != 3*y + 2 != 1*z != -1.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing disjoint") {
+    REQUIRE(parse("&disjoint { x@10; y@1+11; z@ -10 }.") == "2 -> x@10 != y@12.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing show") {
+    REQUIRE(parse("&show { x/1; y }.") == "#show."
+                                          "#show x/1."
+                                          "#show y.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing dom") {
+    REQUIRE(parse("&dom { 1..2; 5; 10..12 } = x.") == "2 -> x = { 1..3, 5..6, 10..13}.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing optimize") {
+    REQUIRE(parse("&minimize { x - z }.") == "#minimize { 1*x + -1*z }.");
+    REQUIRE(parse("&maximize { x - z }.") == "#minimize { -1*x + 1*z }.");
+}
+
+TEST_CASE_METHOD(Fixture, "parsing nonlinear") {
+    REQUIRE(parse("&nsum { 2*x*y + 3*z + 4 } <= 5.") == "2 -> 2*x*y + 3*z <= 1.");
+    REQUIRE(parse("&nsum { (2**3)*x*y + (3**4)*z + (5**6) } <= 5.") == "2 -> 8*x*y + 81*z <= -15620.");
+}
+
+} // namespace Clingcon

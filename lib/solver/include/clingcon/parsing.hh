@@ -88,10 +88,7 @@ constexpr char const *THEORY = R"(
 class AbstractConstraintBuilder {
   public:
     AbstractConstraintBuilder() = default;
-    AbstractConstraintBuilder(AbstractConstraintBuilder const &) = delete;
-    AbstractConstraintBuilder(AbstractConstraintBuilder &&) noexcept = delete;
-    auto operator=(AbstractConstraintBuilder const &) -> AbstractConstraintBuilder & = delete;
-    auto operator=(AbstractConstraintBuilder &&) noexcept -> AbstractConstraintBuilder & = delete;
+    AbstractConstraintBuilder(AbstractConstraintBuilder &&) = delete;
     virtual ~AbstractConstraintBuilder() = default;
 
     //! Map a program to a solver literal.
@@ -105,7 +102,7 @@ class AbstractConstraintBuilder {
     //! Inform the builder that there is a show statement.
     virtual void add_show() = 0;
     //! Show variables with the given signature.
-    virtual void show_signature(char const *name, size_t arity) = 0;
+    virtual void show_signature(std::string_view name, size_t arity) = 0;
     //! Show the given variable.
     virtual void show_variable(var_t idx) = 0;
     //! Get the integer representing a variable.
@@ -132,22 +129,23 @@ class AbstractConstraintBuilder {
 //! This functions throws if there is a (potential) overflow.
 [[nodiscard]] auto simplify(CoVarVec &vec, bool drop_zero = true) -> val_t;
 
-using NodeCallback = std::function<void(Clingo::AST::Node &&ast)>;
+using NodeCallback = std::function<void(Clingo::AST::Node ast)>;
 
 //! Transform the given statement with csp constraints and pass it on to the
 //! given callback.
 //!
 //! Optionally shifts constraints from rule bodies into heads of integrity
 //! constraints if possible.
-void transform(Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift);
+void transform(Clingo::Library const &lib, Clingo::AST::Node const &ast, NodeCallback const &cb, bool shift);
 
 //! Parse the given theory passing the result to the given builder.
 //!
 //! This functions throws if there is a (potential) overflow.
-[[nodiscard]] auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryBase theory_atoms) -> bool;
+[[nodiscard]] auto parse(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
+                         Clingo::TheoryBase theory_atoms) -> bool;
 
 //! Check if the theory term has the given signature.
-[[nodiscard]] auto match(Clingo::TheoryTerm const &term, char const *name, size_t arity) -> bool;
+[[nodiscard]] auto match(Clingo::TheoryTerm const &term, std::string_view name, size_t arity) -> bool;
 
 } // namespace Clingcon
 

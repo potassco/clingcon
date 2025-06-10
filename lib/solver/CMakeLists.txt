@@ -15,7 +15,7 @@ set(header
 set(ide_source_group "Source Files")
 set(source-group
     "${CMAKE_CURRENT_SOURCE_DIR}/src/constraints.cc"
-    # "${CMAKE_CURRENT_SOURCE_DIR}/src/parsing.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/parsing.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/propagator.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/solver.cc"
     )
@@ -30,7 +30,7 @@ set(test-group-tests
     #"${CMAKE_CURRENT_SOURCE_DIR}/tests/csp.cc"
     #"${CMAKE_CURRENT_SOURCE_DIR}/tests/fs.cc"
     #"${CMAKE_CURRENT_SOURCE_DIR}/tests/money.cc"
-    #"${CMAKE_CURRENT_SOURCE_DIR}/tests/parsing.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/parsing.cc"
     #"${CMAKE_CURRENT_SOURCE_DIR}/tests/solve.hh"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/util.cc")
 source_group("${ide_test_group}\\tests" FILES ${test-group-tests})
