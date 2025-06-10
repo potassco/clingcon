@@ -266,6 +266,9 @@ TEST_CASE_METHOD(Fixture, "parsing transform") {
     REQUIRE(transform("&sum { X:p((X;Y)+Z) } <= 5.") == "&__sum_h { X,0,Z: p(X+Z); X,1,Y,Z: p(Y+Z) } <= 5.");
     REQUIRE(transform("&sum { X:p(|X;Y|) } <= 5.") == "&__sum_h { X,0: p(|X|); X,1,Y: p(|Y|) } <= 5.");
     REQUIRE(transform("&sum { X:p(-(X;Y)) } <= 5.") == "&__sum_h { X,0: p(-X); X,1,Y: p(-Y) } <= 5.");
+    REQUIRE(transform("&distinct{ p(Q) - p(P) : P < Q, P=1..o-1, Q=P+1..o }.") ==
+            "&distinct { (p(Q) - p(P)),__CLINGCON_0,__CLINGCON_1: P<Q, P=__CLINGCON_0, Q=__CLINGCON_1, "
+            "__CLINGCON_0=1..o-1, __CLINGCON_1=P+1..o }.");
 }
 
 TEST_CASE_METHOD(Fixture, "parsing sum head") {

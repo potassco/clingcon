@@ -25,14 +25,20 @@
 #ifndef CLINGCON_TEST_SOLVE_H
 #define CLINGCON_TEST_SOLVE_H
 
+#include <algorithm>
 #include <clingcon/parsing.hh>
 #include <clingcon/propagator.hh>
+
+#include <clingo/ast.hh>
+#include <clingo/control.hh>
+#include <clingo/core.hh>
 
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include <array>
+#include <memory>
 #include <sstream>
+#include <string_view>
 
 using namespace Clingcon;
 
@@ -42,10 +48,8 @@ using O = std::vector<std::optional<val_t>>;
 class SolveEventHandler : public Clingo::SolveEventHandler {
   public:
     SolveEventHandler(Propagator &p) : p{p} {}
-    void on_statistics(Clingo::UserStatistics step, Clingo::UserStatistics accu) override {
-        p.on_statistics(step, accu);
-    }
-    auto on_model(Clingo::Model &model) -> bool override {
+    void do_stats(Clingo::Stats step, Clingo::Stats accu) override { p.on_statistics(step, accu); }
+    auto do_model(Clingo::Model model) -> bool override {
         if (model.optimality_proven()) {
             if (!proven) {
                 models.clear();
@@ -58,7 +62,7 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
         std::ostringstream oss;
         bool sep = false;
         std::vector<Clingo::Symbol> symbols = model.symbols();
-        std::sort(symbols.begin(), symbols.end());
+        std::ranges::sort(symbols);
         for (auto &sym : symbols) {
             if (sep) {
                 oss << " ";
@@ -67,13 +71,13 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
             oss << sym;
         }
         std::vector<std::pair<Clingo::Symbol, val_t>> assignment;
-        for (auto [var, sym] : p.var_map()) {
+        for (auto const &[var, sym] : p.var_map()) {
             if (p.shown(var)) {
                 assignment.emplace_back(sym, p.get_value(var, model.thread_id()));
             }
         }
-        std::sort(assignment.begin(), assignment.end());
-        for (auto [sym, val] : assignment) {
+        std::ranges::sort(assignment);
+        for (auto const &[sym, val] : assignment) {
             if (sep) {
                 oss << " ";
             }
@@ -88,8 +92,8 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
     bool proven = false;
 };
 
-inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT,
-                           val_t max_int = Clingcon::DEFAULT_MAX_INT) -> std::vector<Config> {
+inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT)
+    -> std::vector<Config> {
     SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
     constexpr double r = 1.0;
@@ -108,59 +112,62 @@ inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT,
     return configs;
 }
 
-inline auto solve(Config const &config, std::string const &prg) -> S {
-    Propagator p;
-    p.config() = config;
-    SolveEventHandler handler{p};
+inline auto solve(Config const &config, std::string const &str) -> S {
+    Clingo::Library lib;
 
-    Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
-    ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
-        });
-    });
-    ctl.register_propagator(p);
-    ctl.ground({{"base", {}}});
+    Clingo::Control ctl{lib, {"100", "--opt-mode=optN", "-t8"}};
+    auto &prp = ctl.register_propagator(std::make_unique<Propagator>(lib));
+    prp.config() = config;
+    auto hnd = SolveEventHandler{prp};
 
-    if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+    ctl.parse_string(THEORY);
+    auto scn = Clingo::AST::Scanner{lib, str};
+    auto prg = Clingo::AST::Program{lib};
+    for (auto const &stm : scn) {
+        transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+    }
+    ctl.join(prg);
+
+    ctl.ground();
+
+    if (ctl.solve(hnd).get().interrupted()) {
         throw std::runtime_error("interrupted");
     }
-    bool has_minimize = p.has_minimize();
-    if (has_minimize && !handler.models.empty()) {
-        auto minimize = p.remove_minimize();
+    bool has_minimize = prp.has_minimize();
+    if (has_minimize && !hnd.models.empty()) {
+        auto minimize = prp.remove_minimize();
         CoVarVec elems;
         elems.reserve(minimize->size());
         for (auto [co, var] : *minimize) {
             elems.emplace_back(co, var);
         }
-        val_t bound = static_cast<val_t>(ctl.statistics()["user_step"]["Clingcon"]["Cost"].value());
-        p.add_constraint(SumConstraint::create(TRUE_LIT, bound + minimize->adjust(), elems, true));
-        handler.models.erase(handler.models.begin(), handler.models.end() - 1);
+        val_t bound = static_cast<val_t>(ctl.stats()["user_step"]["Clingcon"]["Cost"].value());
+        prp.add_constraint(SumConstraint::create(TRUE_LIT, bound + minimize->adjust(), elems, true));
+        hnd.models.erase(hnd.models.begin(), hnd.models.end() - 1);
     }
-    std::sort(handler.models.begin(), handler.models.end());
+    std::ranges::sort(hnd.models);
 
     // NOTE: We test the reversed options using multi-shot solving.
-    S models = std::move(handler.models);
-    handler.models.clear();
-    for (auto &config : p.config().solver_configs) {
+    S models = std::move(hnd.models);
+    hnd.models.clear();
+    for (auto &config : prp.config().solver_configs) {
         config.split_all = !config.split_all;
         config.refine_introduce = !config.refine_introduce;
         config.refine_reasons = !config.refine_reasons;
         config.propagate_chain = !config.propagate_chain;
     }
-    if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+    if (ctl.solve(hnd).get().interrupted()) {
         throw std::runtime_error("interrupted");
     }
-    std::sort(handler.models.begin(), handler.models.end());
+    std::ranges::sort(hnd.models);
 
     if (!has_minimize || models.empty()) {
-        REQUIRE(models == handler.models);
+        REQUIRE(models == hnd.models);
     } else {
-        REQUIRE(std::binary_search(handler.models.begin(), handler.models.end(), models.front()));
+        REQUIRE(std::ranges::binary_search(hnd.models, models.front()));
     }
 
-    return handler.models;
+    return hnd.models;
 }
 inline auto solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_INT,
                   val_t max_int = Clingcon::DEFAULT_MAX_INT) -> S {
@@ -180,26 +187,28 @@ inline auto solve(std::string const &prg, val_t min_int = Clingcon::DEFAULT_MIN_
     return *last;
 }
 
-inline auto solve_multi(Config const &config, std::string const &prg, Clingo::PartSpan const &parts) -> S {
-    Propagator p;
-    p.config() = config;
-    std::vector<char const *> opts{"0", "-t8"};
-    Clingo::Control ctl{opts};
-    ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
-        });
-    });
-    ctl.register_propagator(p);
+inline auto solve_multi(Config const &config, std::string const &str, Clingo::PartSpan const &parts) -> S {
+    Clingo::Library lib;
+    std::vector<std::string_view> opts{"0", "-t8"};
+    Clingo::Control ctl{lib, opts};
+    auto &prp = ctl.register_propagator(std::make_unique<Propagator>(lib));
+    prp.config() = config;
+    ctl.parse_string(THEORY);
+
+    auto scn = Clingo::AST::Scanner{lib, str};
+    auto prg = Clingo::AST::Program{lib};
+    for (auto const &stm : scn) {
+        transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+    }
+    ctl.join(prg);
 
     S result;
     bool sep = false;
     for (auto const &part : parts) {
         ctl.ground({part});
 
-        SolveEventHandler handler{p};
-        if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+        SolveEventHandler seh{prp};
+        if (ctl.solve(seh).get().interrupted()) {
             throw std::runtime_error("interrupted");
         }
         if (sep) {
@@ -207,8 +216,8 @@ inline auto solve_multi(Config const &config, std::string const &prg, Clingo::Pa
         } else {
             sep = true;
         }
-        std::sort(handler.models.begin(), handler.models.end());
-        std::copy(handler.models.begin(), handler.models.end(), std::back_inserter(result));
+        std::ranges::sort(seh.models);
+        std::ranges::copy(seh.models, std::back_inserter(result));
     }
     return result;
 }
@@ -231,38 +240,40 @@ inline auto solve_multi(std::string const &prg, Clingo::PartSpan const &parts,
     return *last;
 }
 
-inline auto solve_opt(Config const &config, std::string const &prg, Clingo::PartSpan const &parts,
-                      bool null_enum) -> O {
-    Propagator p;
-    p.config() = config;
-    std::vector<char const *> opts{"0", "-t8"};
+inline auto solve_opt(Config const &config, std::string const &str, Clingo::PartSpan const &parts, bool null_enum)
+    -> O {
+    auto lib = Clingo::Library{};
+    std::vector<std::string_view> opts{"0", "-t8"};
     if (null_enum) {
         opts.emplace_back("--enum-mode=user");
     }
-    Clingo::Control ctl{opts};
-    ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
-        });
-    });
-    ctl.register_propagator(p);
+    Clingo::Control ctl{lib, opts};
+    auto &p = ctl.register_propagator(std::make_unique<Propagator>(lib));
+    p.config() = config;
+
+    ctl.parse_string(THEORY);
+    auto scn = Clingo::AST::Scanner{lib, str};
+    auto prg = Clingo::AST::Program{lib};
+    for (auto const &stm : scn) {
+        transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+    }
+    ctl.join(prg);
 
     O bounds;
     for (auto const &part : parts) {
         ctl.ground({part});
 
         SolveEventHandler handler{p};
-        if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
+        if (ctl.solve(handler).get().interrupted()) {
             throw std::runtime_error("interrupted");
         }
         std::optional<val_t> bound;
-        auto stat = ctl.statistics()["user_step"]["Clingcon"];
-        if (stat.has_subkey("Cost")) {
+        auto stat = ctl.stats()["user_step"]["Clingcon"].map();
+        if (stat.contains("Cost")) {
             bound = static_cast<val_t>(stat["Cost"].value());
         } else {
-            stat = ctl.statistics()["summary"];
-            if (stat.has_subkey("costs")) {
+            stat = ctl.stats()["summary"].map();
+            if (stat.contains("costs")) {
                 bound = static_cast<val_t>(stat["costs"][size_t(0)].value());
             }
         }
