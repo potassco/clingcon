@@ -25,10 +25,14 @@
 #ifndef CLINGCON_BASE_H
 #define CLINGCON_BASE_H
 
-#include <clingo.hh>
-#include <forward_list>
+#include <clingo/core.hh>
+#include <clingo/propagate.hh>
+
 #include <math/wide_integer/uintwide_t.h>
+
+#include <forward_list>
 #include <optional>
+#include <vector>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -38,7 +42,7 @@
 namespace Clingcon {
 
 using level_t = uint32_t;                    //!< type for decision levels
-using lit_t = Clingo::literal_t;             //!< type for solver and program literals
+using lit_t = Clingo::SolverLiteral;         //!< type for solver and program literals
 using var_t = uint32_t;                      //!< indexes of variables
 using val_t = int32_t;                       //!< type for values of variables and coefficients
 using sum_t = int64_t;                       //!< type for summing up values
@@ -46,6 +50,13 @@ using nsum_t = math::wide_integer::int128_t; //!< type for summing up values of 
 using co_var_t = std::pair<val_t, var_t>;    //!< coefficient/variable pair
 using CoVarVec = std::vector<co_var_t>;
 
+enum class TruthValue : uint8_t {
+    True,
+    False,
+    Free,
+};
+
+// NOLINTNEXTLINE
 enum class Heuristic : val_t { None, MaxChain };
 
 //! The maximum value for variables/coefficients in clingcon.
@@ -98,7 +109,6 @@ template <class I> inline auto check_valid_value(I val) -> val_t {
     }
     return val;
 }
-static_assert(std::is_same_v<Clingo::weight_t, val_t>);
 
 //! Solver specific statistics.
 struct SolverStatistics {
@@ -266,14 +276,14 @@ class AbstractClauseCreator {
     virtual auto propagate() -> bool = 0;
 
     //! Add the given clause to the solver.
-    virtual auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
+    virtual auto add_clause(Clingo::SolverLiteralSpan clause, Clingo::ClauseFlags type = Clingo::ClauseFlags::none)
         -> bool = 0;
 
     //! Get the assignment.
     virtual auto assignment() -> Clingo::Assignment = 0;
 };
 
-enum class InitState { Init = 0, Translate = 1 };
+enum class InitState : uint8_t { Init = 0, Translate = 1 };
 
 //! Implement an `AbstractClauseCreator` using a `Clingo::PropagateInit`
 //! object and extra functions.
@@ -309,10 +319,10 @@ class InitClauseCreator final : public AbstractClauseCreator {
 
     [[nodiscard]] auto propagate() -> bool override { return commit() && init_.propagate(); }
 
-    [[nodiscard]] auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt)
+    [[nodiscard]] auto add_clause(Clingo::SolverLiteralSpan clause,
+                                  [[maybe_unused]] Clingo::ClauseFlags type = Clingo::ClauseFlags::none)
         -> bool override {
-        assert(type != Clingo::ClauseType::Volatile && type != Clingo::ClauseType::VolatileStatic);
-        static_cast<void>(type);
+        assert(!intersects(type, Clingo::ClauseFlags::tag));
 
         ++stats_.num_clauses;
         if (state_ == InitState::Translate) {
@@ -368,15 +378,17 @@ class InitClauseCreator final : public AbstractClauseCreator {
             while (*it != 0) {
                 ++it;
             }
-            if (!init_.add_clause(Clingo::LiteralSpan{&*ib, &*it})) {
+            if (!init_.add_clause(Clingo::SolverLiteralSpan{&*ib, &*it})) {
                 return false;
             }
         }
         clauses_ = Clause();
 
         for (auto const &[lit, wlits, bound, type] : weight_constraints_) {
-            auto inv = static_cast<Clingo::WeightConstraintType>(-type);
-            if (!init_.add_weight_constraint(-lit, wlits, bound + 1, inv)) {
+            auto inv = type == Clingo::WeightConstraintType::implication_left
+                           ? Clingo::WeightConstraintType::implication_right
+                           : Clingo::WeightConstraintType::implication_left;
+            if (!init_.add_weight_constraint(-lit, wlits, bound + 1, inv, false)) {
                 return false;
             }
         }
@@ -415,7 +427,8 @@ class ControlClauseCreator final : public AbstractClauseCreator {
 
     auto propagate() -> bool override { return control_.propagate(); }
 
-    auto add_clause(Clingo::LiteralSpan clause, Clingo::ClauseType type = Clingo::ClauseType::Learnt) -> bool override {
+    auto add_clause(Clingo::SolverLiteralSpan clause, Clingo::ClauseFlags type = Clingo::ClauseFlags::none)
+        -> bool override {
         return control_.add_clause(clause, type) && propagate();
     }
 

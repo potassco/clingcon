@@ -151,6 +151,8 @@ class AbstractConstraintState {
     //! @}
 };
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,performance-unnecessary-value-param)
+
 //! Class to facilitate handling order literals associated with an integer
 //! variable.
 //!
@@ -352,7 +354,7 @@ class VarState {
     //! Determine if the given value is associated with an order literal.
     [[nodiscard]] auto has_literal(val_t value) const -> bool {
         if (offset_ == unused) {
-            return litmap_.find(value) != litmap_.end();
+            return litmap_.contains(value);
         }
         return litvec_[value - offset_] != 0;
     }
@@ -544,8 +546,8 @@ class VarState {
     template <typename F, typename It> auto call_vec_(F &&f, It ib, It ie) const {
         for (; ib != ie && *ib == 0; ++ib) {
         };
-        return f(
-            ib, ie, [](auto it) { return *it; }, [&](auto it) { return get_val_(it); },
+        return std::invoke(
+            std::forward<F>(f), ib, ie, [](auto it) { return *it; }, [&](auto it) { return get_val_(it); },
             [ie](auto &it) {
                 for (++it; it != ie && *it == 0; ++it) {
                 };
@@ -553,7 +555,9 @@ class VarState {
     }
 
     template <typename F, typename It> auto call_map_(F &&f, It ib, It ie) const {
-        return f(ib, ie, [](auto it) { return it->second; }, [](auto it) { return it->first; }, [](auto &it) { ++it; });
+        return std::invoke(
+            std::forward<F>(f), ib, ie, [](auto it) { return it->second; }, [](auto it) { return it->first; },
+            [](auto &it) { ++it; });
     }
 
     var_t var_;                    //!< variable associated with the state
@@ -567,6 +571,8 @@ class VarState {
         OrderVec litvec_; //!< map from values to literals
     };
 };
+
+// NOLINTEND(cppcoreguidelines-pro-type-union-access,performance-unnecessary-value-param)
 
 class Solver {
     class Level;
@@ -624,8 +630,7 @@ class Solver {
 
     //! This function is an extended version of Solver::get_literal that can
     //! assign a fact literal if the value did not have a literal before.
-    [[nodiscard]] auto update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value,
-                                      Clingo::TruthValue truth) -> lit_t;
+    [[nodiscard]] auto update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value, TruthValue truth) -> lit_t;
 
     //! Get the current value of a variable.
     //!
@@ -687,15 +692,15 @@ class Solver {
     //!   - true => x >= 1
     //!   - x >= 3 => x >= 4
     //!   - x >= 6 => x >= 7
-    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var,
-                               IntervalSet<val_t> const &domain) -> bool;
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
+        -> bool;
 
     //! This function integrates singleton constraints into the state.
     //!
     //! We explicitly handle the strict case here to avoid introducing
     //! unnecessary literals.
-    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
-                                  bool strict) -> bool;
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+        -> bool;
 
     //! Add the given constraint to the propagation queue and initialize its state.
     auto add_constraint(AbstractConstraint &constraint) -> AbstractConstraintState &;
@@ -757,7 +762,7 @@ class Solver {
     //!
     //! Constraints that became true are added to the todo list and bounds of
     //! variables are adjusted according to the truth of order literals.
-    [[nodiscard]] auto propagate(AbstractClauseCreator &cc, Clingo::LiteralSpan changes) -> bool;
+    [[nodiscard]] auto propagate(AbstractClauseCreator &cc, Clingo::SolverLiteralSpan changes) -> bool;
 
     //! This functions propagates facts that have not been integrated on the
     //! current level and propagates constraints gathered during Solver::propagate.
@@ -828,9 +833,9 @@ class Solver {
     void litmap_add_(VarState &vs, val_t val, lit_t lit);
 
     //! Solver configuration.
-    SolverConfig const &config_;
+    SolverConfig const &config_; // NOLINT
     //! Solver statistics;
-    SolverStatistics &stats_;
+    SolverStatistics &stats_; // NOLINT
     //! Vector of all VarState objects.
     std::vector<VarState> var2vs_;
     //! Vector for per decision level state.

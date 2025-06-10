@@ -22,12 +22,11 @@
 //
 // }}}
 
-#ifndef CLINGCON_CONSTRAINTS_H
-#define CLINGCON_CONSTRAINTS_H
+#pragma once
 
 #include <clingcon/solver.hh>
 
-#include <array>
+#include <clingo/core.hh>
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -48,16 +47,13 @@ namespace Clingcon {
 class SumConstraint final : public AbstractConstraint {
   public:
     SumConstraint() = delete;
-    SumConstraint(SumConstraint const &) = delete;
     SumConstraint(SumConstraint &&) = delete;
-    auto operator=(SumConstraint const &) -> SumConstraint & = delete;
-    auto operator=(SumConstraint &&) -> SumConstraint & = delete;
     ~SumConstraint() override = default;
 
     //! Create a new sum constraint.
-    [[nodiscard]] static auto create(lit_t lit, val_t rhs, CoVarVec const &elems,
-                                     bool sort) -> std::unique_ptr<SumConstraint> {
-        auto size = sizeof(SumConstraint) + elems.size() * sizeof(std::pair<val_t, var_t>);
+    [[nodiscard]] static auto create(lit_t lit, val_t rhs, CoVarVec const &elems, bool sort)
+        -> std::unique_ptr<SumConstraint> {
+        auto size = sizeof(SumConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
         return std::unique_ptr<SumConstraint>{new (operator new(size)) SumConstraint(lit, rhs, elems, sort)};
     }
 
@@ -77,7 +73,9 @@ class SumConstraint final : public AbstractConstraint {
     [[nodiscard]] auto operator[](size_t i) const -> std::pair<val_t, var_t> { return elements_[i]; }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] auto begin() const -> std::pair<val_t, var_t> const * { return elements_; }
+    [[nodiscard]] auto begin() const -> std::pair<val_t, var_t> const * {
+        return elements_; // NOLINT
+    }
 
     //! Pointer after the last element of the constraint.
     [[nodiscard]] auto end() const -> std::pair<val_t, var_t> const * {
@@ -86,10 +84,10 @@ class SumConstraint final : public AbstractConstraint {
 
   private:
     SumConstraint(lit_t lit, val_t rhs, CoVarVec const &elems, bool sort) : lit_{lit}, rhs_{rhs}, size_{elems.size()} {
-        std::copy(elems.begin(), elems.end(), elements_);
+        auto rng = std::span{elements_, elems.size()}; // NOLINT
+        std::ranges::copy(elems, rng.begin());
         if (sort) {
-            std::sort(elements_, elements_ + size_,
-                      [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); }); // NOLINT
+            std::ranges::sort(rng, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); });
         }
     }
 
@@ -108,12 +106,7 @@ class NonlinearConstraint final : public AbstractConstraint {
   public:
     NonlinearConstraint(lit_t lit, val_t co_a, var_t var_x, var_t var_y, val_t co_b, var_t var_z, val_t rhs)
         : lit_{lit}, rhs_{rhs}, co_a_{co_a}, var_x_{var_x}, var_y_{var_y}, co_b_{co_b}, var_z_{var_z} {}
-    NonlinearConstraint() = delete;
-    NonlinearConstraint(NonlinearConstraint const &) = delete;
     NonlinearConstraint(NonlinearConstraint &&) = delete;
-    auto operator=(NonlinearConstraint const &) -> NonlinearConstraint & = delete;
-    auto operator=(NonlinearConstraint &&) -> NonlinearConstraint & = delete;
-    ~NonlinearConstraint() override = default;
 
     //! Create thread specific state for the constraint.
     [[nodiscard]] auto create_state() -> UniqueConstraintState override;
@@ -155,17 +148,12 @@ class NonlinearConstraint final : public AbstractConstraint {
 //! Class to capture minimize constraints of form `a_0*x_0 + ... + a_n * x_n + adjust`.
 class MinimizeConstraint final : public AbstractConstraint {
   public:
-    MinimizeConstraint() = delete;
-    MinimizeConstraint(MinimizeConstraint &) = delete;
     MinimizeConstraint(MinimizeConstraint &&) = delete;
-    auto operator=(MinimizeConstraint const &) -> MinimizeConstraint & = delete;
-    auto operator=(MinimizeConstraint &&) -> MinimizeConstraint & = delete;
-    ~MinimizeConstraint() override = default;
 
     //! Create a new sum constraint.
-    [[nodiscard]] static auto create(val_t adjust, CoVarVec const &elems,
-                                     bool sort) -> std::unique_ptr<MinimizeConstraint> {
-        auto size = sizeof(MinimizeConstraint) + elems.size() * sizeof(std::pair<val_t, var_t>);
+    [[nodiscard]] static auto create(val_t adjust, CoVarVec const &elems, bool sort)
+        -> std::unique_ptr<MinimizeConstraint> {
+        auto size = sizeof(MinimizeConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
         return std::unique_ptr<MinimizeConstraint>{new (operator new(size)) MinimizeConstraint(adjust, elems, sort)};
     }
 
@@ -185,7 +173,9 @@ class MinimizeConstraint final : public AbstractConstraint {
     [[nodiscard]] auto operator[](size_t i) const -> std::pair<val_t, var_t> { return elements_[i]; }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] auto begin() const -> std::pair<val_t, var_t> const * { return elements_; }
+    [[nodiscard]] auto begin() const -> std::pair<val_t, var_t> const * {
+        return elements_; // NOLINT
+    }
 
     //! Pointer after the last element of the constraint.
     [[nodiscard]] auto end() const -> std::pair<val_t, var_t> const * {
@@ -195,10 +185,10 @@ class MinimizeConstraint final : public AbstractConstraint {
   private:
     MinimizeConstraint(val_t adjust, CoVarVec const &elems, bool sort)
         : adjust_{adjust}, size_{static_cast<uint32_t>(elems.size())} {
-        std::copy(elems.begin(), elems.end(), elements_);
+        auto rng = std::span{elements_, elems.size()}; // NOLINT
+        std::ranges::copy(elems, rng.begin());
         if (sort) {
-            std::sort(elements_, elements_ + size_,
-                      [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); }); // NOLINT
+            std::ranges::sort(rng, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); });
         }
     }
 
@@ -251,15 +241,10 @@ class DistinctConstraint final : public AbstractConstraint {
     using Elements = std::vector<std::pair<CoVarVec, val_t>>;
 
     //! Create a new distinct constraint.
-    [[nodiscard]] static auto create(lit_t lit, Elements const &elements,
-                                     bool sort) -> std::unique_ptr<DistinctConstraint>;
+    [[nodiscard]] static auto create(lit_t lit, Elements const &elements, bool sort)
+        -> std::unique_ptr<DistinctConstraint>;
 
-    DistinctConstraint() = delete;
-    DistinctConstraint(DistinctConstraint &) = delete;
     DistinctConstraint(DistinctConstraint &&) = delete;
-    auto operator=(DistinctConstraint const &) -> DistinctConstraint & = delete;
-    auto operator=(DistinctConstraint &&) -> DistinctConstraint & = delete;
-    ~DistinctConstraint() override = default;
 
     //! Create thread specific state for the constraint.
     [[nodiscard]] auto create_state() -> UniqueConstraintState override;
@@ -276,7 +261,9 @@ class DistinctConstraint final : public AbstractConstraint {
     }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] auto begin() const -> DistinctElement const * { return elements_; }
+    [[nodiscard]] auto begin() const -> DistinctElement const * {
+        return elements_; // NOLINT
+    }
 
     //! Pointer after the last element of the constraint.
     [[nodiscard]] auto end() const -> DistinctElement const * {
@@ -300,12 +287,7 @@ class DisjointConstraint final : public AbstractConstraint {
     //! Create a new distinct constraint.
     [[nodiscard]] static auto create(lit_t lit, CoVarVec const &elements) -> std::unique_ptr<DisjointConstraint>;
 
-    DisjointConstraint() = delete;
-    DisjointConstraint(DisjointConstraint &) = delete;
     DisjointConstraint(DisjointConstraint &&) = delete;
-    auto operator=(DisjointConstraint const &) -> DisjointConstraint & = delete;
-    auto operator=(DisjointConstraint &&) -> DisjointConstraint & = delete;
-    ~DisjointConstraint() override = default;
 
     //! Create thread specific state for the constraint.
     [[nodiscard]] auto create_state() -> UniqueConstraintState override;
@@ -322,7 +304,9 @@ class DisjointConstraint final : public AbstractConstraint {
     }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] auto begin() const -> co_var_t const * { return elements_; }
+    [[nodiscard]] auto begin() const -> co_var_t const * {
+        return elements_; // NOLINT
+    }
 
     //! Pointer after the last element of the constraint.
     [[nodiscard]] auto end() const -> co_var_t const * {
@@ -347,5 +331,3 @@ class DisjointConstraint final : public AbstractConstraint {
 #else
 #pragma GCC diagnostic pop
 #endif
-
-#endif // CLINGCON_CONSTRAINTS_H

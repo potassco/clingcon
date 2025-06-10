@@ -26,7 +26,6 @@
 #include "clingcon/parsing.hh"
 #include "clingcon/propagator.hh"
 
-#include <clingo.hh>
 #include <cstring>
 #include <locale>
 #include <map>

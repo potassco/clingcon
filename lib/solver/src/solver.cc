@@ -25,7 +25,6 @@
 #include "clingcon/solver.hh"
 #include "clingcon/util.hh"
 
-#include <clingo.hh>
 #include <ranges>
 #include <unordered_set>
 

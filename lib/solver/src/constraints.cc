@@ -35,11 +35,7 @@ namespace {
 template <bool tagged, typename T> class SumConstraintStateImpl final : public T {
   public:
     SumConstraintStateImpl(decltype(T::constraint_) constraint) : T{constraint} {}
-
-    SumConstraintStateImpl(SumConstraintStateImpl &&x) = delete;
-    auto operator=(SumConstraintStateImpl const &x) -> SumConstraintStateImpl & = delete;
-    auto operator=(SumConstraintStateImpl &&x) -> SumConstraintStateImpl & = delete;
-    ~SumConstraintStateImpl() override = default;
+    SumConstraintStateImpl(SumConstraintStateImpl &&) = delete;
 
     [[nodiscard]] auto copy() const -> UniqueConstraintState override {
         return std::unique_ptr<SumConstraintStateImpl>{new SumConstraintStateImpl(*this)};
@@ -194,7 +190,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             reason.emplace_back(-clit);
 
             solver.mark_inactive(*this);
-            return cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt);
+            return cc.add_clause(reason, tagged ? Clingo::ClauseFlags::tag : Clingo::ClauseFlags::none);
         }
 
         if (!ass.is_true(clit)) {
@@ -235,7 +231,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
 
             // build the reason if the literal has not already been propagated
             if (lit_r == 0 || !ass.is_true(lit_r)) {
-                auto slack_r = slack - co_r * delta_r;
+                auto slack_r = slack - (co_r * delta_r);
                 assert(slack_r < 0);
                 auto &reason = solver.temp_reason();
                 // add the constraint itself
@@ -263,17 +259,15 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                 // append the consequence
                 bool guess = !reason.empty() || tagged;
                 if (co_r > 0) {
-                    lit_r = solver.update_literal(cc, vs_r, value_r - 1,
-                                                  guess ? Clingo::TruthValue::Free : Clingo::TruthValue::True);
+                    lit_r = solver.update_literal(cc, vs_r, value_r - 1, guess ? TruthValue::Free : TruthValue::True);
                     reason.emplace_back(lit_r);
                 } else {
-                    lit_r = -solver.update_literal(cc, vs_r, value_r,
-                                                   guess ? Clingo::TruthValue::Free : Clingo::TruthValue::False);
+                    lit_r = -solver.update_literal(cc, vs_r, value_r, guess ? TruthValue::Free : TruthValue::False);
                     reason.emplace_back(lit_r);
                 }
 
                 // propagate the clause
-                if (!cc.add_clause(reason, tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt)) {
+                if (!cc.add_clause(reason, tagged ? Clingo::ClauseFlags::tag : Clingo::ClauseFlags::none)) {
                     return false;
                 }
 
@@ -340,7 +334,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         // made true during constraint propagation.
                         if (!ass.is_false(lit)) {
                             assert(ass.is_true(lit));
-                            ret = cc.add_clause({lit_reason, -lit});
+                            ret = cc.add_clause(std::to_array({lit_reason, -lit}));
                         }
                     }
                     // introduce reason literal
@@ -356,7 +350,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         assert(slack < 0);
                         auto refined = solver.get_literal(cc, vs, static_cast<val_t>(value - 1));
                         assert(!ass.is_true(refined));
-                        ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
+                        ret = ass.is_false(refined) || cc.add_clause(std::to_array({lit, -refined}));
                         lit = refined;
                     }
                 }
@@ -381,7 +375,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         lit = -olit->first;
                         if (!ass.is_false(lit)) {
                             assert(ass.is_true(lit));
-                            ret = cc.add_clause({lit_reason, -lit});
+                            ret = cc.add_clause(std::to_array({lit_reason, -lit}));
                         }
                     }
                     // introduce reason literal
@@ -393,7 +387,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         assert(slack < 0);
                         auto refined = -solver.get_literal(cc, vs, static_cast<val_t>(value));
                         assert(!ass.is_true(refined));
-                        ret = ass.is_false(refined) || cc.add_clause({lit, -refined});
+                        ret = ass.is_false(refined) || cc.add_clause(std::to_array({lit, -refined}));
                         lit = refined;
                     }
                 }
@@ -411,14 +405,11 @@ class SumConstraintState : public AbstractConstraintState {
   public:
     friend class SumConstraintStateImpl<false, SumConstraintState>;
 
-    SumConstraintState(SumConstraintState &&x) = delete;
-    auto operator=(SumConstraintState const &x) -> SumConstraintState & = delete;
-    auto operator=(SumConstraintState &&x) -> SumConstraintState & = delete;
-    ~SumConstraintState() override = default;
+    SumConstraintState(SumConstraintState &&) = delete;
 
     //! Translate a constraint to clauses or weight constraints.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
-                                 ConstraintVec &added) -> std::pair<bool, bool> final {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
+        -> std::pair<bool, bool> final {
         static_cast<void>(added);
         auto ass = cc.assignment();
 
@@ -479,12 +470,12 @@ class SumConstraintState : public AbstractConstraintState {
                 n += 1;
             }
             if (co > 0) {
-                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.lower_bound());
                 auto value = floordiv<sum_t>(diff, co);
                 assert(value >= vs.lower_bound());
                 estimate += std::min<sum_t>(value + 1, vs.upper_bound()) - vs.lower_bound();
             } else {
-                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.upper_bound());
                 auto value = -floordiv<sum_t>(diff, -co);
                 assert(value <= vs.upper_bound());
                 estimate += vs.upper_bound() - std::max<sum_t>(value - 1, vs.lower_bound());
@@ -502,14 +493,14 @@ class SumConstraintState : public AbstractConstraintState {
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);
             if (co > 0) {
-                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.lower_bound());
                 auto value = floordiv<sum_t>(diff, co);
                 assert(value >= vs.lower_bound());
                 for (sum_t i = vs.lower_bound(), e = std::min<sum_t>(value + 1, vs.upper_bound()); i != e; ++i) {
                     wlits.emplace_back(-solver.get_literal(cc, vs, static_cast<val_t>(i)), co);
                 }
             } else {
-                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.upper_bound());
                 auto value = -floordiv<sum_t>(diff, -co);
                 assert(value <= vs.upper_bound());
                 for (sum_t i = std::max<sum_t>(value - 1, vs.lower_bound()), e = vs.upper_bound(); i != e; ++i) {
@@ -526,7 +517,7 @@ class SumConstraintState : public AbstractConstraintState {
             // later because we can run into the problem of successively adding
             // variables and constraints here.
             return {cc.add_weight_constraint(constraint_.literal(), wlits, static_cast<val_t>(slack),
-                                             Clingo::WeightConstraintType::RightImplication),
+                                             Clingo::WeightConstraintType::implication_right),
                     true};
         }
         return {true, false};
@@ -572,15 +563,15 @@ class SumConstraintState : public AbstractConstraintState {
             sum_t value_lower{0};
             sum_t value_upper{0};
             if (co > 0) {
-                auto diff_lower = upper + static_cast<sum_t>(co) * vs.upper_bound();
-                auto diff_upper = lower + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff_lower = upper + (static_cast<sum_t>(co) * vs.upper_bound());
+                auto diff_upper = lower + (static_cast<sum_t>(co) * vs.lower_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), floordiv<sum_t>(diff_lower, co) + 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), floordiv<sum_t>(diff_upper, co) + 1);
                 lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound());
                 upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper);
             } else {
-                auto diff_upper = upper + static_cast<sum_t>(co) * vs.lower_bound();
-                auto diff_lower = lower + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff_upper = upper + (static_cast<sum_t>(co) * vs.lower_bound());
+                auto diff_lower = lower + (static_cast<sum_t>(co) * vs.upper_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
                 lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
@@ -604,7 +595,7 @@ class SumConstraintState : public AbstractConstraintState {
         std::vector<std::tuple<size_t, size_t, sum_t, sum_t, sum_t, sum_t>> todo{{0, 0, 0, 0, lower, upper}};
         std::vector<lit_t> clause(constraint_.size() + 1, 0);
 
-#if 0
+#if 0 // NOLINT
         CoVarVec elements;
         elements.assign(constraint_.begin(), constraint_.end());
         std::sort(elements.begin(), elements.end(), [&](auto const &a, auto const &b) {
@@ -689,15 +680,15 @@ class SumConstraintState : public AbstractConstraintState {
             auto &vs = solver.var_state(var);
 
             if (co > 0) {
-                auto diff_lower = upper + static_cast<sum_t>(co) * vs.upper_bound();
-                auto diff_upper = lower + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff_lower = upper + (static_cast<sum_t>(co) * vs.upper_bound());
+                auto diff_upper = lower + (static_cast<sum_t>(co) * vs.lower_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound() - 1, floordiv<sum_t>(diff_lower, co));
                 value_upper = std::min<sum_t>(vs.upper_bound() - 1, floordiv<sum_t>(diff_upper, co));
                 lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound() + 1);
                 upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper - 1);
             } else {
-                auto diff_upper = upper + static_cast<sum_t>(co) * vs.lower_bound();
-                auto diff_lower = lower + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff_upper = upper + (static_cast<sum_t>(co) * vs.lower_bound());
+                auto diff_lower = lower + (static_cast<sum_t>(co) * vs.upper_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
                 upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
@@ -712,7 +703,7 @@ class SumConstraintState : public AbstractConstraintState {
         return true;
     }
 
-    SumConstraint &constraint_;
+    SumConstraint &constraint_; // NOLINT
     sum_t lower_bound_{0};
     sum_t upper_bound_{0};
     level_t inactive_level_{0};
@@ -740,8 +731,8 @@ class MinimizeConstraintState : public AbstractConstraintState {
     }
 
     //! Translate the minimize constraint into clasp's minimize constraint.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
-                                 ConstraintVec &added) -> std::pair<bool, bool> final {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
+        -> std::pair<bool, bool> final {
         static_cast<void>(added);
 
         bool translate = solver.translate_minimize();
@@ -784,7 +775,7 @@ class MinimizeConstraintState : public AbstractConstraintState {
         return static_cast<val_t>(ret);
     }
 
-    MinimizeConstraint &constraint_;
+    MinimizeConstraint &constraint_; // NOLINT
     sum_t lower_bound_{0};
     sum_t upper_bound_{0};
     level_t inactive_level_{0};
@@ -838,8 +829,8 @@ class DistinctConstraintState final : public AbstractConstraintState {
     }
 
     //! Translate small enough distinct constraints to weight constraints.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
-                                 ConstraintVec &added) -> std::pair<bool, bool> override {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
+        -> std::pair<bool, bool> override {
         if (!estimate_(config.distinct_limit)) {
             return {true, false};
         }
@@ -902,13 +893,13 @@ class DistinctConstraintState final : public AbstractConstraintState {
                         lit = a;
                     } else {
                         lit = cc.add_literal();
-                        if (!cc.add_clause({-a, -b, lit})) {
+                        if (!cc.add_clause(std::to_array({-a, -b, lit}))) {
                             return {false, false};
                         }
-                        if (!cc.add_clause({a, -lit})) {
+                        if (!cc.add_clause(std::to_array({a, -lit}))) {
                             return {false, false};
                         }
-                        if (!cc.add_clause({b, -lit})) {
+                        if (!cc.add_clause(std::to_array({b, -lit}))) {
                             return {false, false};
                         }
                     }
@@ -918,7 +909,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
 
             assert(wlits.size() > 1);
             if (!cc.add_weight_constraint(constraint_.literal(), wlits, 1,
-                                          Clingo::WeightConstraintType::RightImplication)) {
+                                          Clingo::WeightConstraintType::implication_right)) {
                 return {false, false};
             }
         }
@@ -1190,8 +1181,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
 
                 // add consequence
                 lit = solver.update_literal(cc, vs, vs.upper_bound() - 1,
-                                            is_fact && reason.empty() ? Clingo::TruthValue::True
-                                                                      : Clingo::TruthValue::Free);
+                                            is_fact && reason.empty() ? TruthValue::True : TruthValue::Free);
                 if (ass.is_true(lit)) {
                     return true;
                 }
@@ -1204,8 +1194,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
                 }
 
                 lit = -solver.update_literal(cc, vs, vs.lower_bound(),
-                                             is_fact && reason.empty() ? Clingo::TruthValue::False
-                                                                       : Clingo::TruthValue::Free);
+                                             is_fact && reason.empty() ? TruthValue::False : TruthValue::Free);
                 if (ass.is_true(lit)) {
                     return true;
                 }
@@ -1295,7 +1284,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
           in_todo_lower_{x.in_todo_lower_}, lower_{x.lower_}, upper_{x.upper_}, inactive_level_{x.inactive_level_},
           todo_{x.todo_} {}
 
-    DistinctConstraint &constraint_;
+    DistinctConstraint &constraint_; // NOLINT
     // TODO: The members assigned_, dirty_, todo_upper_, todo_lower_,
     // in_dirty_, in_todo_upper_, in_todo_lower_ all have predetermined sizes
     // and can be packed into contiguous memory. Maybe even the sets can be
@@ -1348,8 +1337,8 @@ class NonlinearConstraintState : public AbstractConstraintState {
     }
 
     //! Translate a constraint to simpler constraints.
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
-                                 ConstraintVec &added) -> std::pair<bool, bool> override {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
+        -> std::pair<bool, bool> override {
         static_cast<void>(config);
         static_cast<void>(solver);
         static_cast<void>(cc);
@@ -1382,8 +1371,8 @@ class NonlinearConstraintState : public AbstractConstraintState {
         static_cast<void>(diff);
     }
 
-    static auto get_bound(nsum_t co_a, VarState &vs_x,
-                          VarState &vs_y) -> std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> {
+    static auto get_bound(nsum_t co_a, VarState &vs_x, VarState &vs_y)
+        -> std::tuple<nsum_t, nsum_t, nsum_t, nsum_t, nsum_t, nsum_t> {
         nsum_t lower_x = vs_x.lower_bound();
         nsum_t upper_x = vs_x.upper_bound();
         nsum_t lower_y = vs_y.lower_bound();
@@ -1551,7 +1540,7 @@ class NonlinearConstraintState : public AbstractConstraintState {
         nsum_t co_a = constraint_.co_a();
         nsum_t lhs = co_a * vs_x.lower_bound() * vs_y.lower_bound();
         if (constraint_.has_co_c()) {
-            auto vs_z = solver.var_state(constraint_.var_z());
+            auto const &vs_z = solver.var_state(constraint_.var_z());
             nsum_t co_b = constraint_.co_b();
             lhs += co_b * vs_z.lower_bound();
         }
@@ -1601,7 +1590,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
         val_t u;
     };
 
-    enum class PropagateType { Lower, Upper };
+    enum class PropagateType : uint8_t { Lower, Upper };
     template <PropagateType type> struct Algorithm { // NOLINT(cppcoreguidelines-pro-type-member-init)
         using It = std::vector<Interval>::iterator;
 
@@ -1648,16 +1637,14 @@ class DisjointConstraintState final : public AbstractConstraintState {
                 // reasons in the hope of getting better conflict but making
                 // sure to avoid the above-mentioned cases.
                 auto val = std::min(b - 1, vs.upper_bound());
-                auto lit = -solver.update_literal(
-                    cc, vs, val, reason.empty() ? Clingo::TruthValue::False : Clingo::TruthValue::Free);
+                auto lit = -solver.update_literal(cc, vs, val, reason.empty() ? TruthValue::False : TruthValue::Free);
                 reason.emplace_back(lit);
                 i->last_left = b;
             } else {
                 reason.emplace_back(-solver.get_literal(cc, vs, vs.upper_bound()));
                 // Note: similar to the note above.
                 auto val = std::max(-b - weight(i) + 1, vs.lower_bound() - 1);
-                auto lit = solver.update_literal(cc, vs, val,
-                                                 reason.empty() ? Clingo::TruthValue::True : Clingo::TruthValue::Free);
+                auto lit = solver.update_literal(cc, vs, val, reason.empty() ? TruthValue::True : TruthValue::Free);
                 reason.emplace_back(lit);
                 i->last_right = -b;
             }
@@ -1770,8 +1757,8 @@ class DisjointConstraintState final : public AbstractConstraintState {
             return true;
         }
 
-        Solver &solver;
-        AbstractClauseCreator &cc;
+        Solver &solver;            // NOLINT
+        AbstractClauseCreator &cc; // NOLINT
         It begin;
         It end;
         lit_t clit;
@@ -1804,8 +1791,8 @@ class DisjointConstraintState final : public AbstractConstraintState {
         }
     }
 
-    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc,
-                                 ConstraintVec &added) -> std::pair<bool, bool> override {
+    [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
+        -> std::pair<bool, bool> override {
         static_cast<void>(config);
         static_cast<void>(solver);
         static_cast<void>(cc);
@@ -1885,7 +1872,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
           constraint_{x.constraint_}, intervals_{x.intervals_}, inactive_level_{x.inactive_level_},
           force_update_{x.force_update_}, todo_{x.todo_} {}
 
-    DisjointConstraint &constraint_;
+    DisjointConstraint &constraint_; // NOLINT
     std::vector<Interval> intervals_;
     level_t inactive_level_{0};
     bool force_update_{true};
@@ -1908,9 +1895,10 @@ auto NonlinearConstraint::create_state() -> UniqueConstraintState {
 
 DistinctElement::DistinctElement(val_t fixed, size_t size, co_var_t *elements, bool sort)
     : fixed_{fixed}, size_{static_cast<uint32_t>(size)}, elements_{elements} {
+
     if (sort) {
-        std::sort(elements_, elements_ + size_,
-                  [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); }); // NOLINT
+        auto rng = std::span{elements_, size_};
+        std::ranges::sort(rng, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); }); // NOLINT
     }
 }
 
@@ -1920,7 +1908,7 @@ DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool
     : lit_{lit}, size_{static_cast<uint32_t>(elements.size())} {
     auto *start = reinterpret_cast<unsigned char *>(elements_) + elements.size() * sizeof(DistinctElement); // NOLINT
     auto *co_var_it = reinterpret_cast<co_var_t *>(start);                                                  // NOLINT
-    auto *element_it = elements_;
+    auto *element_it = elements_;                                                                           // NOLINT
     for (auto const &element : elements) {
         auto *co_var_ib = co_var_it;
         for (auto const &co_var : element.first) {
@@ -1931,7 +1919,7 @@ DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool
 }
 
 auto DistinctConstraint::create(lit_t lit, Elements const &elements, bool sort) -> std::unique_ptr<DistinctConstraint> {
-    size_t size = sizeof(DistinctConstraint) + elements.size() * sizeof(DistinctElement);
+    size_t size = sizeof(DistinctConstraint) + (elements.size() * sizeof(DistinctElement));
     for (auto const &element : elements) {
         size += element.first.size() * sizeof(co_var_t);
     }
@@ -1946,11 +1934,12 @@ auto DistinctConstraint::create_state() -> UniqueConstraintState {
 
 DisjointConstraint::DisjointConstraint(lit_t lit, CoVarVec const &elements)
     : lit_{lit}, size_{static_cast<uint32_t>(elements.size())} {
-    std::copy(elements.begin(), elements.end(), elements_);
+    auto rng = std::span{elements_, size_}; // NOLINT
+    std::ranges::copy(elements, rng.begin());
 }
 
 auto DisjointConstraint::create(lit_t lit, CoVarVec const &elements) -> std::unique_ptr<DisjointConstraint> {
-    auto size = sizeof(DisjointConstraint) + elements.size() * sizeof(co_var_t);
+    auto size = sizeof(DisjointConstraint) + (elements.size() * sizeof(co_var_t));
     return std::unique_ptr<DisjointConstraint>{new (operator new(size)) DisjointConstraint(lit, elements)};
 }
 

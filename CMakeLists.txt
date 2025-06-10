@@ -79,11 +79,7 @@ else()
     if(CLINGCON_BUILD_PYTHON)
         find_package(Python COMPONENTS Interpreter Development Development.Module REQUIRED)
     endif()
-    # find_package(clingo 6.0.0 REQUIRED)
-    find_package(Clingo REQUIRED)
-    add_library(clingo::clingo ALIAS libclingo)
-    #add_library(pyclingo-interface INTERFACE)
-    add_library(clingo::pyclingo ALIAS libclingo)
+    find_package(clingo 6.0.0 REQUIRED)
 endif()
 
 if(CLINGCON_BUILD_TESTS)
@@ -97,10 +93,12 @@ endif()
 add_subdirectory(third_party)
 add_subdirectory(lib libclingcon)
 if(CLINGCON_BUILD_APP)
-    add_subdirectory(app)
+    # TODO: remove this when the app is ready
+    # add_subdirectory(app)
 endif()
 
-if(CLINGCON_INSTALL_DEFAULT)
+# TODO: reenable when c-api is ready
+if(FALSE AND CLINGCON_INSTALL_DEFAULT)
     configure_package_config_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/clingcon-config.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/clingcon-config.cmake"
