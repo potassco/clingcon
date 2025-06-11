@@ -38,12 +38,16 @@
 
 namespace Clingcon {
 
+struct Destroy {
+    template <class T> void operator()(T *x) const;
+};
+
 class Solver;
 class AbstractConstraint;
 class AbstractConstraintState;
-using UniqueConstraint = std::unique_ptr<AbstractConstraint>;
+using UniqueConstraint = std::unique_ptr<AbstractConstraint, Destroy>;
 using ConstraintVec = std::vector<UniqueConstraint>;
-using UniqueConstraintState = std::unique_ptr<AbstractConstraintState>;
+using UniqueConstraintState = std::unique_ptr<AbstractConstraintState, Destroy>;
 
 constexpr val_t MOGRIFY_FACTOR = 10;
 
@@ -53,6 +57,8 @@ class AbstractConstraint {
     AbstractConstraint() = default;
     AbstractConstraint(AbstractConstraint &&) = delete;
     virtual ~AbstractConstraint() = default;
+
+    virtual void destroy() { delete this; }
 
     //! Create thread specific state for the constraint.
     [[nodiscard]] virtual auto create_state() -> UniqueConstraintState = 0;
@@ -67,6 +73,8 @@ class AbstractConstraintState {
     AbstractConstraintState() = default;
     AbstractConstraintState(AbstractConstraintState &&) = delete;
     virtual ~AbstractConstraintState() = default;
+
+    virtual void destroy() { delete this; }
 
     //! Get the associated constraint.
     virtual auto constraint() -> AbstractConstraint & = 0;
@@ -144,6 +152,10 @@ class AbstractConstraintState {
 
     //! @}
 };
+
+template <class T> void Destroy::operator()(T *x) const {
+    x->destroy();
+}
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access,performance-unnecessary-value-param)
 

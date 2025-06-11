@@ -78,10 +78,11 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
             }
             return add_constraint(lit, vars, rhs, strict);
         }
-        propagator_.add_constraint(std::make_unique<NonlinearConstraint>(lit, co_ab, var_a, var_b, co_c, var_c, rhs));
+        propagator_.add_constraint(
+            UniqueConstraint{new NonlinearConstraint{lit, co_ab, var_a, var_b, co_c, var_c, rhs}});
         if (strict) {
-            propagator_.add_constraint(std::make_unique<NonlinearConstraint>(
-                lit, safe_inv(co_ab), var_a, var_b, safe_inv(co_c), var_c, safe_inv(safe_add(rhs, 1))));
+            propagator_.add_constraint(UniqueConstraint{new NonlinearConstraint{
+                lit, safe_inv(co_ab), var_a, var_b, safe_inv(co_c), var_c, safe_inv(safe_add(rhs, 1))}});
         }
         return true;
     }

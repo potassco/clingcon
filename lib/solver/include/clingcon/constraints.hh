@@ -52,9 +52,14 @@ class SumConstraint final : public AbstractConstraint {
 
     //! Create a new sum constraint.
     [[nodiscard]] static auto create(lit_t lit, val_t rhs, CoVarVec const &elems, bool sort)
-        -> std::unique_ptr<SumConstraint> {
+        -> std::unique_ptr<SumConstraint, Destroy> {
         auto size = sizeof(SumConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
-        return std::unique_ptr<SumConstraint>{new (operator new(size)) SumConstraint(lit, rhs, elems, sort)};
+        return std::unique_ptr<SumConstraint, Destroy>{new (operator new(size)) SumConstraint(lit, rhs, elems, sort)};
+    }
+
+    void destroy() override {
+        SumConstraint::~SumConstraint();
+        operator delete(this);
     }
 
     //! Create thread specific state for the constraint.
@@ -152,9 +157,15 @@ class MinimizeConstraint final : public AbstractConstraint {
 
     //! Create a new sum constraint.
     [[nodiscard]] static auto create(val_t adjust, CoVarVec const &elems, bool sort)
-        -> std::unique_ptr<MinimizeConstraint> {
+        -> std::unique_ptr<MinimizeConstraint, Destroy> {
         auto size = sizeof(MinimizeConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
-        return std::unique_ptr<MinimizeConstraint>{new (operator new(size)) MinimizeConstraint(adjust, elems, sort)};
+        return std::unique_ptr<MinimizeConstraint, Destroy>{new (operator new(size))
+                                                                MinimizeConstraint(adjust, elems, sort)};
+    }
+
+    void destroy() override {
+        MinimizeConstraint::~MinimizeConstraint();
+        operator delete(this);
     }
 
     //! Create thread specific state for the constraint.
@@ -242,7 +253,12 @@ class DistinctConstraint final : public AbstractConstraint {
 
     //! Create a new distinct constraint.
     [[nodiscard]] static auto create(lit_t lit, Elements const &elements, bool sort)
-        -> std::unique_ptr<DistinctConstraint>;
+        -> std::unique_ptr<DistinctConstraint, Destroy>;
+
+    void destroy() override {
+        DistinctConstraint::~DistinctConstraint();
+        operator delete(this);
+    }
 
     DistinctConstraint(DistinctConstraint &&) = delete;
 
@@ -285,7 +301,13 @@ class DistinctConstraint final : public AbstractConstraint {
 class DisjointConstraint final : public AbstractConstraint {
   public:
     //! Create a new distinct constraint.
-    [[nodiscard]] static auto create(lit_t lit, CoVarVec const &elements) -> std::unique_ptr<DisjointConstraint>;
+    [[nodiscard]] static auto create(lit_t lit, CoVarVec const &elements)
+        -> std::unique_ptr<DisjointConstraint, Destroy>;
+
+    void destroy() override {
+        DisjointConstraint::~DisjointConstraint();
+        operator delete(this);
+    }
 
     DisjointConstraint(DisjointConstraint &&) = delete;
 

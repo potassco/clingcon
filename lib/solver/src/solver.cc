@@ -538,7 +538,7 @@ void Solver::mark_inactive(AbstractConstraintState &cs) {
 }
 
 auto Solver::add_constraint(AbstractConstraint &constraint) -> AbstractConstraintState & {
-    auto &cs = c2cs_.emplace(&constraint, std::unique_ptr<AbstractConstraintState>{nullptr}).first->second;
+    auto &cs = c2cs_.emplace(&constraint, UniqueConstraintState{nullptr}).first->second;
 
     if (cs == nullptr) {
         cs = constraint.create_state();

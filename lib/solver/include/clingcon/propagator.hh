@@ -43,7 +43,7 @@
 
 namespace Clingcon {
 
-using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
+using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint, Destroy>;
 
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Heuristic {

@@ -38,7 +38,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
     SumConstraintStateImpl(SumConstraintStateImpl &&) = delete;
 
     [[nodiscard]] auto copy() const -> UniqueConstraintState override {
-        return std::unique_ptr<SumConstraintStateImpl>{new SumConstraintStateImpl(*this)};
+        return UniqueConstraintState{new SumConstraintStateImpl(*this)};
     }
 
     [[nodiscard]] auto removable() -> bool override { return !tagged; }
@@ -918,7 +918,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
     }
 
     [[nodiscard]] auto copy() const -> UniqueConstraintState override {
-        return std::unique_ptr<DistinctConstraintState>{new DistinctConstraintState(*this)};
+        return UniqueConstraintState{new DistinctConstraintState(*this)};
     }
 
     //! Add an element whose bound has changed to the todo list and mark it as
@@ -1348,8 +1348,7 @@ class NonlinearConstraintState : public AbstractConstraintState {
 
     //! Copy the constraint state (for another solver)
     [[nodiscard]] auto copy() const -> UniqueConstraintState override {
-        return std::unique_ptr<NonlinearConstraintState>{
-            new NonlinearConstraintState{constraint_, inactive_level_, todo_}};
+        return UniqueConstraintState{new NonlinearConstraintState{constraint_, inactive_level_, todo_}};
     }
 
     //! Inform the solver about updated bounds of a variable.
@@ -1801,7 +1800,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
     }
 
     [[nodiscard]] auto copy() const -> UniqueConstraintState override {
-        return std::unique_ptr<DisjointConstraintState>{new DisjointConstraintState(*this)};
+        return UniqueConstraintState{new DisjointConstraintState(*this)};
     }
 
     [[nodiscard]] auto update(val_t i, val_t diff) -> bool override {
@@ -1882,15 +1881,15 @@ class DisjointConstraintState final : public AbstractConstraintState {
 } // namespace
 
 auto SumConstraint::create_state() -> UniqueConstraintState {
-    return std::make_unique<SumConstraintStateImpl<false, SumConstraintState>>(*this);
+    return UniqueConstraintState{new SumConstraintStateImpl<false, SumConstraintState>{*this}};
 }
 
 auto MinimizeConstraint::create_state() -> UniqueConstraintState {
-    return std::make_unique<SumConstraintStateImpl<true, MinimizeConstraintState>>(*this);
+    return UniqueConstraintState{new SumConstraintStateImpl<true, MinimizeConstraintState>{*this}};
 }
 
 auto NonlinearConstraint::create_state() -> UniqueConstraintState {
-    return std::make_unique<NonlinearConstraintState>(*this);
+    return UniqueConstraintState{new NonlinearConstraintState{*this}};
 }
 
 DistinctElement::DistinctElement(val_t fixed, size_t size, co_var_t *elements, bool sort)
@@ -1918,16 +1917,18 @@ DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool
     }
 }
 
-auto DistinctConstraint::create(lit_t lit, Elements const &elements, bool sort) -> std::unique_ptr<DistinctConstraint> {
+auto DistinctConstraint::create(lit_t lit, Elements const &elements, bool sort)
+    -> std::unique_ptr<DistinctConstraint, Destroy> {
     size_t size = sizeof(DistinctConstraint) + (elements.size() * sizeof(DistinctElement));
     for (auto const &element : elements) {
         size += element.first.size() * sizeof(co_var_t);
     }
-    return std::unique_ptr<DistinctConstraint>{new (operator new(size)) DistinctConstraint(lit, elements, sort)};
+    return std::unique_ptr<DistinctConstraint, Destroy>{new (operator new(size))
+                                                            DistinctConstraint(lit, elements, sort)};
 }
 
 auto DistinctConstraint::create_state() -> UniqueConstraintState {
-    return std::make_unique<DistinctConstraintState>(*this);
+    return UniqueConstraintState{new DistinctConstraintState{*this}};
 }
 
 // class DisjointConstraint
@@ -1938,13 +1939,13 @@ DisjointConstraint::DisjointConstraint(lit_t lit, CoVarVec const &elements)
     std::ranges::copy(elements, rng.begin());
 }
 
-auto DisjointConstraint::create(lit_t lit, CoVarVec const &elements) -> std::unique_ptr<DisjointConstraint> {
+auto DisjointConstraint::create(lit_t lit, CoVarVec const &elements) -> std::unique_ptr<DisjointConstraint, Destroy> {
     auto size = sizeof(DisjointConstraint) + (elements.size() * sizeof(co_var_t));
-    return std::unique_ptr<DisjointConstraint>{new (operator new(size)) DisjointConstraint(lit, elements)};
+    return std::unique_ptr<DisjointConstraint, Destroy>{new (operator new(size)) DisjointConstraint(lit, elements)};
 }
 
 auto DisjointConstraint::create_state() -> UniqueConstraintState {
-    return std::make_unique<DisjointConstraintState>(*this);
+    return UniqueConstraintState{new DisjointConstraintState{*this}};
 }
 
 } // namespace Clingcon
