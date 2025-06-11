@@ -25,8 +25,6 @@
 #include "solve.hh"
 #include <catch2/catch_test_macros.hpp>
 
-#include <regex>
-
 using namespace Clingcon;
 
 namespace {
@@ -57,46 +55,52 @@ usedBins(U) :- U = #count{ B : packed(_,B) }.
 %#minimize{ 1,B : packed(_,B) }.
 )";
 
-auto packed(int a, int b) {
-    return Clingo::SymbolicLiteral{Clingo::Function("packed", {Clingo::Number(a), Clingo::Number(b)}), true};
-}
+struct AFixture {
 
-auto step(Propagator &prp, Clingo::Control &ctl, Clingo::SymbolicLiteralSpan assumptions = {}) {
-    SolveEventHandler hnd{prp};
-    if (ctl.solve(assumptions, &hnd, false, false).get().is_interrupted()) {
-        throw std::runtime_error("interrupted");
+    [[nodiscard]] auto packed(int a, int b) const {
+        auto atom = ctl.base().get(Clingo::Function(lib, "packed", {Clingo::Number(a), Clingo::Number(b)}));
+        return atom->literal();
     }
-    std::sort(hnd.models.begin(), hnd.models.end());
-    return std::move(hnd.models);
-}
 
-auto bound(Clingo::Control &ctl) {
-    auto stat = ctl.statistics()["summary"];
-    REQUIRE(stat.has_subkey("costs"));
-    return static_cast<int>(stat["costs"][size_t(0)].value());
-}
+    [[nodiscard]] auto step(Clingo::ProgramLiteralVector assumptions = {}) const {
+        SolveEventHandler hnd{*prp};
+        if (ctl.solve(hnd, assumptions).get().interrupted()) {
+            throw std::runtime_error("interrupted");
+        }
+        std::ranges::sort(hnd.models);
+        return std::move(hnd.models);
+    }
+
+    [[nodiscard]] auto bound() const {
+        auto stat = ctl.stats()["summary"].map();
+        REQUIRE(stat.contains("costs"));
+        return static_cast<int>(stat["costs"][0].value());
+    }
+
+    Clingo::Library lib;
+    Clingo::Control ctl{lib, {"0"}};
+    Propagator *prp = &ctl.register_propagator(std::make_unique<Propagator>(lib));
+};
 
 } // namespace
 
-TEST_CASE("assumptions", "[assumptions]") {
-    Propagator prp;
-    Clingo::Control ctl{{"0"}};
-    ctl.register_propagator(prp);
-    ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(ENC.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
-        });
-    });
+TEST_CASE_METHOD(AFixture, "assumptions", "[assumptions]") {
+    ctl.parse_string(THEORY);
+    auto scn = Clingo::AST::Scanner{lib, ENC};
+    auto prg = Clingo::AST::Program{lib};
+    for (auto const &stm : scn) {
+        transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+    }
+    ctl.join(prg);
     ctl.ground({{"base", {}}});
-    REQUIRE(!step(prp, ctl).empty());
-    REQUIRE(bound(ctl) == 2);
+    REQUIRE(!step().empty());
+    REQUIRE(bound() == 2);
 
     // ensure it is unsatisfiable
-    ctl.configuration()["solve"]["opt_mode"] = "opt,1";
-    REQUIRE(step(prp, ctl, {packed(4, 1), packed(1, 1)}).empty());
+    ctl.config()["solve"]["opt_mode"] = "opt,1";
+    REQUIRE(step({packed(4, 1), packed(1, 1)}).empty());
 
     // ensure it is unsatisfiable
-    ctl.configuration()["solve"]["opt_mode"] = "opt,1";
-    REQUIRE(step(prp, ctl, {packed(2, 2), packed(3, 1), packed(4, 1), packed(1, 1)}).empty());
+    ctl.config()["solve"]["opt_mode"] = "opt,1";
+    REQUIRE(step({packed(2, 2), packed(3, 1), packed(4, 1), packed(1, 1)}).empty());
 }
