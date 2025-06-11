@@ -28,8 +28,8 @@ set(ide_test_group "Test Files")
 set(test-group-tests
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/assumptions.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/csp.cc"
-    #"${CMAKE_CURRENT_SOURCE_DIR}/tests/fs.cc"
-    #"${CMAKE_CURRENT_SOURCE_DIR}/tests/money.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fs.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/money.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/parsing.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/solve.hh"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/util.cc")

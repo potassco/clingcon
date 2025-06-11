@@ -60,7 +60,7 @@ letter(s;e;n;d;m;o;r;y).
 
 } // namespace
 
-TEST_CASE("money", "[money]") {
+TEST_CASE_METHOD(Fixture, "money", "[money]") {
     SECTION("money") {
         REQUIRE(solve(DIST + DOM + SMM) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));
         REQUIRE(solve(DIST + DOMC + SMM) == S({"d=7 e=5 m=1 n=6 o=0 r=8 s=9 y=2"}));

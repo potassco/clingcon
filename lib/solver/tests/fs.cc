@@ -106,8 +106,13 @@ S const SOL16{"permutation(a,c) permutation(b,a) (a,1)=1 (a,2)=7 (b,1)=0 (b,2)=1
 
 S const SOL11{SOL16.begin(), SOL16.begin() + 6};
 
-auto remove_bound(std::string const &str) -> std::string {
-    return std::regex_replace(str, std::regex{"bound=[^ ]* "}, "");
+auto remove_bound(std::string str) -> std::string {
+    str.push_back(' ');
+    str = std::regex_replace(str, std::regex{"bound=[^ ]* "}, "");
+    if (str.ends_with(' ')) {
+        str.pop_back();
+    }
+    return str;
 }
 auto remove_bound(S &&res) -> S {
     for (auto &str : res) {
@@ -118,7 +123,7 @@ auto remove_bound(S &&res) -> S {
 
 } // namespace
 
-TEST_CASE("fs", "[fs]") {
+TEST_CASE_METHOD(Fixture, "fs", "[fs]") {
     SECTION("fse") {
         REQUIRE(solve(FSB + FSE + FSI, 0, 10) == S({}));
         REQUIRE(solve(FSB + FSE + FSI, 0, 11) == SOL11);
