@@ -51,10 +51,7 @@ constexpr val_t MOGRIFY_FACTOR = 10;
 class AbstractConstraint {
   public:
     AbstractConstraint() = default;
-    AbstractConstraint(AbstractConstraint const &) = delete;
     AbstractConstraint(AbstractConstraint &&) = delete;
-    auto operator=(AbstractConstraint const &) -> AbstractConstraint & = delete;
-    auto operator=(AbstractConstraint &&) -> AbstractConstraint & = delete;
     virtual ~AbstractConstraint() = default;
 
     //! Create thread specific state for the constraint.
@@ -68,10 +65,7 @@ class AbstractConstraint {
 class AbstractConstraintState {
   public:
     AbstractConstraintState() = default;
-    AbstractConstraintState(AbstractConstraintState const &) = delete;
     AbstractConstraintState(AbstractConstraintState &&) = delete;
-    auto operator=(AbstractConstraintState const &) -> AbstractConstraintState & = delete;
-    auto operator=(AbstractConstraintState &&) -> AbstractConstraintState & = delete;
     virtual ~AbstractConstraintState() = default;
 
     //! Get the associated constraint.

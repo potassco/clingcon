@@ -270,19 +270,18 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
 } // namespace
 
 void Propagator::on_model(Clingo::Model &model) {
-    // TODO: fix!!!
     std::vector<Clingo::Symbol> symbols_;
     for (auto const &[sym, var] : sym_map_) {
         if (shown(var)) {
             auto value = Clingo::Number(get_value(var, model.thread_id()));
-            // symbols_.emplace_back(Clingo::Function("__csp", {sym, value}));
+            symbols_.emplace_back(Clingo::Function(lib_, "__csp", {sym, value}));
         }
     }
 
     if (has_minimize()) {
         auto bound = get_minimize_value(model.thread_id());
-        // auto value = Clingo::String(std::to_string(bound).c_str());
-        // symbols_.emplace_back(Clingo::Function("__csp_cost", {value}));
+        auto value = Clingo::String(lib_, std::to_string(bound));
+        symbols_.emplace_back(Clingo::Function(lib_, "__csp_cost", {value}));
         if (bound <= minimize_bound_.load(std::memory_order_relaxed)) {
             stats_step_.cost = bound;
             update_minimize(bound - 1);
@@ -302,59 +301,46 @@ void Propagator::on_statistics(Clingo::Stats &step, Clingo::Stats &accu) {
 void Propagator::add_statistics_(Clingo::Stats &root, Statistics &stats) {
     using namespace Clingo;
 
-    // TODO: reimplement me!
-    static_cast<void>(root);
-    static_cast<void>(stats);
-    /*
-    UserStatistics clingcon = root.add_subkey("Clingcon", StatisticsType::Map);
+    auto clingcon = root.map().insert("Clingcon", StatsType::map).map();
 
     if (stats.cost.has_value()) {
-        clingcon.add_subkey("Cost", StatisticsType::Value).set_value(static_cast<double>(*stats.cost));
+        clingcon.insert("Cost", StatsType::value) = static_cast<double>(*stats.cost);
     }
 
-    auto init_time = clingcon.add_subkey("Init time in seconds", StatisticsType::Map);
-    init_time.add_subkey("Total", StatisticsType::Value).set_value(stats.time_init);
-    init_time.add_subkey("Simplify", StatisticsType::Value).set_value(stats.time_simplify);
-    init_time.add_subkey("Translate", StatisticsType::Value).set_value(stats.time_translate);
+    auto init_time = clingcon.insert("Init time in seconds", StatsType::map).map();
+    init_time.insert("Total", StatsType::value) = stats.time_init;
+    init_time.insert("Simplify", StatsType::value) = stats.time_simplify;
+    init_time.insert("Translate", StatsType::value) = stats.time_translate;
 
-    auto problem = clingcon.add_subkey("Problem", StatisticsType::Map);
-    problem.add_subkey("Constraints", StatisticsType::Value).set_value(static_cast<double>(stats.num_constraints));
-    problem.add_subkey("Variables", StatisticsType::Value).set_value(static_cast<double>(stats.num_variables));
-    problem.add_subkey("Clauses", StatisticsType::Value).set_value(static_cast<double>(stats.num_clauses));
-    problem.add_subkey("Literals", StatisticsType::Value).set_value(static_cast<double>(stats.num_literals));
+    auto problem = clingcon.insert("Problem", StatsType::map).map();
+    problem.insert("Constraints", StatsType::value) = static_cast<double>(stats.num_constraints);
+    problem.insert("Variables", StatsType::value) = static_cast<double>(stats.num_variables);
+    problem.insert("Clauses", StatsType::value) = static_cast<double>(stats.num_clauses);
+    problem.insert("Literals", StatsType::value) = static_cast<double>(stats.num_literals);
 
-    auto translate = clingcon.add_subkey("Translate", StatisticsType::Map);
-    translate.add_subkey("Constraints removed", StatisticsType::Value)
-        .set_value(static_cast<double>(stats.translate_removed));
-    translate.add_subkey("Constraints added", StatisticsType::Value)
-        .set_value(static_cast<double>(stats.translate_added));
-    translate.add_subkey("Clauses", StatisticsType::Value).set_value(static_cast<double>(stats.translate_clauses));
-    translate.add_subkey("Weight constraints", StatisticsType::Value)
-        .set_value(static_cast<double>(stats.translate_wcs));
-    translate.add_subkey("Literals", StatisticsType::Value).set_value(static_cast<double>(stats.translate_literals));
+    auto translate = clingcon.insert("Translate", StatsType::map).map();
+    translate.insert("Constraints removed", StatsType::value) = static_cast<double>(stats.translate_removed);
+    translate.insert("Constraints added", StatsType::value) = static_cast<double>(stats.translate_added);
+    translate.insert("Clauses", StatsType::value) = static_cast<double>(stats.translate_clauses);
+    translate.insert("Weight constraints", StatsType::value) = static_cast<double>(stats.translate_wcs);
+    translate.insert("Literals", StatsType::value) = static_cast<double>(stats.translate_literals);
 
-    UserStatistics threads = clingcon.add_subkey("Thread", StatisticsType::Array);
-    threads.ensure_size(std::distance(stats.solver_statistics.begin(), stats.solver_statistics.end()),
-                        StatisticsType::Map);
+    auto threads = clingcon.insert("Thread", StatsType::array).array();
     size_t i = 0;
     for (auto &solver_stat : stats.solver_statistics) {
-        auto thread = threads[i++];
+        auto thread = threads.ensure(i++, StatsType::map).map();
 
-        auto time = thread.add_subkey("Time in seconds", StatisticsType::Map);
+        auto time = thread.insert("Time in seconds", StatsType::map).map();
         auto total = solver_stat.time_propagate + solver_stat.time_check + solver_stat.time_undo;
-        time.add_subkey("Total", StatisticsType::Value).set_value(total);
-        time.add_subkey("Propagation", StatisticsType::Value).set_value(solver_stat.time_propagate);
-        time.add_subkey("Check", StatisticsType::Value).set_value(solver_stat.time_check);
-        time.add_subkey("Undo", StatisticsType::Value).set_value(solver_stat.time_undo);
+        time.insert("Total", StatsType::value) = total;
+        time.insert("Propagation", StatsType::value) = solver_stat.time_propagate;
+        time.insert("Check", StatsType::value) = solver_stat.time_check;
+        time.insert("Undo", StatsType::value) = solver_stat.time_undo;
 
-        thread.add_subkey("Refined reason", StatisticsType::Value)
-            .set_value(static_cast<double>(solver_stat.refined_reason));
-        thread.add_subkey("Introduced reason", StatisticsType::Value)
-            .set_value(static_cast<double>(solver_stat.introduced_reason));
-        thread.add_subkey("Literals introduced", StatisticsType::Value)
-            .set_value(static_cast<double>(solver_stat.literals));
+        thread.insert("Refined reason", StatsType::value) = static_cast<double>(solver_stat.refined_reason);
+        thread.insert("Introduced reason", StatsType::value) = static_cast<double>(solver_stat.introduced_reason);
+        thread.insert("Literals introduced", StatsType::value) = static_cast<double>(solver_stat.literals);
     }
-    */
 }
 
 auto Propagator::add_variable(Clingo::Symbol sym) -> var_t {

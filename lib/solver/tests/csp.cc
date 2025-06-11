@@ -29,7 +29,7 @@
 
 using namespace Clingcon;
 
-TEST_CASE("disjoint", "[solving]") {
+TEST_CASE_METHOD(Fixture, "disjoint", "[solving]") {
     REQUIRE(solve("&dom{1..2}=x. &dom{1..1}=y. {a}. &disjoint{x@1;y@1} :- a.") ==
             S({"a x=2 y=1", "x=1 y=1", "x=2 y=1"}));
     REQUIRE(solve("&dom{1..2}=x. &dom{1..1}=y. &dom{1..1}=z. {a}. &disjoint{x@1;y@1;z@1} :- a.") ==
@@ -53,7 +53,7 @@ TEST_CASE("disjoint", "[solving]") {
                "q(1)=4 q(2)=1 q(3)=5 q(4)=2 q(5)=6 q(6)=3", "q(1)=5 q(2)=3 q(3)=1 q(4)=6 q(5)=4 q(6)=2"}));
 }
 
-TEST_CASE("distinct", "[solving]") {
+TEST_CASE_METHOD(Fixture, "distinct", "[solving]") {
     SECTION("simple") {
         REQUIRE(solve("&distinct { 1; 3; x }.", 2, 3) == S({"x=2"}));
         REQUIRE(solve("&distinct { x; y }.", 0, 1) == S({"x=0 y=1", "x=1 y=0"}));
@@ -126,7 +126,7 @@ TEST_CASE("distinct", "[solving]") {
     }
 }
 
-TEST_CASE("optimize", "[solving]") {
+TEST_CASE_METHOD(Fixture, "optimize", "[solving]") {
     SECTION("minimize") {
         REQUIRE(solve("&minimize { x }.", -3, 3) == S({"x=-3"}));
         REQUIRE(solve("&minimize { x+6 }.", -3, 3) == S({"x=-3"}));
@@ -148,7 +148,7 @@ TEST_CASE("optimize", "[solving]") {
     }
 }
 
-TEST_CASE("dom", "[solving]") {
+TEST_CASE_METHOD(Fixture, "dom", "[solving]") {
     SECTION("dom") {
         REQUIRE(solve("&dom { 0;1..2;2..3;5 } = x.") == S({"x=0", "x=1", "x=2", "x=3", "x=5"}));
         REQUIRE(solve("1 {a; b} 1. &dom { 0;2;4 } = x :- a. &dom { 1;3;5 } = x :- b.") ==
@@ -157,7 +157,7 @@ TEST_CASE("dom", "[solving]") {
     }
 }
 
-TEST_CASE("sum", "[solving]") {
+TEST_CASE_METHOD(Fixture, "sum", "[solving]") {
     SECTION("simple") {
         REQUIRE(solve("&sum{ x } > 0. &sum{ x } < 3. &sum { x } = y.") == S({"x=1 y=1", "x=2 y=2"}));
         REQUIRE(solve("&sum {   1 *y + (-5)*x } <= 0. "
@@ -241,66 +241,63 @@ TEST_CASE("sum", "[solving]") {
         REQUIRE(solve("&sum { v(X) } = X :- X=1..3. &sum { v(X) : X=1..2; v(X) : X=2..3 } = x.") ==
                 S({"v(1)=1 v(2)=2 v(3)=3 x=8"}));
     }
-    /*
     SECTION("string") {
-        Propagator p;
-        SolveEventHandler handler{p};
-        Clingo::Control ctl{{"100"}};
-        ctl.add("base", {}, THEORY);
-        Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
-            Clingo::AST::parse_string(R"(&sum { ("a\"b\\c",0) } = 2.)", [&builder](Clingo::AST::Node const &stm) {
-                transform(stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
-            });
-        });
-        ctl.register_propagator(p);
-        ctl.ground({{"base", {}}});
+        auto ctl = Clingo::Control{lib, {"100"}};
+        auto &prp = ctl.register_propagator(std::make_unique<Propagator>(lib));
+        auto seh = SolveEventHandler{prp};
+        ctl.parse_string(THEORY);
+        auto scn = Clingo::AST::Scanner{lib, R"(&sum { ("a\"b\\c",0) } = 2.)"};
+        auto prg = Clingo::AST::Program{lib};
+        for (auto const &stm : scn) {
+            transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        }
+        ctl.join(prg);
+        ctl.ground();
         {
-            auto hnd = ctl.solve(Clingo::LiteralSpan{}, &handler, false, true);
+            auto hnd = ctl.solve(seh, {}, Clingo::SolveFlags::yield);
             for (auto &&mdl : hnd) {
-                auto syms = mdl.symbols(Clingo::ShowType::Theory);
+                auto syms = mdl.symbols(Clingo::ShowFlags::theory);
                 REQUIRE(syms.size() == 1);
-                REQUIRE(syms.front() == Clingo::Function("__csp", {Clingo::Function("", {Clingo::String(R"(a"b\c)"),
-                                                                                         Clingo::Number(0)}),
-                                                                   Clingo::Number(2)}));
+                REQUIRE(syms.front() ==
+                        Clingo::Function(lib, "__csp",
+                                         {Clingo::Tuple(lib, {Clingo::String(lib, R"(a"b\c)"), Clingo::Number(0)}),
+                                          Clingo::Number(2)}));
             }
         }
     }
-    */
 }
 
-/*
-TEST_CASE("nsum", "[solving]") {
-    SECTION("simple") {
-        REQUIRE(solve("&dom { 1..2 } = a.\n"
-                      "&dom { 1..2 } = b.\n"
-                      "&dom { -5..5 } = c.\n"
-                      "&nsum { a*b } = c.\n") == S({"a=1 b=1 c=1", "a=1 b=2 c=2", "a=2 b=1 c=2", "a=2 b=2 c=4"}));
-        REQUIRE(solve("&dom { -2..2 } = a.\n"
-                      "&dom { -2..2 } = b.\n"
-                      "&dom { -5..5 } = c.\n"
-                      "&nsum { a*b } = c.\n") ==
-                S({"a=-1 b=-1 c=1", "a=-1 b=-2 c=2", "a=-1 b=0 c=0", "a=-1 b=1 c=-1", "a=-1 b=2 c=-2",
-                   "a=-2 b=-1 c=2", "a=-2 b=-2 c=4", "a=-2 b=0 c=0", "a=-2 b=1 c=-2", "a=-2 b=2 c=-4",
-                   "a=0 b=-1 c=0",  "a=0 b=-2 c=0",  "a=0 b=0 c=0",  "a=0 b=1 c=0",   "a=0 b=2 c=0",
-                   "a=1 b=-1 c=-1", "a=1 b=-2 c=-2", "a=1 b=0 c=0",  "a=1 b=1 c=1",   "a=1 b=2 c=2",
-                   "a=2 b=-1 c=-2", "a=2 b=-2 c=-4", "a=2 b=0 c=0",  "a=2 b=1 c=2",   "a=2 b=2 c=4"}));
-    }
+TEST_CASE_METHOD(Fixture, "nsum") {
+    REQUIRE(solve("&dom { 1..2 } = a.\n"
+                  "&dom { 1..2 } = b.\n"
+                  "&dom { -5..5 } = c.\n"
+                  "&nsum { a*b } = c.\n") == S({"a=1 b=1 c=1", "a=1 b=2 c=2", "a=2 b=1 c=2", "a=2 b=2 c=4"}));
+    REQUIRE(solve("&dom { -2..2 } = a.\n"
+                  "&dom { -2..2 } = b.\n"
+                  "&dom { -5..5 } = c.\n"
+                  "&nsum { a*b } = c.\n") ==
+            S({"a=-1 b=-1 c=1", "a=-1 b=-2 c=2", "a=-1 b=0 c=0", "a=-1 b=1 c=-1", "a=-1 b=2 c=-2",
+               "a=-2 b=-1 c=2", "a=-2 b=-2 c=4", "a=-2 b=0 c=0", "a=-2 b=1 c=-2", "a=-2 b=2 c=-4",
+               "a=0 b=-1 c=0",  "a=0 b=-2 c=0",  "a=0 b=0 c=0",  "a=0 b=1 c=0",   "a=0 b=2 c=0",
+               "a=1 b=-1 c=-1", "a=1 b=-2 c=-2", "a=1 b=0 c=0",  "a=1 b=1 c=1",   "a=1 b=2 c=2",
+               "a=2 b=-1 c=-2", "a=2 b=-2 c=-4", "a=2 b=0 c=0",  "a=2 b=1 c=2",   "a=2 b=2 c=4"}));
 }
 
-TEST_CASE("multishot", "[solving]"){
-    SECTION("simple"){REQUIRE(solve_multi("#program a.\n"
-                                          "&dom{ 1..2 } = a.\n"
-                                          "#program b.\n"
-                                          "{ b }.\n"
-                                          "&dom{ 1..1 } = b.\n",
-                                          {{"a", {}}, {"b", {}}}) ==
-                              S{{"a=1", "a=2", "---", "a=1 b=1", "a=2 b=1", "b a=1 b=1", "b a=2 b=1"}});
+TEST_CASE_METHOD(Fixture, "multishot", "[solving]") {
+    REQUIRE(solve_multi("#program a.\n"
+                        "&dom{ 1..2 } = a.\n"
+                        "#program b.\n"
+                        "{ b }.\n"
+                        "&dom{ 1..1 } = b.\n",
+                        {{"a", {}}, {"b", {}}}) ==
+            S{{"a=1", "a=2", "---", "a=1 b=1", "a=2 b=1", "b a=1 b=1", "b a=2 b=1"}});
 }
-SECTION("enumerate") {
+
+TEST_CASE_METHOD(Fixture, "enumerate") {
     REQUIRE(solve_multi("#program prog(id).\n"
                         "{selected(id)}.\n"
                         "&dom{ 1..2 } = val(id).\n",
-                        {{"prog", {Clingo::Function("a", {})}}, {"prog", {Clingo::Function("b", {})}}}) ==
+                        {{"prog", {Clingo::Function(lib, "a", {})}}, {"prog", {Clingo::Function(lib, "b", {})}}}) ==
             S{{"selected(a) val(a)=1",
                "selected(a) val(a)=2",
                "val(a)=1",
@@ -323,7 +320,8 @@ SECTION("enumerate") {
                "val(a)=2 val(b)=1",
                "val(a)=2 val(b)=2"}});
 }
-SECTION("optimize") {
+
+TEST_CASE_METHOD(Fixture, "optimize") {
     REQUIRE(solve_opt("#program base. "
                       "&dom {-3..9} = x. "
                       "&minimize { x }. "
@@ -331,5 +329,3 @@ SECTION("optimize") {
                       "&sum { x } >= 5.",
                       {{"base", {}}, {"next", {}}}) == O({-3, 5}));
 }
-}
-*/
