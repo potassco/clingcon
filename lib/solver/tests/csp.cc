@@ -260,7 +260,7 @@ TEST_CASE_METHOD(Fixture, "sum", "[solving]") {
                 REQUIRE(syms.size() == 1);
                 REQUIRE(syms.front() ==
                         Clingo::Function(lib, "__csp",
-                                         {Clingo::Tuple(lib, {Clingo::String(lib, R"(a"b\c)"), Clingo::Number(0)}),
+                                         {Clingo::Tuple(lib, {Clingo::String(lib, R"(a"b\\c)"), Clingo::Number(0)}),
                                           Clingo::Number(2)}));
             }
         }

@@ -81,9 +81,9 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         auto it = std::ranges::find(vars_, var);
         if (it == vars_.end()) {
             vars_.emplace_back(var);
-            return vars_.size() - 1;
+            return static_cast<var_t>(vars_.size() - 1);
         }
-        return it - vars_.begin();
+        return static_cast<var_t>(it - vars_.begin());
     }
 
     auto add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) -> bool override {

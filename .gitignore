@@ -15,3 +15,5 @@ MANIFEST
 clingcon.solve.out
 clingcon.solve.prof
 .venv
+/.vs
+/CMakeSettings.json

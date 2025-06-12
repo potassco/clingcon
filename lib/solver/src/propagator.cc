@@ -532,12 +532,12 @@ void Propagator::do_check(Clingo::PropagateControl control) {
     }
 }
 
-void Propagator::do_undo(id_t thread_id, [[maybe_unused]] Clingo::Assignment assignment,
+void Propagator::do_undo(Clingo::ProgramId thread_id, [[maybe_unused]] Clingo::Assignment assignment,
                          [[maybe_unused]] Clingo::ProgramLiteralSpan changes) noexcept {
     solver_(thread_id).undo();
 }
 
-auto Propagator::do_decide(id_t thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t {
+auto Propagator::do_decide(Clingo::ProgramId thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t {
     return solver_(thread_id).decide(assign, fallback);
 }
 

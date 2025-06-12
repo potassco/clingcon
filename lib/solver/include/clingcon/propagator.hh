@@ -108,9 +108,9 @@ class Propagator final : public Clingo::Heuristic {
     void do_check(Clingo::PropagateControl control) override;
 
     //! Delegates undoing to the respective solver.
-    void do_undo(id_t thread_id, Clingo::Assignment assignment, Clingo::ProgramLiteralSpan changes) noexcept override;
+    void do_undo(Clingo::ProgramId thread_id, Clingo::Assignment assignment, Clingo::ProgramLiteralSpan changes) noexcept override;
 
-    [[nodiscard]] auto do_decide(id_t thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t override;
+    [[nodiscard]] auto do_decide(Clingo::ProgramId thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t override;
 
     //! Determine if the given variable should be shown.
     [[nodiscard]] auto shown(var_t var) -> bool;

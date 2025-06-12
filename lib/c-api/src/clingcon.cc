@@ -67,7 +67,7 @@ auto propagate(clingo_propagate_control_t *c_ctl, clingo_literal_t const *change
 
 void undo(clingo_propagate_control_t const *control, clingo_literal_t const *changes, size_t size, void *data) {
     try {
-        id_t thread_id = 0;
+        Clingo::ProgramId thread_id = 0;
         clingo_assignment_t const *assignment = nullptr;
         handle_error(clingo_propagate_control_thread_id(control, &thread_id));
         handle_error(clingo_propagate_control_assignment(control, &assignment));
@@ -587,7 +587,7 @@ struct clingcon_theory {
                 *index = 0;
             }
             auto const &map = theory->propagator.var_map();
-            auto it = map.lower_bound(*index);
+            auto it = map.lower_bound(static_cast<var_t>(*index));
             *has_value = it != map.end();
             if (*has_value) {
                 *index = *index + 1;
@@ -600,7 +600,7 @@ struct clingcon_theory {
                                      clingo_theory_value_t *value, bool *has_value) -> bool {
         CLINGO_TRY {
             auto *theory = static_cast<clingcon_theory *>(self);
-            auto sym = theory->propagator.get_symbol(index - 1);
+            auto sym = theory->propagator.get_symbol(static_cast<var_t>(index - 1));
             if (has_value != nullptr) {
                 *has_value = sym.has_value();
             }
@@ -611,7 +611,7 @@ struct clingcon_theory {
                 }
                 if (value != nullptr) {
                     value->type = clingo_theory_value_type_int;                             // NOLINT
-                    value->int_number = theory->propagator.get_value(index - 1, thread_id); // NOLINT
+                    value->int_number = theory->propagator.get_value(static_cast<var_t>(index - 1), thread_id); // NOLINT
                 }
             }
         }
