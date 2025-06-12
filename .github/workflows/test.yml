@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - wip
+      - wip-20
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            generator: "Ninja Multi-Config"
+          - os: macos-latest
+            generator: "Ninja Multi-Config"
+          - os: windows-latest
+            generator: "Visual Studio 17 2022"
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channel-priority: strict
+          use-mamba: true
+          environment-file: .github/test-environment.yml
+          activate-environment: test-env
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G "${{ matrix.generator }}" \
+            -DCMAKE_INSTALL_PREFIX="$CONDA_PREFIX" \
+            -DCLINGCON_BUILD_TESTS=On \
+            -DCLINGCON_BUILD_APP=On
+
+      - name: Build
+        run: |
+          cmake --build build --config Release
+
+      - name: Test
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Install
+        run: |
+          cmake --install build --config Release
+          clingo-dl --version
