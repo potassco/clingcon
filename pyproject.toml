@@ -4,7 +4,7 @@ version = "5.2.1"
 dependencies = ["clingo"]
 
 # [project.scripts]
-# pyclingo = "clingo.app:_pyclingodl"
+pyclingcon = "clingcon.main"
 
 [build-system]
 requires = ["scikit-build-core", "pybind11", "clingo"]
