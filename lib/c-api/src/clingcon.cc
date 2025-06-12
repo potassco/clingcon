@@ -516,13 +516,13 @@ struct clingcon_theory {
                      parser_bool_thread(theory->deferred, Target::SplitAll), true);
 
             // hidden/debug
-            opts.add(group, "min-int,@2", format("Set minimum integer [", config.min_int, "]"),
+            opts.add(group, "@2,min-int", format("Set minimum integer [", config.min_int, "]"),
                      parser_num<val_t>(config.min_int, MIN_VAL, MAX_VAL), false, "<i>");
-            opts.add(group, "max-int,@2", format("Set maximum integer [", config.max_int, "]"),
+            opts.add(group, "@2,max-int", format("Set maximum integer [", config.max_int, "]"),
                      parser_num<val_t>(config.max_int, MIN_VAL, MAX_VAL), false, "<i>");
-            opts.add_flag(group, "check-solution,@2",
+            opts.add_flag(group, "@2,check-solution",
                           format("Verify solutions [", flag_str(config.check_solution), "]"), config.check_solution);
-            opts.add_flag(group, "check-state,@2",
+            opts.add_flag(group, "@2,check-state",
                           format("Check state invariants [", flag_str(config.check_state), "]"), config.check_state);
         }
         CLINGO_CATCH;

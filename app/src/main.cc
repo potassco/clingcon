@@ -1,144 +1,112 @@
-#include <algorithm>
 #include <clingcon.h>
-#include <clingo.hh>
-#include <fstream>
-#include <iostream>
-#include <optional>
 
-#ifdef CLINGCON_PROFILE
+#include <clingo/app.hh>
+#include <clingo/theory.hh>
+
+#include <iostream>
+#include <utility>
+
+#ifdef CLINGODL_PROFILE
 #include <gperftools/profiler.h>
 #endif
 
-using Clingo::Detail::handle_error;
+namespace Clingcon {
 
-class Rewriter {
+//! Application class to run clingo-dl.
+class App : public Clingo::App, private Clingo::SolveEventHandler {
   public:
-    Rewriter(clingcon_theory_t *theory, clingo_program_builder_t *builder) : theory_{theory}, builder_{builder} {}
-
-    void rewrite(Clingo::Control &control, Clingo::StringSpan files) {
-        handle_error(
-            clingo_ast_parse_files(files.begin(), files.size(), rewrite_, this, control.to_c(), nullptr, nullptr, 0));
-    }
-
-  private:
-    static auto add_(clingo_ast_t *stm, void *data) -> bool {
-        auto *self = static_cast<Rewriter *>(data);
-        return clingo_program_builder_add(self->builder_, stm);
-    }
-
-    static auto rewrite_(clingo_ast_t *stm, void *data) -> bool {
-        auto *self = static_cast<Rewriter *>(data);
-        return clingcon_rewrite_ast(self->theory_, stm, add_, self);
-    }
-
-    clingcon_theory_t *theory_;
-    clingo_program_builder_t *builder_;
-};
-
-class ClingconApp final : public Clingo::Application, private Clingo::SolveEventHandler {
-  public:
-    ClingconApp() { handle_error(clingcon_create(&theory_)); }
-
-    ClingconApp(ClingconApp const &) = delete;
-    ClingconApp(ClingconApp &&) = delete;
-    auto operator=(ClingconApp const &) -> ClingconApp & = delete;
-    auto operator=(ClingconApp &&) -> ClingconApp & = delete;
-
-    ~ClingconApp() override {
-        if (theory_ != nullptr) {
-            clingcon_destroy(theory_);
-        }
-    }
-
-    [[nodiscard]] auto program_name() const noexcept -> char const * override { return "clingcon"; }
-
-    [[nodiscard]] auto version() const noexcept -> char const * override { return CLINGCON_VERSION; }
-
-    void register_options(Clingo::ClingoOptions &options) override {
-        handle_error(clingcon_register_options(theory_, options.to_c()));
-    }
-
-    void validate_options() override { handle_error(clingcon_validate_options(theory_)); }
-
-    auto on_model(Clingo::Model &model) -> bool override {
-        handle_error(clingcon_on_model(theory_, model.to_c()));
+    App(Clingo::Library lib) : lib_{std::move(lib)} {}
+    //! Set program name to clingo-dl.
+    auto do_program_name() noexcept -> std::string_view override { return "clingo-dl"; }
+    //! Set the version.
+    auto do_version() noexcept -> std::string_view override { return CLINGCON_VERSION; }
+    //! Pass models to the theory.
+    auto do_model(Clingo::Model model) -> bool override {
+        theory_.model(model);
         return true;
     }
-
-    void print_model(Clingo::Model const &model, std::function<void()> default_printer) noexcept override {
+    //! Pass statistics to the theory.
+    void do_stats(Clingo::Stats step, Clingo::Stats accu) override { theory_.stats(step, accu); }
+    //! Run main solving function.
+    void do_main(Clingo::Control const &ctl, Clingo::StringSpan files) override { // NOLINT
+        theory_.register_theory(ctl);
+        theory_.rewrite(lib_, ctl, files);
+        ctl.ground();
+#ifdef CLINGODL_PROFILE
+        ProfilerStart("clingcon.solve.prof");
+#endif
+        theory_.prepare(ctl);
+        std::ignore = ctl.solve(*this).get();
+#ifdef CLINGODL_PROFILE
+        ProfilerStop();
+#endif
+    }
+    void do_print_model(Clingo::ConstModel model, Clingo::ModelPrinter const &default_printer) override {
         static_cast<void>(default_printer);
         try {
+            auto symbols = model.symbols(Clingo::ShowFlags::shown);
+
             // print model
             bool comma = false;
-            auto symbols = model.symbols(Clingo::ShowType::Shown);
-            symvec_.assign(symbols.begin(), symbols.end());
             std::ranges::sort(symbols);
             for (auto &sym : symbols) {
-                std::cout << (comma ? " " : "") << sym;
-                comma = true;
+                if (!sym.match("__csp", 2) && !sym.match("__csp_bound", 1)) {
+                    std::cout << (comma ? " " : "") << sym;
+                    comma = true;
+                }
             }
-            std::cout << "\n";
 
             // print assignment
+            std::cout << "\nAssignment:\n";
             comma = false;
-            symbols = model.symbols(Clingo::ShowType::Theory);
-            symvec_.assign(symbols.begin(), symbols.end());
-            std::ranges::sort(symbols);
-            char const *cost = nullptr;
-            std::cout << "Assignment:\n";
+            auto cost = std::optional<Clingo::Symbol>{};
             for (auto &sym : symbols) {
                 if (sym.match("__csp", 2)) {
                     auto arguments = sym.arguments();
                     std::cout << (comma ? " " : "") << arguments[0] << "=" << arguments[1];
                     comma = true;
-                } else if (sym.match("__csp_cost", 1)) {
+
+                } else if (sym.match("__csp_bound", 1)) {
                     auto arguments = sym.arguments();
-                    if (arguments[0].type() == Clingo::SymbolType::String) {
-                        cost = arguments[0].string();
+                    if (arguments[0].type() == Clingo::SymbolType::string) {
+                        cost = arguments[0];
                     }
                 }
             }
             std::cout << "\n";
 
             // print cost
-            if (cost != nullptr) {
-                std::cout << "Cost: " << cost << "\n";
+            if (cost) {
+                std::cout << "Cost: " << *cost << "\n";
             }
 
             std::cerr.flush();
         } catch (...) {
+            fprintf(stderr, "panic: printing model failed\n");
             std::terminate();
         }
     }
-    void on_statistics(Clingo::UserStatistics step, Clingo::UserStatistics accu) override {
-        handle_error(clingcon_on_statistics(theory_, step.to_c(), accu.to_c()));
+
+    //! Register options of the theory and optimization related options.
+    void do_register_options(Clingo::Options options) override {
+        using namespace std::string_view_literals;
+        theory_.register_options(options);
     }
-
-    void main(Clingo::Control &control, Clingo::StringSpan files) override { // NOLINT(bugprone-exception-escape)
-        handle_error(clingcon_register(theory_, control.to_c()));
-
-        Clingo::AST::with_builder(control, [&](Clingo::AST::ProgramBuilder &builder) {
-            Rewriter rewriter{theory_, builder.to_c()};
-            rewriter.rewrite(control, files);
-        });
-        control.ground({{"base", {}}});
-        handle_error(clingcon_prepare(theory_, control.to_c()));
-
-#ifdef CLINGCON_PROFILE
-        ProfilerStart("clingcon.solve.prof");
-#endif
-        control.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
-#ifdef CLINGCON_PROFILE
-        ProfilerStop();
-#endif
-    }
+    //! Validate options of the theory.
+    void do_validate_options() override { theory_.validate_options(); }
 
   private:
-    clingcon_theory_t *theory_{nullptr};
+    Clingo::Library lib_;
+    Clingo::Theory theory_{lib_, clingcon_create};
     std::vector<Clingo::Symbol> symvec_;
 };
 
+} // namespace Clingcon
+
+//! Run the clingo-dl application.
 auto main(int argc, char *argv[]) -> int { // NOLINT(bugprone-exception-escape)
-    ClingconApp app;
-    return Clingo::clingo_main(app, {argv + 1, static_cast<size_t>(argc - 1)});
+    Clingo::Library lib;
+    Clingcon::App app{lib};
+    auto args = std::vector<std::string_view>{argv + 1, argv + argc};
+    return Clingo::main(lib, args, &app);
 }

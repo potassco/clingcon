@@ -93,12 +93,10 @@ endif()
 add_subdirectory(third_party)
 add_subdirectory(lib libclingcon)
 if(CLINGCON_BUILD_APP)
-    # TODO: remove this when the app is ready
-    # add_subdirectory(app)
+    add_subdirectory(app)
 endif()
 
-# TODO: reenable when c-api is ready
-if(FALSE AND CLINGCON_INSTALL_DEFAULT)
+if(CLINGCON_INSTALL_DEFAULT)
     configure_package_config_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/clingcon-config.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/clingcon-config.cmake"
