@@ -3,7 +3,7 @@ name = "clingcon"
 version = "5.2.1"
 dependencies = ["clingo"]
 
-# [project.scripts]
+[project.scripts]
 pyclingcon = "clingcon.main"
 
 [build-system]

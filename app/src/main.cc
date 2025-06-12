@@ -50,7 +50,7 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
             bool comma = false;
             std::ranges::sort(symbols);
             for (auto &sym : symbols) {
-                if (!sym.match("__csp", 2) && !sym.match("__csp_bound", 1)) {
+                if (!sym.match("__csp", 2) && !sym.match("__csp_cost", 1)) {
                     std::cout << (comma ? " " : "") << sym;
                     comma = true;
                 }
@@ -66,18 +66,20 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
                     std::cout << (comma ? " " : "") << arguments[0] << "=" << arguments[1];
                     comma = true;
 
-                } else if (sym.match("__csp_bound", 1)) {
+                } else if (sym.match("__csp_cost", 1)) {
                     auto arguments = sym.arguments();
-                    if (arguments[0].type() == Clingo::SymbolType::string) {
-                        cost = arguments[0];
-                    }
+                    cost = arguments[0];
                 }
             }
             std::cout << "\n";
 
             // print cost
             if (cost) {
-                std::cout << "Cost: " << *cost << "\n";
+                if (cost->type() == Clingo::SymbolType::string) {
+                    std::cout << "Cost: " << cost->string() << "\n";
+                } else {
+                    std::cout << "Cost: " << *cost << "\n";
+                }
             }
 
             std::cerr.flush();
