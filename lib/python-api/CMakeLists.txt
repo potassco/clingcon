@@ -1,7 +1,7 @@
 # [[[source: src
 set(ide_source_group "Source Files")
 set(source-group
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/_clingcon.c")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/clingcon.cc")
 source_group("${ide_source_group}" FILES ${source-group})
 set(source
     ${source-group})
