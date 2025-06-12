@@ -292,14 +292,14 @@ void Propagator::on_model(Clingo::Model &model) {
     model.extend(symbols_);
 }
 
-void Propagator::on_statistics(Clingo::Stats &step, Clingo::Stats &accu) {
+void Propagator::on_statistics(Clingo::Stats step, Clingo::Stats accu) {
     stats_accu_.accu(stats_step_);
     add_statistics_(step, stats_step_);
     add_statistics_(accu, stats_accu_);
     stats_step_.reset();
 }
 
-void Propagator::add_statistics_(Clingo::Stats &root, Statistics &stats) {
+void Propagator::add_statistics_(Clingo::Stats root, Statistics &stats) {
     using namespace Clingo;
 
     auto clingcon = root.map().insert("Clingcon", StatsType::map).map();
@@ -344,7 +344,7 @@ void Propagator::add_statistics_(Clingo::Stats &root, Statistics &stats) {
     }
 }
 
-auto Propagator::add_variable(Clingo::Symbol sym) -> var_t {
+auto Propagator::add_variable(Clingo::Symbol const &sym) -> var_t {
     auto [it, ret] = sym_map_.emplace(sym, 0);
 
     if (ret) {

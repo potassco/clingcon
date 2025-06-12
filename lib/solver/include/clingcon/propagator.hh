@@ -66,10 +66,10 @@ class Propagator final : public Clingo::Heuristic {
     void on_model(Clingo::Model &model);
 
     //! Callback to update step and accumulated statistics.
-    void on_statistics(Clingo::Stats &step, Clingo::Stats &accu);
+    void on_statistics(Clingo::Stats step, Clingo::Stats accu);
 
     //! Add a variable to the program.
-    auto add_variable(Clingo::Symbol sym) -> var_t;
+    auto add_variable(Clingo::Symbol const &sym) -> var_t;
 
     //! Enable show statement.
     //!
@@ -171,7 +171,7 @@ class Propagator final : public Clingo::Heuristic {
     }
 
     //! Add collected statistics in stats to the clingo's statistics.
-    static void add_statistics_(Clingo::Stats &root, Statistics &stats);
+    static void add_statistics_(Clingo::Stats root, Statistics &stats);
 
     //! Add a constraint to the program that has already been added to the
     //! master solver.
