@@ -113,18 +113,16 @@ class ClingconApp(App):
         self._theory.on_model(model)
 
     def _on_stats(self, step, accu):
-        # self._theory.on_stats(step, accu)
-        pass
+        self._theory.on_stats(step, accu)
 
 
-def main():
+def run():
     lib = Library()
     app = ClingconApp(lib)
     clingo_main(lib, sys.argv[1:], app)
 
 
-if __name__ == "__main__":
-    main()
+run()
 )py");
 }
 

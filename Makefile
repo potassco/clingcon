@@ -1,11 +1,15 @@
 BUILD_TYPE:=debug
 POTASSCO_PREFIX:=${HOME}/.local/opt/potassco/$(BUILD_TYPE)
-CXXFLAGS=-Wall -Wextra -Wpedantic -Werror
+CXX_FLAGS := -stdlib=libc++ -Wall -Wextra -Wpedantic -Werror
+C_COMPILER := $(shell test -e /usr/bin/clang-18 && echo /usr/bin/clang-18 || echo clang)
+CXX_COMPILER := $(shell test -e /usr/bin/clang++-18 && echo /usr/bin/clang++-18 || echo clang++)
 define cmake_options
 -S . \
 -B "build/$(BUILD_TYPE)" \
+-DCMAKE_CXX_COMPILER="$(CXX_COMPILER)" \
+-DCMAKE_C_COMPILER="$(C_COMPILER)" \
 -DCMAKE_INSTALL_PREFIX="$(POTASSCO_PREFIX)" \
--DCMAKE_CXX_FLAGS="$(CXXFLAGS)" \
+-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
 -DCLINGCON_BUILD_TESTS=On \
 -DCMAKE_EXPORT_COMPILE_COMMANDS=On
 endef
