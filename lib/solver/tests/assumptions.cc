@@ -59,7 +59,7 @@ struct AFixture {
 
     [[nodiscard]] auto packed(int a, int b) const {
         auto atom = ctl.base().get(Clingo::Function(lib, "packed", {Clingo::Number(a), Clingo::Number(b)}));
-        return atom->literal();
+        return atom.value().literal(); // NOLINT
     }
 
     [[nodiscard]] auto step(Clingo::ProgramLiteralVector assumptions = {}) const {
@@ -86,12 +86,12 @@ struct AFixture {
 
 TEST_CASE_METHOD(AFixture, "assumptions", "[assumptions]") {
     ctl.parse_string(THEORY);
-    auto scn = Clingo::AST::Scanner{lib, ENC};
     auto prg = Clingo::AST::Program{lib};
-    for (auto const &stm : scn) {
-        transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
-    }
+    Clingo::AST::parse(lib, ENC, [&](auto const &stm) {
+        Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+    });
     ctl.join(prg);
+
     ctl.ground({{"base", {}}});
     REQUIRE(!step().empty());
     REQUIRE(bound() == 2);

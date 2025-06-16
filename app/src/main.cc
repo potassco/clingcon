@@ -31,15 +31,19 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
     void do_main(Clingo::Control const &ctl, Clingo::StringSpan files) override { // NOLINT
         theory_.register_theory(ctl);
         theory_.rewrite(lib_, ctl, files);
-        ctl.ground();
+        if (ctl.mode() == Clingo::ControlMode::solve) {
+            ctl.ground();
 #ifdef CLINGODL_PROFILE
-        ProfilerStart("clingcon.solve.prof");
+            ProfilerStart("clingcon.solve.prof");
 #endif
-        theory_.prepare(ctl);
-        std::ignore = ctl.solve(*this).get();
+            theory_.prepare(ctl);
+            std::ignore = ctl.solve(*this).get();
 #ifdef CLINGODL_PROFILE
-        ProfilerStop();
+            ProfilerStop();
 #endif
+        } else {
+            ctl.main();
+        }
     }
     void do_print_model(Clingo::ConstModel model, Clingo::ModelPrinter const &default_printer) override {
         static_cast<void>(default_printer);

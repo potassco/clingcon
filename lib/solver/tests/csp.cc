@@ -23,9 +23,8 @@
 // }}}
 
 #include "solve.hh"
-#include <catch2/catch_test_macros.hpp>
 
-#include <iostream>
+#include <catch2/catch_test_macros.hpp>
 
 using namespace Clingcon;
 
@@ -246,11 +245,10 @@ TEST_CASE_METHOD(Fixture, "sum", "[solving]") {
         auto &prp = ctl.register_propagator(std::make_unique<Propagator>(lib));
         auto seh = SolveEventHandler{prp};
         ctl.parse_string(THEORY);
-        auto scn = Clingo::AST::Scanner{lib, R"(&sum { ("a\"b\\c",0) } = 2.)"};
         auto prg = Clingo::AST::Program{lib};
-        for (auto const &stm : scn) {
-            transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
-        }
+        Clingo::AST::parse(lib, R"(&sum { ("a\"b\\c",0) } = 2.)", [&](auto const &stm) {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        });
         ctl.join(prg);
         ctl.ground();
         {

@@ -203,10 +203,16 @@ struct Fixture {
 
     [[nodiscard]] auto transform(std::string_view str, bool shift = true) const -> std::string {
         std::ostringstream oss;
-        auto scn = Clingo::AST::Scanner{lib, str};
-        for (auto const &stm : scn) {
-            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { oss << stm.to_string(); }, shift);
-        }
+        Clingo::AST::parse(lib, str, [&](auto const &stm) {
+            Clingcon::transform(
+                lib, stm,
+                [&](Clingo::AST::Node const &stm) {
+                    if (stm.type() != Clingo::AST::NodeType::statement_program) {
+                        oss << stm.to_string();
+                    }
+                },
+                shift);
+        });
         return oss.str();
     }
 
@@ -215,10 +221,9 @@ struct Fixture {
         ctl.parse_string(THEORY);
         {
             auto prg = Clingo::AST::Program{lib};
-            auto scn = Clingo::AST::Scanner{lib, str};
-            for (auto const &stm : scn) {
+            Clingo::AST::parse(lib, str, [&](auto const &stm) {
                 Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
-            }
+            });
             ctl.join(prg);
         }
         ctl.ground();

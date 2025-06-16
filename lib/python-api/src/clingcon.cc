@@ -20,7 +20,7 @@ from typing import Callable, Sequence
 
 from clingo.app import App, AppOptions, clingo_main
 from clingo.core import Library
-from clingo.control import Control
+from clingo.control import Control, ControlMode
 from clingo.symbol import SymbolType
 from clingo.theory import Theory
 from clingo.solve import Model
@@ -42,14 +42,14 @@ class ClingconApp(App):
         Run the main execution flow of the application.
         """
         self._theory.register(control)
-        with ast.Scanner(self._lib, files) as scn:
-            prg = ast.Program(self._lib)
-            for stm in scn:
-                self._theory.rewrite(stm, prg.add)
-            control.join(prg)
-        control.ground()
-        with control.solve(on_model=self._on_model, on_stats=self._on_stats) as hnd:
-            hnd.get()
+        self._theory.rewrite_files(self._lib, control, files)
+        if control.mode == ControlMode.Solve:
+            control.ground()
+            self._theory.prepare(control)
+            with control.solve(on_model=self._on_model, on_stats=self._on_stats) as hnd:
+                hnd.get()
+        else:
+            control.main()
 
     def print_model(self, model: Model, default_printer: Callable[[], None]) -> None:
         """

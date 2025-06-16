@@ -125,11 +125,10 @@ struct Fixture {
         auto hnd = SolveEventHandler{prp};
 
         ctl.parse_string(THEORY);
-        auto scn = Clingo::AST::Scanner{lib, str};
         auto prg = Clingo::AST::Program{lib};
-        for (auto const &stm : scn) {
-            transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
-        }
+        Clingo::AST::parse(lib, str, [&](auto const &stm) {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        });
         ctl.join(prg);
 
         ctl.ground();
@@ -188,7 +187,7 @@ struct Fixture {
             }
             last = current;
         }
-        return *last;
+        return last.value(); // NOLINT
     }
 
     auto solve_multi(Config const &config, std::string const &str, Clingo::PartList parts) -> S {
@@ -198,11 +197,10 @@ struct Fixture {
         prp.config() = config;
         ctl.parse_string(THEORY);
 
-        auto scn = Clingo::AST::Scanner{lib, str};
         auto prg = Clingo::AST::Program{lib};
-        for (auto const &stm : scn) {
-            transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
-        }
+        Clingo::AST::parse(lib, str, [&](auto const &stm) {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        });
         ctl.join(prg);
 
         S result;
@@ -240,7 +238,7 @@ struct Fixture {
             }
             last = current;
         }
-        return *last;
+        return last.value(); // NOLINT
     }
 
     auto solve_opt(Config const &config, std::string const &str, Clingo::PartList parts, bool null_enum) -> O {
@@ -253,11 +251,10 @@ struct Fixture {
         p.config() = config;
 
         ctl.parse_string(THEORY);
-        auto scn = Clingo::AST::Scanner{lib, str};
         auto prg = Clingo::AST::Program{lib};
-        for (auto const &stm : scn) {
-            transform(lib, stm, [&prg](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
-        }
+        Clingo::AST::parse(lib, str, [&](auto const &stm) {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        });
         ctl.join(prg);
 
         O bounds;

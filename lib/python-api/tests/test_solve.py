@@ -1,6 +1,5 @@
 import gc
 
-from clingo import ast
 from clingo.control import Control
 from clingo.core import Library
 from clingo.theory import Theory
@@ -17,13 +16,9 @@ def test_solve():
 
     ctl = Control(lib)
     thy.register(ctl)
-    prg = ast.Program(lib)
-    with ast.Scanner(
-        lib, "a. b. c. &sum{x} = 0. &sum {y} <= 1. &diff{x - y} <= -1."
-    ) as scanner:
-        for stm in scanner:
-            thy.rewrite(stm, prg.add)
-    ctl.join(prg)
+    thy.rewrite_string(
+        lib, ctl, "a. b. c. &sum{x} = 0. &sum {y} <= 1. &diff{x - y} <= -1."
+    )
     ctl.ground()
     thy.prepare(ctl)
 
