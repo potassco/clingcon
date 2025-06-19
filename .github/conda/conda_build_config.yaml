@@ -1,0 +1,8 @@
+clingo:
+  - 6.0
+CONDA_BUILD_SYSROOT:
+  - /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk # [osx]
+MACOSX_DEPLOYMENT_TARGET:
+  - "14" # [osx]
+cxx_compiler_version:
+  - 18 # [osx]
