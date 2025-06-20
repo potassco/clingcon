@@ -58,4 +58,4 @@ jobs:
       - name: Install
         run: |
           cmake --install build --config Release
-          clingo-dl --version
+          clingcon --version

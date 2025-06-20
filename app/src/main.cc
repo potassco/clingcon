@@ -6,18 +6,18 @@
 #include <iostream>
 #include <utility>
 
-#ifdef CLINGODL_PROFILE
+#ifdef CLINGCON_PROFILE
 #include <gperftools/profiler.h>
 #endif
 
 namespace Clingcon {
 
-//! Application class to run clingo-dl.
+//! Application class to run clingcon.
 class App : public Clingo::App, private Clingo::SolveEventHandler {
   public:
     App(Clingo::Library lib) : lib_{std::move(lib)} {}
-    //! Set program name to clingo-dl.
-    auto do_program_name() noexcept -> std::string_view override { return "clingo-dl"; }
+    //! Set program name to clingcon.
+    auto do_program_name() noexcept -> std::string_view override { return "clingcon"; }
     //! Set the version.
     auto do_version() noexcept -> std::string_view override { return CLINGCON_VERSION; }
     //! Pass models to the theory.
@@ -33,12 +33,12 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
         theory_.rewrite(lib_, ctl, files);
         if (ctl.mode() == Clingo::ControlMode::solve) {
             ctl.ground();
-#ifdef CLINGODL_PROFILE
+#ifdef CLINGCON_PROFILE
             ProfilerStart("clingcon.solve.prof");
 #endif
             theory_.prepare(ctl);
             std::ignore = ctl.solve(*this).get();
-#ifdef CLINGODL_PROFILE
+#ifdef CLINGCON_PROFILE
             ProfilerStop();
 #endif
         } else {
@@ -109,7 +109,7 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
 
 } // namespace Clingcon
 
-//! Run the clingo-dl application.
+//! Run the clingcon application.
 auto main(int argc, char *argv[]) -> int { // NOLINT(bugprone-exception-escape)
     Clingo::Library lib;
     Clingcon::App app{lib};
