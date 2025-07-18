@@ -49,45 +49,42 @@ enum class Target : uint8_t { Heuristic, SignValue, RefineReasons, RefineIntrodu
 
 using Deferred = std::map<std::pair<Target, std::optional<uint32_t>>, val_t>;
 
-auto init(clingo_propagate_init_t *c_init, void *data) -> bool {
+auto init(clingo_assignment_t const *assignment, clingo_propagate_init_t *c_init, void *data) -> bool {
     CLINGO_TRY {
         Clingo::PropagateInit init{c_init};
-        static_cast<Propagator *>(data)->init(init);
+        static_cast<Propagator *>(data)->init(Clingo::Assignment{assignment}, init);
     }
     CLINGO_CATCH;
 }
 
-auto propagate(clingo_propagate_control_t *c_ctl, clingo_literal_t const *changes, size_t size, void *data) -> bool {
+auto propagate(clingo_assignment_t const *assignment, clingo_propagate_control_t *c_ctl,
+               clingo_literal_t const *changes, size_t size, void *data) -> bool {
     CLINGO_TRY {
         Clingo::PropagateControl ctl{c_ctl};
-        static_cast<Propagator *>(data)->propagate(ctl, {changes, size});
+        static_cast<Propagator *>(data)->propagate(Clingo::Assignment{assignment}, ctl, {changes, size});
     }
     CLINGO_CATCH;
 }
 
-void undo(clingo_propagate_control_t const *control, clingo_literal_t const *changes, size_t size, void *data) {
+void undo(clingo_assignment_t const *assignment, clingo_literal_t const *changes, size_t size, void *data) {
     try {
-        Clingo::ProgramId thread_id = 0;
-        clingo_assignment_t const *assignment = nullptr;
-        handle_error(clingo_propagate_control_thread_id(control, &thread_id));
-        handle_error(clingo_propagate_control_assignment(control, &assignment));
-        static_cast<Propagator *>(data)->undo(thread_id, Clingo::Assignment{assignment}, {changes, size});
+        static_cast<Propagator *>(data)->undo(Clingo::Assignment{assignment}, {changes, size});
     } catch (std::exception const &e) {
         printf("panic: %s\n", e.what());
     }
 }
 
-auto check(clingo_propagate_control_t *control, void *data) -> bool {
+auto check(clingo_assignment_t const *assignment, clingo_propagate_control_t *control, void *data) -> bool {
     CLINGO_TRY {
-        static_cast<Propagator *>(data)->check(Clingo::PropagateControl{control});
+        static_cast<Propagator *>(data)->check(Clingo::Assignment{assignment}, Clingo::PropagateControl{control});
     }
     CLINGO_CATCH;
 }
 
-auto decide(clingo_id_t thread_id, clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data,
+auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data,
             clingo_literal_t *result) -> bool {
     CLINGO_TRY {
-        *result = static_cast<Propagator *>(data)->decide(thread_id, Clingo::Assignment{assignment}, fallback);
+        *result = static_cast<Propagator *>(data)->decide(Clingo::Assignment{assignment}, fallback);
     }
     CLINGO_CATCH;
 }
@@ -145,8 +142,8 @@ template <class T>
 }
 
 template <class T>
-[[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
-    -> std::function<bool(std::string_view)> {
+[[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(),
+                              T max = std::numeric_limits<T>::max()) -> std::function<bool(std::string_view)> {
     return [&dest, min, max](std::string_view value) {
         dest = parse_num<T>(value, min, max);
         return true;
@@ -276,8 +273,8 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
 }
 
 template <class T, class U>
-[[nodiscard]] auto parser_translate_clause(T &translate_clauses, U &translate_clauses_total)
-    -> std::function<bool(std::string_view)> {
+[[nodiscard]] auto parser_translate_clause(T &translate_clauses,
+                                           U &translate_clauses_total) -> std::function<bool(std::string_view)> {
     return [&translate_clauses, &translate_clauses_total](std::string_view value) {
         auto [clauses, clauses_total] = parse_translate_clause(value);
         translate_clauses = clauses;
@@ -323,8 +320,8 @@ struct clingcon_theory {
                 has_heuristic = sconfig.heuristic != Heuristic::None;
             }
 
-            static clingo_propagator_t propagator = {init,   propagate, undo, check, has_heuristic ? decide : nullptr,
-                                                     nullptr};
+            static clingo_propagator_t propagator = {
+                init, nullptr, propagate, undo, check, has_heuristic ? decide : nullptr, nullptr};
             return clingo_control_parse_string(control, Clingcon::THEORY, std::strlen(Clingcon::THEORY)) &&
                    clingo_control_register_propagator(control, &propagator, &theory->propagator);
         }
@@ -364,8 +361,8 @@ struct clingcon_theory {
         std::unique_ptr<clingcon_theory>{theory};
     }
 
-    static auto configure(void *self, char const *key_data, size_t key_size, char const *value_data, size_t value_size)
-        -> bool {
+    static auto configure(void *self, char const *key_data, size_t key_size, char const *value_data,
+                          size_t value_size) -> bool {
         CLINGO_TRY {
             auto *theory = static_cast<clingcon_theory *>(self);
             auto key = std::string_view{key_data, key_size};
@@ -610,8 +607,9 @@ struct clingcon_theory {
                     clingo_symbol_acquire(*symbol);
                 }
                 if (value != nullptr) {
-                    value->type = clingo_theory_value_type_int;                             // NOLINT
-                    value->int_number = theory->propagator.get_value(static_cast<var_t>(index - 1), thread_id); // NOLINT
+                    value->type = clingo_theory_value_type_int; // NOLINT
+                    value->int_number =
+                        theory->propagator.get_value(static_cast<var_t>(index - 1), thread_id); // NOLINT
                 }
             }
         }

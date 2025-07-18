@@ -84,12 +84,12 @@ class Propagator final : public Clingo::Heuristic {
     void show_signature(std::string_view name, size_t arity);
 
     //! Add a domain for the given variable.
-    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
-        -> bool;
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var,
+                               IntervalSet<val_t> const &domain) -> bool;
 
     //! Add a constraint that can be represented by an order literal.
-    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
-        -> bool;
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
+                                  bool strict) -> bool;
 
     //! Add a constraint to the program.
     void add_constraint(UniqueConstraint constraint);
@@ -98,19 +98,20 @@ class Propagator final : public Clingo::Heuristic {
     //!
     //! The function handles reinitialization for multi-shot solving and
     //! multi-threaded solving.
-    void do_init(Clingo::PropagateInit init) override;
+    void do_init(Clingo::Assignment assignment, Clingo::PropagateInit init) override;
 
     //! Delegates propagation to the respective solver.
-    void do_propagate(Clingo::PropagateControl control, Clingo::SolverLiteralSpan changes) override;
+    void do_propagate(Clingo::Assignment assignment, Clingo::PropagateControl control,
+                      Clingo::SolverLiteralSpan changes) override;
 
     //! Delegates checking to the respective solver and makes sure that all
     //! order variables are assigned if the assigment is total.
-    void do_check(Clingo::PropagateControl control) override;
+    void do_check(Clingo::Assignment assignment, Clingo::PropagateControl control) override;
 
     //! Delegates undoing to the respective solver.
-    void do_undo(Clingo::ProgramId thread_id, Clingo::Assignment assignment, Clingo::ProgramLiteralSpan changes) noexcept override;
+    void do_undo(Clingo::Assignment assignment, Clingo::ProgramLiteralSpan changes) noexcept override;
 
-    [[nodiscard]] auto do_decide(Clingo::ProgramId thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t override;
+    [[nodiscard]] auto do_decide(Clingo::Assignment assign, lit_t fallback) -> lit_t override;
 
     //! Determine if the given variable should be shown.
     [[nodiscard]] auto shown(var_t var) -> bool;
