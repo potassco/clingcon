@@ -368,8 +368,8 @@ auto Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, Interv
     return master_().add_dom(cc, lit, var, domain);
 }
 
-auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
-    -> bool {
+auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
+                            bool strict) -> bool {
     return master_().add_simple(cc, clit, co, var, rhs, strict);
 }
 
@@ -383,11 +383,11 @@ void Propagator::add_constraint(UniqueConstraint constraint) {
     add_constraint_(std::move(constraint));
 }
 
-void Propagator::do_init(Clingo::PropagateInit init) {
+void Propagator::do_init(Clingo::Assignment assignment, Clingo::PropagateInit init) {
     init.check_mode(Clingo::PropagatorCheckMode::fixpoint);
 
     Timer timer{stats_step_.time_init};
-    InitClauseCreator cc{init, stats_step_};
+    InitClauseCreator cc{assignment, init, stats_step_};
 
     // remove minimize constraint
     UniqueMinimizeConstraint minimize{remove_minimize()};
@@ -496,16 +496,16 @@ auto Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint mini
     return true;
 }
 
-void Propagator::do_propagate(Clingo::PropagateControl control, Clingo::SolverLiteralSpan changes) {
-    auto &solver = solver_(control.thread_id());
-    ControlClauseCreator cc{control, solver.statistics()};
+void Propagator::do_propagate(Clingo::Assignment assignment, Clingo::PropagateControl control,
+                              Clingo::SolverLiteralSpan changes) {
+    auto &solver = solver_(assignment.thread_id());
+    ControlClauseCreator cc{assignment, control, solver.statistics()};
     static_cast<void>(solver.propagate(cc, changes));
 }
 
-void Propagator::do_check(Clingo::PropagateControl control) {
-    auto ass = control.assignment();
+void Propagator::do_check(Clingo::Assignment ass, Clingo::PropagateControl control) {
     auto size = ass.size();
-    auto &solver = solver_(control.thread_id());
+    auto &solver = solver_(ass.thread_id());
     auto dl = ass.decision_level();
 
     if (minimize_ != nullptr) {
@@ -516,7 +516,7 @@ void Propagator::do_check(Clingo::PropagateControl control) {
         }
     }
 
-    ControlClauseCreator cc{control, solver.statistics()};
+    ControlClauseCreator cc{ass, control, solver.statistics()};
 
     if (!solver.check(cc, config_.check_state)) {
         return;
@@ -532,13 +532,12 @@ void Propagator::do_check(Clingo::PropagateControl control) {
     }
 }
 
-void Propagator::do_undo(Clingo::ProgramId thread_id, [[maybe_unused]] Clingo::Assignment assignment,
-                         [[maybe_unused]] Clingo::ProgramLiteralSpan changes) noexcept {
-    solver_(thread_id).undo();
+void Propagator::do_undo(Clingo::Assignment assignment, [[maybe_unused]] Clingo::ProgramLiteralSpan changes) noexcept {
+    solver_(assignment.thread_id()).undo();
 }
 
-auto Propagator::do_decide(Clingo::ProgramId thread_id, Clingo::Assignment assign, lit_t fallback) -> lit_t {
-    return solver_(thread_id).decide(assign, fallback);
+auto Propagator::do_decide(Clingo::Assignment assign, lit_t fallback) -> lit_t {
+    return solver_(assign.thread_id()).decide(assign, fallback);
 }
 
 auto Propagator::shown(var_t var) -> bool {
