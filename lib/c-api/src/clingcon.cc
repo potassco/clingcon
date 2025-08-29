@@ -641,15 +641,6 @@ struct clingcon_theory {
         std::unique_ptr<clingcon_theory>{theory};
     }
 
-    static auto configure([[maybe_unused]] void *self, [[maybe_unused]] char const *key_data,
-                          [[maybe_unused]] size_t key_size, [[maybe_unused]] char const *value_data,
-                          [[maybe_unused]] size_t value_size) -> bool {
-        CLINGO_TRY {
-            throw std::invalid_argument{"unknown config key"};
-        }
-        CLINGO_CATCH;
-    }
-
     static auto register_options(void *self, clingo_options_t *options) -> bool {
         CLINGO_TRY {
             auto *theory = static_cast<clingcon_theory *>(self);
@@ -790,7 +781,6 @@ extern "C" auto clingcon_create(clingo_lib_t *lib, clingo_theory_t *theory) -> b
             clingcon_theory::prepare,
             clingcon_theory::register_options,
             clingcon_theory::validate_options,
-            clingcon_theory::configure,
             clingcon_theory::on_model,
             clingcon_theory::on_statistics,
             clingcon_theory::lookup_symbol,
