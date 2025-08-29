@@ -524,17 +524,7 @@ auto desc_state() {
 }
 
 template <class T> auto parser(Config &config) {
-    return [&config](std::string_view value) {
-        try {
-            T{config}.set(value);
-            return true;
-        } catch (std::invalid_argument const &e) {
-            std::ignore = e;
-            return false;
-        } catch (...) {
-            throw;
-        }
-    };
+    return [&config](std::string_view value) { T{config}.set(value); };
 }
 
 //! Turn the comma separated suffix of value into a thread id.
@@ -551,16 +541,8 @@ auto parse_thread(std::string_view value) -> std::pair<std::optional<clingo_id_t
 
 template <class T> auto parser_thread(Config &config) {
     return [&config](std::string_view value) {
-        try {
-            auto [index, span] = parse_thread(value);
-            T{config}.set(index, span);
-            return true;
-        } catch (std::invalid_argument const &e) {
-            std::ignore = e;
-            return false;
-        } catch (...) {
-            throw;
-        }
+        auto [index, span] = parse_thread(value);
+        T{config}.set(index, span);
     };
 }
 
