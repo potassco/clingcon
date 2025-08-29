@@ -590,7 +590,7 @@ struct clingcon_theory {
         CLINGO_TRY {
             auto *theory = static_cast<clingcon_theory *>(self);
             auto theory_cfg = theory->propagator.config();
-            Clingo::Control ctl{control, true};
+            auto ctl = Clingo::Control{control, true};
             auto cnf = ctl.config();
             cnf.add("clingcon", "CSP Options");
             cnf.add("clingcon.shift_constraints", desc_shift(), ConfigBool{theory->shift_constraints});
