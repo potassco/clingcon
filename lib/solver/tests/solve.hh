@@ -94,30 +94,53 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
     bool proven = false;
 };
 
+inline auto make_config(double weight_constraint_ratio, uint64_t clause_limit_total, uint32_t clause_limit,
+                        uint32_t distinct_limit, uint32_t translate_minimize, val_t min_int, val_t max_int,
+                        bool sort_constraints, bool literals_only, bool add_order_clauses) {
+    auto cfg = Config{};
+    cfg.set_heuristic(Heuristic::MaxChain);
+    cfg.set_sign_value(0);
+    cfg.set_split_all(false);
+    cfg.set_propagate_chain(true);
+    cfg.set_refine_reasons(true);
+    cfg.set_refine_introduce(true);
+
+    cfg.set_weight_constraint_ratio(weight_constraint_ratio);
+    cfg.set_clause_limit_total(clause_limit_total);
+    cfg.set_clause_limit(clause_limit);
+    cfg.set_distinct_limit(distinct_limit);
+    cfg.set_translate_minimize(translate_minimize);
+    cfg.set_min_int(min_int);
+    cfg.set_max_int(max_int);
+
+    cfg.sort_constraints = sort_constraints;
+    cfg.literals_only = literals_only;
+    cfg.add_order_clauses = add_order_clauses;
+    cfg.check_solution = true;
+    cfg.check_state = true;
+    return cfg;
+}
+
 inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_int = Clingcon::DEFAULT_MAX_INT)
     -> std::vector<Config> {
-    SolverConfig sconfig{Heuristic::MaxChain, 0, false, true, true, true};
     constexpr uint32_t m = 1000;
     constexpr double r = 1.0;
     constexpr uint64_t f = static_cast<uint64_t>(m) * 10;
     constexpr uint32_t o = std::numeric_limits<uint32_t>::max();
-    auto configs = {
-        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, false, false, false, true, true}, // basic
-        Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, true, false, false, true, true},  // sort constraints
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true, false, false, true, true},  // translate
-        Config{
-            {}, sconfig, 0, f, m, m, o, min_int, max_int, true, false, true, true, true}, // translate + order clauses
-        Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true, true, false, true, true},  // translate literals only
-        Config{{}, sconfig, r, f, 0, m, o, min_int, max_int, true, false, false, true, true}, // translate weight
-                                                                                              // constraints
+    return {
+        make_config(0, 0, 0, 0, 0, min_int, max_int, false, false, false), // basic
+        make_config(0, 0, 0, 0, 0, min_int, max_int, true, false, false),  // sort constraints
+        make_config(0, f, m, m, o, min_int, max_int, true, false, false),  // translate
+        make_config(0, f, m, m, o, min_int, max_int, true, false, true),   // translate + order clauses
+        make_config(0, f, m, m, o, min_int, max_int, true, true, false),   // translate literals only
+        make_config(r, f, 0, m, o, min_int, max_int, true, false, false),  // translate weight constraints
     };
-    return configs;
 }
 
 struct Fixture {
     Clingo::Library lib;
 
-    auto solve(Config const &config, std::string const &str) -> S {
+    auto solve(Config &config, std::string const &str) -> S {
 
         Clingo::Control ctl{lib, {"100", "--opt-mode=optN", "-t8"}};
         auto &prp = ctl.register_propagator(std::make_unique<Propagator>(lib));
@@ -153,11 +176,11 @@ struct Fixture {
         // NOTE: We test the reversed options using multi-shot solving.
         S models = std::move(hnd.models);
         hnd.models.clear();
-        for (auto &config : prp.config().solver_configs) {
-            config.split_all = !config.split_all;
-            config.refine_introduce = !config.refine_introduce;
-            config.refine_reasons = !config.refine_reasons;
-            config.propagate_chain = !config.propagate_chain;
+        for (size_t i = 0; i != prp.config().size(); ++i) {
+            config.set_split_all(!config.split_all(i));
+            config.set_refine_introduce(!config.refine_introduce());
+            config.set_refine_reasons(!config.refine_reasons());
+            config.set_propagate_chain(!config.propagate_chain());
         }
         if (ctl.solve(hnd).get().interrupted()) {
             throw std::runtime_error("interrupted");
@@ -176,7 +199,7 @@ struct Fixture {
                val_t max_int = Clingcon::DEFAULT_MAX_INT) -> S {
         std::optional<S> last = std::nullopt;
         int i = 0;
-        for (auto const &config : create_configs(min_int, max_int)) {
+        for (auto &config : create_configs(min_int, max_int)) {
             std::ostringstream oss;
             oss << "configuration: " << i++ << "\nprogram: " << prg;
             INFO(oss.str());

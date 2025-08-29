@@ -41,13 +41,11 @@
 using Clingo::Detail::handle_error;
 
 using namespace Clingcon;
+using namespace std::string_view_literals;
 
 namespace {
 
 constexpr uint32_t MAX_THREADS = 64;
-enum class Target : uint8_t { Heuristic, SignValue, RefineReasons, RefineIntroduce, PropagateChain, SplitAll };
-
-using Deferred = std::map<std::pair<Target, std::optional<uint32_t>>, val_t>;
 
 auto init(clingo_assignment_t const *assignment, clingo_propagate_init_t *c_init, void *data) -> bool {
     CLINGO_TRY {
@@ -81,8 +79,8 @@ auto check(clingo_assignment_t const *assignment, clingo_propagate_control_t *co
     CLINGO_CATCH;
 }
 
-auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data,
-            clingo_literal_t *result) -> bool {
+auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data, clingo_literal_t *result)
+    -> bool {
     CLINGO_TRY {
         *result = static_cast<Propagator *>(data)->decide(Clingo::Assignment{assignment}, fallback);
     }
@@ -91,18 +89,6 @@ auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, vo
 
 auto flag_str(bool value) -> std::string_view {
     return value ? "yes" : "no";
-}
-
-auto heuristic_str(Heuristic heu) -> std::string_view {
-    switch (heu) {
-        case Heuristic::None: {
-            return "none";
-        }
-        case Heuristic::MaxChain: {
-            return "max-chain";
-        }
-    };
-    return "";
 }
 
 template <typename... Args> [[nodiscard]] auto format(Args &&...args) -> std::string {
@@ -141,147 +127,440 @@ template <class T>
     throw std::invalid_argument("invalid argument");
 }
 
-template <class T>
-[[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(),
-                              T max = std::numeric_limits<T>::max()) -> std::function<bool(std::string_view)> {
-    return [&dest, min, max](std::string_view value) {
-        dest = parse_num<T>(value, min, max);
-        return true;
-    };
+inline auto to_lower(char c) -> char {
+    return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 }
 
-void set_value(Target target, SolverConfig &config, val_t value) {
-    switch (target) {
-        case Target::SignValue: {
-            config.sign_value = value;
-            break;
-        }
-        case Target::Heuristic: {
-            config.heuristic = static_cast<Heuristic>(value);
-            break;
-        }
-        case Target::RefineReasons: {
-            config.refine_reasons = value != 0;
-            break;
-        }
-        case Target::RefineIntroduce: {
-            config.refine_introduce = value != 0;
-            break;
-        }
-        case Target::PropagateChain: {
-            config.propagate_chain = value != 0;
-            break;
-        }
-        case Target::SplitAll: {
-            config.split_all = value != 0;
-            break;
-        }
-    }
+//! Check if two strings are lower case equal.
+auto iequals(std::string_view a, std::string_view b) -> bool {
+    return a.size() == b.size() && std::ranges::equal(a, b, [](char a, char b) { return to_lower(a) == to_lower(b); });
 }
 
-void set_value(Target target, Config &config, std::pair<val_t, std::optional<uint32_t>> const &value) {
-    auto const &[val, thread] = value;
-    if (thread.has_value()) {
-        set_value(target, config.solver_config(*thread), val);
-    } else {
-        set_value(target, config.default_solver_config, val);
-        for (auto &sconf : config.solver_configs) {
-            set_value(target, sconf, val);
+template <typename Enum, size_t N> class EnumStringMap {
+  public:
+    constexpr EnumStringMap(const std::array<std::pair<std::string_view, Enum>, N> &map) : map_{map} {}
+
+    [[nodiscard]] auto from_string(std::string_view value) const -> Enum {
+        for (const auto &[name, mode] : map_) {
+            if (iequals(value, name)) {
+                return mode;
+            }
         }
+        throw std::invalid_argument("invalid enum string");
     }
+
+    [[nodiscard]] auto to_string(Enum mode) const -> std::string_view {
+        for (const auto &[name, m] : map_) {
+            if (mode == m) {
+                return name;
+            }
+        }
+        throw std::invalid_argument("invalid enum value");
+    }
+
+  private:
+    std::array<std::pair<std::string_view, Enum>, N> map_;
+};
+
+template <typename Enum, size_t N>
+constexpr auto make_enum_string_map(std::pair<std::string_view, Enum> const (&map)[N]) { // NOLINT
+    return EnumStringMap<Enum, N>(std::to_array(map));
 }
 
-[[nodiscard]] auto parse_bool(std::string_view value) -> bool {
-    if (value == "true" || value == "yes" || value == "1") {
-        return true;
+class ConfigClause {
+  public:
+    ConfigClause(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::string_view value) {
+        auto comma = value.find(',');
+        if (comma != std::string_view::npos) {
+            cfg_->set_clause_limit_total(parse_num<val_t>(value.substr(comma + 1)));
+        }
+        cfg_->set_clause_limit(parse_num<uint32_t>(value.substr(0, comma)));
     }
-    if (value == "false" || value == "no" || value == "0") {
+
+    [[nodiscard]] auto get() const -> std::optional<std::string> {
+        std::ostringstream out;
+        out << cfg_->clause_limit() << "," << cfg_->clause_limit_total();
+        return std::move(out).str();
+    }
+
+    static auto desc() -> std::string {
+        return format("Restrict translation to clauses [", DEFAULT_CLAUSE_LIMIT, ",", DEFAULT_CLAUSE_LIMIT_TOTAL, "]\n",
+                      "      <n>: maximum clauses per constraint\n"
+                      "      <m>: maximum clauses total");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigBP {
+  public:
+    ConfigBP(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::string_view value) { cfg_->set_weight_constraint_ratio(parse_num<double>(value)); }
+
+    [[nodiscard]] auto get() const -> std::optional<std::string> {
+        std::ostringstream out;
+        out << cfg_->weight_constraint_ratio();
+        return std::move(out).str();
+    }
+
+    static auto desc() -> std::string {
+        return format("Translate to weight constraints if ratio of variables and literals is less equal <r> [",
+                      DEFAULT_WEIGHT_CONSTRAINT_RATIO, "]");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigDistinct {
+  public:
+    ConfigDistinct(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::string_view value) { cfg_->set_distinct_limit(parse_num<uint32_t>(value)); }
+
+    [[nodiscard]] auto get() const -> std::optional<std::string> {
+        std::ostringstream out;
+        out << cfg_->distinct_limit();
+        return std::move(out).str();
+    }
+
+    static auto desc() -> std::string {
+        return format("Restrict translation of distinct constraints to <n> pb constraints [", DEFAULT_DISTINCT_LIMIT,
+                      "]");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigOpt {
+  public:
+    ConfigOpt(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::string_view value) { cfg_->set_translate_minimize(parse_num<uint32_t>(value)); }
+
+    [[nodiscard]] auto get() const -> std::optional<std::string> {
+        std::ostringstream out;
+        out << cfg_->translate_minimize();
+        return std::move(out).str();
+    }
+
+    static auto desc() -> std::string {
+        return format("Configure translation of minimize constraint [", DEFAULT_TRANSLATE_MINIMIZE,
+                      "]\n"
+                      "      <n>: translate if required literals less than <n>\n"
+                      "        0  : never translate\n"
+                      "        max: always translate");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigHeuristic {
+  public:
+    ConfigHeuristic(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::optional<size_t> index, std::string_view value) {
+        cfg_->set_heuristic(map_.from_string(value), index);
+    }
+
+    [[nodiscard]] auto get(std::optional<size_t> index) const -> std::optional<std::string_view> {
+        return map_.to_string(cfg_->heuristic(index));
+    }
+
+    [[nodiscard]] auto size() const -> size_t { return cfg_->size(); }
+
+    static auto desc() {
+        return format("Make the decision heuristic aware of order literals [", map_.to_string(Heuristic::None),
+                      "]\n"
+                      "      <arg>: {none,max-chain}[,<i>]\n"
+                      "        none     : use clasp's heuristic\n"
+                      "        max-chain: assign chains of literals\n"
+                      "      <i>  : Only enable for thread <i>");
+    }
+
+  private:
+    static constexpr auto map_ = make_enum_string_map<Heuristic>({
+        {"no", Heuristic::None},
+        {"max-chain", Heuristic::MaxChain},
+    });
+
+    Config *cfg_;
+};
+
+class ConfigSign {
+  public:
+    ConfigSign(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::optional<size_t> index, std::string_view value) {
+        if (value == "+") {
+            cfg_->set_sign_value(std::numeric_limits<val_t>::max(), index);
+        } else if (value == "-") {
+            cfg_->set_sign_value(std::numeric_limits<val_t>::min(), index);
+        } else {
+            cfg_->set_sign_value(parse_num<val_t>(value), index);
+        }
+    }
+
+    [[nodiscard]] auto get(std::optional<size_t> index) const -> std::optional<std::string> {
+        auto val = cfg_->sign_value(index);
+        if (val == std::numeric_limits<val_t>::max()) {
+            return "+";
+        }
+        if (val == std::numeric_limits<val_t>::min()) {
+            return "-";
+        }
+        return std::to_string(val);
+    }
+
+    [[nodiscard]] auto size() const -> size_t { return cfg_->size(); }
+
+    static auto desc() {
+        return format("Configure the sign of order literals [", DEFAULT_SIGN_VALUE,
+                      "]\n"
+                      "      <arg>: {<n>|+|-}[,<i>]\n"
+                      "        <n>: negative iff its value is greater or equal to <n>\n"
+                      "        +  : always positive\n"
+                      "        -  : always negative\n"
+                      "      <i>  : Only enable for thread <i>");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+auto parse_bool(std::string_view value) -> bool {
+    if (iequals(value, "no") || iequals(value, "false") || iequals(value, "off") || iequals(value, "0")) {
         return false;
     }
-    throw std::invalid_argument("invalid argument");
-}
-
-[[nodiscard]] auto parse_bool_thread(std::string_view value) -> std::pair<val_t, std::optional<uint32_t>> {
-    std::optional<uint32_t> thread = std::nullopt;
-    auto comma = value.find(',');
-    if (comma != std::string_view::npos) {
-        thread = parse_num<uint32_t>(value.substr(comma + 1), 0, MAX_THREADS - 1); // NOLINT
-    }
-    return {parse_bool(value.substr(0, comma)) ? 1 : 0, thread};
-}
-
-[[nodiscard]] auto parse_sign_value(std::string_view value) -> std::pair<val_t, std::optional<uint32_t>> {
-    std::optional<uint32_t> thread = std::nullopt;
-    auto comma = value.find(',');
-    if (comma != std::string_view::npos) {
-        thread = parse_num<uint32_t>(value.substr(comma + 1), 0, MAX_THREADS - 1); // NOLINT
-    }
-    auto rem = value.substr(0, comma);
-    if (rem == "+") {
-        return {std::numeric_limits<val_t>::max(), thread};
-    }
-    if (rem == "-") {
-        return {std::numeric_limits<val_t>::min(), thread};
-    }
-    return {parse_num<val_t>(rem), thread};
-}
-
-[[nodiscard]] auto parse_translate_clause(std::string_view value) -> std::pair<uint32_t, std::optional<uint64_t>> {
-    std::optional<val_t> total = std::nullopt;
-    auto comma = value.find(',');
-    if (comma != std::string_view::npos) {
-        total = parse_num<val_t>(value.substr(comma + 1)); // NOLINT
-    }
-    return {parse_num<uint32_t>(value.substr(0, comma)), total};
-}
-
-[[nodiscard]] auto parse_heuristic(std::string_view value) -> std::pair<val_t, std::optional<uint32_t>> {
-    std::optional<uint32_t> thread = std::nullopt;
-    auto comma = value.find(',');
-    if (comma != std::string_view::npos) {
-        thread = parse_num<uint32_t>(value.substr(comma + 1), 0, MAX_THREADS - 1); // NOLINT
-    }
-    auto prefix = value.substr(0, comma);
-    if (prefix == "none") {
-        return {static_cast<val_t>(Heuristic::None), thread};
-    }
-    if (prefix == "max-chain") {
-        return {static_cast<val_t>(Heuristic::MaxChain), thread};
-    }
-    throw std::invalid_argument("invalid argument");
-}
-
-[[nodiscard]] auto parser_bool_thread(Deferred &deferred, Target target) -> std::function<bool(std::string_view)> {
-    return [&deferred, target](std::string_view value) {
-        auto [val, thread] = parse_bool_thread(value);
-        return deferred.emplace(std::pair(target, thread), val).second;
-    };
-}
-
-[[nodiscard]] auto parser_sign_value(Deferred &deferred, Target target) -> std::function<bool(std::string_view)> {
-    return [&deferred, target](std::string_view value) {
-        auto [val, thread] = parse_sign_value(value);
-        return deferred.emplace(std::pair(target, thread), val).second;
-    };
-}
-
-[[nodiscard]] auto parser_heuristic(Deferred &deferred) -> std::function<bool(std::string_view)> {
-    return [&deferred](std::string_view value) {
-        auto [val, thread] = parse_heuristic(value);
-        return deferred.emplace(std::pair(Target::Heuristic, thread), val).second;
-    };
-}
-
-template <class T, class U>
-[[nodiscard]] auto parser_translate_clause(T &translate_clauses,
-                                           U &translate_clauses_total) -> std::function<bool(std::string_view)> {
-    return [&translate_clauses, &translate_clauses_total](std::string_view value) {
-        auto [clauses, clauses_total] = parse_translate_clause(value);
-        translate_clauses = clauses;
-        if (clauses_total) {
-            translate_clauses_total = *clauses_total;
-        }
+    if (iequals(value, "yes") || iequals(value, "true") || iequals(value, "on") || iequals(value, "1")) {
         return true;
+    }
+    throw std::invalid_argument("invalid boolean value");
+}
+
+class ConfigReason {
+  public:
+    ConfigReason(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::optional<size_t> index, std::string_view value) {
+        cfg_->set_refine_reasons(parse_bool(value), index);
+    }
+
+    [[nodiscard]] auto get(std::optional<size_t> index) const -> std::optional<std::string_view> {
+        return flag_str(cfg_->refine_reasons(index));
+    }
+
+    [[nodiscard]] auto size() const -> size_t { return cfg_->size(); }
+
+    static auto desc() {
+        return format("Refine reasons during propagation [", flag_str(DEFAULT_REFINE_REASONS),
+                      "]\n"
+                      "      <arg>: {yes|no}[,<i>]\n"
+                      "      <i>  : Only enable for thread <i>");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigIntroduce {
+  public:
+    ConfigIntroduce(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::optional<size_t> index, std::string_view value) {
+        cfg_->set_refine_introduce(parse_bool(value), index);
+    }
+
+    [[nodiscard]] auto get(std::optional<size_t> index) const -> std::optional<std::string_view> {
+        return flag_str(cfg_->refine_introduce(index));
+    }
+
+    [[nodiscard]] auto size() const -> size_t { return cfg_->size(); }
+
+    static auto desc() {
+        return format("Introduce order literals when generating reasons [", flag_str(DEFAULT_REFINE_INTRODUCE),
+                      "]\n"
+                      "      <arg>: {yes|no}[,<i>]\n"
+                      "      <i>  : Only enable for thread <i>");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigChain {
+  public:
+    ConfigChain(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::optional<size_t> index, std::string_view value) {
+        cfg_->set_propagate_chain(parse_bool(value), index);
+    }
+
+    [[nodiscard]] auto get(std::optional<size_t> index) const -> std::optional<std::string_view> {
+        return flag_str(cfg_->propagate_chain(index));
+    }
+
+    [[nodiscard]] auto size() const -> size_t { return cfg_->size(); }
+
+    static auto desc() {
+        return format("Use closest order literal as reason [", flag_str(DEFAULT_PROPAGATE_CHAIN),
+                      "]\n"
+                      "      <arg>: {yes|no}[,<i>]\n"
+                      "      <i>  : Only enable for thread <i>");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigSplit {
+  public:
+    ConfigSplit(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::optional<size_t> index, std::string_view value) { cfg_->set_split_all(parse_bool(value), index); }
+
+    [[nodiscard]] auto get(std::optional<size_t> index) const -> std::optional<std::string_view> {
+        return flag_str(cfg_->split_all(index));
+    }
+
+    [[nodiscard]] auto size() const -> size_t { return cfg_->size(); }
+
+    static auto desc() {
+        return format("Split all domains on total assignment [", flag_str(DEFAULT_SPLIT_ALL),
+                      "]\n"
+                      "      <arg>: {yes|no}[,<i>]\n"
+                      "      <i>  : Only enable for thread <i>");
+    }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigBool {
+  public:
+    ConfigBool(bool &target) : target_{&target} {}
+
+    void set(std::string_view value) {
+        if (iequals(value, "no") || iequals(value, "off") || iequals(value, "0")) {
+            *target_ = false;
+        } else if (iequals(value, "yes") || iequals(value, "on") || iequals(value, "1")) {
+            *target_ = true;
+        } else {
+            throw std::invalid_argument("invalid boolean value");
+        }
+    }
+
+    [[nodiscard]] auto get() const -> std::optional<std::string_view> { return flag_str(*target_); }
+
+  private:
+    bool *target_;
+};
+
+class ConfigMin {
+  public:
+    ConfigMin(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::string_view value) { cfg_->set_min_int(parse_num<val_t>(value, MIN_VAL, MAX_VAL)); }
+
+    [[nodiscard]] auto get() const -> std::optional<std::string> {
+        std::ostringstream out;
+        out << cfg_->min_int();
+        return std::move(out).str();
+    }
+
+    static auto desc() { return format("Set minimum integer [", DEFAULT_MIN_INT, "]"); }
+
+  private:
+    Config *cfg_;
+};
+
+class ConfigMax {
+  public:
+    ConfigMax(Config &cfg) : cfg_{&cfg} {}
+
+    void set(std::string_view value) { cfg_->set_max_int(parse_num<val_t>(value, MIN_VAL, MAX_VAL)); }
+
+    [[nodiscard]] auto get() const -> std::optional<std::string> {
+        std::ostringstream out;
+        out << cfg_->max_int();
+        return std::move(out).str();
+    }
+
+    static auto desc() { return format("Set maximum integer [", DEFAULT_MAX_INT, "]"); }
+
+  private:
+    Config *cfg_;
+};
+
+auto desc_literals() {
+    return format("Only create literals during translation but no clauses [", flag_str(DEFAULT_LITERALS_ONLY), "]");
+}
+
+auto desc_shift() {
+    return "Shift constraints into head of integrity constraints [true]";
+}
+
+auto desc_sort() {
+    return format("Sort constraint elements [", flag_str(DEFAULT_SORT_CONSTRAINTS), "]");
+}
+
+auto desc_order() {
+    return format("Add binary clauses for order literals after translation [", flag_str(DEFAULT_ADD_ORDER_CLAUSES),
+                  "]");
+}
+
+auto desc_solution() {
+    return format("Verify solutions [", flag_str(DEFAULT_CHECK_SOLUTION), "]");
+}
+
+auto desc_state() {
+    return format("Check state invariants [", flag_str(DEFAULT_CHECK_STATE), "]");
+}
+
+template <class T> auto parser(Config &config) {
+    return [&config](std::string_view value) {
+        try {
+            T{config}.set(value);
+            return true;
+        } catch (std::invalid_argument const &e) {
+            std::ignore = e;
+            return false;
+        } catch (...) {
+            throw;
+        }
+    };
+}
+
+//! Turn the comma separated suffix of value into a thread id.
+//!
+//! The function returns a nullopt if there is no comma in value.
+auto parse_thread(std::string_view value) -> std::pair<std::optional<clingo_id_t>, std::string_view> {
+    auto pos = value.find_last_of(',');
+    if (pos != std::string_view::npos) {
+        auto res = parse_num<clingo_id_t>(value.substr(pos + 1), 0, MAX_THREADS - 1); // NOLINT
+        return {res, value.substr(0, pos)};
+    }
+    return {std::nullopt, value};
+}
+
+template <class T> auto parser_thread(Config &config) {
+    return [&config](std::string_view value) {
+        try {
+            auto [index, span] = parse_thread(value);
+            T{config}.set(index, span);
+            return true;
+        } catch (std::invalid_argument const &e) {
+            std::ignore = e;
+            return false;
+        } catch (...) {
+            throw;
+        }
     };
 }
 
@@ -310,20 +589,29 @@ struct clingcon_theory {
     static auto register_(void *self, clingo_control_t *control) -> bool {
         CLINGO_TRY {
             auto *theory = static_cast<clingcon_theory *>(self);
-            // Note: The decide function is passed here for performance reasons.
-            auto &config = theory->propagator.config();
-            bool has_heuristic = config.default_solver_config.heuristic != Heuristic::None;
-            for (auto &sconfig : config.solver_configs) {
-                if (has_heuristic) {
-                    break;
-                }
-                has_heuristic = sconfig.heuristic != Heuristic::None;
-            }
-
-            static clingo_propagator_t propagator = {
-                init, nullptr, propagate, undo, check, has_heuristic ? decide : nullptr, nullptr};
-            return clingo_control_parse_string(control, Clingcon::THEORY, std::strlen(Clingcon::THEORY)) &&
-                   clingo_control_register_propagator(control, &propagator, &theory->propagator);
+            auto theory_cfg = theory->propagator.config();
+            Clingo::Control ctl{control, true};
+            auto cnf = ctl.config();
+            cnf.add("clingcon", "CSP Options");
+            cnf.add("clingcon.shift_constraints", desc_shift(), ConfigBool{theory->shift_constraints});
+            cnf.add("clingcon.sort_constraints", desc_sort(), ConfigBool{theory_cfg.sort_constraints});
+            cnf.add("clingcon.translate_clauses", ConfigClause::desc(), ConfigClause{theory_cfg});
+            cnf.add("clingcon.literals_only", desc_literals(), ConfigBool{theory_cfg.literals_only});
+            cnf.add("clingcon.translate_pb", ConfigBP::desc(), ConfigBP{theory_cfg});
+            cnf.add("clingcon.translate_distinct", ConfigDistinct::desc(), ConfigDistinct{theory_cfg});
+            cnf.add("clingcon.translate_opt", ConfigOpt::desc(), ConfigOpt{theory_cfg});
+            cnf.add("clingcon.add_order_clauses", desc_order(), ConfigBool{theory_cfg.add_order_clauses});
+            cnf.add("clingcon.min_int", ConfigMin::desc(), ConfigMin{theory_cfg});
+            cnf.add("clingcon.max_int", ConfigMax::desc(), ConfigMax{theory_cfg});
+            cnf.add("clingcon.check_solution", desc_solution(), ConfigBool{theory_cfg.check_solution});
+            cnf.add("clingcon.check_state", desc_state(), ConfigBool{theory_cfg.check_state});
+            cnf.add("clingcon.order_heuristic", ConfigHeuristic::desc(), ConfigHeuristic{theory_cfg});
+            cnf.add("clingcon.sign_value", ConfigSign::desc(), ConfigSign{theory_cfg});
+            cnf.add("clingcon.refine_reasons", ConfigReason::desc(), ConfigReason{theory_cfg});
+            cnf.add("clingcon.refine_introduce", ConfigIntroduce::desc(), ConfigIntroduce{theory_cfg});
+            cnf.add("clingcon.propagate_chain", ConfigChain::desc(), ConfigChain{theory_cfg});
+            cnf.add("clingcon.split_all", ConfigSplit::desc(), ConfigSplit{theory_cfg});
+            ctl.parse_string(Clingcon::THEORY);
         }
         CLINGO_CATCH;
     }
@@ -339,8 +627,18 @@ struct clingcon_theory {
         CLINGO_CATCH;
     }
 
-    static auto prepare([[maybe_unused]] void *self, clingo_control_t *control) -> bool {
+    static auto prepare(void *self, clingo_control_t *control) -> bool {
         CLINGO_TRY {
+            if (auto *theory = static_cast<clingcon_theory *>(self); !theory->initialized) {
+                static constexpr clingo_propagator_t propagator = {init,  nullptr, propagate, undo,
+                                                                   check, nullptr, nullptr};
+                static constexpr clingo_propagator_t heuristic = {init,  nullptr, propagate, undo,
+                                                                  check, decide,  nullptr};
+                theory->initialized = true;
+                auto &cnf = theory->propagator.config();
+                handle_error(clingo_control_register_propagator(control, cnf.has_heuristic() ? &heuristic : &propagator,
+                                                                &theory->propagator));
+            }
             Clingo::Control ctl{control, true};
             auto cnf = ctl.config()["solve"]["models"];
             if (cnf.value() == "-1") {
@@ -361,61 +659,11 @@ struct clingcon_theory {
         std::unique_ptr<clingcon_theory>{theory};
     }
 
-    static auto configure(void *self, char const *key_data, size_t key_size, char const *value_data,
-                          size_t value_size) -> bool {
+    static auto configure([[maybe_unused]] void *self, [[maybe_unused]] char const *key_data,
+                          [[maybe_unused]] size_t key_size, [[maybe_unused]] char const *value_data,
+                          [[maybe_unused]] size_t value_size) -> bool {
         CLINGO_TRY {
-            auto *theory = static_cast<clingcon_theory *>(self);
-            auto key = std::string_view{key_data, key_size};
-            auto value = std::string_view{value_data, value_size};
-            auto &config = theory->propagator.config();
-            // translation
-            if (key == "shift-constraints") {
-                theory->shift_constraints = parse_bool(value);
-            } else if (key == "sort-constraints") {
-                config.sort_constraints = parse_bool(value);
-            } else if (key == "translate-clauses") {
-                auto [clauses, clauses_total] = parse_translate_clause(value);
-                config.clause_limit = clauses;
-                if (clauses_total) {
-                    config.clause_limit_total = *clauses_total;
-                }
-            } else if (key == "literals-only") {
-                config.literals_only = parse_bool(value);
-            } else if (key == "translate-pb") {
-                config.weight_constraint_ratio = parse_num<double>(value);
-            } else if (key == "translate-distinct") {
-                config.distinct_limit = parse_num<uint32_t>(value);
-            } else if (key == "translate-opt") {
-                config.translate_minimize = parse_num<uint32_t>(value);
-            } else if (key == "add-order-clauses") {
-                config.add_order_clauses = parse_bool(value);
-            }
-            // hidden/debug
-            else if (key == "min-int") {
-                config.min_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
-            } else if (key == "max-int") {
-                config.max_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
-            } else if (key == "check-solution") {
-                config.check_solution = parse_bool(value);
-            } else if (key == "check-state") {
-                config.check_state = parse_bool(value);
-            }
-            // propagation
-            else if (key == "order-heuristic") {
-                set_value(Target::Heuristic, config, parse_heuristic(value));
-            } else if (key == "sign-value") {
-                set_value(Target::SignValue, config, parse_sign_value(value));
-            } else if (key == "refine-reasons") {
-                set_value(Target::RefineReasons, config, parse_bool_thread(value));
-            } else if (key == "refine-introduce") {
-                set_value(Target::RefineIntroduce, config, parse_bool_thread(value));
-            } else if (key == "propagate-chain") {
-                set_value(Target::PropagateChain, config, parse_bool_thread(value));
-            } else if (key == "split-all") {
-                set_value(Target::SplitAll, config, parse_bool_thread(value));
-            } else {
-                throw std::invalid_argument{"unknown config key"};
-            }
+            throw std::invalid_argument{"unknown config key"};
         }
         CLINGO_CATCH;
     }
@@ -428,99 +676,29 @@ struct clingcon_theory {
             Clingo::Options opts{options, theory->parsers};
 
             // translation
-            opts.add_flag(group, "shift-constraints",
-                          format("Shift constraints into head of integrity constraints [",
-                                 flag_str(theory->shift_constraints), "]"),
-                          theory->shift_constraints);
-            opts.add_flag(group, "sort-constraints",
-                          format("Sort constraint elements [", flag_str(config.sort_constraints), "]"),
-                          config.sort_constraints);
-            opts.add(group, "translate-clauses",
-                     format("Restrict translation to clauses [", config.clause_limit, ",", config.clause_limit_total,
-                            "]\n",
-                            "      <n>: maximum clauses per constraint\n"
-                            "      <m>: maximum clauses total"),
-                     parser_translate_clause(config.clause_limit, config.clause_limit_total), false, "<n>[,<m>]");
-            opts.add_flag(
-                group, "literals-only",
-                format("Only create literals during translation but no clauses [", flag_str(config.literals_only), "]"),
-                config.literals_only);
-            opts.add(group, "translate-pb",
-                     format("Translate to weight constraints if ratio of variables and literals is less equal <r> [",
-                            config.weight_constraint_ratio, "]"),
-                     parser_num(config.weight_constraint_ratio), false, "<r>");
-            opts.add(group, "translate-distinct",
-                     format("Restrict translation of distinct constraints to <n> pb constraints [",
-                            config.distinct_limit, "]"),
-                     parser_num<uint32_t>(config.distinct_limit), false, "<n>");
-            opts.add(group, "translate-opt",
-                     format("Configure translation of minimize constraint [", config.translate_minimize,
-                            "]\n"
-                            "      <n>: translate if required literals less than <n>\n"
-                            "        0  : never translate\n"
-                            "        max: always translate"),
-                     parser_num<uint32_t>(config.translate_minimize), false, "<n>");
-            opts.add_flag(group, "add-order-clauses",
-                          format("Add binary clauses for order literals after translation [",
-                                 flag_str(config.add_order_clauses), "]"),
-                          config.add_order_clauses);
+            opts.add_flag(group, "shift-constraints", desc_shift(), theory->shift_constraints);
+            opts.add_flag(group, "sort-constraints", desc_sort(), config.sort_constraints);
+            opts.add(group, "translate-clauses", ConfigClause::desc(), parser<ConfigClause>(config), false,
+                     "<n>[,<m>]");
+            opts.add_flag(group, "literals-only", desc_literals(), config.literals_only);
+            opts.add(group, "translate-pb", ConfigBP::desc(), parser<ConfigBP>(config), false, "<r>");
+            opts.add(group, "translate-distinct", ConfigDistinct::desc(), parser<ConfigDistinct>(config), false, "<n>");
+            opts.add(group, "translate-opt", ConfigOpt::desc(), parser<ConfigOpt>(config), false, "<n>");
+            opts.add_flag(group, "add-order-clauses", desc_order(), config.add_order_clauses);
 
             // propagation
-            opts.add(group, "order-heuristic",
-                     format("Make the decision heuristic aware of order literals [",
-                            heuristic_str(config.default_solver_config.heuristic),
-                            "]\n"
-                            "      <arg>: {none,max-chain}[,<i>]\n"
-                            "        none     : use clasp's heuristic\n"
-                            "        max-chain: assign chains of literals\n"
-                            "      <i>  : Only enable for thread <i>"),
-                     parser_heuristic(theory->deferred), true);
-            opts.add(group, "sign-value",
-                     format("Configure the sign of order literals [", config.default_solver_config.sign_value,
-                            "]\n"
-                            "      <arg>: {<n>|+|-}[,<i>]\n"
-                            "        <n>: negative iff its value is greater or equal to <n>\n"
-                            "        +  : always positive\n"
-                            "        -  : always negative\n"
-                            "      <i>  : Only enable for thread <i>"),
-                     parser_sign_value(theory->deferred, Target::SignValue), true);
-            opts.add(group, "refine-reasons",
-                     format("Refine reasons during propagation [",
-                            flag_str(config.default_solver_config.refine_reasons),
-                            "]\n"
-                            "      <arg>: {yes|no}[,<i>]\n"
-                            "      <i>  : Only enable for thread <i>"),
-                     parser_bool_thread(theory->deferred, Target::RefineReasons), true);
-            opts.add(group, "refine-introduce",
-                     format("Introduce order literals when generating reasons [",
-                            flag_str(config.default_solver_config.refine_introduce),
-                            "]\n"
-                            "      <arg>: {yes|no}[,<i>]\n"
-                            "      <i>  : Only enable for thread <i>"),
-                     parser_bool_thread(theory->deferred, Target::RefineIntroduce), true);
-            opts.add(group, "propagate-chain",
-                     format("Use closest order literal as reason [",
-                            flag_str(config.default_solver_config.propagate_chain),
-                            "]\n"
-                            "      <arg>: {yes|no}[,<i>]\n"
-                            "      <i>  : Only enable for thread <i>"),
-                     parser_bool_thread(theory->deferred, Target::PropagateChain), true);
-            opts.add(group, "split-all",
-                     format("Split all domains on total assignment [", flag_str(config.default_solver_config.split_all),
-                            "]\n"
-                            "      <arg>: {yes|no}[,<i>]\n"
-                            "      <i>  : Only enable for thread <i>"),
-                     parser_bool_thread(theory->deferred, Target::SplitAll), true);
+            opts.add(group, "order-heuristic", ConfigHeuristic::desc(), parser_thread<ConfigHeuristic>(config), true);
+            opts.add(group, "sign-value", ConfigSign::desc(), parser_thread<ConfigSign>(config), true);
+            opts.add(group, "refine-reasons", ConfigReason::desc(), parser_thread<ConfigReason>(config), true);
+            opts.add(group, "refine-introduce", ConfigIntroduce::desc(), parser_thread<ConfigIntroduce>(config), true);
+            opts.add(group, "propagate-chain", ConfigChain::desc(), parser_thread<ConfigChain>(config), true);
+            opts.add(group, "split-all", ConfigSplit::desc(), parser_thread<ConfigSplit>(config), true);
 
             // hidden/debug
-            opts.add(group, "@2,min-int", format("Set minimum integer [", config.min_int, "]"),
-                     parser_num<val_t>(config.min_int, MIN_VAL, MAX_VAL), false, "<i>");
-            opts.add(group, "@2,max-int", format("Set maximum integer [", config.max_int, "]"),
-                     parser_num<val_t>(config.max_int, MIN_VAL, MAX_VAL), false, "<i>");
-            opts.add_flag(group, "@2,check-solution",
-                          format("Verify solutions [", flag_str(config.check_solution), "]"), config.check_solution);
-            opts.add_flag(group, "@2,check-state",
-                          format("Check state invariants [", flag_str(config.check_state), "]"), config.check_state);
+            opts.add(group, "@2,min-int", ConfigMin::desc(), parser<ConfigMin>(config), false, "<i>");
+            opts.add(group, "@2,max-int", ConfigMax::desc(), parser<ConfigMax>(config), false, "<i>");
+            opts.add_flag(group, "@2,check-solution", desc_solution(), config.check_solution);
+            opts.add_flag(group, "@2,check-state", desc_state(), config.check_state);
         }
         CLINGO_CATCH;
     }
@@ -530,17 +708,7 @@ struct clingcon_theory {
             auto *theory = static_cast<clingcon_theory *>(self);
             auto &config = theory->propagator.config();
 
-            for (auto has_value : {false, true}) {
-                for (auto [target_thread, value] : theory->deferred) {
-                    auto [target, thread] = target_thread;
-                    if (has_value == thread.has_value()) {
-                        set_value(target, config, {value, thread});
-                    }
-                }
-            }
-            theory->deferred.clear();
-
-            if (config.min_int > config.max_int) {
+            if (config.min_int() > config.max_int()) {
                 throw std::runtime_error("min-int must be smaller than or equal to max-int");
             }
         }
@@ -569,12 +737,6 @@ struct clingcon_theory {
         }
         CLINGO_CATCH;
     }
-
-    // static auto clingcon_get_symbol(clingcon_theory *theory, size_t index) -> clingo_symbol_t {
-    //     auto sym = theory->propagator.get_symbol(index - 1);
-    //     assert(sym.has_value());
-    //     return sym->to_c();
-    // }
 
     static auto assignment_next(void *self, [[maybe_unused]] uint32_t thread_id, bool *init, size_t *index,
                                 bool *has_value) -> bool {
@@ -607,9 +769,9 @@ struct clingcon_theory {
                     clingo_symbol_acquire(*symbol);
                 }
                 if (value != nullptr) {
-                    value->type = clingo_theory_value_type_int; // NOLINT
-                    value->int_number =
-                        theory->propagator.get_value(static_cast<var_t>(index - 1), thread_id); // NOLINT
+                    value->type = clingo_theory_value_type_int;
+                    // NOLINTNEXTLINE
+                    value->int_number = theory->propagator.get_value(static_cast<var_t>(index - 1), thread_id);
                 }
             }
         }
@@ -630,8 +792,8 @@ struct clingcon_theory {
     Clingo::Library lib;
     Propagator propagator{lib};
     Clingo::Options::ParserList parsers;
-    Deferred deferred;
     bool shift_constraints{true};
+    bool initialized{false};
 };
 
 } // namespace

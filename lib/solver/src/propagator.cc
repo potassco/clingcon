@@ -348,7 +348,7 @@ auto Propagator::add_variable(Clingo::Symbol const &sym) -> var_t {
     auto [it, ret] = sym_map_.emplace(sym, 0);
 
     if (ret) {
-        it->second = master_().add_variable(config_.min_int, config_.max_int);
+        it->second = master_().add_variable(config_.min_int(), config_.max_int());
         var_map_.emplace(it->second, sym);
         ++stats_step_.num_variables;
     }
@@ -368,8 +368,8 @@ auto Propagator::add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, Interv
     return master_().add_dom(cc, lit, var, domain);
 }
 
-auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
-                            bool strict) -> bool {
+auto Propagator::add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+    -> bool {
     return master_().add_simple(cc, clit, co, var, rhs, strict);
 }
 
@@ -435,7 +435,7 @@ void Propagator::do_init(Clingo::Assignment assignment, Clingo::PropagateInit in
     // copy order literals from master to other states
     auto n = static_cast<size_t>(init.number_of_threads());
     for (size_t i = solvers_.size(); i < n; ++i) {
-        solvers_.emplace_back(config_.solver_config(i), stats_step_.solver_stats(i));
+        solvers_.emplace_back(SolverConfig(config_, i), stats_step_.solver_stats(i));
     }
     while (solvers_.size() > n) {
         solvers_.pop_back();

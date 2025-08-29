@@ -318,7 +318,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             auto lit_reason = solver.get_literal(cc, vs, static_cast<val_t>(current - 1));
             lit = lit_reason;
             assert(ass.is_false(lit));
-            if (solver.config().refine_reasons && slack + co < 0 && ass.decision_level() > 0) {
+            if (solver.config().refine_reasons() && slack + co < 0 && ass.decision_level() > 0) {
                 auto delta = -floordiv<sum_t>(slack + 1, -co);
                 auto value = std::max<sum_t>(current + delta, vs.min_bound());
                 if (value < current) {
@@ -342,7 +342,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                     // available literal to keep the state consistent.
                     // Furthermore, we only introduce literals implied on the
                     // current decision level to avoid backtracking.
-                    if (ret && solver.config().refine_introduce && ass.level(lit) == ass.decision_level() &&
+                    if (ret && solver.config().refine_introduce() && ass.level(lit) == ass.decision_level() &&
                         value < current) {
                         ++solver.statistics().introduced_reason;
                         found = 1;
@@ -361,7 +361,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             auto lit_reason = -solver.get_literal(cc, vs, static_cast<val_t>(current));
             lit = lit_reason;
             assert(ass.is_false(lit));
-            if (solver.config().refine_reasons && slack - co < 0 && ass.decision_level() > 0) {
+            if (solver.config().refine_reasons() && slack - co < 0 && ass.decision_level() > 0) {
                 auto delta = floordiv<sum_t>(slack + 1, co);
                 auto value = std::min<sum_t>(current + delta, vs.max_bound());
                 if (value > current) {
@@ -379,7 +379,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         }
                     }
                     // introduce reason literal
-                    if (ret && solver.config().refine_introduce && ass.level(lit) == ass.decision_level() &&
+                    if (ret && solver.config().refine_introduce() && ass.level(lit) == ass.decision_level() &&
                         value > current) {
                         ++solver.statistics().introduced_reason;
                         found = 1;
@@ -425,12 +425,11 @@ class SumConstraintState : public AbstractConstraintState {
         assert(lower >= 0);
 
         // translation to weight constraints
-        if (literal_variable_ratio_(solver) <= config.weight_constraint_ratio) {
+        if (literal_variable_ratio_(solver) <= config.weight_constraint_ratio()) {
             return weight_translate_(solver, cc, lower);
         }
-
-        bool translate = cc.statistics().translate_clauses < config.clause_limit_total &&
-                         clause_estimate_(solver, lower, upper, config.clause_limit);
+        bool translate = cc.statistics().translate_clauses < config.clause_limit_total() &&
+                         clause_estimate_(solver, lower, upper, safe_cast<sum_t>(config.clause_limit()));
         if (translate) {
             auto ret = clause_translate_(solver, cc, lower, upper, config.literals_only);
             return {ret, !config.literals_only};
@@ -736,8 +735,8 @@ class MinimizeConstraintState : public AbstractConstraintState {
         static_cast<void>(added);
 
         bool translate = solver.translate_minimize();
-        translate = translate || config.translate_minimize == std::numeric_limits<uint32_t>::max();
-        translate = translate || required_literals(solver) < config.translate_minimize;
+        translate = translate || config.translate_minimize() == std::numeric_limits<uint32_t>::max();
+        translate = translate || required_literals(solver) < config.translate_minimize();
 
         if (!translate) {
             return {true, false};
@@ -768,7 +767,7 @@ class MinimizeConstraintState : public AbstractConstraintState {
     [[nodiscard]] static auto has_rhs(Solver &solver) -> bool { return solver.minimize_bound().has_value(); }
 
     [[nodiscard]] static auto rhs(Solver &solver) -> val_t {
-        auto ret = *solver.minimize_bound();
+        auto ret = solver.minimize_bound().value_or(MAX_VAL);
         if (MIN_VAL > ret || ret > MAX_VAL) {
             throw std::overflow_error("bound value out of range");
         }
@@ -831,7 +830,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
     //! Translate small enough distinct constraints to weight constraints.
     [[nodiscard]] auto translate(Config const &config, Solver &solver, InitClauseCreator &cc, ConstraintVec &added)
         -> std::pair<bool, bool> override {
-        if (!estimate_(config.distinct_limit)) {
+        if (!estimate_(config.distinct_limit())) {
             return {true, false};
         }
 

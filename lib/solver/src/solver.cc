@@ -472,7 +472,7 @@ auto Solver::get_literal(AbstractClauseCreator &cc, VarState &vs, val_t value) -
         // the literal for non-negative values, assignments close to zero are
         // preferred. This way, we might get solutions with small numbers
         // first.
-        if (value >= config().sign_value) {
+        if (value >= config().sign_value()) {
             lit = -lit;
         }
         litmap_add_(vs, value, lit);
@@ -703,8 +703,8 @@ auto Solver::propagate_(AbstractClauseCreator &cc, lit_t lit) -> bool {
 }
 
 template <int sign, class It, class L, class I>
-auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit, I inc)
-    -> bool {
+auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L const &get_lit,
+                                  I const &inc) -> bool {
     auto ass = cc.assignment();
 
     for (; begin != end; inc(begin)) {
@@ -717,7 +717,7 @@ auto Solver::propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, I
             return false;
         }
         // Note: Literal reason_lit is already guaranteed to be a fact on level 0.
-        if (config_.propagate_chain && ass.decision_level() > 0) {
+        if (config_.propagate_chain() && ass.decision_level() > 0) {
             reason_lit = lit;
         }
     }
@@ -909,7 +909,7 @@ void Solver::undo() {
 
 auto Solver::decide(Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
     static_cast<void>(assign);
-    switch (config_.heuristic) {
+    switch (config_.heuristic()) {
         case Heuristic::None: {
             break;
         }
@@ -944,7 +944,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
         return false;
     };
 
-    if (config_.split_all) {
+    if (config_.split_all()) {
         bool res{false};
         for (auto &vs : var2vs_) {
             res = split(vs) || res;

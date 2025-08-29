@@ -84,12 +84,12 @@ class Propagator final : public Clingo::Heuristic {
     void show_signature(std::string_view name, size_t arity);
 
     //! Add a domain for the given variable.
-    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var,
-                               IntervalSet<val_t> const &domain) -> bool;
+    [[nodiscard]] auto add_dom(AbstractClauseCreator &cc, lit_t lit, var_t var, IntervalSet<val_t> const &domain)
+        -> bool;
 
     //! Add a constraint that can be represented by an order literal.
-    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs,
-                                  bool strict) -> bool;
+    [[nodiscard]] auto add_simple(AbstractClauseCreator &cc, lit_t clit, val_t co, var_t var, val_t rhs, bool strict)
+        -> bool;
 
     //! Add a constraint to the program.
     void add_constraint(UniqueConstraint constraint);
@@ -166,7 +166,7 @@ class Propagator final : public Clingo::Heuristic {
     //! functions in this class are accessed.
     auto master_() -> Solver & {
         if (solvers_.empty()) {
-            solvers_.emplace_back(config_.solver_config(0), stats_step_.solver_stats(0));
+            solvers_.emplace_back(SolverConfig(config_, 0), stats_step_.solver_stats(0));
         }
         return solver_(0);
     }

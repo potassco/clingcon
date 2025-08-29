@@ -218,46 +218,108 @@ struct Statistics {
     std::forward_list<SolverStatistics> solver_statistics;
 };
 
-//! Per solver configuration.
-struct SolverConfig {
-    Heuristic heuristic{Heuristic::None};
-    val_t sign_value{DEFAULT_SIGN_VALUE};
-    bool split_all{DEFAULT_SPLIT_ALL};
-    bool propagate_chain{DEFAULT_PROPAGATE_CHAIN};
-    bool refine_reasons{DEFAULT_REFINE_REASONS};
-    bool refine_introduce{DEFAULT_REFINE_INTRODUCE};
-};
-
-//! Global configuration.
-struct Config {
-    //! Get solver specific configuration.
-    auto solver_config(uint32_t thread_id) -> SolverConfig & {
-        auto it = solver_configs.before_begin();
-
-        for (uint32_t i = 0; i <= thread_id; ++i) {
-            auto jt = it++;
-            if (it == solver_configs.end()) {
-                it = solver_configs.emplace_after(jt, default_solver_config);
-            }
-        }
-
-        return *it;
+#define CLINGCON_THREAD_CONFIG(type, name, default_value)                                                              \
+  private:                                                                                                             \
+    type name##_{default_value};                                                                                       \
+                                                                                                                       \
+  public:                                                                                                              \
+    [[nodiscard]] auto name(std::optional<clingo_id_t> thread_id = std::nullopt) const -> type {                       \
+        if (thread_id && *thread_id < solver_configs_.size() && solver_configs_[*thread_id].name) {                    \
+            return *solver_configs_[*thread_id].name; /* NOLINT */                                                     \
+        }                                                                                                              \
+        return name##_;                                                                                                \
+    }                                                                                                                  \
+    void set_##name(type value, std::optional<clingo_id_t> thread_id = std::nullopt) {                                 \
+        if (thread_id) {                                                                                               \
+            ensure_solver_config(*thread_id);                                                                          \
+            solver_configs_[*thread_id].name = value;                                                                  \
+        } else {                                                                                                       \
+            name##_ = value;                                                                                           \
+        }                                                                                                              \
     }
 
-    std::forward_list<SolverConfig> solver_configs;
-    SolverConfig default_solver_config;
-    double weight_constraint_ratio{DEFAULT_WEIGHT_CONSTRAINT_RATIO};
-    uint64_t clause_limit_total{DEFAULT_CLAUSE_LIMIT_TOTAL};
-    uint32_t clause_limit{DEFAULT_CLAUSE_LIMIT};
-    uint32_t distinct_limit{DEFAULT_DISTINCT_LIMIT};
-    uint32_t translate_minimize{DEFAULT_TRANSLATE_MINIMIZE};
-    val_t min_int{DEFAULT_MIN_INT};
-    val_t max_int{DEFAULT_MAX_INT};
+#define CLINGCON_CONFIG(type, name, default_value)                                                                     \
+  private:                                                                                                             \
+    type name##_{default_value};                                                                                       \
+                                                                                                                       \
+  public:                                                                                                              \
+    [[nodiscard]] auto name() const -> type {                                                                          \
+        return name##_;                                                                                                \
+    }                                                                                                                  \
+    void set_##name(type value) {                                                                                      \
+        name##_ = value;                                                                                               \
+    }
+
+//! Global configuration.
+class Config {
+  public:
+    CLINGCON_THREAD_CONFIG(Heuristic, heuristic, Heuristic::None)
+    CLINGCON_THREAD_CONFIG(val_t, sign_value, DEFAULT_SIGN_VALUE)
+    CLINGCON_THREAD_CONFIG(bool, split_all, DEFAULT_SPLIT_ALL)
+    CLINGCON_THREAD_CONFIG(bool, propagate_chain, DEFAULT_PROPAGATE_CHAIN)
+    CLINGCON_THREAD_CONFIG(bool, refine_reasons, DEFAULT_REFINE_REASONS)
+    CLINGCON_THREAD_CONFIG(bool, refine_introduce, DEFAULT_REFINE_INTRODUCE)
+    CLINGCON_CONFIG(double, weight_constraint_ratio, DEFAULT_WEIGHT_CONSTRAINT_RATIO)
+    CLINGCON_CONFIG(uint64_t, clause_limit_total, DEFAULT_CLAUSE_LIMIT_TOTAL)
+    CLINGCON_CONFIG(uint64_t, clause_limit, DEFAULT_CLAUSE_LIMIT)
+    CLINGCON_CONFIG(uint32_t, distinct_limit, DEFAULT_DISTINCT_LIMIT)
+    CLINGCON_CONFIG(uint32_t, translate_minimize, DEFAULT_TRANSLATE_MINIMIZE)
+    CLINGCON_CONFIG(val_t, min_int, DEFAULT_MIN_INT)
+    CLINGCON_CONFIG(val_t, max_int, DEFAULT_MAX_INT)
+
+    // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes)
     bool sort_constraints{DEFAULT_SORT_CONSTRAINTS};
     bool literals_only{DEFAULT_LITERALS_ONLY};
     bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
+    // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes)
+
+    [[nodiscard]] auto size() const -> size_t { return solver_configs_.size(); }
+
+    [[nodiscard]] auto has_heuristic() const -> bool {
+        return heuristic_ != Heuristic::None || std::ranges::any_of(solver_configs_, [](auto const &cfg) {
+                   return cfg.heuristic && cfg.heuristic != Heuristic::None;
+               });
+    }
+
+  private:
+    void ensure_solver_config(clingo_id_t thread_id) {
+        while (thread_id >= solver_configs_.size()) {
+            solver_configs_.emplace_back();
+        }
+    }
+
+    //! Per solver configuration.
+    struct SolverConfig {
+        std::optional<Heuristic> heuristic;
+        std::optional<val_t> sign_value;
+        std::optional<bool> split_all;
+        std::optional<bool> propagate_chain;
+        std::optional<bool> refine_reasons;
+        std::optional<bool> refine_introduce;
+    };
+
+    std::vector<SolverConfig> solver_configs_;
+};
+
+#undef CLINGCON_CONFIG
+#undef CLINGCON_THREAD_CONFIG
+
+//! Per solver configuration.
+class SolverConfig {
+  public:
+    SolverConfig(Config const &config, clingo_id_t thread_id) : config_{&config}, thread_id_{thread_id} {}
+    [[nodiscard]] auto heuristic() const -> Heuristic { return config_->heuristic(thread_id_); }
+    [[nodiscard]] auto sign_value() const -> val_t { return config_->sign_value(thread_id_); }
+    [[nodiscard]] auto split_all() const -> bool { return config_->split_all(thread_id_); }
+    [[nodiscard]] auto propagate_chain() const -> bool { return config_->propagate_chain(thread_id_); }
+    [[nodiscard]] auto refine_reasons() const -> bool { return config_->refine_reasons(thread_id_); }
+    [[nodiscard]] auto refine_introduce() const -> bool { return config_->refine_introduce(thread_id_); }
+
+  private:
+    Config const *config_;
+    clingo_id_t thread_id_;
 };
 
 //! Class to add solver literals, create clauses, and access the current
@@ -433,8 +495,8 @@ class ControlClauseCreator final : public AbstractClauseCreator {
         ++stats_.literals;
         return lit;
     }
-    auto commit_clause([[maybe_unused]] Clingo::SolverLiteralSpan clause,
-                       [[maybe_unused]] Clingo::ClauseFlags type) -> bool override {
+    auto commit_clause([[maybe_unused]] Clingo::SolverLiteralSpan clause, [[maybe_unused]] Clingo::ClauseFlags type)
+        -> bool override {
         return true;
     }
     auto prepare_propagate() -> bool override { return true; }

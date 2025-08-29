@@ -82,6 +82,8 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
 #show permutation/2.
 )";
 
+    Fixture() { theory.register_theory(ctl); }
+
     //! Create a symbol for sequence atoms of task/machine pairs.
     [[nodiscard]] auto seq(Clingo::Symbol const &a, Clingo::Symbol const &b, Clingo::Symbol const &c) const
         -> std::vector<Clingo::Symbol> {
@@ -186,6 +188,7 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
     Clingo::Library lib;
     Clingo::Theory theory{lib, clingcon_create};
     Clingo::Control ctl{lib, {"0"}};
+    Clingo::Config cfg{ctl.config()};
     Clingo::Symbol sym_a = Function(lib, "a");
     Clingo::Symbol sym_b = Function(lib, "b");
     Clingo::Symbol sym_c = Function(lib, "c");
@@ -197,7 +200,6 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
 } // namespace
 
 TEST_CASE_METHOD(Fixture, "solving base", "[clingo]") { // NOLINT
-    theory.register_theory(ctl);
     theory.rewrite(lib, ctl,
                    "1 { a; b } 1. &diff { a - b } = 3.\n"
                    "&diff { 0 - a } = -5 :- a.\n"
@@ -217,7 +219,6 @@ TEST_CASE_METHOD(Fixture, "solving base", "[clingo]") { // NOLINT
 }
 
 TEST_CASE_METHOD(Fixture, "solving not_equal", "[clingo]") {
-    theory.register_theory(ctl);
     theory.rewrite(lib, ctl, "&dom { 5..6 } = b. { a }. &diff { b - 0 } != 5 :- not a.\n");
     ctl.ground();
     theory.prepare(ctl);
@@ -226,8 +227,7 @@ TEST_CASE_METHOD(Fixture, "solving not_equal", "[clingo]") {
 }
 
 TEST_CASE_METHOD(Fixture, "solving configure", "[clingo]") {
-    theory.configure("shift-constraints", "1");
-    theory.register_theory(ctl);
+    cfg["clingcon.shift_constraints"] = "yes";
     theory.rewrite(lib, ctl, " :- &sum { a } != 5.\n");
     ctl.ground();
     theory.prepare(ctl);
@@ -236,7 +236,6 @@ TEST_CASE_METHOD(Fixture, "solving configure", "[clingo]") {
 }
 
 TEST_CASE_METHOD(Fixture, "solving normalize", "[clingo]") {
-    theory.register_theory(ctl);
     theory.rewrite(lib, ctl,
                    "&sum { a } >= 6.\n"
                    "&sum { a } = b.\n"
@@ -254,7 +253,6 @@ TEST_CASE_METHOD(Fixture, "solving normalize", "[clingo]") {
 }
 
 TEST_CASE_METHOD(Fixture, "solving empty", "[clingo]") {
-    theory.register_theory(ctl);
     theory.rewrite(lib, ctl,
                    "{ b }.\n"
                    "&sum { 0 } < -4 :- b.\n");
@@ -266,7 +264,6 @@ TEST_CASE_METHOD(Fixture, "solving empty", "[clingo]") {
 }
 
 TEST_CASE_METHOD(Fixture, "solving symbols", "[clingo]") {
-    theory.register_theory(ctl);
     theory.rewrite(lib, ctl, "&diff{ (\"foo\\\\\\nbar\\\"foo\",123) - 0 } = 17.\n");
     ctl.ground();
     theory.prepare(ctl);
@@ -276,27 +273,24 @@ TEST_CASE_METHOD(Fixture, "solving symbols", "[clingo]") {
 
 TEST_CASE_METHOD(Fixture, "solving task-assignment", "[clingo]") {
     const auto *on_off = GENERATE("0", "1");
-    const auto *translate_clauses = GENERATE("1", "1000");
-    const auto *sign_value = GENERATE("0", "+", "-");
-    theory.configure("shift-constraints", on_off);
-    theory.configure("sort-constraints", on_off);
-    theory.configure("translate-clauses", translate_clauses);
-    theory.configure("literals-only", on_off);
-    theory.configure("translate-pb", "1.5");
-    theory.configure("translate-distinct", "2");
-    theory.configure("translate-opt", "0");
-    theory.configure("add-order-clauses", on_off);
-    theory.configure("min-int", "-1000");
-    theory.configure("max-int", "1000");
-    theory.configure("check-solution", "1");
-    theory.configure("check-state", "1");
-    theory.configure("order-heuristic", "max-chain");
-    theory.configure("sign-value", sign_value);
-    theory.configure("refine-reasons", on_off);
-    theory.configure("refine-introduce", on_off);
-    theory.configure("propagate-chain", "1");
-    theory.configure("split-all", on_off);
-    theory.register_theory(ctl);
+    cfg["clingcon.translate_clauses"] = GENERATE("1", "1000");
+    cfg["clingcon.sign_value"] = GENERATE("0", "+", "-");
+    cfg["clingcon.shift_constraints"] = on_off;
+    cfg["clingcon.sort_constraints"] = on_off;
+    cfg["clingcon.literals_only"] = on_off;
+    cfg["clingcon.translate_pb"] = "1.5";
+    cfg["clingcon.translate_distinct"] = "2";
+    cfg["clingcon.translate_opt"] = "0";
+    cfg["clingcon.add_order_clauses"] = on_off;
+    cfg["clingcon.min_int"] = "-1000";
+    cfg["clingcon.max_int"] = "1000";
+    cfg["clingcon.check_solution"] = "1";
+    cfg["clingcon.check_state"] = "1";
+    cfg["clingcon.order_heuristic"] = "max-chain";
+    cfg["clingcon.refine_reasons"] = on_off;
+    cfg["clingcon.refine_introduce"] = on_off;
+    cfg["clingcon.propagate_chain"] = "1";
+    cfg["clingcon.split_all"] = on_off;
     theory.rewrite(lib, ctl, ENC);
     ctl.ground();
     theory.prepare(ctl);

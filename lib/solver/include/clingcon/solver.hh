@@ -803,8 +803,8 @@ class Solver {
     //! Propagates the preceding or succeeding order literals of lit until a
     //! true literal is found or the end is reached.
     template <int sign, class It, class L, class I>
-    [[nodiscard]] auto propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end, L get_lit,
-                                            I inc) -> bool;
+    [[nodiscard]] auto propagate_variables_(AbstractClauseCreator &cc, lit_t reason_lit, It begin, It end,
+                                            L const &get_lit, I const &inc) -> bool;
 
     //! Update and propagate the given variable due to a lower bound change.
     [[nodiscard]] auto update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value,
@@ -839,7 +839,7 @@ class Solver {
     void litmap_add_(VarState &vs, val_t val, lit_t lit);
 
     //! Solver configuration.
-    SolverConfig const &config_; // NOLINT
+    SolverConfig config_;
     //! Solver statistics;
     SolverStatistics &stats_; // NOLINT
     //! Vector of all VarState objects.
