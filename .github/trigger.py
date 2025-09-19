@@ -13,6 +13,8 @@ OWNER = "potassco"
 API_URL = f"https://api.github.com/repos/{OWNER}/{REPO}"
 TOKEN_FILE = os.path.expanduser("~/.tokens")
 WORKFLOW_ID_CONDA = "169621704"
+WORKFLOW_ID_PYPI = "190650163"
+WORKFLOW_ID_PPA = ""
 
 
 def get_token():
@@ -59,10 +61,10 @@ def list_workflows():
         print(f"{wf['id']}: {wf['name']}")
 
 
-def dispatch_workflow(workflow_id: str, ref: str, label: str, build: str):
+def dispatch_workflow(workflow_id: str, ref: str, inputs: dict):
     """Dispatch a workflow event"""
     url = f"{API_URL}/actions/workflows/{workflow_id}/dispatches"
-    payload = {"ref": ref, "inputs": {"label": label, "build_number": build}}
+    payload = {"ref": ref, "inputs": inputs}
     make_request(url, method="POST", data=payload)
     print(f"Workflow dispatched: https://github.com/{OWNER}/{REPO}/actions")
 
@@ -72,7 +74,7 @@ def main():
     Run the script.
     """
     parser = argparse.ArgumentParser(
-        description="Trigger GitHub Actions workflows for clingcon."
+        description=f"Trigger GitHub Actions workflows for {REPO}."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -90,9 +92,37 @@ def main():
     if args.command == "list":
         list_workflows()
     elif args.command == "release":
-        dispatch_workflow(WORKFLOW_ID_CONDA, args.branch, "main", args.build_number)
+        dispatch_workflow(
+            WORKFLOW_ID_CONDA,
+            args.branch,
+            {"build_number": args.build_number, "label": "main"},
+        )
+        dispatch_workflow(
+            WORKFLOW_ID_PYPI,
+            args.branch,
+            {"build_number": args.build_number, "index": "pypi"},
+        )
+        dispatch_workflow(
+            WORKFLOW_ID_PPA,
+            args.branch,
+            {"build_number": args.build_number, "type": "stable"},
+        )
     elif args.command == "dev":
-        dispatch_workflow(WORKFLOW_ID_CONDA, args.branch, "dev-20", "auto")
+        dispatch_workflow(
+            WORKFLOW_ID_CONDA,
+            args.branch,
+            {"build_number": "auto", "label": "dev-20"},
+        )
+        dispatch_workflow(
+            WORKFLOW_ID_PYPI,
+            args.branch,
+            {"build_number": "auto", "index": "testpypi"},
+        )
+        # dispatch_workflow(
+        #     WORKFLOW_ID_PPA,
+        #     args.branch,
+        #     {"build_number": "auto", "type": "wip-20"},
+        # )
     else:
         parser.print_help()
         sys.exit(1)

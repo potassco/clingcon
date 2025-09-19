@@ -1,10 +1,43 @@
 [project]
 name = "clingcon"
-version = "5.2.1"
-dependencies = ["clingo"]
+version = "5.3.0"
+description="Python bindings to the clingcon solver."
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [
+  { name = "Roland Kaminski", email = "kaminski@cs.uni-potsdam.de" }
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+keywords = [
+  "artificial intelligence",
+  "logic programming",
+  "answer set programming",
+  "constraint solving",
+  "theory solving",
+  "AI",
+  "ASP",
+  "SAT",
+  "CSP",
+  "Potassco",
+  "clingo",
+  "clingcon",
+  "solver"
+]
+dependencies = ["clingo>=6.0.0"]
+
+[project.urls]
+Homepage = "https://potassco.org"
+Repository = "https://github.com/potassco/clingcon"
+Documentation = "https://github.com/potassco/guide"
 
 [project.scripts]
-pyclingcon = "clingcon.main"
+pyclingcon = "clingcon:_pyclingcon"
 
 [build-system]
 requires = ["scikit-build-core", "pybind11", "clingo"]
@@ -27,3 +60,21 @@ ignore = ["E741"]
 
 [tool.pylint.design]
 min-public-methods = 1
+
+[tool.cibuildwheel]
+enable = ["pypy"]
+
+[tool.cibuildwheel.linux]
+archs = ["auto", "aarch64", "ppc64le"]
+manylinux-x86_64-image = "manylinux_2_34"
+manylinux-i686-image = "manylinux_2_34"
+manylinux-pypy_x86_64-image = "manylinux_2_34"
+manylinux-pypy_i686-image = "manylinux_2_34"
+manylinux-aarch64-image = "manylinux_2_34"
+manylinux-ppc64le-image = "manylinux_2_34"
+repair-wheel-command = "auditwheel repair --exclude libclingo.so -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+environment = { MACOSX_DEPLOYMENT_TARGET = "14.0" }
+repair-wheel-command = "delocate-wheel --ignore-missing-dependencies -w {dest_dir} -v {wheel}"

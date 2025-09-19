@@ -130,7 +130,7 @@ run()
 void register_clingcon(pybind11::module &m) {
     m.doc() = R"doc(The clingcon python module.)doc";
     m.def("create_theory", create_theory, R"(Get the theory constructor.)");
-    m.def("main", main, R"(Run clingcon.)");
+    m.def("_pyclingcon", main, R"(Run clingcon.)");
 }
 
 } // namespace PyClingcon
