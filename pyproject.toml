@@ -40,7 +40,7 @@ Documentation = "https://github.com/potassco/guide"
 pyclingcon = "clingcon:_pyclingcon"
 
 [build-system]
-requires = ["scikit-build-core", "pybind11", "clingo"]
+requires = ["scikit-build-core", "pybind11", "clingo>=6.0.0"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build.sdist]
