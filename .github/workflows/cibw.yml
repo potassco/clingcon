@@ -46,6 +46,8 @@ jobs:
 
       - name: Build sdist
         run: pipx run build --sdist
+        env:
+          PIP_EXTRA_INDEX_URL: "${{ inputs.index == 'testpypi' && 'https://test.pypi.org/simple' || '' }}"
 
       - uses: actions/upload-artifact@v4
         with:

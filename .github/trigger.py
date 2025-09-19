@@ -108,21 +108,21 @@ def main():
             {"build_number": args.build_number, "type": "stable"},
         )
     elif args.command == "dev":
-        dispatch_workflow(
-            WORKFLOW_ID_CONDA,
-            args.branch,
-            {"build_number": "auto", "label": "dev-20"},
-        )
+        # dispatch_workflow(
+        #     WORKFLOW_ID_CONDA,
+        #     args.branch,
+        #     {"build_number": "auto", "label": "dev-20"},
+        # )
         dispatch_workflow(
             WORKFLOW_ID_PYPI,
             args.branch,
             {"build_number": "auto", "index": "testpypi"},
         )
-        dispatch_workflow(
-            WORKFLOW_ID_PPA,
-            args.branch,
-            {"build_number": "auto", "type": "wip-20"},
-        )
+        # dispatch_workflow(
+        #     WORKFLOW_ID_PPA,
+        #     args.branch,
+        #     {"build_number": "auto", "type": "wip-20"},
+        # )
     else:
         parser.print_help()
         sys.exit(1)
