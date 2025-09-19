@@ -59,7 +59,10 @@ if(DEFINED SKBUILD)
     message(STATUS "Configuring for skbuild")
     set(CLINGCON_INSTALL_WHEEL ON)
     find_package(pybind11 CONFIG REQUIRED)
-    execute_process(COMMAND "${Python_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/cmake/python-site.py" target OUTPUT_VARIABLE sp_dir OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+        COMMAND "${Python_EXECUTABLE}" -c "import clingo, os; print(os.path.dirname(clingo.__file__))"
+        OUTPUT_VARIABLE sp_dir
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
     add_library(clingo-interface INTERFACE)
     target_include_directories(clingo-interface INTERFACE ${sp_dir}/clingo-include)
     target_link_directories(clingo-interface INTERFACE ${sp_dir})
