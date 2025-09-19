@@ -51,9 +51,8 @@ elseif(CLINGCON_INSTALL_WHEEL AND CLINGCON_BUILD_SHARED)
         LIBRARY DESTINATION ".")
     if(CLINGCON_BUILD_SHARED)
         if(APPLE)
-            set_target_properties(clingcon
-                PROPERTIES INSTALL_RPATH "@loader_path"
-                BUILD_WITH_INSTALL_RPATH TRUE)
+            set_target_properties(clingcon PROPERTIES
+                INSTALL_NAME_DIR "@loader_path")
         elseif(UNIX)
             set_target_properties(clingcon
                 PROPERTIES INSTALL_RPATH "$ORIGIN"
