@@ -1,0 +1,37 @@
+Source: clingcon
+Section: devel
+Priority: optional
+Maintainer: Roland Kaminski <kaminski@cs.uni-potsdam.de>
+Build-Depends: debhelper-compat (= 13), dh-python, cmake, python3-dev, bison, re2c, clingo, libclingo-dev, python3-clingo
+Standards-Version: 4.4.1
+Homepage: https://potassco.org/clingcon
+Vcs-Browser: https://github.com/potassco/clingcon
+Vcs-Git: https://github.com/potassco/clingcon.git
+
+Package: clingcon
+Architecture: any
+Section: devel
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, libclingcon (= ${binary:Version})
+Description: A solver for logic programs with finite domain constraints
+ Clingcon is an extension of the clingo Answer Set Programming (ASP) system
+ that integrates finite domain constraint solving. It enables modeling and
+ solving problems with variables over finite domains and complex constraints,
+ making it suitable for applications such as resource allocation and planning.
+
+Package: libclingcon
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libclingo
+Description: The shared library for the clingcon package
+
+Package: libclingcon-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, libclingcon (= ${binary:Version})
+Description: The development files for the clingcon package
+
+Package: python3-clingcon
+Section: python
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, libclingcon (= ${binary:Version})
+Description: Python bindings for the clingcon package
