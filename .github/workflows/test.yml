@@ -35,10 +35,10 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           miniforge-version: latest
-          channel-priority: strict
-          use-mamba: true
+          channel-priority: flexible
           environment-file: .github/test-environment.yml
           activate-environment: test-env
+          auto-update-conda: true
 
       - name: Configure
         run: |

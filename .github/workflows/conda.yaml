@@ -16,8 +16,32 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.12", "3.13"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.12"
+            arch: x86_64
+          - os: ubuntu-latest
+            python-version: "3.13"
+            arch: x86_64
+          - os: macos-latest
+            python-version: "3.12"
+            arch: arm64
+          - os: macos-latest
+            python-version: "3.13"
+            arch: arm64
+          - os: macos-latest
+            python-version: "3.12"
+            arch: x86_64
+          - os: macos-latest
+            python-version: "3.13"
+            arch: x86_64
+          - os: windows-latest
+            python-version: "3.12"
+            arch: x86_64
+          - os: windows-latest
+            python-version: "3.13"
+            arch: x86_64
+
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -41,24 +65,54 @@ jobs:
           fi
 
       - name: Conda
+        if: ${{ runner.os != 'linux' }}
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge
-          channel-priority: strict
-          activate-environment: conda-build
+          channels: potassco/label/dev-20,conda-forge
+          channel-priority: flexible
+          conda-remove-defaults: true
           auto-update-conda: true
 
-      - name: Setup
-        shell: bash -l {0}
+      - name: Build (linux)
+        if: ${{ runner.os == 'linux' }}
         run: |
-          conda install conda-build
+          mkdir artifacts
+          chmod a+rwx artifacts
+          docker run --rm \
+            -v ${{ github.workspace }}:/work \
+            -v ${{ github.workspace }}/artifacts:/artifacts \
+            quay.io/condaforge/linux-anvil-cos7-x86_64 /bin/bash -c "
+              export VERSION_NUMBER=${{ env.VERSION_NUMBER }} && \
+              export BUILD_NUMBER=${{ env.BUILD_NUMBER }} && \
+              curl -L -o miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
+              bash miniconda.sh -b && \
+              source ~/miniforge3/etc/profile.d/conda.sh && \
+              conda config --add channels potassco/label/dev-20 && \
+              conda create -n build conda-build && \
+              conda activate build && \
+              conda build /work/.github/conda --output-folder artifacts --python ${{ matrix.python-version }} && \
+              find artifacts -type f -name '*.conda' -exec cp {} /artifacts/ \;
+            "
+      - name: Build (macos_x86_64)
+        shell: bash -l {0}
+        if: ${{ runner.os == 'macos' && matrix.arch == 'x86_64' }}
+        run: |
+          conda create --platform osx-64 -n build conda-build
+          conda activate build
+          arch -x86_64 conda build .github/conda \
+            --output-folder ./artifacts \
+            --python "${{ matrix.python-version }}"
+          find artifacts -type f ! -name "*.conda" -delete
+          find artifacts -type d -empty -delete
 
-      - name: Build
+      - name: Build (windows/macos_arm64)
         shell: bash -l {0}
+        if: ${{ runner.os != 'linux' && (runner.os != 'macos' || matrix.arch != 'x86_64') }}
         run: |
+          conda create -n build conda-build
+          conda activate build
           conda build .github/conda \
-            -c potassco/label/dev-20 \
             --output-folder ./artifacts \
             --python "${{ matrix.python-version }}"
           find artifacts -type f ! -name "*.conda" -delete
@@ -67,7 +121,7 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: conda-packages-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: conda-packages-${{ matrix.os }}-${{ matrix.arch }}-py${{ matrix.python-version }}
           path: artifacts
 
   upload:
