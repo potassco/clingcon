@@ -37,7 +37,7 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
             ProfilerStart("clingcon.solve.prof");
 #endif
             theory_.prepare(ctl);
-            std::ignore = ctl.solve(*this).get();
+            std::ignore = ctl.solve({}, std::ref<Clingo::SolveEventHandler>(*this));
 #ifdef CLINGCON_PROFILE
             ProfilerStop();
 #endif

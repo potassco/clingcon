@@ -252,7 +252,7 @@ TEST_CASE_METHOD(Fixture, "sum", "[solving]") {
         ctl.join(prg);
         ctl.ground();
         {
-            auto hnd = ctl.solve(seh, {}, Clingo::SolveFlags::yield);
+            auto hnd = ctl.start_solve({}, Clingo::SolveFlags::yield, std::ref(seh));
             for (auto &&mdl : hnd) {
                 auto syms = mdl.symbols(Clingo::ShowFlags::theory);
                 REQUIRE(syms.size() == 1);

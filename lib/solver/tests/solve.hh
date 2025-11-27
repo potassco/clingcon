@@ -47,8 +47,8 @@ using O = std::vector<std::optional<val_t>>;
 
 class SolveEventHandler : public Clingo::SolveEventHandler {
   public:
-    SolveEventHandler(Propagator &p) : p{p} {}
-    void do_stats(Clingo::Stats step, Clingo::Stats accu) override { p.on_statistics(step, accu); }
+    SolveEventHandler(Propagator &p) : p{&p} {}
+    void do_stats(Clingo::Stats step, Clingo::Stats accu) override { p->on_statistics(step, accu); }
     auto do_model(Clingo::Model model) -> bool override {
         if (model.optimality_proven()) {
             if (!proven) {
@@ -58,7 +58,7 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
         } else {
             proven = false;
         }
-        p.on_model(model);
+        p->on_model(model);
         std::ostringstream oss;
         bool sep = false;
         std::vector<Clingo::Symbol> symbols = model.symbols();
@@ -73,9 +73,9 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
             }
         }
         std::vector<std::pair<Clingo::Symbol, val_t>> assignment;
-        for (auto const &[var, sym] : p.var_map()) {
-            if (p.shown(var)) {
-                assignment.emplace_back(sym, p.get_value(var, model.thread_id()));
+        for (auto const &[var, sym] : p->var_map()) {
+            if (p->shown(var)) {
+                assignment.emplace_back(sym, p->get_value(var, model.thread_id()));
             }
         }
         std::ranges::sort(assignment);
@@ -89,7 +89,7 @@ class SolveEventHandler : public Clingo::SolveEventHandler {
         models.emplace_back(oss.str());
         return true;
     }
-    Propagator &p;
+    Propagator *p;
     S models;
     bool proven = false;
 };
@@ -156,7 +156,7 @@ struct Fixture {
 
         ctl.ground();
 
-        if (ctl.solve(hnd).get().interrupted()) {
+        if (ctl.solve({}, std::ref(hnd)).interrupted()) {
             throw std::runtime_error("interrupted");
         }
         bool has_minimize = prp.has_minimize();
@@ -182,7 +182,7 @@ struct Fixture {
             config.set_refine_reasons(!config.refine_reasons());
             config.set_propagate_chain(!config.propagate_chain());
         }
-        if (ctl.solve(hnd).get().interrupted()) {
+        if (ctl.solve({}, std::ref(hnd)).interrupted()) {
             throw std::runtime_error("interrupted");
         }
         std::ranges::sort(hnd.models);
@@ -232,7 +232,7 @@ struct Fixture {
             ctl.ground({part});
 
             SolveEventHandler seh{prp};
-            if (ctl.solve(seh).get().interrupted()) {
+            if (ctl.solve({}, std::ref(seh)).interrupted()) {
                 throw std::runtime_error("interrupted");
             }
             if (sep) {
@@ -285,7 +285,7 @@ struct Fixture {
             ctl.ground({part});
 
             SolveEventHandler handler{p};
-            if (ctl.solve(handler).get().interrupted()) {
+            if (ctl.solve({}, std::ref(handler)).interrupted()) {
                 throw std::runtime_error("interrupted");
             }
             std::optional<val_t> bound;

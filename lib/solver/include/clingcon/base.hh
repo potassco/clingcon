@@ -398,11 +398,11 @@ class InitClauseCreator final : public AbstractClauseCreator {
                                              Clingo::WeightConstraintType type) -> bool {
         auto ass = assignment();
         if (ass.is_true(lit)) {
-            if (type < 0) {
+            if (type == Clingo::WeightConstraintType::implication_left) {
                 return true;
             }
         } else if (ass.is_false(lit)) {
-            if (type > 0) {
+            if (type == Clingo::WeightConstraintType::implication_right) {
                 return true;
             }
         }

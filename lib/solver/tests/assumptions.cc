@@ -64,7 +64,7 @@ struct AFixture {
 
     [[nodiscard]] auto step(Clingo::ProgramLiteralVector assumptions = {}) const {
         SolveEventHandler hnd{*prp};
-        if (ctl.solve(hnd, assumptions).get().interrupted()) {
+        if (ctl.solve(assumptions, std::ref(hnd)).interrupted()) {
             throw std::runtime_error("interrupted");
         }
         std::ranges::sort(hnd.models);

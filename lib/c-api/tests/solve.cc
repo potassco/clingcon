@@ -141,12 +141,11 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
         Clingo::Theory *theory_; //!< The DL theory.
     };
 
-    //! Solve a given DL problem returning all models.
+    //! Solve a given problem returning all models.
     auto solve(Clingo::Control &ctl) -> RV {
         using namespace Clingo;
-        Handler h{theory};
         RV result;
-        for (auto &&m : ctl.solve(h, {}, SolveFlags::yield)) {
+        for (auto &&m : ctl.start_solve({}, SolveFlags::yield, Handler{theory})) {
             result.emplace_back();
             auto &sol = result.back().first;
             auto &sol_bool = result.back().second;
