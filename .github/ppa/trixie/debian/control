@@ -2,9 +2,9 @@ Source: clingcon
 Section: devel
 Priority: optional
 Maintainer: Roland Kaminski <kaminski@cs.uni-potsdam.de>
-Build-Depends: debhelper-compat (= 13), dh-python, cmake, python3-dev, bison, re2c, clingo, libclingo-dev, python3-clingo
+Build-Depends: debhelper-compat (= 13), dh-python, cmake, python3-dev, clingo, libclingo-dev, python3-clingo
 Standards-Version: 4.4.1
-Homepage: https://potassco.org/clingcon
+Homepage: https://potassco.org/
 Vcs-Browser: https://github.com/potassco/clingcon
 Vcs-Git: https://github.com/potassco/clingcon.git
 
@@ -12,11 +12,11 @@ Package: clingcon
 Architecture: any
 Section: devel
 Depends: ${shlibs:Depends}, ${misc:Depends}, libclingcon (= ${binary:Version})
-Description: A solver for logic programs with finite domain constraints
- Clingcon is an extension of the clingo Answer Set Programming (ASP) system
- that integrates finite domain constraint solving. It enables modeling and
- solving problems with variables over finite domains and complex constraints,
- making it suitable for applications such as resource allocation and planning.
+Description: A solver for logic programs with linear programming constraints
+ Clingo-dl extends the clingo Answer Set Programming (ASP) system by
+ integrating linear programming constraint solving. It enables modeling and
+ solving problems involving linear constraints over real variables, making it
+ suitable for applications such as scheduling, optimization, and planning.
 
 Package: libclingcon
 Section: libs

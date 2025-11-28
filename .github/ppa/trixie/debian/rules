@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+export CLINGCON_BUILD_REVISION =
+
+%:
+	dh $@ --with python3
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	  -DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) \
+	  -DCLINGCON_BUILD_REVISION=$(CLINGCON_BUILD_REVISION) \
+	  -DCLINGCON_BUILD_TESTS=Off \
+	  -DCLINGCON_MANAGE_RPATH=Off
