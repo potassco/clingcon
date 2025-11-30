@@ -55,52 +55,6 @@ class ClingconApp(App):
             ) as hnd:
                 hnd.get()
 
-    def print_model(self, model: Model, default_printer: Callable[[], None]) -> None:
-        """
-        Print the given model in a custom format.
-        """
-        syms = sorted(model.symbols(shown=True))
-        cost = None
-
-        # print symbols
-        comma = False
-        for sym in syms:
-            if not sym.match("__csp", 2) and not sym.match("__csp_cost", 1):
-                if comma:
-                    stdout.write(" ")
-                else:
-                    comma = True
-                stdout.write(str(sym))
-
-        # print assignment
-        stdout.write("\nAssignment:\n")
-        comma = False
-        for sym in syms:
-            if sym.match("__csp", 2):
-                key, val = sym.arguments
-                if comma:
-                    stdout.write(" ")
-                else:
-                    comma = True
-                stdout.write(str(key))
-                stdout.write("=")
-                stdout.write(str(val))
-            if sym.match("__csp_cost", 1):
-                cost = sym.arguments[0]
-        stdout.write("\n")
-
-        # print costs
-        if cost is not None:
-            stdout.write("Cost: ")
-            if cost.type == SymbolType.String:
-                stdout.write(cost.string)
-            else:
-                stdout.write(str(cost))
-
-            stdout.write("\n")
-
-        stdout.flush()
-
     def register_options(self, options: AppOptions) -> None:
         """
         Register command-line options for the application.

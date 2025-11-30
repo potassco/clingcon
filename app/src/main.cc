@@ -45,53 +45,6 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
             ctl.main();
         }
     }
-    void do_print_model(Clingo::ConstModel model, Clingo::ModelPrinter const &default_printer) override {
-        static_cast<void>(default_printer);
-        try {
-            auto symbols = model.symbols(Clingo::ShowFlags::shown);
-
-            // print model
-            bool comma = false;
-            std::ranges::sort(symbols);
-            for (auto &sym : symbols) {
-                if (!sym.match("__csp", 2) && !sym.match("__csp_cost", 1)) {
-                    std::cout << (comma ? " " : "") << sym;
-                    comma = true;
-                }
-            }
-
-            // print assignment
-            std::cout << "\nAssignment:\n";
-            comma = false;
-            auto cost = std::optional<Clingo::Symbol>{};
-            for (auto &sym : symbols) {
-                if (sym.match("__csp", 2)) {
-                    auto arguments = sym.arguments();
-                    std::cout << (comma ? " " : "") << arguments[0] << "=" << arguments[1];
-                    comma = true;
-
-                } else if (sym.match("__csp_cost", 1)) {
-                    auto arguments = sym.arguments();
-                    cost = arguments[0];
-                }
-            }
-            std::cout << "\n";
-
-            // print cost
-            if (cost) {
-                if (cost->type() == Clingo::SymbolType::string) {
-                    std::cout << "Cost: " << cost->string() << "\n";
-                } else {
-                    std::cout << "Cost: " << *cost << "\n";
-                }
-            }
-
-            std::cerr.flush();
-        } catch (...) {
-            fprintf(stderr, "panic: printing model failed\n");
-            std::terminate();
-        }
-    }
 
     //! Register options of the theory and optimization related options.
     void do_register_options(Clingo::Options options) override {
