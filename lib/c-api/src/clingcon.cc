@@ -79,8 +79,8 @@ auto check(clingo_assignment_t const *assignment, clingo_propagate_control_t *co
     CLINGO_CATCH;
 }
 
-auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data, clingo_literal_t *result)
-    -> bool {
+auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data,
+            clingo_literal_t *result) -> bool {
     CLINGO_TRY {
         *result = static_cast<Propagator *>(data)->decide(Clingo::Assignment{assignment}, fallback);
     }
@@ -672,6 +672,9 @@ struct clingcon_theory {
             opts.add(group, "@2,max-int", ConfigMax::desc(), parser<ConfigMax>(config), false, "<i>");
             opts.add_flag(group, "@2,check-solution", desc_solution(), config.check_solution);
             opts.add_flag(group, "@2,check-state", desc_state(), config.check_state);
+
+            opts.set_default_value("out-assign", "__csp/2");
+            opts.set_default_value("out-cost", "__csp_cost/1:%0");
         }
         CLINGO_CATCH;
     }
