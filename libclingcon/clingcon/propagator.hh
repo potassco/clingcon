@@ -69,6 +69,8 @@ class Propagator final : public Clingo::Heuristic {
 
     //! Add a variable to the program.
     auto add_variable(Clingo::Symbol sym) -> var_t;
+    //! Add a new anonymous variable not associated with any symbol.
+    [[nodiscard]] auto add_anonymous_variable() -> var_t;
 
     //! Enable show statement.
     //!

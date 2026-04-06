@@ -552,14 +552,54 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
 }
 
 template <class TermVec, bool is_sum = true>
-void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan elements,
-                            Clingo::TheoryTerm const *rhs, TermVec &res) {
+[[nodiscard]] auto parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryElementSpan elements,
+                                          Clingo::TheoryTerm const *rhs, TermVec &res) -> bool {
     check_syntax(is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
 
     for (auto const &element : elements) {
         auto tuple = element.tuple();
-        check_syntax(!tuple.empty() && element.condition().empty(), "Invalid Syntax: invalid sum constraint");
-        parse_constraint_elem<TermVec, is_sum>(builder, element.tuple().front(), res);
+        check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
+
+        if (element.condition().empty()) {
+            parse_constraint_elem<TermVec, is_sum>(builder, tuple.front(), res);
+        } else if constexpr (std::is_same_v<TermVec, CoVarVec> && is_sum) {
+            CoVarVec sub_elems;
+            parse_constraint_elem<CoVarVec, true>(builder, tuple.front(), sub_elems);
+            val_t const_val = simplify(sub_elems, true);
+
+            auto aux = builder.add_anonymous_variable();
+            auto cond_lit = builder.solver_literal(element.condition_id());
+
+            // cond_lit -> aux = sum(co_i * x_i) - const_val
+            CoVarVec eq_elems;
+            eq_elems.emplace_back(1, aux);
+            for (auto const &[co, var] : sub_elems) {
+                eq_elems.emplace_back(-co, var);
+            }
+            if (!builder.add_constraint(cond_lit, eq_elems, -const_val, false)) {
+                return false;
+            }
+            for (auto &[co, var] : eq_elems) {
+                co = safe_inv(co);
+            }
+            if (!builder.add_constraint(cond_lit, eq_elems, const_val, false)) {
+                return false;
+            }
+
+            // -cond_lit -> aux = 0
+            CoVarVec aux_elems = {{1, aux}};
+            if (!builder.add_constraint(-cond_lit, aux_elems, 0, false)) {
+                return false;
+            }
+            aux_elems = {{-1, aux}};
+            if (!builder.add_constraint(-cond_lit, aux_elems, 0, false)) {
+                return false;
+            }
+
+            res.emplace_back(1, aux);
+        } else {
+            throw_syntax_error("Invalid Syntax: invalid sum constraint");
+        }
     }
 
     if (rhs != nullptr) {
@@ -575,6 +615,7 @@ void parse_constraint_elems(AbstractConstraintBuilder &builder, Clingo::TheoryEl
             push_co(safe_inv(term.number()), res);
         }
     }
+    return true;
 }
 
 template <class TermVec>
@@ -708,7 +749,9 @@ template <class TermVec, bool is_sum = true>
     auto literal = builder.solver_literal(atom.literal());
 
     // combine coefficients
-    parse_constraint_elems<TermVec, is_sum>(builder, atom.elements(), &guard.second, elements);
+    if (!parse_constraint_elems<TermVec, is_sum>(builder, atom.elements(), &guard.second, elements)) {
+        return false;
+    }
     rhs = simplify(elements, true);
 
     // divide by gcd
@@ -727,12 +770,16 @@ template <class TermVec, bool is_sum = true>
 }
 
 // Parses minimize and maximize directives.
-void parse_objective(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, int factor) {
+[[nodiscard]] auto parse_objective(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, int factor)
+    -> bool {
     CoVarVec elems;
-    parse_constraint_elems<CoVarVec>(builder, atom.elements(), nullptr, elems);
+    if (!parse_constraint_elems<CoVarVec>(builder, atom.elements(), nullptr, elems)) {
+        return false;
+    }
     for (auto &[co, var] : elems) {
         builder.add_minimize(safe_mul(factor, co), var);
     }
+    return true;
 }
 
 void parse_show_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
@@ -929,9 +976,13 @@ auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
                 return false;
             }
         } else if (match(atom.term(), "minimize", 0)) {
-            parse_objective(builder, atom, 1);
+            if (!parse_objective(builder, atom, 1)) {
+                return false;
+            }
         } else if (match(atom.term(), "maximize", 0)) {
-            parse_objective(builder, atom, -1);
+            if (!parse_objective(builder, atom, -1)) {
+                return false;
+            }
         }
     }
     return true;

@@ -49,6 +49,7 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
     void show_signature(char const *name, size_t arity) override { propagator_.show_signature(name, arity); }
     void show_variable(var_t var) override { propagator_.show_variable(var); }
     [[nodiscard]] auto add_variable(Clingo::Symbol sym) -> var_t override { return propagator_.add_variable(sym); }
+    [[nodiscard]] auto add_anonymous_variable() -> var_t override { return propagator_.add_anonymous_variable(); }
     [[nodiscard]] auto add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) -> bool override {
         if (!strict && cc_.assignment().is_false(lit)) {
             return true;
@@ -352,6 +353,11 @@ void Propagator::add_statistics_(Clingo::UserStatistics &root, Statistics &stats
         thread.add_subkey("Literals introduced", StatisticsType::Value)
             .set_value(static_cast<double>(solver_stat.literals));
     }
+}
+
+auto Propagator::add_anonymous_variable() -> var_t {
+    ++stats_step_.num_variables;
+    return master_().add_variable(config_.min_int, config_.max_int);
 }
 
 auto Propagator::add_variable(Clingo::Symbol sym) -> var_t {

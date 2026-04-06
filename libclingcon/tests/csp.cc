@@ -283,6 +283,55 @@ TEST_CASE("nsum", "[solving]") {
     }
 }
 
+TEST_CASE("conditional sum", "[solving]") {
+    SECTION("basic") {
+        REQUIRE(solve("a. &sum{ x : a } = 5.") == S({"a x=5"}));
+        REQUIRE(solve("{a}. &sum{ x : a } = 5.") == S({"a x=5"}));
+        REQUIRE(solve("{a}. &dom{7..7}=x. &sum{ x : a } = 0. :- a.") == S({"x=7"}));
+        REQUIRE(solve("{a}. &dom{0..3}=x. &sum{ x : a } <= 2.") ==
+                S({"a x=0", "a x=1", "a x=2", "x=0", "x=1", "x=2", "x=3"}));
+        REQUIRE(solve("{a}. &sum{ x : a } = -3.", -5, 5) == S({"a x=-3"}));
+    }
+    SECTION("multiple elements") {
+        REQUIRE(solve("{a}. {b}. &dom{0..5}=x. &dom{0..5}=y. "
+                      "&sum{ x:a; y:b } = 5. :- not a. :- not b.") ==
+                S({"a b x=0 y=5", "a b x=1 y=4", "a b x=2 y=3",
+                   "a b x=3 y=2", "a b x=4 y=1", "a b x=5 y=0"}));
+        REQUIRE(solve("{a}. {b}. &dom{5..5}=x. &dom{0..0}=y. "
+                      "&sum{ x:a; y:b } = 5. :- not a. :- b.") ==
+                S({"a x=5 y=0"}));
+        REQUIRE(solve("{a}. {b}. &sum{ x:a; y:b } = 5. :- a. :- b.", 0, 0) == S({}));
+    }
+    SECTION("coefficients and constants") {
+        REQUIRE(solve("{a}. &sum{ 2*x : a } = 10. :- not a.") == S({"a x=5"}));
+        REQUIRE(solve("{a}. &sum{ -1*x : a } = -5. :- not a.") == S({"a x=5"}));
+        REQUIRE(solve("{a}. &sum{ 3 : a } = 3. :- not a.") == S({"a"}));
+        REQUIRE(solve("{a}. &sum{ 0 : a } = 0.") == S({"", "a"}));
+    }
+    SECTION("naf condition") {
+        REQUIRE(solve("{a}. &sum{ x : not a } = 5. :- a.") == S({"x=5"}));
+        REQUIRE(solve("{a}. &dom{0..0}=x. &sum{ x : not a } = 0. :- not a.") == S({"a x=0"}));
+    }
+    SECTION("mixed conditional and unconditional") {
+        REQUIRE(solve("{a}. &dom{2..2}=x. &sum{ x; y:a } = 5. :- not a.") ==
+                S({"a x=2 y=3"}));
+        REQUIRE(solve("{a}. &dom{2..2}=x. &dom{0..0}=y. &sum{ x; y:a } = 2. :- a.") ==
+                S({"x=2 y=0"}));
+    }
+    SECTION("conjunction of conditions") {
+        REQUIRE(solve("{a}. {b}. &sum{ x : a,b } = 5. :- not a. :- not b.") ==
+                S({"a b x=5"}));
+        REQUIRE(solve("{a}. {b}. &dom{0..0}=x. &sum{ x : a,b } = 0. :- not a. :- b.") ==
+                S({"a x=0"}));
+    }
+    SECTION("grounding") {
+        REQUIRE(solve("p(1..3). {a(N) : p(N)}. #show a/1. &sum{ N : a(N), p(N) } = 6.") ==
+                S({"a(1) a(2) a(3)"}));
+        REQUIRE(solve("p(1..3). {a(N) : p(N)}. #show a/1. &sum{ N : a(N), p(N) } = 3.") ==
+                S({"a(1) a(2)", "a(3)"}));
+    }
+}
+
 TEST_CASE("multishot", "[solving]") {
     SECTION("simple") {
         REQUIRE(solve_multi("#program a.\n"

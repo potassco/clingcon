@@ -109,6 +109,12 @@ class AbstractConstraintBuilder {
     virtual void show_variable(var_t idx) = 0;
     //! Get the integer representing a variable.
     [[nodiscard]] virtual auto add_variable(Clingo::Symbol var) -> var_t = 0;
+    //! Add a new anonymous (hidden) variable not associated with any symbol.
+    //! The default implementation uses a generated symbol; override for truly hidden variables.
+    [[nodiscard]] virtual auto add_anonymous_variable() -> var_t {
+        static int counter = 0;
+        return add_variable(Clingo::Function("__csp_aux", {Clingo::Number(counter++)}));
+    }
     //! Add a constraint.
     [[nodiscard]] virtual auto add_constraint(lit_t lit, CoVarVec const &elems, val_t rhs, bool strict) -> bool = 0;
     //! Add a non-linear sum constraint.
