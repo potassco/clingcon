@@ -28,6 +28,7 @@
 
 #include <clingo/ast.hh>
 #include <clingo/control.hh>
+#include <map>
 #include <sstream>
 #include <string_view>
 
@@ -172,6 +173,15 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         return true;
     }
 
+    auto get_or_add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool> override {
+        auto [it, inserted] = cond_vars_.try_emplace({orig_var, raw_cid});
+        if (inserted) {
+            vars_.emplace_back(Clingo::Number(static_cast<int>(vars_.size()) + 1));
+            it->second = static_cast<var_t>(vars_.size() - 1);
+        }
+        return {it->second, inserted};
+    }
+
     void commit() {
         if (!minimize_.empty()) {
             oss_ << "#minimize { ";
@@ -189,6 +199,7 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
     bool show_{false};
     lit_t literals_{2};
     std::vector<Clingo::Symbol> vars_;
+    std::map<std::pair<var_t, lit_t>, var_t> cond_vars_;
     CoVarVec minimize_;
 };
 

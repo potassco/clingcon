@@ -243,6 +243,10 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
 
+    [[nodiscard]] auto get_or_add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool> override {
+        return propagator_.get_or_add_cond_var(orig_var, raw_cid);
+    }
+
     //! Prepare the minimize constraint.
     auto prepare_minimize() -> UniqueMinimizeConstraint {
         // copy values of old minimize constraint
@@ -354,6 +358,22 @@ auto Propagator::add_variable(Clingo::Symbol const &sym) -> var_t {
     }
 
     return it->second;
+}
+
+auto Propagator::get_or_add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool> {
+    auto [it, inserted] = aux_map_.try_emplace({orig_var, raw_cid});
+    if (inserted) {
+        val_t lo{0};
+        val_t hi{1};
+        if (orig_var != INVALID_VAR) {
+            auto const &vs = master_().var_state(orig_var);
+            lo = std::min(val_t{0}, vs.lower_bound());
+            hi = std::max(val_t{0}, vs.upper_bound());
+        }
+        ++stats_step_.num_variables;
+        it->second = master_().add_variable(lo, hi);
+    }
+    return {it->second, inserted};
 }
 
 void Propagator::show_variable(var_t var) {

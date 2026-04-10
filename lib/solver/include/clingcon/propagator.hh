@@ -31,6 +31,7 @@
 #include <clingo/solve.hh>
 
 #include <atomic>
+#include <map>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -70,6 +71,10 @@ class Propagator final : public Clingo::Heuristic {
 
     //! Add a variable to the program.
     auto add_variable(Clingo::Symbol const &sym) -> var_t;
+
+    //! Get or create an auxiliary variable for the given (orig_var, raw_cid) pair.
+    //! raw_cid is the program literal from condition_id(), used as a stable multishot key.
+    [[nodiscard]] auto get_or_add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool>;
 
     //! Enable show statement.
     //!
@@ -197,6 +202,13 @@ class Propagator final : public Clingo::Heuristic {
     //! models found will have a value less than or equal to it.
     static constexpr sum_t no_bound = std::numeric_limits<sum_t>::max();
 
+    struct PairHash {
+        auto operator()(std::pair<var_t, lit_t> const &p) const -> std::size_t {
+            return std::hash<var_t>{}(p.first) ^ (std::hash<lit_t>{}(p.second) * 2654435761UL);
+        }
+    };
+    using AuxMap = std::unordered_map<std::pair<var_t, lit_t>, var_t, PairHash>; //!< keyed by (var, program_literal)
+
     Clingo::Library lib_;                         //! The associated library.
     Config config_;                               //!< configuration
     ConstraintVec constraints_;                   //!< the set of constraints
@@ -210,6 +222,7 @@ class Propagator final : public Clingo::Heuristic {
     MinimizeConstraint *minimize_{nullptr};       //!< minimize constraint
     std::atomic<sum_t> minimize_bound_{no_bound}; //!< bound of the minimize constraint
     bool show_{false};                            //!< whether there is a show statement
+    AuxMap aux_map_;                              //!< map from (var, cond) pairs to aux vars
 };
 
 } // namespace Clingcon

@@ -831,15 +831,99 @@ void parse_constraint_elem(Clingo::Library const &lib, AbstractConstraintBuilder
 }
 
 template <class TermVec, bool is_sum = true>
-void parse_constraint_elems(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
-                            std::span<Clingo::TheoryElement const> elements, Clingo::TheoryTerm const *rhs,
-                            TermVec &res) {
+[[nodiscard]] auto parse_constraint_elems(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
+                                          std::span<Clingo::TheoryElement const> elements,
+                                          Clingo::TheoryTerm const *rhs, TermVec &res) -> bool {
     check_syntax(is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
 
-    for (auto const &element : elements) {
-        auto tuple = element.tuple();
-        check_syntax(!tuple.empty() && element.condition().empty(), "Invalid Syntax: invalid sum constraint");
-        parse_constraint_elem<TermVec, is_sum>(lib, builder, element.tuple().front(), res);
+    // clingo 6 does not handle negative condition IDs (NAF literals) in solver_literal(),
+    // so we convert manually: negate the raw ID, look up the positive atom, flip the sign.
+    // Only relevant for CoVarVec sum constraints that can have conditional elements.
+    if constexpr (std::is_same_v<TermVec, CoVarVec> && is_sum) {
+        auto to_solver_lit = [&](lit_t raw) {
+            return raw < 0 ? -builder.solver_literal(-raw) : builder.solver_literal(raw);
+        };
+
+        for (auto const &element : elements) {
+            auto tuple = element.tuple();
+            check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
+
+            if (element.condition().empty()) {
+                // clingo 6 may simplify a condition to empty when it is grounding-resolved.
+                // condition_id() == 0 means the element was truly unconditional.
+                // condition_id() != 0 means a condition was resolved at grounding time:
+                //   - if the condition's solver literal is false → skip (never contributes)
+                //   - otherwise → treat as unconditional (always contributes)
+                auto raw_cid = element.condition_id();
+                if (raw_cid != 0 && builder.is_true(-to_solver_lit(raw_cid))) {
+                    continue;  // condition is always false, element contributes 0
+                }
+                parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
+            } else {
+                auto raw_cid = element.condition_id();
+                auto cond_lit = to_solver_lit(raw_cid);
+
+                // If the condition is known false at init time, the element always
+                // contributes 0 — skip it entirely (no aux var needed).
+                if (builder.is_true(-cond_lit)) {
+                    continue;
+                }
+
+                // Parse the tuple directly into res; work from offset n, like clingo-lpx.
+                // Constants appear as (co, INVALID_VAR) terms.
+                auto n = res.size();
+                parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
+
+                // If the condition is known true at init time, keep terms as-is.
+                if (builder.is_true(cond_lit)) {
+                    continue;
+                }
+
+                // For each term (including constants), create or reuse one aux var per
+                // (var, raw_cid) pair. The program literal (raw_cid) is used as the key
+                // so that the same aux var is reused across multishot solve calls.
+                // Constants under the same condition share one aux constrained to 1;
+                // the coefficient carries the actual constant value.
+                for (auto it = res.begin() + n, ie = res.end(); it != ie; ++it) {
+                    auto &[co, var] = *it;
+                    auto [aux, is_new] = builder.get_or_add_cond_var(var, raw_cid);
+                    if (is_new) {
+                        if (var == INVALID_VAR) {
+                            // cond_lit  ->  aux = 1  (coefficient carries the constant value)
+                            if (!builder.add_constraint(cond_lit, {{1, aux}}, 1, false)) {
+                                return false;
+                            }
+                            if (!builder.add_constraint(cond_lit, {{-1, aux}}, -1, false)) {
+                                return false;
+                            }
+                        } else {
+                            // cond_lit  ->  aux = var
+                            if (!builder.add_constraint(cond_lit, {{1, aux}, {-1, var}}, 0, false)) {
+                                return false;
+                            }
+                            if (!builder.add_constraint(cond_lit, {{-1, aux}, {1, var}}, 0, false)) {
+                                return false;
+                            }
+                        }
+                        // -cond_lit  ->  aux = 0
+                        if (!builder.add_constraint(-cond_lit, {{1, aux}}, 0, false)) {
+                            return false;
+                        }
+                        if (!builder.add_constraint(-cond_lit, {{-1, aux}}, 0, false)) {
+                            return false;
+                        }
+                    }
+                    var = aux;
+                }
+            }
+        }
+    } else {
+        for (auto const &element : elements) {
+            auto tuple = element.tuple();
+            check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
+            check_syntax(element.condition().empty(), "Invalid Syntax: invalid sum constraint");
+            parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
+        }
     }
 
     if (rhs != nullptr) {
@@ -855,6 +939,7 @@ void parse_constraint_elems(Clingo::Library const &lib, AbstractConstraintBuilde
             push_co(safe_inv(term.number()), res);
         }
     }
+    return true;
 }
 
 template <class TermVec>
@@ -988,7 +1073,9 @@ template <class TermVec, bool is_sum = true>
     auto literal = builder.solver_literal(atom.literal());
 
     // combine coefficients
-    parse_constraint_elems<TermVec, is_sum>(lib, builder, atom.elements(), &guard->second, elements);
+    if (!parse_constraint_elems<TermVec, is_sum>(lib, builder, atom.elements(), &guard->second, elements)) {
+        return false;
+    }
     rhs = simplify(elements, true);
 
     // divide by gcd
@@ -1007,13 +1094,16 @@ template <class TermVec, bool is_sum = true>
 }
 
 // Parses minimize and maximize directives.
-void parse_objective(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom,
-                     int factor) {
+[[nodiscard]] auto parse_objective(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
+                                   Clingo::TheoryAtom const &atom, int factor) -> bool {
     CoVarVec elems;
-    parse_constraint_elems<CoVarVec>(lib, builder, atom.elements(), nullptr, elems);
+    if (!parse_constraint_elems<CoVarVec>(lib, builder, atom.elements(), nullptr, elems)) {
+        return false;
+    }
     for (auto &[co, var] : elems) {
         builder.add_minimize(safe_mul(factor, co), var);
     }
+    return true;
 }
 
 void parse_show_elem(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
@@ -1218,9 +1308,13 @@ auto parse(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Cling
                 return false;
             }
         } else if (match(atom.name(), "minimize", 0)) {
-            parse_objective(lib, builder, atom, 1);
+            if (!parse_objective(lib, builder, atom, 1)) {
+                return false;
+            }
         } else if (match(atom.name(), "maximize", 0)) {
-            parse_objective(lib, builder, atom, -1);
+            if (!parse_objective(lib, builder, atom, -1)) {
+                return false;
+            }
         }
     }
     return true;
