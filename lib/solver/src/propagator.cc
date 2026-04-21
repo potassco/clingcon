@@ -41,6 +41,7 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
     [[nodiscard]] auto solver_literal(lit_t literal) -> lit_t override { return cc_.solver_literal(literal); }
     [[nodiscard]] auto add_literal() -> lit_t override { return cc_.add_literal(); }
     [[nodiscard]] auto is_true(lit_t literal) -> bool override { return cc_.assignment().is_true(literal); }
+    [[nodiscard]] auto value(lit_t literal) -> std::optional<bool> override { return cc_.assignment().value(literal); }
     [[nodiscard]] auto add_clause(Clingo::SolverLiteralSpan clause) -> bool override { return cc_.add_clause(clause); }
     void add_show() override { propagator_.show(); }
     void show_signature(std::string_view name, size_t arity) override { propagator_.show_signature(name, arity); }

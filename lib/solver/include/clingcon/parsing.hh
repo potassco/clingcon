@@ -97,6 +97,8 @@ class AbstractConstraintBuilder {
     [[nodiscard]] virtual auto add_literal() -> lit_t = 0;
     //! Check whether the given solver literal is true.
     [[nodiscard]] virtual auto is_true(lit_t literal) -> bool = 0;
+    //! Get the truth value of a literal.
+    [[nodiscard]] virtual auto value(lit_t literal) -> std::optional<bool> = 0;
     //! Add a clause over solver literals.
     [[nodiscard]] virtual auto add_clause(Clingo::SolverLiteralSpan clause) -> bool = 0;
     //! Inform the builder that there is a show statement.

@@ -835,58 +835,22 @@ template <class TermVec, bool is_sum = true>
                                           std::span<Clingo::TheoryElement const> elements,
                                           Clingo::TheoryTerm const *rhs, TermVec &res) -> bool {
     check_syntax(is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
-
-    // clingo 6 does not handle negative condition IDs (NAF literals) in solver_literal(),
-    // so we convert manually: negate the raw ID, look up the positive atom, flip the sign.
-    // Only relevant for CoVarVec sum constraints that can have conditional elements.
     if constexpr (std::is_same_v<TermVec, CoVarVec> && is_sum) {
-        auto to_solver_lit = [&](lit_t raw) {
-            return raw < 0 ? -builder.solver_literal(-raw) : builder.solver_literal(raw);
-        };
-
         for (auto const &element : elements) {
             auto tuple = element.tuple();
             check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
-
-            if (element.condition().empty()) {
-                // clingo 6 may simplify a condition to empty when it is grounding-resolved.
-                // condition_id() == 0 means the element was truly unconditional.
-                // condition_id() != 0 means a condition was resolved at grounding time:
-                //   - if the condition's solver literal is false → skip (never contributes)
-                //   - otherwise → treat as unconditional (always contributes)
-                auto raw_cid = element.condition_id();
-                if (raw_cid != 0 && builder.is_true(-to_solver_lit(raw_cid))) {
-                    continue;  // condition is always false, element contributes 0
-                }
+            auto cond_id = element.condition_id();
+            auto cond_lit = builder.solver_literal(cond_id);
+            // FIXME: either solver_literal should fail for value zero or the call to value should work as expected
+            auto truth = cond_id != 0 ? builder.value(cond_lit) : true;
+            if (truth == true) {
                 parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
-            } else {
-                auto raw_cid = element.condition_id();
-                auto cond_lit = to_solver_lit(raw_cid);
-
-                // If the condition is known false at init time, the element always
-                // contributes 0 — skip it entirely (no aux var needed).
-                if (builder.is_true(-cond_lit)) {
-                    continue;
-                }
-
-                // Parse the tuple directly into res; work from offset n, like clingo-lpx.
-                // Constants appear as (co, INVALID_VAR) terms.
+            } else if (truth == std::nullopt) {
                 auto n = res.size();
                 parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
-
-                // If the condition is known true at init time, keep terms as-is.
-                if (builder.is_true(cond_lit)) {
-                    continue;
-                }
-
-                // For each term (including constants), create or reuse one aux var per
-                // (var, raw_cid) pair. The program literal (raw_cid) is used as the key
-                // so that the same aux var is reused across multishot solve calls.
-                // Constants under the same condition share one aux constrained to 1;
-                // the coefficient carries the actual constant value.
                 for (auto it = res.begin() + n, ie = res.end(); it != ie; ++it) {
                     auto &[co, var] = *it;
-                    auto [aux, is_new] = builder.get_or_add_cond_var(var, raw_cid);
+                    auto [aux, is_new] = builder.get_or_add_cond_var(var, cond_id);
                     if (is_new) {
                         if (var == INVALID_VAR) {
                             // cond_lit  ->  aux = 1  (coefficient carries the constant value)
@@ -920,8 +884,8 @@ template <class TermVec, bool is_sum = true>
     } else {
         for (auto const &element : elements) {
             auto tuple = element.tuple();
-            check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
-            check_syntax(element.condition().empty(), "Invalid Syntax: invalid sum constraint");
+            check_syntax(!tuple.empty(), "Invalid Syntax: invalid constraint");
+            check_syntax(element.condition().empty(), "Invalid Syntax: invalid constraint");
             parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
         }
     }

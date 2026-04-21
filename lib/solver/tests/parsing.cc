@@ -52,6 +52,16 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
 
     auto is_true(lit_t literal) -> bool override { return literal == 1; }
 
+    auto value(lit_t literal) -> std::optional<bool> override {
+        if (literal == 1) {
+            return true;
+        }
+        if (literal == -1) {
+            return false;
+        }
+        return std::nullopt;
+    }
+
     auto add_literal() -> lit_t override { return ++literals_; }
 
     auto add_clause(Clingo::SolverLiteralSpan clause) -> bool override {
