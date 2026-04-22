@@ -133,6 +133,7 @@ auto shift_rule(Clingo::Library const &lib, Clingo::AST::Node ast) -> Clingo::AS
         auto guard = lit.optional_node(Attribute::right);
         check_syntax(guard.has_value());
         if (lit.number(Attribute::sign) != Sign::single) {
+            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             guard = guard->update<NodeType::theory_right_guard>(lib, [&]<Attribute Attr>() {
                 if constexpr (Attr == Attribute::theory_operator) {
                     return negate_relation(guard->string(Attribute::theory_operator));
@@ -841,8 +842,7 @@ template <class TermVec, bool is_sum = true>
             check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
             auto cond_id = element.condition_id();
             auto cond_lit = builder.solver_literal(cond_id);
-            // FIXME: either solver_literal should fail for value zero or the call to value should work as expected
-            auto truth = cond_id != 0 ? builder.value(cond_lit) : true;
+            auto truth = builder.value(cond_lit);
             if (truth == true) {
                 parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
             } else if (truth == std::nullopt) {
@@ -1037,6 +1037,7 @@ template <class TermVec, bool is_sum = true>
     auto literal = builder.solver_literal(atom.literal());
 
     // combine coefficients
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     if (!parse_constraint_elems<TermVec, is_sum>(lib, builder, atom.elements(), &guard->second, elements)) {
         return false;
     }
@@ -1054,6 +1055,7 @@ template <class TermVec, bool is_sum = true>
         rhs /= d;
     }
 
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     return normalize_constraint(builder, literal, elements, guard->first, rhs, strict);
 }
 
@@ -1134,6 +1136,7 @@ void parse_show(Clingo::Library const &lib, AbstractConstraintBuilder &builder, 
 
     auto guard = atom.guard();
     check_syntax(guard.has_value(), "Invalid Syntax: invalid dom statement");
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     auto var = evaluate(lib, guard->second);
     check_syntax(var.type() != Clingo::SymbolType::number, "Invalid Syntax: invalid dom statement");
 
