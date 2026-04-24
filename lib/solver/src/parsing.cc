@@ -846,11 +846,12 @@ template <class TermVec, bool is_sum = true>
             if (truth == true) {
                 parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
             } else if (truth == std::nullopt) {
+                assert(cond_id.has_value());
                 auto n = res.size();
                 parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
                 for (auto it = res.begin() + n, ie = res.end(); it != ie; ++it) {
                     auto &[co, var] = *it;
-                    auto [aux, is_new] = builder.get_or_add_cond_var(var, cond_id);
+                    auto [aux, is_new] = builder.get_or_add_cond_var(var, *cond_id);
                     if (is_new) {
                         if (var == INVALID_VAR) {
                             // cond_lit  ->  aux = 1  (coefficient carries the constant value)

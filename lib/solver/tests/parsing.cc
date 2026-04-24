@@ -45,7 +45,7 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
     auto operator=(TestBuilder &&) -> TestBuilder & = delete;
     ~TestBuilder() override = default;
 
-    auto solver_literal(lit_t literal) -> lit_t override { return literal == 0 ? 1 : 2; }
+    auto solver_literal(std::optional<lit_t> literal) -> lit_t override { return literal ? 2 : 1; }
 
     auto is_true(lit_t literal) -> bool override { return literal == 1; }
 

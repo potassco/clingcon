@@ -92,7 +92,7 @@ class AbstractConstraintBuilder {
     virtual ~AbstractConstraintBuilder() = default;
 
     //! Map a program to a solver literal.
-    [[nodiscard]] virtual auto solver_literal(lit_t literal) -> lit_t = 0;
+    [[nodiscard]] virtual auto solver_literal(std::optional<lit_t> literal) -> lit_t = 0;
     //! Add a new solver literal.
     [[nodiscard]] virtual auto add_literal() -> lit_t = 0;
     //! Check whether the given solver literal is true.

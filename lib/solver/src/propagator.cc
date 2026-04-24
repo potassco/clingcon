@@ -38,7 +38,9 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
         : propagator_{propagator}, cc_{cc}, minimize_{std::move(minimize)} {}
     ConstraintBuilder(ConstraintBuilder &&) noexcept = delete;
 
-    [[nodiscard]] auto solver_literal(lit_t literal) -> lit_t override { return cc_.solver_literal(literal); }
+    [[nodiscard]] auto solver_literal(std::optional<lit_t> literal) -> lit_t override {
+        return cc_.solver_literal(literal);
+    }
     [[nodiscard]] auto add_literal() -> lit_t override { return cc_.add_literal(); }
     [[nodiscard]] auto is_true(lit_t literal) -> bool override { return cc_.assignment().is_true(literal); }
     [[nodiscard]] auto value(lit_t literal) -> std::optional<bool> override { return cc_.assignment().value(literal); }
