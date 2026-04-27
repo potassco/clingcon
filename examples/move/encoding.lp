@@ -1,6 +1,3 @@
-% Extension of move.lp: counts total number of moves using a conditional sum
-% over the selected move actions, then minimizes it.
-
 #const end=20.
 #const stepsize=7.
 step(0..end).
