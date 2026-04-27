@@ -203,6 +203,7 @@ class Propagator final : public Clingo::Heuristic {
 
     //! Hash to map variable/literal pairs.
     struct PairHash : private std::hash<std::string_view> {
+        static_assert(sizeof(std::pair<var_t, lit_t>) == sizeof(var_t) + sizeof(lit_t));
         auto operator()(std::pair<var_t, lit_t> const &p) const -> std::size_t {
             auto bytes = std::as_bytes(std::span{std::addressof(p), 1});
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
