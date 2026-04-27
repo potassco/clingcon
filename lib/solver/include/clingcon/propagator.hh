@@ -211,7 +211,7 @@ class Propagator final : public Clingo::Heuristic {
             return std::hash<std::string_view>::operator()(std::string_view{ptr, bytes.size()});
         }
     };
-    //! Map from viriable/literal pairs to auxiliary variables.
+    //! Map from variable/literal pairs to auxiliary variables.
     using AuxMap = std::unordered_map<std::pair<var_t, lit_t>, var_t, PairHash>;
 
     Clingo::Library lib_;                         //!< The associated library.
