@@ -123,10 +123,8 @@ class AbstractConstraintBuilder {
     [[nodiscard]] virtual auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool = 0;
     //! Add a domain for the given variable.
     [[nodiscard]] virtual auto add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) -> bool = 0;
-    //! Get or create an auxiliary variable for the given (orig_var, raw_cid) pair.
-    //! raw_cid is the program literal from condition_id() — used as a stable key
-    //! across multishot solve calls. Returns the aux var and whether it was newly created.
-    [[nodiscard]] virtual auto add_cond_var(var_t var, lit_t id) -> std::pair<var_t, bool> = 0;
+    //! Get an auxiliary variable for the given (variable, literal) pair.
+    [[nodiscard]] virtual auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> = 0;
 };
 
 //! Combine coefficients of terms with the same variable and optionally drop

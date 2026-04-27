@@ -851,7 +851,7 @@ template <class TermVec, bool is_sum = true>
                 parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
                 for (auto it = res.begin() + n, ie = res.end(); it != ie; ++it) {
                     auto &[co, var] = *it;
-                    auto [aux, is_new] = builder.add_cond_var(var, *cond_id);
+                    auto [aux, is_new] = builder.add_cond_var(var, cond_lit);
                     if (is_new) {
                         if (var == INVALID_VAR) {
                             // cond_lit -> aux = 1

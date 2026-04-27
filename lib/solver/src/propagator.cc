@@ -246,8 +246,8 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
 
-    [[nodiscard]] auto add_cond_var(var_t var, lit_t id) -> std::pair<var_t, bool> override {
-        return propagator_.add_cond_var(var, id);
+    [[nodiscard]] auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> override {
+        return propagator_.add_cond_var(var, lit);
     }
 
     //! Prepare the minimize constraint.
@@ -363,8 +363,8 @@ auto Propagator::add_variable(Clingo::Symbol const &sym) -> var_t {
     return it->second;
 }
 
-auto Propagator::add_cond_var(var_t var, lit_t id) -> std::pair<var_t, bool> {
-    auto [it, inserted] = aux_map_.try_emplace({var, id});
+auto Propagator::add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> {
+    auto [it, inserted] = aux_map_.try_emplace({var, lit});
     if (inserted) {
         val_t lo{0};
         val_t hi{1};

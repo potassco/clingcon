@@ -72,8 +72,8 @@ class Propagator final : public Clingo::Heuristic {
     //! Add a variable to the program.
     auto add_variable(Clingo::Symbol const &sym) -> var_t;
 
-    //! Get an auxiliary variable for the given (variable, id) pair.
-    [[nodiscard]] auto add_cond_var(var_t var, lit_t id) -> std::pair<var_t, bool>;
+    //! Get an auxiliary variable for the given (variable, lit) pair.
+    [[nodiscard]] auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool>;
 
     //! Enable show statement.
     //!
