@@ -202,14 +202,17 @@ class Propagator final : public Clingo::Heuristic {
     //! models found will have a value less than or equal to it.
     static constexpr sum_t no_bound = std::numeric_limits<sum_t>::max();
 
-    struct PairHash {
+    struct PairHash : private std::hash<std::string_view> {
         auto operator()(std::pair<var_t, lit_t> const &p) const -> std::size_t {
-            return std::hash<var_t>{}(p.first) ^ (std::hash<lit_t>{}(p.second) * 2654435761UL);
+            auto bytes = std::as_bytes(std::span{std::addressof(p), 1});
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            const auto *ptr = reinterpret_cast<char const *>(bytes.data());
+            return std::hash<std::string_view>::operator()(std::string_view{ptr, bytes.size()});
         }
     };
     using AuxMap = std::unordered_map<std::pair<var_t, lit_t>, var_t, PairHash>; //!< keyed by (var, program_literal)
 
-    Clingo::Library lib_;                         //! The associated library.
+    Clingo::Library lib_;                         //!< The associated library.
     Config config_;                               //!< configuration
     ConstraintVec constraints_;                   //!< the set of constraints
     std::vector<Solver> solvers_;                 //!< map thread id to solvers
@@ -219,10 +222,10 @@ class Propagator final : public Clingo::Heuristic {
     Statistics stats_accu_;                       //!< accumulated statistics
     VarSet show_variable_;                        //!< variables to show
     SigSet show_signature_;                       //!< signatures to show
+    AuxMap aux_map_;                              //!< map from (var, cond) pairs to aux vars
     MinimizeConstraint *minimize_{nullptr};       //!< minimize constraint
     std::atomic<sum_t> minimize_bound_{no_bound}; //!< bound of the minimize constraint
     bool show_{false};                            //!< whether there is a show statement
-    AuxMap aux_map_;                              //!< map from (var, cond) pairs to aux vars
 };
 
 } // namespace Clingcon
