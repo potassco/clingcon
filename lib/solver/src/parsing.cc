@@ -851,10 +851,10 @@ template <class TermVec, bool is_sum = true>
                 parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
                 for (auto it = res.begin() + n, ie = res.end(); it != ie; ++it) {
                     auto &[co, var] = *it;
-                    auto [aux, is_new] = builder.get_or_add_cond_var(var, *cond_id);
+                    auto [aux, is_new] = builder.add_cond_var(var, *cond_id);
                     if (is_new) {
                         if (var == INVALID_VAR) {
-                            // cond_lit  ->  aux = 1  (coefficient carries the constant value)
+                            // cond_lit -> aux = 1
                             if (!builder.add_constraint(cond_lit, {{1, aux}}, 1, false)) {
                                 return false;
                             }
@@ -862,7 +862,7 @@ template <class TermVec, bool is_sum = true>
                                 return false;
                             }
                         } else {
-                            // cond_lit  ->  aux = var
+                            // cond_lit -> aux = var
                             if (!builder.add_constraint(cond_lit, {{1, aux}, {-1, var}}, 0, false)) {
                                 return false;
                             }
@@ -870,7 +870,7 @@ template <class TermVec, bool is_sum = true>
                                 return false;
                             }
                         }
-                        // -cond_lit  ->  aux = 0
+                        // -cond_lit -> aux = 0
                         if (!builder.add_constraint(-cond_lit, {{1, aux}}, 0, false)) {
                             return false;
                         }

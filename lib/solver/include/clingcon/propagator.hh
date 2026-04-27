@@ -72,9 +72,8 @@ class Propagator final : public Clingo::Heuristic {
     //! Add a variable to the program.
     auto add_variable(Clingo::Symbol const &sym) -> var_t;
 
-    //! Get or create an auxiliary variable for the given (orig_var, raw_cid) pair.
-    //! raw_cid is the program literal from condition_id(), used as a stable multishot key.
-    [[nodiscard]] auto get_or_add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool>;
+    //! Get an auxiliary variable for the given (variable, id) pair.
+    [[nodiscard]] auto add_cond_var(var_t var, lit_t id) -> std::pair<var_t, bool>;
 
     //! Enable show statement.
     //!
@@ -202,6 +201,7 @@ class Propagator final : public Clingo::Heuristic {
     //! models found will have a value less than or equal to it.
     static constexpr sum_t no_bound = std::numeric_limits<sum_t>::max();
 
+    //! Hash to map variable/literal pairs.
     struct PairHash : private std::hash<std::string_view> {
         auto operator()(std::pair<var_t, lit_t> const &p) const -> std::size_t {
             auto bytes = std::as_bytes(std::span{std::addressof(p), 1});
@@ -210,7 +210,8 @@ class Propagator final : public Clingo::Heuristic {
             return std::hash<std::string_view>::operator()(std::string_view{ptr, bytes.size()});
         }
     };
-    using AuxMap = std::unordered_map<std::pair<var_t, lit_t>, var_t, PairHash>; //!< keyed by (var, program_literal)
+    //! Map from viriable/literal pairs to auxiliary variables.
+    using AuxMap = std::unordered_map<std::pair<var_t, lit_t>, var_t, PairHash>;
 
     Clingo::Library lib_;                         //!< The associated library.
     Config config_;                               //!< configuration

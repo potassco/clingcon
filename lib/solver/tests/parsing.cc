@@ -180,7 +180,7 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         return true;
     }
 
-    auto get_or_add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool> override {
+    auto add_cond_var(var_t orig_var, lit_t raw_cid) -> std::pair<var_t, bool> override {
         auto [it, inserted] = cond_vars_.try_emplace({orig_var, raw_cid});
         if (inserted) {
             vars_.emplace_back(Clingo::Number(static_cast<int>(vars_.size()) + 1));
