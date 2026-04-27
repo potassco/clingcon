@@ -849,8 +849,7 @@ template <class TermVec, bool is_sum = true>
                 assert(cond_id.has_value());
                 auto n = res.size();
                 parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
-                for (auto it = res.begin() + n, ie = res.end(); it != ie; ++it) {
-                    auto &[co, var] = *it;
+                for (auto &[co, var] : std::span(res).subspan(n)) {
                     auto [aux, is_new] = builder.add_cond_var(var, cond_lit);
                     if (is_new) {
                         if (var == INVALID_VAR) {
