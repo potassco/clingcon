@@ -133,6 +133,7 @@ auto shift_rule(Clingo::Library const &lib, Clingo::AST::Node ast) -> Clingo::AS
         auto guard = lit.optional_node(Attribute::right);
         check_syntax(guard.has_value());
         if (lit.number(Attribute::sign) != Sign::single) {
+            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             guard = guard->update<NodeType::theory_right_guard>(lib, [&]<Attribute Attr>() {
                 if constexpr (Attr == Attribute::theory_operator) {
                     return negate_relation(guard->string(Attribute::theory_operator));
@@ -831,15 +832,62 @@ void parse_constraint_elem(Clingo::Library const &lib, AbstractConstraintBuilder
 }
 
 template <class TermVec, bool is_sum = true>
-void parse_constraint_elems(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
-                            std::span<Clingo::TheoryElement const> elements, Clingo::TheoryTerm const *rhs,
-                            TermVec &res) {
+[[nodiscard]] auto parse_constraint_elems(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
+                                          std::span<Clingo::TheoryElement const> elements,
+                                          Clingo::TheoryTerm const *rhs, TermVec &res) -> bool {
     check_syntax(is_sum || elements.size() == 1, "Invalid Syntax: invalid difference constraint");
-
-    for (auto const &element : elements) {
-        auto tuple = element.tuple();
-        check_syntax(!tuple.empty() && element.condition().empty(), "Invalid Syntax: invalid sum constraint");
-        parse_constraint_elem<TermVec, is_sum>(lib, builder, element.tuple().front(), res);
+    if constexpr (std::is_same_v<TermVec, CoVarVec> && is_sum) {
+        for (auto const &element : elements) {
+            auto tuple = element.tuple();
+            check_syntax(!tuple.empty(), "Invalid Syntax: invalid sum constraint");
+            auto cond_id = element.condition_id();
+            auto cond_lit = builder.solver_literal(cond_id);
+            auto truth = builder.value(cond_lit);
+            if (truth == true) {
+                parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
+            } else if (truth == std::nullopt) {
+                assert(cond_id.has_value());
+                auto n = res.size();
+                parse_constraint_elem<CoVarVec, true>(lib, builder, tuple.front(), res);
+                for (auto &[co, var] : std::span(res).subspan(n)) {
+                    auto [aux, is_new] = builder.add_cond_var(var, cond_lit);
+                    if (is_new) {
+                        if (var == INVALID_VAR) {
+                            // cond_lit -> aux = 1
+                            if (!builder.add_constraint(cond_lit, {{1, aux}}, 1, false)) {
+                                return false;
+                            }
+                            if (!builder.add_constraint(cond_lit, {{-1, aux}}, -1, false)) {
+                                return false;
+                            }
+                        } else {
+                            // cond_lit -> aux = var
+                            if (!builder.add_constraint(cond_lit, {{1, aux}, {-1, var}}, 0, false)) {
+                                return false;
+                            }
+                            if (!builder.add_constraint(cond_lit, {{-1, aux}, {1, var}}, 0, false)) {
+                                return false;
+                            }
+                        }
+                        // -cond_lit -> aux = 0
+                        if (!builder.add_constraint(-cond_lit, {{1, aux}}, 0, false)) {
+                            return false;
+                        }
+                        if (!builder.add_constraint(-cond_lit, {{-1, aux}}, 0, false)) {
+                            return false;
+                        }
+                    }
+                    var = aux;
+                }
+            }
+        }
+    } else {
+        for (auto const &element : elements) {
+            auto tuple = element.tuple();
+            check_syntax(!tuple.empty(), "Invalid Syntax: invalid constraint");
+            check_syntax(element.condition().empty(), "Invalid Syntax: invalid constraint");
+            parse_constraint_elem<TermVec, is_sum>(lib, builder, tuple.front(), res);
+        }
     }
 
     if (rhs != nullptr) {
@@ -855,6 +903,7 @@ void parse_constraint_elems(Clingo::Library const &lib, AbstractConstraintBuilde
             push_co(safe_inv(term.number()), res);
         }
     }
+    return true;
 }
 
 template <class TermVec>
@@ -988,7 +1037,10 @@ template <class TermVec, bool is_sum = true>
     auto literal = builder.solver_literal(atom.literal());
 
     // combine coefficients
-    parse_constraint_elems<TermVec, is_sum>(lib, builder, atom.elements(), &guard->second, elements);
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    if (!parse_constraint_elems<TermVec, is_sum>(lib, builder, atom.elements(), &guard->second, elements)) {
+        return false;
+    }
     rhs = simplify(elements, true);
 
     // divide by gcd
@@ -1003,17 +1055,21 @@ template <class TermVec, bool is_sum = true>
         rhs /= d;
     }
 
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     return normalize_constraint(builder, literal, elements, guard->first, rhs, strict);
 }
 
 // Parses minimize and maximize directives.
-void parse_objective(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom,
-                     int factor) {
+[[nodiscard]] auto parse_objective(Clingo::Library const &lib, AbstractConstraintBuilder &builder,
+                                   Clingo::TheoryAtom const &atom, int factor) -> bool {
     CoVarVec elems;
-    parse_constraint_elems<CoVarVec>(lib, builder, atom.elements(), nullptr, elems);
+    if (!parse_constraint_elems<CoVarVec>(lib, builder, atom.elements(), nullptr, elems)) {
+        return false;
+    }
     for (auto &[co, var] : elems) {
         builder.add_minimize(safe_mul(factor, co), var);
     }
+    return true;
 }
 
 void parse_show_elem(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Clingo::TheoryTerm const &term) {
@@ -1080,6 +1136,7 @@ void parse_show(Clingo::Library const &lib, AbstractConstraintBuilder &builder, 
 
     auto guard = atom.guard();
     check_syntax(guard.has_value(), "Invalid Syntax: invalid dom statement");
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     auto var = evaluate(lib, guard->second);
     check_syntax(var.type() != Clingo::SymbolType::number, "Invalid Syntax: invalid dom statement");
 
@@ -1218,9 +1275,13 @@ auto parse(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Cling
                 return false;
             }
         } else if (match(atom.name(), "minimize", 0)) {
-            parse_objective(lib, builder, atom, 1);
+            if (!parse_objective(lib, builder, atom, 1)) {
+                return false;
+            }
         } else if (match(atom.name(), "maximize", 0)) {
-            parse_objective(lib, builder, atom, -1);
+            if (!parse_objective(lib, builder, atom, -1)) {
+                return false;
+            }
         }
     }
     return true;

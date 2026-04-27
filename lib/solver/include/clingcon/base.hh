@@ -389,7 +389,7 @@ class InitClauseCreator final : public AbstractClauseCreator {
     void set_state(InitState state) { state_ = state; }
 
     //! Map the literal to a solver literal.
-    [[nodiscard]] auto solver_literal(lit_t literal) -> lit_t {
+    [[nodiscard]] auto solver_literal(std::optional<lit_t> literal) -> lit_t {
         return control<Clingo::PropagateInit>().solver_literal(literal);
     }
 

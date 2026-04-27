@@ -31,6 +31,7 @@
 #include <clingo/solve.hh>
 
 #include <atomic>
+#include <map>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -70,6 +71,9 @@ class Propagator final : public Clingo::Heuristic {
 
     //! Add a variable to the program.
     auto add_variable(Clingo::Symbol const &sym) -> var_t;
+
+    //! Get an auxiliary variable for the given (variable, lit) pair.
+    [[nodiscard]] auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool>;
 
     //! Enable show statement.
     //!
@@ -197,7 +201,20 @@ class Propagator final : public Clingo::Heuristic {
     //! models found will have a value less than or equal to it.
     static constexpr sum_t no_bound = std::numeric_limits<sum_t>::max();
 
-    Clingo::Library lib_;                         //! The associated library.
+    //! Hash to map variable/literal pairs.
+    struct PairHash : private std::hash<std::string_view> {
+        static_assert(sizeof(std::pair<var_t, lit_t>) == sizeof(var_t) + sizeof(lit_t));
+        auto operator()(std::pair<var_t, lit_t> const &p) const -> std::size_t {
+            auto bytes = std::as_bytes(std::span{std::addressof(p), 1});
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            const auto *ptr = reinterpret_cast<char const *>(bytes.data());
+            return std::hash<std::string_view>::operator()(std::string_view{ptr, bytes.size()});
+        }
+    };
+    //! Map from variable/literal pairs to auxiliary variables.
+    using AuxMap = std::unordered_map<std::pair<var_t, lit_t>, var_t, PairHash>;
+
+    Clingo::Library lib_;                         //!< The associated library.
     Config config_;                               //!< configuration
     ConstraintVec constraints_;                   //!< the set of constraints
     std::vector<Solver> solvers_;                 //!< map thread id to solvers
@@ -207,6 +224,7 @@ class Propagator final : public Clingo::Heuristic {
     Statistics stats_accu_;                       //!< accumulated statistics
     VarSet show_variable_;                        //!< variables to show
     SigSet show_signature_;                       //!< signatures to show
+    AuxMap aux_map_;                              //!< map from (var, cond) pairs to aux vars
     MinimizeConstraint *minimize_{nullptr};       //!< minimize constraint
     std::atomic<sum_t> minimize_bound_{no_bound}; //!< bound of the minimize constraint
     bool show_{false};                            //!< whether there is a show statement

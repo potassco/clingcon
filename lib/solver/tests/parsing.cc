@@ -28,6 +28,7 @@
 
 #include <clingo/ast.hh>
 #include <clingo/control.hh>
+#include <map>
 #include <sstream>
 #include <string_view>
 
@@ -44,12 +45,19 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
     auto operator=(TestBuilder &&) -> TestBuilder & = delete;
     ~TestBuilder() override = default;
 
-    auto solver_literal(lit_t literal) -> lit_t override {
-        static_cast<void>(literal);
-        return 2;
-    }
+    auto solver_literal(std::optional<lit_t> literal) -> lit_t override { return literal ? 2 : 1; }
 
     auto is_true(lit_t literal) -> bool override { return literal == 1; }
+
+    auto value(lit_t literal) -> std::optional<bool> override {
+        if (literal == 1) {
+            return true;
+        }
+        if (literal == -1) {
+            return false;
+        }
+        return std::nullopt;
+    }
 
     auto add_literal() -> lit_t override { return ++literals_; }
 
@@ -172,6 +180,15 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         return true;
     }
 
+    auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> override {
+        auto [it, inserted] = cond_vars_.try_emplace({var, lit});
+        if (inserted) {
+            vars_.emplace_back(Clingo::Number(static_cast<int>(vars_.size()) + 1));
+            it->second = static_cast<var_t>(vars_.size() - 1);
+        }
+        return {it->second, inserted};
+    }
+
     void commit() {
         if (!minimize_.empty()) {
             oss_ << "#minimize { ";
@@ -189,6 +206,7 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
     bool show_{false};
     lit_t literals_{2};
     std::vector<Clingo::Symbol> vars_;
+    std::map<std::pair<var_t, lit_t>, var_t> cond_vars_;
     CoVarVec minimize_;
 };
 

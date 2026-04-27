@@ -22,10 +22,10 @@
 //
 // }}}
 
-#include <algorithm>
-
-#include "clingcon/parsing.hh"
 #include "clingcon/propagator.hh"
+#include "clingcon/parsing.hh"
+
+#include <algorithm>
 
 namespace Clingcon {
 
@@ -38,9 +38,12 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
         : propagator_{propagator}, cc_{cc}, minimize_{std::move(minimize)} {}
     ConstraintBuilder(ConstraintBuilder &&) noexcept = delete;
 
-    [[nodiscard]] auto solver_literal(lit_t literal) -> lit_t override { return cc_.solver_literal(literal); }
+    [[nodiscard]] auto solver_literal(std::optional<lit_t> literal) -> lit_t override {
+        return cc_.solver_literal(literal);
+    }
     [[nodiscard]] auto add_literal() -> lit_t override { return cc_.add_literal(); }
     [[nodiscard]] auto is_true(lit_t literal) -> bool override { return cc_.assignment().is_true(literal); }
+    [[nodiscard]] auto value(lit_t literal) -> std::optional<bool> override { return cc_.assignment().value(literal); }
     [[nodiscard]] auto add_clause(Clingo::SolverLiteralSpan clause) -> bool override { return cc_.add_clause(clause); }
     void add_show() override { propagator_.show(); }
     void show_signature(std::string_view name, size_t arity) override { propagator_.show_signature(name, arity); }
@@ -243,6 +246,10 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
 
+    [[nodiscard]] auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> override {
+        return propagator_.add_cond_var(var, lit);
+    }
+
     //! Prepare the minimize constraint.
     auto prepare_minimize() -> UniqueMinimizeConstraint {
         // copy values of old minimize constraint
@@ -356,6 +363,22 @@ auto Propagator::add_variable(Clingo::Symbol const &sym) -> var_t {
     return it->second;
 }
 
+auto Propagator::add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> {
+    auto [it, inserted] = aux_map_.try_emplace({var, lit});
+    if (inserted) {
+        val_t lo{0};
+        val_t hi{1};
+        if (var != INVALID_VAR) {
+            auto const &vs = master_().var_state(var);
+            lo = std::min(val_t{0}, vs.lower_bound());
+            hi = std::max(val_t{0}, vs.upper_bound());
+        }
+        ++stats_step_.num_variables;
+        it->second = master_().add_variable(lo, hi);
+    }
+    return {it->second, inserted};
+}
+
 void Propagator::show_variable(var_t var) {
     show_variable_.emplace(var);
 }
@@ -460,14 +483,45 @@ void Propagator::do_init(Clingo::Assignment assignment, Clingo::PropagateInit in
 
 auto Propagator::simplify_(AbstractClauseCreator &cc) -> bool {
     Timer timer{stats_step_.time_simplify};
+    auto &master = master_();
     struct Reset { // NOLINT
         ~Reset() {
             master.statistics().time_propagate = 0;
             master.statistics().time_check = 0;
         }
         Solver &master; // NOLINT
-    } reset{master_()};
-    return master_().simplify(cc, config_.check_state);
+    } reset{master};
+    while (master.simplify(cc, config_.check_state)) {
+        // NOTE: this loop is somewhat dangerous because it might be possible
+        // to construct examples that require many iterations.
+        auto refined = false;
+        for (auto [var_lit, aux] : aux_map_) {
+            if (var_lit.first != INVALID_VAR) {
+                auto &vs_var = master.var_state(var_lit.first);
+                auto &vs_aux = master.var_state(aux);
+                auto lo = std::min(val_t{0}, vs_var.lower_bound());
+                auto hi = std::max(val_t{0}, vs_var.upper_bound());
+                if (lo > vs_aux.lower_bound()) {
+                    refined = true;
+                    auto lit = master.update_literal(cc, vs_aux, lo - 1, TruthValue::False);
+                    if (!cc.add_clause(std::to_array({-lit}))) {
+                        return false;
+                    }
+                }
+                if (hi < vs_aux.upper_bound()) {
+                    refined = true;
+                    auto lit = master.update_literal(cc, vs_aux, hi, TruthValue::True);
+                    if (!cc.add_clause(std::to_array({lit}))) {
+                        return false;
+                    }
+                }
+            }
+        }
+        if (!refined) {
+            return true;
+        }
+    }
+    return false;
 }
 
 auto Propagator::translate_(InitClauseCreator &cc, UniqueMinimizeConstraint minimize) -> bool {

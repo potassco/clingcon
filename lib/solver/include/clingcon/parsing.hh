@@ -92,11 +92,13 @@ class AbstractConstraintBuilder {
     virtual ~AbstractConstraintBuilder() = default;
 
     //! Map a program to a solver literal.
-    [[nodiscard]] virtual auto solver_literal(lit_t literal) -> lit_t = 0;
+    [[nodiscard]] virtual auto solver_literal(std::optional<lit_t> literal) -> lit_t = 0;
     //! Add a new solver literal.
     [[nodiscard]] virtual auto add_literal() -> lit_t = 0;
     //! Check whether the given solver literal is true.
     [[nodiscard]] virtual auto is_true(lit_t literal) -> bool = 0;
+    //! Get the truth value of a literal.
+    [[nodiscard]] virtual auto value(lit_t literal) -> std::optional<bool> = 0;
     //! Add a clause over solver literals.
     [[nodiscard]] virtual auto add_clause(Clingo::SolverLiteralSpan clause) -> bool = 0;
     //! Inform the builder that there is a show statement.
@@ -121,6 +123,8 @@ class AbstractConstraintBuilder {
     [[nodiscard]] virtual auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool = 0;
     //! Add a domain for the given variable.
     [[nodiscard]] virtual auto add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) -> bool = 0;
+    //! Get an auxiliary variable for the given (variable, literal) pair.
+    [[nodiscard]] virtual auto add_cond_var(var_t var, lit_t lit) -> std::pair<var_t, bool> = 0;
 };
 
 //! Combine coefficients of terms with the same variable and optionally drop
