@@ -111,8 +111,7 @@ jobs:
         if: ${{ runner.os == 'macos' && matrix.arch == 'x86_64' }}
         run: |
           conda create --platform osx-64 -n build conda-build
-          conda activate build
-          arch -x86_64 conda-build .github/conda \
+          conda run -n build --no-capture-output arch -x86_64 conda-build .github/conda \
             --output-folder ./artifacts \
             --python "${{ matrix.python-version }}"
           find artifacts -type f ! -name "*.conda" -delete
@@ -123,8 +122,7 @@ jobs:
         if: ${{ runner.os != 'linux' && (runner.os != 'macos' || matrix.arch != 'x86_64') }}
         run: |
           conda create -n build conda-build
-          conda activate build
-          conda-build .github/conda \
+          conda run -n build --no-capture-output conda-build .github/conda \
             --output-folder ./artifacts \
             --python "${{ matrix.python-version }}"
           find artifacts -type f ! -name "*.conda" -delete
