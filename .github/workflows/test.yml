@@ -20,19 +20,19 @@ jobs:
           - os: macos-latest
             generator: "Ninja Multi-Config"
           - os: windows-latest
-            generator: "Visual Studio 17 2022"
+            generator: "Visual Studio 18 2026"
     defaults:
       run:
         shell: bash -l {0}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           channel-priority: flexible
