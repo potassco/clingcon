@@ -35,6 +35,9 @@ namespace Clingcon {
 
 namespace {
 
+//! Message for the `@` operator outside of minimize and maximize directives.
+constexpr char const *AT_OUTSIDE_OBJECTIVE = "Invalid Syntax: @ is only supported in minimize and maximize directives";
+
 template <typename T = void> auto throw_syntax_error(char const *message = "Invalid Syntax") -> T {
     throw std::runtime_error(message);
 }
@@ -542,6 +545,8 @@ void parse_constraint_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTer
         }
     } else if (match(term, "**", 2) || match(term, "/", 2) || match(term, "\\", 2)) {
         push_value(evaluate(term), res);
+    } else if (match(term, "@", 2)) {
+        throw_syntax_error(AT_OUTSIDE_OBJECTIVE);
     } else if (term.type() == Clingo::TheoryTermType::Symbol || term.type() == Clingo::TheoryTermType::Function ||
                term.type() == Clingo::TheoryTermType::Tuple) {
         push_co_var(1, builder.add_variable(evaluate(term)), res);
@@ -726,11 +731,30 @@ template <class TermVec, bool is_sum = true>
 }
 
 // Parses minimize and maximize directives.
+//
+// An element can be followed by `@level` to assign it an optimization level.
+// Elements without a level are at level 0.
 void parse_objective(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, int factor) {
-    CoVarVec elems;
-    parse_constraint_elems<CoVarVec>(builder, atom.elements(), nullptr, elems);
-    for (auto &[co, var] : elems) {
-        builder.add_minimize(safe_mul(factor, co), var);
+    for (auto const &element : atom.elements()) {
+        auto tuple = element.tuple();
+        check_syntax(!tuple.empty() && element.condition().empty(), "Invalid Syntax: invalid sum constraint");
+
+        auto term = tuple.front();
+        int level = 0;
+        if (match(term, "@", 2)) {
+            auto args = term.arguments();
+            auto value = evaluate(args.back());
+            check_syntax(value.type() == Clingo::SymbolType::Number,
+                         "Invalid Syntax: optimization level must be an integer");
+            level = value.number();
+            term = args.front();
+        }
+
+        CoVarVec elems;
+        parse_constraint_elem<CoVarVec>(builder, term, elems);
+        for (auto &[co, var] : elems) {
+            builder.add_minimize(safe_mul(factor, co), var, level);
+        }
     }
 }
 
@@ -747,6 +771,7 @@ void parse_show_elem(AbstractConstraintBuilder &builder, Clingo::TheoryTerm cons
 
         builder.show_signature(a.name(), b.number());
     } else {
+        check_syntax(!match(term, "@", 2), AT_OUTSIDE_OBJECTIVE);
         auto a = evaluate(term);
         check_syntax(a.type() != Clingo::SymbolType::Number, "Invalid Syntax: invalid show statement");
 
@@ -795,6 +820,7 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     }
 
     check_syntax(atom.has_guard(), "Invalid Syntax: invalid dom statement");
+    check_syntax(!match(atom.guard().second, "@", 2), AT_OUTSIDE_OBJECTIVE);
     auto var = evaluate(atom.guard().second);
     check_syntax(var.type() != Clingo::SymbolType::Number, "Invalid Syntax: invalid dom statement");
 

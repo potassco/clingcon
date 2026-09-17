@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <clingo.hh>
+#include <type_traits>
 #include <unordered_set>
 
 namespace Clingcon {
@@ -527,12 +528,12 @@ auto Solver::update_literal(AbstractClauseCreator &cc, VarState &vs, val_t value
     return old;
 }
 
-void Solver::add_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
+void Solver::add_var_watch(var_t var, sum_t i, AbstractConstraintState &cs) {
     assert(var < var_watches_.size());
     var_watches_[var].emplace_back(i, &cs);
 }
 
-void Solver::remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs) {
+void Solver::remove_var_watch(var_t var, sum_t i, AbstractConstraintState &cs) {
     assert(var < var_watches_.size());
     auto &watches = var_watches_[var];
     watches.erase(std::find(watches.begin(), watches.end(), std::pair(i, &cs)));
@@ -1065,9 +1066,9 @@ auto Solver::level_origin_stamp_(level_t level) const -> uint32_t {
     return !levels_.empty() && levels_.back().level() == level ? levels_.back().origin_stamp() : 0;
 }
 
-auto Solver::record_bound_origin(var_t var, bool upper, std::pair<val_t, var_t> const *begin,
-                                 std::pair<val_t, var_t> const *end, sum_t rhs, lit_t lit, bool tagged, val_t co_bound,
-                                 level_t level) -> bool {
+template <class Elem>
+auto Solver::record_bound_origin_(var_t var, bool upper, Elem const *begin, Elem const *end, sum_t rhs, lit_t lit,
+                                  bool tagged, sum_t co_bound, level_t level) -> bool {
     if (var2vs_.size() > origin_lower_.size()) {
         origin_lower_.resize(var2vs_.size());
         origin_upper_.resize(var2vs_.size());
@@ -1076,8 +1077,13 @@ auto Solver::record_bound_origin(var_t var, bool upper, std::pair<val_t, var_t> 
     // The bound that changed last among the other variables of the
     // constraint is the one the constraint reacted to.
     BoundOrigin origin;
-    origin.begin = begin;
-    origin.end = end;
+    if constexpr (std::is_same_v<Elem, co_var_t>) {
+        origin.begin = begin;
+        origin.end = end;
+    } else {
+        origin.wide_begin = begin;
+        origin.wide_end = end;
+    }
     origin.rhs = rhs;
     origin.lit = lit;
     origin.tagged = tagged;
@@ -1091,7 +1097,7 @@ auto Solver::record_bound_origin(var_t var, bool upper, std::pair<val_t, var_t> 
             continue;
         }
         auto const &used = co > 0 ? origin_lower_[other] : origin_upper_[other];
-        if (used.begin != nullptr && used.level <= level && used.stamp > latest) {
+        if (!used.empty() && used.level <= level && used.stamp > latest) {
             latest = used.stamp;
             origin.var = other;
             origin.co_var = co;
@@ -1102,11 +1108,21 @@ auto Solver::record_bound_origin(var_t var, bool upper, std::pair<val_t, var_t> 
     // Count the tightenings since the level was entered, not those of an
     // earlier branch that reached the same level number.
     auto &slot = upper ? origin_upper_[var] : origin_lower_[var];
-    bool same = slot.begin != nullptr && slot.level == level && slot.stamp > level_origin_stamp_(level);
+    bool same = !slot.empty() && slot.level == level && slot.stamp > level_origin_stamp_(level);
     origin.count = same ? slot.count + 1 : 1;
     origin.visit = slot.visit;
     slot = origin;
     return origin.count >= CYCLE_CHECK_THRESHOLD && (origin.count & (origin.count - 1)) == 0;
+}
+
+auto Solver::record_bound_origin(var_t var, bool upper, co_var_t const *begin, co_var_t const *end, sum_t rhs,
+                                 lit_t lit, bool tagged, sum_t co_bound, level_t level) -> bool {
+    return record_bound_origin_(var, upper, begin, end, rhs, lit, tagged, co_bound, level);
+}
+
+auto Solver::record_bound_origin(var_t var, bool upper, sum_var_t const *begin, sum_var_t const *end, sum_t rhs,
+                                 lit_t lit, bool tagged, sum_t co_bound, level_t level) -> bool {
+    return record_bound_origin_(var, upper, begin, end, rhs, lit, tagged, co_bound, level);
 }
 
 auto Solver::check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool upper) -> bool {
@@ -1136,7 +1152,7 @@ auto Solver::check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool 
         // An origin is stale if it belongs to another decision level or an
         // earlier branch, or if the literal of its constraint is no longer
         // true.
-        if (origin.begin == nullptr || origin.level != level || origin.stamp <= begin_stamp ||
+        if (origin.empty() || origin.level != level || origin.stamp <= begin_stamp ||
             origin.count < CYCLE_CHAIN_MIN_COUNT || origin.var == INVALID_VAR || !ass.is_true(origin.lit)) {
             return true;
         }
@@ -1160,17 +1176,17 @@ auto Solver::check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool 
     Rational slope{1, 1};
     Rational offset{0, 1};
     for (size_t i = chain.size(); i > start; --i) {
-        auto [r, r_upper] = chain[i - 1];
+        auto r = chain[i - 1].first;
+        auto r_upper = chain[i - 1].second;
         auto const &origin = r_upper ? origin_upper_[r] : origin_lower_[r];
         sum_t rest = 0;
-        for (auto const *it = origin.begin; it != origin.end; ++it) {
-            auto [co, other] = *it;
+        origin.for_each_element([&](sum_t co, var_t other) -> void {
             if (other == r || other == origin.var) {
-                continue;
+                return;
             }
             auto const &vs = var2vs_[other];
-            rest += static_cast<sum_t>(co) * (co > 0 ? vs.lower_bound() : vs.upper_bound());
-        }
+            rest += co * (co > 0 ? vs.lower_bound() : vs.upper_bound());
+        });
         // Every operand stays below 2^62, so no product of two of them
         // wraps the 128-bit integers.
         Rational step_slope = normalize({nsum_t{-origin.co_var}, nsum_t{origin.co_bound}});
@@ -1228,19 +1244,19 @@ auto Solver::check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool 
     };
     bool tagged = false;
     for (size_t i = start; i < chain.size(); ++i) {
-        auto [r, r_upper] = chain[i];
+        auto r = chain[i].first;
+        auto r_upper = chain[i].second;
         auto const &origin = r_upper ? origin_upper_[r] : origin_lower_[r];
         tagged = tagged || origin.tagged;
         if (!ass.is_fixed(origin.lit)) {
             clause.emplace_back(-origin.lit);
         }
-        for (auto const *it = origin.begin; it != origin.end; ++it) {
-            auto [co, other] = *it;
+        origin.for_each_element([&](sum_t co, var_t other) -> void {
             if (other == r || other == origin.var) {
-                continue;
+                return;
             }
             add_bound(other, co < 0);
-        }
+        });
     }
     add_bound(root, root_upper);
     ++stats_.cycles;

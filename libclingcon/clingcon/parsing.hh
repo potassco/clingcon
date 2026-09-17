@@ -39,13 +39,14 @@ namespace Clingcon {
 constexpr char const *THEORY = R"(
 #theory cp {
     sum_term {
-    -  : 3, unary;
-    ** : 2, binary, right;
-    *  : 1, binary, left;
-    /  : 1, binary, left;
-    \  : 1, binary, left;
-    +  : 0, binary, left;
-    -  : 0, binary, left
+    -  : 4, unary;
+    ** : 3, binary, right;
+    *  : 2, binary, left;
+    /  : 2, binary, left;
+    \  : 2, binary, left;
+    +  : 1, binary, left;
+    -  : 1, binary, left;
+    @  : 0, binary, left
     };
     dom_term {
     -  : 4, unary;
@@ -114,7 +115,10 @@ class AbstractConstraintBuilder {
     [[nodiscard]] virtual auto add_nonlinear(lit_t lit, val_t co_ab, var_t var_a, var_t var_b, val_t co_c, var_t var_c,
                                              val_t rhs, bool strict) -> bool = 0;
     //! Extend the minimize constraint.
-    virtual void add_minimize(val_t co, var_t var) = 0;
+    //!
+    //! The `level` is the optimization level given after `@`. Levels are
+    //! optimized in decreasing order.
+    virtual void add_minimize(val_t co, var_t var, int level) = 0;
     //! Add a distinct constraint.
     [[nodiscard]] virtual auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems)
         -> bool = 0;

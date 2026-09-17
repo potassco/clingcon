@@ -113,6 +113,34 @@ auto heuristic_str(Heuristic heu) -> char const * {
     return "";
 }
 
+auto lex_opt_str(LexOptMode mode) -> char const * {
+    switch (mode) {
+        case LexOptMode::Auto: {
+            return "auto";
+        }
+        case LexOptMode::MultiShot: {
+            return "multi-shot";
+        }
+        case LexOptMode::Weighted: {
+            return "weighted";
+        }
+    };
+    return "";
+}
+
+[[nodiscard]] auto parse_lex_opt(char const *value) -> LexOptMode {
+    if (std::strcmp(value, "auto") == 0) {
+        return LexOptMode::Auto;
+    }
+    if (std::strcmp(value, "multi-shot") == 0) {
+        return LexOptMode::MultiShot;
+    }
+    if (std::strcmp(value, "weighted") == 0) {
+        return LexOptMode::Weighted;
+    }
+    throw std::invalid_argument("invalid argument");
+}
+
 template <typename... Args> [[nodiscard]] auto format(Args &&...args) -> std::string {
     std::ostringstream oss;
     (oss << ... << std::forward<Args>(args));
@@ -413,6 +441,10 @@ extern "C" auto clingcon_configure(clingcon_theory_t *theory, char const *key, c
         } else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
         }
+        // optimization
+        else if (std::strcmp(key, "lex-opt") == 0) {
+            config.lex_opt = parse_lex_opt(value);
+        }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
             config.min_int = parse_num<val_t>(value, MIN_VAL, MAX_VAL);
@@ -490,6 +522,23 @@ extern "C" auto clingcon_register_options(clingcon_theory_t *theory, clingo_opti
             format("Add binary clauses for order literals after translation [", flag_str(config.add_order_clauses), "]")
                 .c_str(),
             config.add_order_clauses);
+
+        // optimization
+        opts.add(
+            group, "lex-opt",
+            format("Optimize the levels of the minimize constraint [", lex_opt_str(config.lex_opt),
+                   "]\n"
+                   "      <arg>: {auto|multi-shot|weighted}\n"
+                   "        auto      : multi-shot if the application steps through the levels\n"
+                   "                    and one thread is used, weighted otherwise\n"
+                   "        multi-shot: optimize one level per solve call\n"
+                   "        weighted  : fold the levels into one minimize constraint")
+                .c_str(),
+            [&config](char const *value) -> bool {
+                config.lex_opt = parse_lex_opt(value);
+                return true;
+            },
+            false, "<arg>");
 
         // propagation
         opts.add(group, "order-heuristic",
@@ -574,6 +623,10 @@ extern "C" auto clingcon_validate_options(clingcon_theory_t *theory) -> bool {
         if (config.min_int > config.max_int) {
             throw std::runtime_error("min-int must be smaller than or equal to max-int");
         }
+
+        if (config.lex_opt == LexOptMode::MultiShot && !theory->propagator.steps_enabled()) {
+            throw std::runtime_error(STEPS_REQUIRED_MESSAGE);
+        }
     }
     CLINGCON_CATCH;
 }
@@ -583,6 +636,13 @@ extern "C" auto clingcon_on_model(clingcon_theory_t *theory, clingo_model_t *mod
         Clingo::Model m{model};
         theory->propagator.on_model(m);
     }
+    CLINGCON_CATCH;
+}
+
+extern "C" void clingcon_enable_steps(clingcon_theory_t *theory) { theory->propagator.enable_steps(); }
+
+extern "C" auto clingcon_step(clingcon_theory_t *theory, bool exhausted, bool *more) -> bool {
+    CLINGCON_TRY { *more = theory->propagator.step(exhausted); }
     CLINGCON_CATCH;
 }
 
