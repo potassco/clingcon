@@ -1,5 +1,9 @@
 # Changes
 
+## clingcon 5.2.3
+
+- detect cycles of constraints that tighten bounds round after round (#95)
+
 ## clingcon 5.2.2
 
 - improve build scripts (#123)

@@ -351,6 +351,8 @@ void Propagator::add_statistics_(Clingo::UserStatistics &root, Statistics &stats
             .set_value(static_cast<double>(solver_stat.introduced_reason));
         thread.add_subkey("Literals introduced", StatisticsType::Value)
             .set_value(static_cast<double>(solver_stat.literals));
+        thread.add_subkey("Propagation cycles", StatisticsType::Value)
+            .set_value(static_cast<double>(solver_stat.cycles));
     }
 }
 
@@ -426,6 +428,12 @@ void Propagator::init(Clingo::PropagateInit &init) {
     // translate (simple enough) constraints
     if (!translate_(cc, builder.prepare_minimize())) {
         return;
+    }
+
+    // Translation destroys the constraints it replaces, and the origins of
+    // the bounds point into constraints.
+    for (auto &solver : solvers_) {
+        solver.reset_bound_origins();
     }
 
     // watch all the remaining constraints

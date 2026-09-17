@@ -111,6 +111,7 @@ struct SolverStatistics {
         refined_reason += stats.refined_reason;
         introduced_reason += stats.introduced_reason;
         literals += stats.literals;
+        cycles += stats.cycles;
     }
 
     double time_propagate{0};
@@ -119,6 +120,7 @@ struct SolverStatistics {
     uint64_t refined_reason{0};
     uint64_t introduced_reason{0};
     uint64_t literals{0};
+    uint64_t cycles{0}; //!< number of conflicts from cycles of constraints that tighten bounds
 };
 
 //! Propagator specific statistics.
