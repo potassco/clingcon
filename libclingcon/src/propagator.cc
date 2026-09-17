@@ -42,6 +42,11 @@ namespace {
 constexpr char const *STEP_MISSING_WARNING =
     "warning: clingcon: the previous solve call was not followed by clingcon_step; the optimization is incomplete";
 
+//! Warning printed if the levels are folded into one minimize constraint
+//! while a &heuristic directive is scoped to a level.
+constexpr char const *SCOPED_ANNOTATION_WARNING =
+    "warning: clingcon: &heuristic directives scoped to a level do not act in weighted mode";
+
 //! Error reported if the levels do not fit into one weighted minimize
 //! constraint.
 [[nodiscard]] auto fold_error(char const *reason) -> std::runtime_error {
@@ -129,6 +134,10 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
         if (var != INVALID_VAR) {
             levels_.insert(level);
         }
+    }
+
+    void add_search_annotation(SearchAnnotation annotation) override {
+        search_annotations_.emplace_back(std::move(annotation));
     }
 
     //! Add a distinct constraint.
@@ -284,6 +293,9 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
     [[nodiscard]] auto add_dom(lit_t lit, var_t var, IntervalSet<val_t> const &elems) -> bool override {
         return cc_.assignment().is_false(lit) || propagator_.add_dom(cc_, lit, var, elems);
     }
+
+    //! Get the &heuristic directives of the program.
+    auto search_annotations() -> std::vector<SearchAnnotation> & { return search_annotations_; }
 
     //! Check whether the minimize constraint has elements on more than one level.
     [[nodiscard]] auto has_leveled_minimize() const -> bool { return levels_.size() > 1; }
@@ -513,6 +525,7 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
     InitClauseCreator &cc_;
     UniqueMinimizeConstraint minimize_;
     std::vector<MinimizeElem> minimize_elems_;
+    std::vector<SearchAnnotation> search_annotations_;
     std::set<int> levels_; //!< the levels of the elements over variables
 };
 
@@ -720,10 +733,47 @@ void Propagator::init(Clingo::PropagateInit &init) {
         return;
     }
 
+    // Collect the &heuristic directives. Later program parts add to the
+    // directives of the earlier ones, and a directive over all variables
+    // covers the variables of later parts as well.
+    for (auto &ann : builder.search_annotations()) {
+        search_annotations_.emplace_back(std::move(ann));
+    }
+    for (auto &ann : search_annotations_) {
+        if (!ann.all_vars) {
+            continue;
+        }
+        ann.vars.clear();
+        ann.var_set.clear();
+        ann.vars.reserve(var_map_.size());
+        for (auto const &[var, sym] : var_map_) {
+            static_cast<void>(sym);
+            ann.vars.emplace_back(var);
+        }
+        ann.var_set.insert(ann.vars.begin(), ann.vars.end());
+    }
+    // Directives with a smaller priority are consulted first. A directive
+    // scoped to an optimization level goes before an unscoped one of the same
+    // priority.
+    std::stable_sort(search_annotations_.begin(), search_annotations_.end(), [](auto const &a, auto const &b) -> auto {
+        if (a.priority != b.priority) {
+            return a.priority < b.priority;
+        }
+        return a.opt_level.has_value() && !b.opt_level.has_value();
+    });
+
     // A library user may not call clingcon_validate_options, so the mode is
     // checked here as well.
     if (builder.has_leveled_minimize() && config_.lex_opt == LexOptMode::MultiShot && !steps_enabled_) {
         throw std::runtime_error(STEPS_REQUIRED_MESSAGE);
+    }
+
+    // The weighted mode folds the levels into one minimize constraint, so
+    // there is no level for a scoped directive to be active on.
+    if (builder.has_leveled_minimize() && !builder.use_multi_shot(static_cast<uint32_t>(init.number_of_threads())) &&
+        std::any_of(search_annotations_.begin(), search_annotations_.end(),
+                    [](auto const &ann) -> auto { return ann.opt_level.has_value(); })) {
+        std::cerr << SCOPED_ANNOTATION_WARNING << "\n";
     }
 
     // get the master solver and make sure it stays valid
@@ -851,6 +901,29 @@ void Propagator::init(Clingo::PropagateInit &init) {
     auto max_var = static_cast<var_t>(cc.assignment().size());
     for (auto &solver : solvers_) {
         solver.mark_variables(max_var);
+    }
+
+    update_solver_annotations_();
+}
+
+void Propagator::update_solver_annotations_() {
+    // The priority of the level that is optimized. In weighted mode there is
+    // no active level, so a directive scoped to a level never applies.
+    std::optional<int> active_priority;
+    if (active_level_idx_ < minimize_levels_.size()) {
+        active_priority = minimize_levels_[active_level_idx_].priority;
+    }
+
+    std::vector<SearchAnnotation> active;
+    active.reserve(search_annotations_.size());
+    for (auto const &ann : search_annotations_) {
+        if (!ann.opt_level.has_value() || ann.opt_level == active_priority) {
+            active.emplace_back(ann);
+        }
+    }
+
+    for (auto &solver : solvers_) {
+        solver.set_search_annotations(active);
     }
 }
 
@@ -1106,6 +1179,9 @@ auto Propagator::advance_level() -> bool {
             return advance_level();
         }
     }
+
+    // The directives scoped to the level that is now active take over.
+    update_solver_annotations_();
 
     return true;
 }

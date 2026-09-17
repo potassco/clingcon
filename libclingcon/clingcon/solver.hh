@@ -845,6 +845,23 @@ class Solver {
         max_static_var_ = var;
     }
 
+    //! Set the &heuristic directives the decide function consults.
+    //!
+    //! The directives are consulted in the order they are given.
+    void set_search_annotations(std::vector<SearchAnnotation> annotations) {
+        search_annotations_ = std::move(annotations);
+    }
+
+    //! Return the &heuristic directives the decide function consults.
+    [[nodiscard]] auto search_annotations() const -> std::vector<SearchAnnotation> const & {
+        return search_annotations_;
+    }
+
+    //! Return the number of constraints watching the given variable.
+    [[nodiscard]] auto var_degree(var_t var) const -> size_t {
+        return var < var_watches_.size() ? var_watches_[var].size() : 0;
+    }
+
     //! @}
 
     //! @name Propagation
@@ -919,6 +936,19 @@ class Solver {
     //! propagate the minimize constraint and return.
     [[nodiscard]] auto level_() -> Level &;
 
+    //! Select the variable a &heuristic directive branches on.
+    //!
+    //! Returns INVALID_VAR if all variables of the directive are assigned or,
+    //! with the vsids variable selection, if the fallback literal is not an
+    //! order literal of one of them.
+    [[nodiscard]] auto select_var_(SearchAnnotation const &ann, lit_t fallback) -> var_t;
+
+    //! Select an order literal of the given variable according to the value
+    //! selection of a &heuristic directive.
+    //!
+    //! Returns 0 if there is no such literal.
+    [[nodiscard]] static auto select_lit_(VarState const &vs, ValueSelection val_sel) -> lit_t;
+
     //! Helper to access the litmap_ always returning a (possibly invalid) entry.
     auto litmap_at_(lit_t lit) -> LitmapEntry &;
     //! Helper to add an element to the litmap_ making sure to resize the container.
@@ -980,6 +1010,8 @@ class Solver {
     std::vector<std::tuple<var_t, sum_t, AbstractConstraintState *>> removed_var_watches_;
     //! Reason vector to avoid unnecessary allocations.
     std::vector<lit_t> temp_reason_;
+    //! The &heuristic directives that apply to the current solve call.
+    std::vector<SearchAnnotation> search_annotations_;
     //! Offset to speed up Solver::check_full.
     uint32_t split_last_{0};
     //! Offset to speed up Solver::simplify.

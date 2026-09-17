@@ -79,7 +79,10 @@ constexpr char const *THEORY = R"(
     &show/0 : sum_term, directive;
     &distinct/0 : sum_term, head;
     &disjoint/0 : disjoint_term, head;
-    &dom/0 : dom_term, {=}, sum_term, head
+    &dom/0 : dom_term, {=}, sum_term, head;
+    &heuristic/3 : sum_term, directive;
+    &heuristic/4 : sum_term, directive;
+    &heuristic/5 : sum_term, directive
 }.
 )";
 
@@ -119,6 +122,8 @@ class AbstractConstraintBuilder {
     //! The `level` is the optimization level given after `@`. Levels are
     //! optimized in decreasing order.
     virtual void add_minimize(val_t co, var_t var, int level) = 0;
+    //! Add a &heuristic directive.
+    virtual void add_search_annotation(SearchAnnotation annotation) = 0;
     //! Add a distinct constraint.
     [[nodiscard]] virtual auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems)
         -> bool = 0;

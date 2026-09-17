@@ -131,6 +131,8 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         minimize_.emplace_back(co, var);
     }
 
+    void add_search_annotation(SearchAnnotation annotation) override { static_cast<void>(annotation); }
+
     auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) -> bool override {
         oss_ << lit << " -> ";
         bool sep{false};

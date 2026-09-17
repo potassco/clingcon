@@ -5,6 +5,8 @@
 - detect cycles of constraints that tighten bounds round after round (#95)
 - add `@priority` levels for `&minimize` and `&maximize` with `--lex-opt` (#96)
 - fix the constant of an objective changing its sign in later solve calls
+- add `&heuristic` directives to select variables and values (#65)
+- add `--order-heuristic` values `earliest-start` and `tightest-window`
 
 ## clingcon 5.2.2
 

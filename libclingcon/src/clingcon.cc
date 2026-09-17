@@ -109,6 +109,12 @@ auto heuristic_str(Heuristic heu) -> char const * {
         case Heuristic::MaxChain: {
             return "max-chain";
         }
+        case Heuristic::EarliestStart: {
+            return "earliest-start";
+        }
+        case Heuristic::TightestWindow: {
+            return "tightest-window";
+        }
     };
     return "";
 }
@@ -307,6 +313,12 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     if (std::strncmp(value, "max-chain", comma - value) == 0) {
         return {static_cast<val_t>(Heuristic::MaxChain), thread};
     }
+    if (std::strncmp(value, "earliest-start", comma - value) == 0) {
+        return {static_cast<val_t>(Heuristic::EarliestStart), thread};
+    }
+    if (std::strncmp(value, "tightest-window", comma - value) == 0) {
+        return {static_cast<val_t>(Heuristic::TightestWindow), thread};
+    }
     throw std::invalid_argument("invalid argument");
 }
 
@@ -366,17 +378,10 @@ extern "C" void clingcon_version(int *major, int *minor, int *patch) {
 }
 
 extern "C" auto clingcon_register(clingcon_theory_t *theory, clingo_control_t *control) -> bool {
-    // Note: The decide function is passed here for performance reasons.
-    auto &config = theory->propagator.config();
-    bool has_heuristic = config.default_solver_config.heuristic != Heuristic::None;
-    for (auto &sconfig : config.solver_configs) {
-        if (has_heuristic) {
-            break;
-        }
-        has_heuristic = sconfig.heuristic != Heuristic::None;
-    }
-
-    static clingo_propagator_t propagator = {init, propagate, undo, check, has_heuristic ? decide : nullptr};
+    // Note: The decide function is always passed because &heuristic
+    // directives are only known after grounding. It returns the literal of
+    // clasp's own heuristic right away if there is nothing to do.
+    static clingo_propagator_t propagator = {init, propagate, undo, check, decide};
     return clingo_control_add(control, "base", nullptr, 0, Clingcon::THEORY) &&
            clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
 }
@@ -545,9 +550,11 @@ extern "C" auto clingcon_register_options(clingcon_theory_t *theory, clingo_opti
                  format("Make the decision heuristic aware of order literals [",
                         heuristic_str(config.default_solver_config.heuristic),
                         "]\n"
-                        "      <arg>: {none,max-chain}[,<i>]\n"
-                        "        none     : use clasp's heuristic\n"
-                        "        max-chain: assign chains of literals\n"
+                        "      <arg>: {none,max-chain,earliest-start,tightest-window}[,<i>]\n"
+                        "        none           : use clasp's heuristic\n"
+                        "        max-chain      : assign chains of literals\n"
+                        "        earliest-start : branch on the lower bound of the variable\n"
+                        "        tightest-window: split the domain of the variable\n"
                         "      <i>  : Only enable for thread <i>")
                      .c_str(),
                  parser_heuristic(*theory), true);

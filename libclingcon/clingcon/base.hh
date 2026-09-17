@@ -29,6 +29,7 @@
 #include <forward_list>
 #include <math/wide_integer/uintwide_t.h>
 #include <optional>
+#include <unordered_set>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -48,13 +49,60 @@ using CoVarVec = std::vector<co_var_t>;
 using sum_var_t = std::pair<sum_t, var_t>; //!< coefficient/variable pair of a minimize constraint
 using SumVarVec = std::vector<sum_var_t>;
 
-enum class Heuristic : val_t { None, MaxChain };
+enum class Heuristic : val_t {
+    None,           //!< leave the decision to clasp
+    MaxChain,       //!< assign chains of order literals
+    EarliestStart,  //!< branch on the lower bound of the variable of the fallback literal
+    TightestWindow, //!< split the domain of the variable of the fallback literal
+};
 
 //! The strategy to optimize the levels of a minimize constraint.
 enum class LexOptMode : uint8_t {
     Auto,      //!< multi-shot if the application drives the steps and one thread is used, weighted otherwise
     MultiShot, //!< one solve call per level
     Weighted,  //!< fold the levels into one minimize constraint with mixed-radix weights
+};
+
+//! The variable a &heuristic directive branches on.
+enum class VarSelection : uint8_t {
+    InputOrder,    //!< the first unassigned variable in the order of the directive
+    FirstFail,     //!< the smallest domain width, the upper bound minus the lower bound
+    AntiFirstFail, //!< the largest domain width
+    Smallest,      //!< the smallest lower bound
+    Largest,       //!< the largest upper bound
+    Degree,        //!< the largest number of constraints watching the variable
+    DomDeg,        //!< the smallest ratio of domain width to degree
+    Vsids,         //!< clasp selects the variable, the directive selects the value
+};
+
+//! The value a &heuristic directive tries first.
+enum class ValueSelection : uint8_t {
+    IndomainMin,          //!< the lower bound of the domain
+    IndomainMax,          //!< the upper bound of the domain
+    IndomainSplit,        //!< the lower half of the domain
+    IndomainReverseSplit, //!< the upper half of the domain
+};
+
+//! The tie-breaker of a &heuristic directive.
+enum class TieBreaker : uint8_t {
+    None,   //!< keep the variable that comes first
+    Degree, //!< take the variable that more constraints watch
+};
+
+//! A &heuristic directive.
+//!
+//! The directive selects one of its variables and an order literal of that
+//! variable whenever the decide callback runs and one of its variables is
+//! unassigned.
+struct SearchAnnotation {
+    std::vector<var_t> vars;           //!< the variables of the directive
+    std::unordered_set<var_t> var_set; //!< the variables of the directive for lookup
+    std::optional<int> opt_level;      //!< the @priority level the directive is scoped to
+    uint32_t priority{0};              //!< directives with a smaller priority are consulted first
+    VarSelection var_sel{VarSelection::InputOrder};
+    ValueSelection val_sel{ValueSelection::IndomainMin};
+    TieBreaker tie_breaker{TieBreaker::None};
+    bool all_vars{false}; //!< whether the directive covers all integer variables
 };
 
 //! The maximum value for variables/coefficients in clingcon.

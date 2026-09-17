@@ -363,8 +363,9 @@ Solver::Solver(Solver &&x) noexcept
       litmap_{std::move(x.litmap_)}, factmap_{std::move(x.factmap_)}, c2cs_{std::move(x.c2cs_)},
       var_watches_{std::move(x.var_watches_)}, udiff_{std::move(x.udiff_)}, in_udiff_{std::move(x.in_udiff_)},
       ldiff_{std::move(x.ldiff_)}, in_ldiff_{std::move(x.in_ldiff_)}, todo_{std::move(x.todo_)},
-      lit2cs_{std::move(x.lit2cs_)}, temp_reason_{std::move(x.temp_reason_)}, split_last_{x.split_last_},
-      trail_offset_{x.trail_offset_}, minimize_bound_{std::move(x.minimize_bound_)}, minimize_level_{x.minimize_level_},
+      lit2cs_{std::move(x.lit2cs_)}, temp_reason_{std::move(x.temp_reason_)},
+      search_annotations_{std::move(x.search_annotations_)}, split_last_{x.split_last_}, trail_offset_{x.trail_offset_},
+      minimize_bound_{std::move(x.minimize_bound_)}, minimize_level_{x.minimize_level_},
       origin_lower_{std::move(x.origin_lower_)}, origin_upper_{std::move(x.origin_upper_)},
       origin_stamp_{x.origin_stamp_}, cycle_visit_{x.cycle_visit_} {}
 #else
@@ -389,6 +390,7 @@ void Solver::shrink_to_fit() {
 
 void Solver::copy_state(Solver const &master) {
     // just to be thorough
+    search_annotations_ = master.search_annotations_;
     split_last_ = master.split_last_;
     trail_offset_ = master.trail_offset_;
     minimize_level_ = master.minimize_level_;
@@ -912,8 +914,128 @@ void Solver::undo() {
     assert(!levels_.empty());
 }
 
+auto Solver::select_var_(SearchAnnotation const &ann, lit_t fallback) -> var_t {
+    if (ann.var_sel == VarSelection::Vsids) {
+        // clasp has selected the fallback literal. The directive branches on
+        // its variable if the literal is an order literal of one of its
+        // variables.
+        for (auto lit : {fallback, -fallback}) {
+            if (auto const &olit = litmap_at_(lit); olit.valid(lit)) {
+                auto var = olit.var();
+                if (ann.var_set.count(var) > 0 && !var2vs_[var].is_assigned()) {
+                    return var;
+                }
+            }
+        }
+        return INVALID_VAR;
+    }
+
+    // Whether a larger metric selects the variable.
+    bool prefer_larger = ann.var_sel == VarSelection::AntiFirstFail || ann.var_sel == VarSelection::Largest ||
+                         ann.var_sel == VarSelection::Degree;
+    // The degree tie-breaker applies to the selections that compare a metric
+    // on which two variables can tie.
+    bool tie_break = ann.tie_breaker == TieBreaker::Degree &&
+                     (ann.var_sel == VarSelection::FirstFail || ann.var_sel == VarSelection::AntiFirstFail ||
+                      ann.var_sel == VarSelection::Smallest || ann.var_sel == VarSelection::Largest);
+
+    var_t best = INVALID_VAR;
+    val_t best_metric = 0;
+    for (auto var : ann.vars) {
+        if (var >= var2vs_.size()) {
+            continue;
+        }
+        auto const &vs = var2vs_[var];
+        if (vs.is_assigned()) {
+            continue;
+        }
+        if (ann.var_sel == VarSelection::InputOrder) {
+            return var;
+        }
+
+        auto width = vs.upper_bound() - vs.lower_bound();
+        auto degree = static_cast<val_t>(var_degree(var));
+        val_t metric = 0;
+        switch (ann.var_sel) {
+            case VarSelection::FirstFail:
+            case VarSelection::AntiFirstFail: {
+                metric = width;
+                break;
+            }
+            case VarSelection::Smallest: {
+                metric = vs.lower_bound();
+                break;
+            }
+            case VarSelection::Largest: {
+                metric = vs.upper_bound();
+                break;
+            }
+            case VarSelection::Degree: {
+                metric = degree;
+                break;
+            }
+            case VarSelection::DomDeg: {
+                // A variable that no constraint watches is compared by its
+                // domain width alone.
+                metric = degree > 0 ? width / degree : width;
+                break;
+            }
+            case VarSelection::InputOrder:
+            case VarSelection::Vsids: {
+                break;
+            }
+        }
+
+        if (best == INVALID_VAR || (prefer_larger ? metric > best_metric : metric < best_metric)) {
+            best = var;
+            best_metric = metric;
+        } else if (tie_break && metric == best_metric && var_degree(var) > var_degree(best)) {
+            best = var;
+        }
+    }
+    return best;
+}
+
+auto Solver::select_lit_(VarState const &vs, ValueSelection val_sel) -> lit_t {
+    switch (val_sel) {
+        case ValueSelection::IndomainMin: {
+            return vs.lit_ge(vs.lower_bound());
+        }
+        case ValueSelection::IndomainMax: {
+            auto lit = vs.lit_le(vs.upper_bound() - 1);
+            return lit != 0 ? -lit : 0;
+        }
+        case ValueSelection::IndomainSplit: {
+            return vs.lit_le(midpoint(vs.lower_bound(), vs.upper_bound()));
+        }
+        case ValueSelection::IndomainReverseSplit: {
+            auto lit = vs.lit_le(midpoint(vs.lower_bound(), vs.upper_bound()));
+            return lit != 0 ? -lit : 0;
+        }
+    }
+    return 0;
+}
+
 auto Solver::decide(Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
-    static_cast<void>(assign);
+    // The &heuristic directives are consulted in the order of their
+    // priorities. A directive branches as soon as one of its variables is
+    // unassigned.
+    for (auto const &ann : search_annotations_) {
+        auto var = select_var_(ann, fallback);
+        if (var == INVALID_VAR) {
+            continue;
+        }
+        auto const &vs = var2vs_[var];
+        if (auto lit = select_lit_(vs, ann.val_sel); lit != 0 && assign.truth_value(lit) == Clingo::TruthValue::Free) {
+            return lit;
+        }
+        // The selected literal is already assigned. Any free order literal of
+        // the variable narrows its domain as well.
+        if (auto lit = vs.lit_ge(vs.lower_bound()); lit != 0 && assign.truth_value(lit) == Clingo::TruthValue::Free) {
+            return lit;
+        }
+    }
+
     switch (config_.heuristic) {
         case Heuristic::None: {
             break;
@@ -932,6 +1054,34 @@ auto Solver::decide(Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
                 auto lit = -vs.lit_lt(vs.upper_bound());
                 assert(assign.truth_value(lit) == Clingo::TruthValue::Free);
                 return lit;
+            }
+            break;
+        }
+        case Heuristic::EarliestStart: {
+            // Push the variable to its lower bound whichever side of it clasp
+            // picked.
+            for (auto fb : {fallback, -fallback}) {
+                if (auto const &olit = litmap_at_(fb); olit.valid(fb)) {
+                    auto &vs = var_state(olit.var());
+                    if (auto lit = vs.lit_ge(vs.lower_bound());
+                        lit != 0 && assign.truth_value(lit) == Clingo::TruthValue::Free) {
+                        return lit;
+                    }
+                }
+            }
+            break;
+        }
+        case Heuristic::TightestWindow: {
+            // Halve the domain of the variable instead of moving one of its
+            // bounds by one value.
+            for (auto fb : {fallback, -fallback}) {
+                if (auto const &olit = litmap_at_(fb); olit.valid(fb)) {
+                    auto &vs = var_state(olit.var());
+                    auto lit = vs.lit_le(midpoint(vs.lower_bound(), vs.upper_bound()));
+                    if (lit != 0 && assign.truth_value(lit) == Clingo::TruthValue::Free) {
+                        return lit;
+                    }
+                }
             }
             break;
         }

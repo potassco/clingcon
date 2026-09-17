@@ -49,6 +49,69 @@ The levels are handled by the propagator. A `&minimize` with levels is not
 translated into clingo's `#minimize`, and the levels are not ordered against
 clingo's own `#minimize` statements.
 
+## Heuristic directives
+
+A `&heuristic` directive tells the decision heuristic which integer variable to
+branch on and which value to try first, in the style of MiniZinc's search
+annotations. A directive changes the order in which the models of a program are
+found, not the models themselves.
+
+    &heuristic(P, VarSel, ValSel [, Tie] [, Lvl]) { x; y; ... }.
+
+The directives are consulted in increasing `P`. A directive acts whenever one of
+its variables is unassigned; an empty or omitted set covers all integer
+variables. `VarSel` picks the variable:
+
+| `VarSel`          | branches on                                  |
+| ----------------- | -------------------------------------------- |
+| `input_order`     | the first unassigned variable of the set     |
+| `first_fail`      | the smallest domain width                    |
+| `anti_first_fail` | the largest domain width                     |
+| `smallest`        | the smallest lower bound                     |
+| `largest`         | the largest upper bound                      |
+| `degree`          | the variable that most constraints watch     |
+| `dom_deg`         | the smallest ratio of domain width to degree |
+| `vsids`           | the variable clasp selected                  |
+
+`ValSel` picks the value:
+
+| `ValSel`                 | tries first                  |
+| ------------------------ | ---------------------------- |
+| `indomain_min`           | the lower bound              |
+| `indomain_max`           | the upper bound              |
+| `indomain_split`         | the lower half of the domain |
+| `indomain_reverse_split` | the upper half of the domain |
+
+`Tie` is `none` or `degree`. The `degree` tie-breaker takes the variable that
+more constraints watch. It has an effect with `first_fail`, `anti_first_fail`,
+`smallest` and `largest`, and clingcon reports it as ignored with the others.
+
+The `vsids` variable selection is cooperative: clasp selects the atom and the
+directive selects the value of that variable if the atom is an order atom of
+one of its variables. The choice of clasp stands otherwise.
+
+`Lvl` scopes a directive to one `@priority` level. The directive is active while
+that level is optimized in multi-shot mode. Weighted mode optimizes all levels
+at once and has no active level, so a scoped directive does not act there and
+clingcon says so on standard error.
+
+    &dom { 0..20 } = start(T) :- T = 1..3.
+    &sum { start(T); 5 } <= start(T+1) :- T = 1..2.
+    &heuristic(0, first_fail, indomain_min) { start(T) : T = 1..3 }.
+
+Where no directive applies, `--order-heuristic` still steers the variable of
+the literal clasp selected. Besides `max-chain` there are `earliest-start`,
+which branches on the lower bound of that variable, and `tightest-window`,
+which splits its domain in half.
+
+    --order-heuristic=<arg>      : Make the decision heuristic aware of order literals [none]
+          <arg>: {none,max-chain,earliest-start,tightest-window}[,<i>]
+            none           : use clasp's heuristic
+            max-chain      : assign chains of literals
+            earliest-start : branch on the lower bound of the variable
+            tightest-window: split the domain of the variable
+          <i>  : Only enable for thread <i>
+
 ## Building a release version with conda
 
     conda create -n clingcon -c potassco/label/dev -c conda-forge \

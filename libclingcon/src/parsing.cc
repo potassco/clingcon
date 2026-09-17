@@ -26,7 +26,9 @@
 #include "clingcon/base.hh"
 #include "clingcon/util.hh"
 
+#include <array>
 #include <cmath>
+#include <iostream>
 #include <numeric>
 #include <set>
 #include <unordered_map>
@@ -864,6 +866,122 @@ void parse_show(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &at
     return builder.add_disjoint(builder.solver_literal(atom.literal()), elements);
 }
 
+//! The variable selections of a heuristic directive and their names.
+constexpr std::array<std::pair<char const *, VarSelection>, 8> VAR_SELECTIONS{
+    {
+        {"input_order", VarSelection::InputOrder},
+        {"first_fail", VarSelection::FirstFail},
+        {"anti_first_fail", VarSelection::AntiFirstFail},
+        {"smallest", VarSelection::Smallest},
+        {"largest", VarSelection::Largest},
+        {"degree", VarSelection::Degree},
+        {"dom_deg", VarSelection::DomDeg},
+        {"vsids", VarSelection::Vsids},
+    },
+};
+
+//! The value selections of a heuristic directive and their names.
+constexpr std::array<std::pair<char const *, ValueSelection>, 4> VALUE_SELECTIONS{
+    {
+        {"indomain_min", ValueSelection::IndomainMin},
+        {"indomain_max", ValueSelection::IndomainMax},
+        {"indomain_split", ValueSelection::IndomainSplit},
+        {"indomain_reverse_split", ValueSelection::IndomainReverseSplit},
+    },
+};
+
+//! The tie-breakers of a heuristic directive and their names.
+constexpr std::array<std::pair<char const *, TieBreaker>, 2> TIE_BREAKERS{
+    {
+        {"none", TieBreaker::None},
+        {"degree", TieBreaker::Degree},
+    },
+};
+
+//! Look up a strategy of a heuristic directive by its name.
+template <class T, size_t N>
+[[nodiscard]] auto lookup_strategy(std::array<std::pair<char const *, T>, N> const &table, Clingo::Symbol const &sym,
+                                   char const *message) -> T {
+    if (sym.type() == Clingo::SymbolType::Function && sym.arguments().empty()) {
+        for (auto const &[name, value] : table) {
+            if (std::strcmp(sym.name(), name) == 0) {
+                return value;
+            }
+        }
+    }
+    return throw_syntax_error<T>(message);
+}
+
+// Matches &heuristic with three to five arguments.
+[[nodiscard]] auto match_heuristic(Clingo::TheoryTerm const &term) -> bool {
+    constexpr size_t min_args = 3;
+    constexpr size_t max_args = 5;
+    if (term.type() != Clingo::TheoryTermType::Function || std::strcmp(term.name(), "heuristic") != 0) {
+        return false;
+    }
+    auto const n_args = term.arguments().size();
+    return min_args <= n_args && n_args <= max_args;
+}
+
+// Parses &heuristic(Priority, VarSel, ValSel [, Tie] [, Lvl]) { x; y; ... }.
+//
+// The fourth argument is the tie-breaker if it is a symbol and the
+// optimization level if it is a number.
+void parse_heuristic(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom) {
+    auto args = atom.term().arguments();
+
+    auto priority = evaluate(args[0]);
+    check_syntax(priority.type() == Clingo::SymbolType::Number && priority.number() >= 0,
+                 "Invalid Syntax: the priority of a heuristic directive must be a non-negative integer");
+
+    SearchAnnotation annotation;
+    annotation.priority = static_cast<uint32_t>(priority.number());
+    auto var_sel = evaluate(args[1]);
+    annotation.var_sel = lookup_strategy(VAR_SELECTIONS, var_sel, "Invalid Syntax: unknown variable selection");
+    annotation.val_sel =
+        lookup_strategy(VALUE_SELECTIONS, evaluate(args[2]), "Invalid Syntax: unknown value selection");
+
+    auto it = args.begin() + 3;
+    if (it != args.end()) {
+        if (auto sym = evaluate(*it); sym.type() != Clingo::SymbolType::Number) {
+            annotation.tie_breaker = lookup_strategy(TIE_BREAKERS, sym, "Invalid Syntax: unknown tie-breaker");
+            ++it;
+        }
+    }
+    if (it != args.end()) {
+        auto sym = evaluate(*it);
+        check_syntax(sym.type() == Clingo::SymbolType::Number,
+                     "Invalid Syntax: the optimization level of a heuristic directive must be an integer");
+        annotation.opt_level = sym.number();
+        ++it;
+    }
+    check_syntax(it == args.end(), "Invalid Syntax: invalid heuristic directive");
+
+    // The degree tie-breaker applies to the variable selections that compare
+    // a metric on which two variables can tie.
+    if (annotation.tie_breaker == TieBreaker::Degree && annotation.var_sel != VarSelection::FirstFail &&
+        annotation.var_sel != VarSelection::AntiFirstFail && annotation.var_sel != VarSelection::Smallest &&
+        annotation.var_sel != VarSelection::Largest) {
+        std::cerr << "warning: clingcon: the tie-breaker 'degree' has no effect with the variable selection '"
+                  << var_sel.name() << "' and is ignored\n";
+    }
+
+    for (auto elem : atom.elements()) {
+        check_syntax(elem.tuple().size() == 1 && elem.condition().empty(),
+                     "Invalid Syntax: invalid heuristic directive");
+        auto sym = evaluate(elem.tuple().front());
+        check_syntax(sym.type() != Clingo::SymbolType::Number,
+                     "Invalid Syntax: a heuristic directive ranges over variables");
+        annotation.vars.emplace_back(builder.add_variable(sym));
+    }
+    // An empty set covers all integer variables. The variables are filled in
+    // once the whole program is known.
+    annotation.all_vars = annotation.vars.empty();
+    annotation.var_set.insert(annotation.vars.begin(), annotation.vars.end());
+
+    builder.add_search_annotation(std::move(annotation));
+}
+
 } // namespace
 
 auto simplify(CoVarVec &vec, bool drop_zero) -> val_t {
@@ -957,6 +1075,8 @@ auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
             parse_objective(builder, atom, 1);
         } else if (match(atom.term(), "maximize", 0)) {
             parse_objective(builder, atom, -1);
+        } else if (match_heuristic(atom.term())) {
+            parse_heuristic(builder, atom);
         }
     }
     return true;

@@ -250,6 +250,10 @@ class Propagator final : public Clingo::Heuristic {
     //! Returns true if there is another level to optimize.
     auto advance_level() -> bool;
 
+    //! Give the solvers the &heuristic directives that apply to the active
+    //! optimization level.
+    void update_solver_annotations_();
+
     //! Value of minimize constraint, when no bound has been found yet.
     //!
     //! Since this is the largest value a minimize constraint can take, all
@@ -273,14 +277,15 @@ class Propagator final : public Clingo::Heuristic {
     //! before the application calls Propagator::step, which needs the cost to
     //! lock the level.
     std::optional<sum_t> last_known_cost_;
-    std::vector<MinimizeLevel> minimize_levels_; //!< the levels, highest priority first
-    std::set<int> minimize_levels_seen_;         //!< levels of the elements added to the minimize constraint so far
-    std::vector<sum_t> level_costs_;             //!< value of each level in the last model
-    uint32_t active_level_idx_{0};               //!< the level being optimized
-    bool has_model_{false};                      //!< whether a model has been found in any solve call
-    bool steps_enabled_{false};                  //!< whether the application calls Propagator::step
-    bool step_due_{false};                       //!< whether the last solve call has to be followed by a step
-    bool show_{false};                           //!< whether there is a show statement
+    std::vector<SearchAnnotation> search_annotations_; //!< the &heuristic directives of the program
+    std::vector<MinimizeLevel> minimize_levels_;       //!< the levels, highest priority first
+    std::set<int> minimize_levels_seen_; //!< levels of the elements added to the minimize constraint so far
+    std::vector<sum_t> level_costs_;     //!< value of each level in the last model
+    uint32_t active_level_idx_{0};       //!< the level being optimized
+    bool has_model_{false};              //!< whether a model has been found in any solve call
+    bool steps_enabled_{false};          //!< whether the application calls Propagator::step
+    bool step_due_{false};               //!< whether the last solve call has to be followed by a step
+    bool show_{false};                   //!< whether there is a show statement
 };
 
 } // namespace Clingcon
