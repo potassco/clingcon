@@ -1135,6 +1135,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
 
     if (check_solution) {
         auto ass = cc.assignment();
+        check_at_root_ = ass.decision_level() <= ass.root_level();
         for (auto [lit, cs] : lit2cs_) {
             if (ass.is_true(lit)) {
                 cs->check_full(*this);

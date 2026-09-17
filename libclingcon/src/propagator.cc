@@ -533,6 +533,7 @@ class ConstraintBuilder final : public AbstractConstraintBuilder {
 
 void Propagator::on_model(Clingo::Model &model) {
     has_model_ = true;
+    ++models_in_call_;
     std::vector<Clingo::Symbol> symbols_;
     for (auto [sym, var] : sym_map_) {
         if (shown(var)) {
@@ -574,7 +575,7 @@ void Propagator::on_model(Clingo::Model &model) {
         if (bound <= minimize_bound_.load(std::memory_order_relaxed)) {
             stats_step_.cost = bound;
             last_known_cost_ = bound;
-            update_minimize(bound - 1);
+            update_minimize(compute_next_bound_(bound));
         }
     }
 
@@ -709,6 +710,14 @@ void Propagator::init(Clingo::PropagateInit &init) {
         std::cerr << STEP_MISSING_WARNING << "\n";
     }
 
+    // A solve call that continues a bisection runs with the bound
+    // Propagator::step has computed. Every other solve call starts without a
+    // bound.
+    auto const keep_bound = bound_pending_;
+    bound_pending_ = false;
+    continued_ = keep_bound;
+    models_in_call_ = 0;
+
     // remove minimize constraint
     UniqueMinimizeConstraint minimize{remove_minimize()};
 
@@ -762,9 +771,10 @@ void Propagator::init(Clingo::PropagateInit &init) {
         return a.opt_level.has_value() && !b.opt_level.has_value();
     });
 
-    // A library user may not call clingcon_validate_options, so the mode is
-    // checked here as well.
-    if (builder.has_leveled_minimize() && config_.lex_opt == LexOptMode::MultiShot && !steps_enabled_) {
+    // A library user may not call clingcon_validate_options, so the options
+    // that need more than one solve call are checked here as well.
+    if (!steps_enabled_ && ((builder.has_leveled_minimize() && config_.lex_opt == LexOptMode::MultiShot) ||
+                            config_.bound_step != BoundStep::Linear)) {
         throw std::runtime_error(STEPS_REQUIRED_MESSAGE);
     }
 
@@ -890,13 +900,18 @@ void Propagator::init(Clingo::PropagateInit &init) {
     // to the model lock too.
     if (has_minimize() || has_multi_level()) {
         init.set_check_mode(Clingo::PropagatorCheckMode::Both);
-        if (has_minimize()) {
+        if (has_minimize() && !keep_bound) {
             update_minimize(no_bound);
         }
     }
 
-    // The levels after the active one are optimized in further solve calls.
-    step_due_ = has_multi_level();
+    // The lower bound reads the variable bounds of the master solver, so it
+    // is computed here, where no solver thread is running.
+    init_minimize_lb_();
+
+    // The levels after the active one are optimized in further solve calls,
+    // and a solve call that ends on a refuted bound continues in the next one.
+    step_due_ = has_multi_level() || (has_minimize() && config_.bound_step != BoundStep::Linear);
 
     auto max_var = static_cast<var_t>(cc.assignment().size());
     for (auto &solver : solvers_) {
@@ -1088,15 +1103,127 @@ void Propagator::update_minimize(sum_t bound) {
     minimize_bound_ = bound;
 }
 
+auto Propagator::static_minimize_lb_() -> sum_t {
+    // The bounds of the variables on decision level zero, which is where the
+    // solver stands during initialization and between solve calls. An
+    // element contributes its coefficient times the lower bound of its
+    // variable if the coefficient is positive and times the upper bound if
+    // it is negative.
+    sum_t lower = 0;
+    auto &master = master_();
+    for (auto [co, var] : *minimize_) {
+        if (var == INVALID_VAR) {
+            continue;
+        }
+        auto const &vs = master.var_state(var);
+        if (co > 0) {
+            lower += static_cast<sum_t>(co) * vs.lower_bound();
+        } else if (co < 0) {
+            lower += static_cast<sum_t>(co) * vs.upper_bound();
+        }
+    }
+    return lower - minimize_->adjust();
+}
+
+void Propagator::init_minimize_lb_() {
+    if (minimize_lb_initialized_ || !has_minimize()) {
+        return;
+    }
+    minimize_lb_ = static_minimize_lb_();
+    minimize_lb_initialized_ = true;
+}
+
+auto Propagator::compute_next_bound_(sum_t cost) -> sum_t {
+    auto record = [this](sum_t bound) -> sum_t {
+        last_bound_attempted_ = bound;
+        return bound;
+    };
+
+    auto upper = cost - 1;
+    if (config_.bound_step == BoundStep::Linear) {
+        return record(upper);
+    }
+
+    // The lower bound is computed during initialization; without it the
+    // step is linear.
+    if (!minimize_lb_initialized_) {
+        return record(upper);
+    }
+    auto lower = minimize_lb_;
+    if (lower > upper) {
+        return record(upper);
+    }
+
+    // The lower bound of a level above the first follows from the variable
+    // domains alone and ignores the constraints that lock the levels below
+    // it, so it can sit far below the value the level can reach. A midpoint
+    // taken from it is out of reach and clasp accumulates learned clauses
+    // without bound while it proves that, so the step is linear instead.
+    if (active_level_idx_ > 0 && lower <= 0 && upper > 1) {
+        return record(upper);
+    }
+
+    if (config_.bound_step == BoundStep::Hybrid && upper - lower <= static_cast<sum_t>(config_.hybrid_k)) {
+        return record(upper);
+    }
+    return record(lower + ((upper - lower) / 2));
+}
+
+auto Propagator::bound_refuted_() const -> bool {
+    if (!has_minimize() || config_.bound_step == BoundStep::Linear || last_bound_attempted_ == no_bound ||
+        !last_known_cost_.has_value()) {
+        return false;
+    }
+    return last_bound_attempted_ < *last_known_cost_ - 1;
+}
+
+auto Propagator::continue_bound_() -> bool {
+    if (!bound_refuted_()) {
+        return false;
+    }
+
+    // No model meets the refuted bound, so the optimum lies above it, and
+    // the bounds of the variables on decision level zero may put it higher
+    // still. If nothing is left below the last model, that model is the
+    // optimum.
+    minimize_lb_ = std::max(last_bound_attempted_ + 1, static_minimize_lb_());
+    minimize_lb_initialized_ = true;
+    if (minimize_lb_ > *last_known_cost_ - 1) {
+        return false;
+    }
+    update_minimize(compute_next_bound_(*last_known_cost_));
+    return true;
+}
+
 auto Propagator::step(bool exhausted) -> bool {
     // Nothing to step: no solve call since the last step, or none at all.
     if (!step_due_) {
         return false;
     }
     step_due_ = false;
-    // A solve call that was cut short has not finished its level.
+    // A solve call that was cut short has neither refuted its bound nor
+    // finished its level.
     if (!exhausted) {
+        bound_pending_ = false;
+        confirming_ = false;
         return false;
+    }
+    if (confirming_) {
+        confirming_ = false;
+        return advance_level();
+    }
+    bound_pending_ = continue_bound_();
+    if (bound_pending_) {
+        return true;
+    }
+    // A continued solve call that refuted its bound found no model. The
+    // optimum is the model before it; one more solve call reports it, so
+    // that the call that ends the level ends with the optimum.
+    if (continued_ && models_in_call_ == 0 && last_known_cost_.has_value()) {
+        confirming_ = true;
+        bound_pending_ = true;
+        update_minimize(*last_known_cost_);
+        return true;
     }
     return advance_level();
 }
@@ -1137,6 +1264,13 @@ auto Propagator::advance_level() -> bool {
     }
 
     ++active_level_idx_;
+
+    // The lower bound and the bound of a bisection belong to the level that
+    // has just been locked.
+    minimize_lb_ = std::numeric_limits<sum_t>::min();
+    minimize_lb_initialized_ = false;
+    last_bound_attempted_ = no_bound;
+
     if (active_level_idx_ >= minimize_levels_.size()) {
         return false;
     }
@@ -1187,7 +1321,7 @@ auto Propagator::advance_level() -> bool {
 }
 
 Propagator::~Propagator() {
-    if (step_due_ && active_level_idx_ + 1 < minimize_levels_.size()) {
+    if (step_due_ && (active_level_idx_ + 1 < minimize_levels_.size() || bound_refuted_())) {
         std::cerr << STEP_MISSING_WARNING << "\n";
     }
 }

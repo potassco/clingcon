@@ -112,6 +112,34 @@ which splits its domain in half.
             tightest-window: split the domain of the variable
           <i>  : Only enable for thread <i>
 
+## Bound stepping
+
+After a model, branch-and-bound posts an upper bound on the minimize
+constraint so that the next model has to be better. The bound is the value of
+the model minus one, so the number of models between the first one and the
+optimum grows with the gap between them. Bisecting that gap instead needs a
+number of models that is logarithmic in its size.
+
+    --bound-step=<arg>           : Pick the bound posted after a model [linear]
+          <arg>: {linear|bisect|hybrid[:K]}
+            linear    : the value of the model minus one
+            bisect    : the midpoint between the lower bound and that value
+            hybrid[:K]: bisect while the gap is larger than K, then linear [10]
+
+The lower bound that the midpoint is taken from follows from the domains of
+the variables in the minimize constraint. A solve call that ends because no
+model meets a midpoint bound has not proven optimality; the values between the
+midpoint and the last model are searched in a further solve call, and once
+nothing is left below the last model, one more solve call reports it, so that
+the call that ends the search ends with the optimum. An application that uses
+the library therefore drives `bisect` and `hybrid` with the same loop as
+multi-shot optimization above.
+
+Bisection helps when the first model is far from the optimum. When it is
+close, a midpoint is refuted often and the solve calls that this costs
+outweigh the models that are skipped, which is what `hybrid` switches away
+from.
+
 ## Building a release version with conda
 
     conda create -n clingcon -c potassco/label/dev -c conda-forge \

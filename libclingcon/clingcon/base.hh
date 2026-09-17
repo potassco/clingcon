@@ -105,6 +105,14 @@ struct SearchAnnotation {
     bool all_vars{false}; //!< whether the directive covers all integer variables
 };
 
+//! The strategy to pick the bound posted after a model of a minimize
+//! constraint.
+enum class BoundStep : uint8_t {
+    Linear, //!< the value of the model minus one
+    Bisect, //!< the midpoint between the lower bound and the value of the model minus one
+    Hybrid, //!< bisect while the gap is larger than Config::hybrid_k, then step linearly
+};
+
 //! The maximum value for variables/coefficients in clingcon.
 //!
 //! This is the largest supported integer value. It is chosen like this so that
@@ -143,6 +151,7 @@ constexpr uint32_t DEFAULT_TRANSLATE_MINIMIZE{0};
 constexpr bool DEFAULT_CHECK_SOLUTION{true};
 constexpr bool DEFAULT_CHECK_STATE{false};
 constexpr bool DEFAULT_ADD_ORDER_CLAUSES{false};
+constexpr uint32_t DEFAULT_HYBRID_K{10};
 
 constexpr lit_t TRUE_LIT{1}; //!< The true literal.
 constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
@@ -305,6 +314,8 @@ struct Config {
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
     LexOptMode lex_opt{LexOptMode::Auto};
+    BoundStep bound_step{BoundStep::Linear};
+    uint32_t hybrid_k{DEFAULT_HYBRID_K};
 };
 
 //! Class to add solver literals, create clauses, and access the current

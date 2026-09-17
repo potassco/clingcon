@@ -137,10 +137,12 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_model(clingcon_theory_t *theory, cl
 //! Enable optimization in several solve calls.
 //!
 //! With `--lex-opt=multi-shot`, each @priority level is optimized in its own
-//! solve call. An application supports this by calling this function before
-//! its first solve call and clingcon_step after every solve call; as long as
-//! the latter reports more work, it calls solve again on the same control
-//! object. Options that need this are rejected if it has not been called.
+//! solve call. With `--bound-step=bisect` or `hybrid`, a solve call that ends
+//! because no model meets the midpoint bound has not proven optimality yet. An
+//! application supports both by calling this function before its first solve
+//! call and clingcon_step after every solve call; as long as the latter reports
+//! more work, it calls solve again on the same control object. Options that
+//! need this are rejected if it has not been called.
 CLINGCON_VISIBILITY_DEFAULT void clingcon_enable_steps(clingcon_theory_t *theory);
 
 //! Prepare the next solve call after the previous one has returned.
@@ -149,8 +151,8 @@ CLINGCON_VISIBILITY_DEFAULT void clingcon_enable_steps(clingcon_theory_t *theory
 //! clingo's solve result reports as exhausted; a call cut short by a limit
 //! on models or time or by an interrupt has not finished its level, and
 //! `more` is set to false. Otherwise `more` is set to true if the
-//! optimization needs another solve call. The level for that call is already
-//! in place when this function returns.
+//! optimization needs another solve call. The bound or the level for that call
+//! is already in place when this function returns.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_step(clingcon_theory_t *theory, bool exhausted, bool *more);
 
 //! Obtain a symbol index which can be used to get the value of a symbol.

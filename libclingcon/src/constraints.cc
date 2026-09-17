@@ -132,7 +132,12 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             }
         }
 
-        if (lhs > rhs) {
+        // The bound of a minimize constraint is enforced through volatile
+        // clauses. At the root of a solve call that starts with a bound, the
+        // facts of the program can violate it before clasp has processed
+        // the step literal; the solve call then ends unsatisfiable. Below
+        // the root a violated bound is an error like for any constraint.
+        if (lhs > rhs && !(T::dynamic_rhs && solver.check_at_root())) {
             throw std::logic_error("invalid solution");
         }
     }
@@ -467,6 +472,9 @@ class SumConstraintState : public AbstractConstraintState {
           constraint_{x.constraint_}, lower_bound_{x.lower_bound_}, upper_bound_{x.upper_bound_},
           inactive_level_{x.inactive_level_}, todo_{x.todo_} {}
 
+    //! The right-hand side is part of the constraint.
+    static constexpr bool dynamic_rhs = false;
+
     [[nodiscard]] static constexpr auto has_rhs(Solver &solver) -> bool {
         static_cast<void>(solver);
         return true;
@@ -796,6 +804,10 @@ class MinimizeConstraintState : public AbstractConstraintState {
           ,
           constraint_{x.constraint_}, lower_bound_{x.lower_bound_}, upper_bound_{x.upper_bound_},
           inactive_level_{x.inactive_level_}, todo_{x.todo_} {}
+
+    //! The right-hand side is the bound of the minimize constraint, which
+    //! changes during solving.
+    static constexpr bool dynamic_rhs = true;
 
     [[nodiscard]] static auto has_rhs(Solver &solver) -> bool { return solver.minimize_bound().has_value(); }
 

@@ -32,6 +32,7 @@
 #include <map>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 #define CLINGCON_TRY try // NOLINT
 #define CLINGCON_CATCH                                                                                                 \
@@ -129,6 +130,21 @@ auto lex_opt_str(LexOptMode mode) -> char const * {
         }
         case LexOptMode::Weighted: {
             return "weighted";
+        }
+    };
+    return "";
+}
+
+auto bound_step_str(BoundStep step) -> char const * {
+    switch (step) {
+        case BoundStep::Linear: {
+            return "linear";
+        }
+        case BoundStep::Bisect: {
+            return "bisect";
+        }
+        case BoundStep::Hybrid: {
+            return "hybrid";
         }
     };
     return "";
@@ -322,6 +338,28 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     throw std::invalid_argument("invalid argument");
 }
 
+//! Parse a bound stepping mode, which sets Config::hybrid_k for `hybrid:K`.
+void parse_bound_step(char const *value, Config &config) {
+    if (std::strcmp(value, "linear") == 0) {
+        config.bound_step = BoundStep::Linear;
+        return;
+    }
+    if (std::strcmp(value, "bisect") == 0) {
+        config.bound_step = BoundStep::Bisect;
+        return;
+    }
+    char const *colon = find_str(value, ':');
+    if (std::string_view{value, static_cast<size_t>(colon - value)} == "hybrid") {
+        config.bound_step = BoundStep::Hybrid;
+        if (*colon != '\0') {
+            config.hybrid_k =
+                static_cast<uint32_t>(parse_num<int64_t>(colon + 1, 1, std::numeric_limits<uint32_t>::max())); // NOLINT
+        }
+        return;
+    }
+    throw std::invalid_argument("invalid argument");
+}
+
 [[nodiscard]] auto parser_bool_thread(clingcon_theory &theory, Target target) -> std::function<bool(const char *)> {
     return [&theory, target](char const *value) -> bool {
         auto [val, thread] = parse_bool_thread(value);
@@ -449,6 +487,8 @@ extern "C" auto clingcon_configure(clingcon_theory_t *theory, char const *key, c
         // optimization
         else if (std::strcmp(key, "lex-opt") == 0) {
             config.lex_opt = parse_lex_opt(value);
+        } else if (std::strcmp(key, "bound-step") == 0) {
+            parse_bound_step(value, config);
         }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
@@ -544,6 +584,21 @@ extern "C" auto clingcon_register_options(clingcon_theory_t *theory, clingo_opti
                 return true;
             },
             false, "<arg>");
+        opts.add(
+            group, "bound-step",
+            format("Pick the bound posted after a model [", bound_step_str(config.bound_step),
+                   "]\n"
+                   "      <arg>: {linear|bisect|hybrid[:K]}\n"
+                   "        linear    : the value of the model minus one\n"
+                   "        bisect    : the midpoint between the lower bound and that value\n"
+                   "        hybrid[:K]: bisect while the gap is larger than K, then linear [",
+                   config.hybrid_k, "]")
+                .c_str(),
+            [&config](char const *value) -> bool {
+                parse_bound_step(value, config);
+                return true;
+            },
+            false, "<arg>");
 
         // propagation
         opts.add(group, "order-heuristic",
@@ -631,7 +686,8 @@ extern "C" auto clingcon_validate_options(clingcon_theory_t *theory) -> bool {
             throw std::runtime_error("min-int must be smaller than or equal to max-int");
         }
 
-        if (config.lex_opt == LexOptMode::MultiShot && !theory->propagator.steps_enabled()) {
+        if ((config.lex_opt == LexOptMode::MultiShot || config.bound_step != BoundStep::Linear) &&
+            !theory->propagator.steps_enabled()) {
             throw std::runtime_error(STEPS_REQUIRED_MESSAGE);
         }
     }

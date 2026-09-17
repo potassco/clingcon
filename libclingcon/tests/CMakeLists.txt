@@ -2,6 +2,7 @@
 set(ide_source_group "Source Files")
 set(source-group
     "${CMAKE_CURRENT_SOURCE_DIR}/assumptions.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/bound_step.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/csp.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/fs.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/heuristic.cc"

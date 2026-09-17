@@ -20,9 +20,9 @@ class ClingconTheory(Theory):
         """
         Enable optimization in several solve calls.
 
-        Options like `--lex-opt=multi-shot` optimize one `@priority` level per
-        solve call. Call this before the first solve call and `step` after
-        every solve call.
+        Options like `--lex-opt=multi-shot` and `--bound-step=bisect` need
+        more than one solve call. Call this before the first solve call and
+        `step` after every solve call.
         """
         _lib.clingcon_enable_steps(self._theory)
 

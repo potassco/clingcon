@@ -7,6 +7,7 @@
 - fix the constant of an objective changing its sign in later solve calls
 - add `&heuristic` directives to select variables and values (#65)
 - add `--order-heuristic` values `earliest-start` and `tightest-window`
+- add bisecting bound steps for optimization with `--bound-step` (#65)
 
 ## clingcon 5.2.2
 

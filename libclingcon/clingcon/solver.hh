@@ -883,6 +883,10 @@ class Solver {
     //! This function should only be called total assignments.
     void check_full(AbstractClauseCreator &cc, bool check_solution);
 
+    //! Whether Solver::check_full runs at the root of the solve call, where
+    //! the search cannot backtrack.
+    [[nodiscard]] auto check_at_root() const -> bool { return check_at_root_; }
+
     //! This function undoes decision level specific state.
     //!
     //! This includes undoing changed bounds of variables clearing constraints
@@ -1014,6 +1018,8 @@ class Solver {
     std::vector<SearchAnnotation> search_annotations_;
     //! Offset to speed up Solver::check_full.
     uint32_t split_last_{0};
+    //! Whether Solver::check_full runs at the root of the solve call.
+    bool check_at_root_{false};
     //! Offset to speed up Solver::simplify.
     uint32_t trail_offset_{0};
     //! Current bound of the minimize constraint (if any).

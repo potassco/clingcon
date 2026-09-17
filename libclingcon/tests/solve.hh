@@ -125,6 +125,7 @@ inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_
 inline auto solve(Config const &config, std::string const &prg) -> S {
     Propagator p;
     p.config() = config;
+    p.enable_steps();
     SolveEventHandler handler{p};
 
     Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
@@ -137,9 +138,17 @@ inline auto solve(Config const &config, std::string const &prg) -> S {
     ctl.register_propagator(p);
     ctl.ground({{"base", {}}});
 
-    if (ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_interrupted()) {
-        throw std::runtime_error("interrupted");
-    }
+    // Drive the solve calls like the application does. A bisection posts a
+    // bound that no model has to meet, so a solve call that ends on such a
+    // bound is followed by another one.
+    bool exhausted = false;
+    do {
+        auto result = ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get();
+        if (result.is_interrupted()) {
+            throw std::runtime_error("interrupted");
+        }
+        exhausted = result.is_exhausted();
+    } while (p.step(exhausted));
     bool has_minimize = p.has_minimize();
     if (has_minimize && !handler.models.empty()) {
         auto minimize = p.remove_minimize();
