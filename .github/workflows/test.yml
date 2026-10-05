@@ -38,10 +38,11 @@ jobs:
         uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
-          channel-priority: flexible
+          channels: conda-forge
+          channel-priority: strict
+          auto-update-conda: true
           environment-file: ${{ matrix.environment-file }}
           activate-environment: test-env
-          auto-update-conda: true
 
       - name: Configure
         run: |
