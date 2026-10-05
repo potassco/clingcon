@@ -23,6 +23,8 @@ jobs:
         include:
           - distro: ubuntu
             codename: noble
+          - distro: ubuntu
+            codename: resolute
           - distro: debian
             codename: trixie
 

@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: [noble]
+        distribution: [noble, resolute]
 
     steps:
       - name: Install prerequisites

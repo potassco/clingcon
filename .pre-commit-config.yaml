@@ -8,27 +8,25 @@ repos:
         exclude: ^.github/
 
   - repo: https://github.com/pycqa/isort
-    rev: 8.0.1
+    rev: 9.0.2
     hooks:
       - id: isort
         args: ["--profile", "black"]
         exclude: ^.github/
 
   - repo: https://github.com/psf/black
-    rev: 26.3.1
+    rev: 26.10.0
     hooks:
       - id: black
         exclude: ^.github/
 
-  - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v22.1.5
+  - repo: https://github.com/cpp-linter/cpp-linter-hooks
+    rev: v1.6.1
     hooks:
       - id: clang-format
         types_or: [c++, c]
-
-  - repo: https://github.com/mxmlnrdr/clang_tidy_hook
-    rev: v0.3.1
-    hooks:
+        args: [--style=file, --version=22]
       - id: clang-tidy
-        args: ["-fix", "--warnings-as-errors=*"]
-        verbose: false
+        types_or: [c++, c]
+        args:
+          [--checks=.clang-tidy, --version=22, "-fix", "--warnings-as-errors=*"]

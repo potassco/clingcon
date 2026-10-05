@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function usage {
-    echo "./$(basename "$0") --type={ppa,cloudsmith} --build-number <n> {stable,wip-20} {noble,trixie} {create,sync,changes,build,put,clean}*"
+    echo "./$(basename "$0") --type={ppa,cloudsmith} --build-number <n> {stable,wip-20} {noble,resolute,trixie} {create,sync,changes,build,put,clean}*"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -68,7 +68,7 @@ shift
 DISTRIBUTION=ubuntu
 PBUILDER_ARGS=()
 case "${rep}" in
-noble) ;;
+noble | resolute) ;;
 trixie)
     PBUILDER_ARGS+=(--mirror http://deb.debian.org/debian)
     DISTRIBUTION=debian
