@@ -34,15 +34,14 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Miniconda
-        uses: conda-incubator/setup-miniconda@v4
+      - uses: mamba-org/setup-micromamba@v3
         with:
-          miniforge-version: latest
-          channels: conda-forge
-          channel-priority: strict
-          auto-update-conda: true
           environment-file: ${{ matrix.environment-file }}
-          activate-environment: test-env
+          condarc: |
+            channel_priority: strict
+            channels:
+              - potassco/label/dev-20
+              - conda-forge
 
       - name: Configure
         run: |

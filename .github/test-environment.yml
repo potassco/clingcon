@@ -1,7 +1,4 @@
 name: test-env
-channels:
-  - potassco/label/dev-20
-  - conda-forge
 dependencies:
   - python=3.12
   - clingo>=6
