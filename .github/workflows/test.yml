@@ -17,10 +17,13 @@ jobs:
         include:
           - os: ubuntu-latest
             generator: "Ninja Multi-Config"
+            environment-file: .github/test-environment-linux.yml
           - os: macos-latest
             generator: "Ninja Multi-Config"
+            environment-file: .github/test-environment.yml
           - os: windows-latest
             generator: "Visual Studio 18 2026"
+            environment-file: .github/test-environment.yml
     defaults:
       run:
         shell: bash -l {0}
@@ -36,7 +39,7 @@ jobs:
         with:
           miniforge-version: latest
           channel-priority: flexible
-          environment-file: .github/test-environment.yml
+          environment-file: ${{ matrix.environment-file }}
           activate-environment: test-env
           auto-update-conda: true
 
