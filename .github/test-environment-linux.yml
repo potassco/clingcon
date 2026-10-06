@@ -1,0 +1,7 @@
+name: test-env
+dependencies:
+  - clingo
+  - cmake
+  - ninja
+  - gxx_linux-64 >=16
+  - gcc_linux-64 >=16

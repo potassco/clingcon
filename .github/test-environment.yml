@@ -1,0 +1,6 @@
+name: test-env
+dependencies:
+  - clingo
+  - cmake
+  - ninja
+  - cxx-compiler

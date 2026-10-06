@@ -1,8 +1,0 @@
-name: clingcon
-channels:
-  - potassco/label/dev
-dependencies:
-  - clingo 
-  - cmake
-  - ninja
-  - gxx_linux-64
