@@ -17,7 +17,7 @@ Description: A solver for logic programs with linear constraints
 Package: python3-clingcon
 Section: python
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, libclingcon (= ${binary:Version}), python3-cffi-backend
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, python3-clingo, libclingcon (= ${binary:Version})
 Description: A solver for logic programs with linear constraints
  This package contains python bindings for clingcon.
 
@@ -31,6 +31,6 @@ Description: A solver for logic programs with linear constraints
 Package: libclingcon-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, libclingcon (= ${binary:Version})
+Depends: ${misc:Depends}, libclingo-dev, python3-clingcon, clingcon, libclingcon (= ${binary:Version})
 Description: A solver for logic programs with linear constraints
  This package contains the development files.
