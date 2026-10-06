@@ -38,7 +38,7 @@ jobs:
           condarc: |
             channel_priority: strict
             channels:
-              - potassco/label/dev-20
+              - potassco/label/dev
               - conda-forge
 
       - name: print info

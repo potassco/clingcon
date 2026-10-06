@@ -40,49 +40,46 @@ jobs:
     strategy:
       matrix:
         cfg:
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             name: "*-manylinux_x86_64"
             env:
               CIBW_ARCHS_LINUX: x86_64
               CIBW_BUILD: "*-manylinux*"
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             name: "*-musllinux_x86_64"
             env:
               CIBW_ARCHS_LINUX: x86_64
               CIBW_BUILD: "*-musllinux*"
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             name: "*-manylinux_i686"
             env:
               CIBW_ARCHS_LINUX: i686
               CIBW_BUILD: "*-manylinux*"
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             name: "*-musllinux-i686"
             env:
               CIBW_ARCHS_LINUX: i686
               CIBW_BUILD: "*-musllinux*"
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             name: "cp*-manylinux-aarch64"
             env:
               CIBW_ARCHS_LINUX: aarch64
               CIBW_BUILD: "cp*-manylinux*"
-          - os: ubuntu-20.04
-            name: "pp*-manylinux-aarch64"
-            env:
-              CIBW_ARCHS_LINUX: aarch64
-              CIBW_BUILD: "pp*-manylinux*"
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             name: "*-manylinux-ppc64le"
             env:
               CIBW_ARCHS_LINUX: ppc64le
               CIBW_BUILD: "*-manylinux*"
-          - os: windows-2019
+          - os: windows-latest
             name: "cp*-win*"
             env:
               CIBW_BUILD: "cp*-win*"
-          - os: macos-11
-            name: "*-macos_{x86_64,arm64}"
-            env:
-              CIBW_ARCHS_MACOS: x86_64 arm64
+          - os: macos-15-intel
+            name: "*-macos_x86_64"
+            env: {}
+          - os: macos-14
+            name: "*-macos_arm64"
+            env: {}
 
     steps:
       - uses: actions/checkout@v4
