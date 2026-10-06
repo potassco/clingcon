@@ -74,6 +74,8 @@ jobs:
             name: "cp*-win*"
             env:
               CIBW_BUILD: "cp*-win*"
+              CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+                delvewheel repair -v --exclude "*.pyd" -w {dest_dir} {wheel}
           - os: macos-15-intel
             name: "*-macos_x86_64"
             env: {}
