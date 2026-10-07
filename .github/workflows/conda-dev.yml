@@ -33,7 +33,7 @@ jobs:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
           activate-environment: build
-          channels: conda-forge
+          channels: ${{ inputs.wip == 'true' && 'potassco/label/dev,conda-forge' || 'potassco,conda-forge' }}
           channel-priority: strict
 
       - name: Install prerequisites
