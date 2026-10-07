@@ -25,9 +25,6 @@
 #ifndef CLINGCON_BASE_H
 #define CLINGCON_BASE_H
 
-#include <exception>
-#include <iterator>
-
 #include <clingo.hh>
 #include <forward_list>
 #include <math/wide_integer/uintwide_t.h>
