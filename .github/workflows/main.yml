@@ -56,7 +56,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -S . -B build -G "${{ matrix.generator }}" -DCLINGCON_BUILD_TESTS=On
+          cmake -S . -B build -G "${{ matrix.generator }}" -DCLINGCON_BUILD_TESTS=On -DCMAKE_INSTALL_PREFIX="$CONDA_PREFIX"
 
       - name: Build
         run: |
