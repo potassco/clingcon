@@ -12,22 +12,18 @@ import os
 NAME = "clingcon"
 
 
-def get_build_number(channels, version):
+def get_build_number(version):
     """
     Get the next build number.
     """
     try:
-        pkgs = json.loads(
-            subprocess.check_output(
-                ["conda", "search", "--json", "-c", channels[0], NAME]
-            )
-        )
+        pkgs = json.loads(subprocess.check_output(["conda", "search", "--json", NAME]))
     except subprocess.CalledProcessError:
         pkgs = {NAME: []}
 
     build_number = -1
     for pkg in pkgs.get(NAME, []):
-        if pkg["channel"].find(channels[0]) >= 0 and pkg["version"] == version:
+        if pkg["channel"].find("potassco") >= 0 and pkg["version"] == version:
             build_number = max(build_number, pkg["build_number"])
 
     return build_number + 1
@@ -45,10 +41,8 @@ def run():
     args = parser.parse_args()
     if args.release:
         label = None
-        channels = ["potassco", "conda-forge"]
     else:
         label = "dev"
-        channels = ["potassco/label/dev", "potassco", "conda-forge"]
 
     version = None
     with open("libclingcon/clingcon.h") as fh:
@@ -57,7 +51,7 @@ def run():
             if m is not None:
                 version = m.group(1)
     assert version is not None
-    build_number = get_build_number(channels, version)
+    build_number = get_build_number(version)
 
     build_env = os.environ.copy()
     build_env.pop("BUILD_RELEASE", "1" if args.release else None)
@@ -71,8 +65,6 @@ def run():
     if label is not None:
         options.extend(["--label", label])
 
-    for c in channels:
-        options.extend(["-c", c])
     options.append(recipe_path)
 
     subprocess.check_call(options, env=build_env)
