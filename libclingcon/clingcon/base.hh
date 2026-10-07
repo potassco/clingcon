@@ -25,6 +25,9 @@
 #ifndef CLINGCON_BASE_H
 #define CLINGCON_BASE_H
 
+// NOTE: workaround for bug in clingo
+#include <exception>
+
 #include <clingo.hh>
 #include <forward_list>
 #include <math/wide_integer/uintwide_t.h>
