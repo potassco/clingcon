@@ -342,10 +342,8 @@ class InitClauseCreator final : public AbstractClauseCreator {
             if (type < 0) {
                 return true;
             }
-        } else if (ass.is_false(lit)) {
-            if (type > 0) {
-                return true;
-            }
+        } else if (ass.is_false(lit) && (type > 0)) {
+            return true;
         }
 
         if (state_ == InitState::Translate) {

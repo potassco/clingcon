@@ -73,7 +73,7 @@ auto step(Propagator &prp, Clingo::Control &ctl, Clingo::SymbolicLiteralSpan ass
 auto bound(Clingo::Control &ctl) {
     auto stat = ctl.statistics()["summary"];
     REQUIRE(stat.has_subkey("costs"));
-    return static_cast<int>(stat["costs"][size_t(0)].value());
+    return static_cast<int>(stat["costs"][static_cast<size_t>(0)].value());
 }
 
 } // namespace
@@ -83,10 +83,9 @@ TEST_CASE("assumptions", "[assumptions]") {
     Clingo::Control ctl{{"0"}};
     ctl.register_propagator(prp);
     ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(ENC.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+    Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) -> void {
+        Clingo::AST::parse_string(ENC.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
         });
     });
     ctl.ground({{"base", {}}});

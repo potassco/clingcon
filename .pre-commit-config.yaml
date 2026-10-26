@@ -1,9 +1,14 @@
-fail_fast: false
+fail_fast: true
 repos:
-  - repo: https://github.com/pocc/pre-commit-hooks
-    rev: v1.3.5
+  - repo: https://github.com/cpp-linter/cpp-linter-hooks
+    rev: v1.6.1
     hooks:
       - id: clang-format
-        args: ["-i"]
+        types_or: [c++, c]
+        exclude: '^(third_party/.*|libpyclingcon/_clingcon\.c)$'
+        args: [--style=file, --version=23]
       - id: clang-tidy
-        args: ["-fix"]
+        types_or: [c++, c]
+        exclude: '^(third_party/.*|libpyclingcon/_clingcon\.c)$'
+        args:
+          [--checks=.clang-tidy, --version=23, "-fix", "--warnings-as-errors=*"]

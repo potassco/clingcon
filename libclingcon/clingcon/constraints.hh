@@ -57,7 +57,7 @@ class SumConstraint final : public AbstractConstraint {
     //! Create a new sum constraint.
     [[nodiscard]] static auto create(lit_t lit, val_t rhs, CoVarVec const &elems, bool sort)
         -> std::unique_ptr<SumConstraint> {
-        auto size = sizeof(SumConstraint) + elems.size() * sizeof(std::pair<val_t, var_t>);
+        auto size = sizeof(SumConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
         return std::unique_ptr<SumConstraint>{new (operator new(size)) SumConstraint(lit, rhs, elems, sort)};
     }
 
@@ -165,7 +165,7 @@ class MinimizeConstraint final : public AbstractConstraint {
     //! Create a new sum constraint.
     [[nodiscard]] static auto create(val_t adjust, CoVarVec const &elems, bool sort)
         -> std::unique_ptr<MinimizeConstraint> {
-        auto size = sizeof(MinimizeConstraint) + elems.size() * sizeof(std::pair<val_t, var_t>);
+        auto size = sizeof(MinimizeConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
         return std::unique_ptr<MinimizeConstraint>{new (operator new(size)) MinimizeConstraint(adjust, elems, sort)};
     }
 

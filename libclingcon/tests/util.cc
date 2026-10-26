@@ -42,7 +42,7 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
     for (val_t i = -n; i < n; ++i) {
         vs.set_literal(i, i + n + 1);
         int c = 0;
-        vs.with([&c, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) {
+        vs.with([&c, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> auto {
             for (auto it = ib; it != ie; inc(it)) {
                 ++c;
                 REQUIRE(get_lit(it) == get_val(it) + n + 1);
@@ -58,7 +58,7 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             }
             // check lt
             c = 0;
-            vs.with_lt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+            vs.with_lt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) -> auto {
                 for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) < j);
@@ -68,7 +68,7 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             REQUIRE(c == std::min(j + n, i + n + 1));
             // check le
             c = 0;
-            vs.with_le(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+            vs.with_le(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) -> auto {
                 for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) <= j);
@@ -78,7 +78,7 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             REQUIRE(c == std::min(j + n + 1, i + n + 1));
             // check gt
             c = 0;
-            vs.with_gt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+            vs.with_gt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) -> auto {
                 for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) > j);
@@ -88,7 +88,7 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             REQUIRE(c == std::min(std::max(0, i - j), i + n + 1));
             // check ge
             c = 0;
-            vs.with_ge(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
+            vs.with_ge(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) -> auto {
                 for (; it != ie; inc(it)) {
                     ++c;
                     REQUIRE(get_val(it) >= j);
@@ -157,7 +157,7 @@ TEST_CASE("util", "[util]") { // NOLINT
     }
 
     SECTION("interval-set") {
-        auto equal = [](IntervalSet<int> &a, std::initializer_list<std::pair<const int, int>> b) {
+        auto equal = [](IntervalSet<int> &a, std::initializer_list<std::pair<const int, int>> b) -> bool {
             return std::equal(a.begin(), a.end(), std::begin(b), std::end(b));
         };
         IntervalSet<int> a;
@@ -183,7 +183,7 @@ TEST_CASE("util", "[util]") { // NOLINT
         a.add(3, 4);
         a.add(5, 7);
         std::vector<int> enu;
-        a.enumerate([&enu](int x) {
+        a.enumerate([&enu](int x) -> bool {
             enu.emplace_back(x);
             return true;
         });

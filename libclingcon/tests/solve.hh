@@ -100,7 +100,21 @@ inline auto create_configs(val_t min_int = Clingcon::DEFAULT_MIN_INT, val_t max_
         Config{{}, sconfig, 0, 0, 0, 0, 0, min_int, max_int, true, false, false, true, true},  // sort constraints
         Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true, false, false, true, true},  // translate
         Config{
-            {}, sconfig, 0, f, m, m, o, min_int, max_int, true, false, true, true, true}, // translate + order clauses
+            {},
+            sconfig,
+            0,
+            f,
+            m,
+            m,
+            o,
+            min_int,
+            max_int,
+            true,
+            false,
+            true,
+            true,
+            true,
+        }, // translate + order clauses
         Config{{}, sconfig, 0, f, m, m, o, min_int, max_int, true, true, false, true, true},  // translate literals only
         Config{{}, sconfig, r, f, 0, m, o, min_int, max_int, true, false, false, true, true}, // translate weight
                                                                                               // constraints
@@ -115,10 +129,9 @@ inline auto solve(Config const &config, std::string const &prg) -> S {
 
     Clingo::Control ctl{{"100", "--opt-mode=optN", "-t8"}};
     ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) -> void {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -187,10 +200,9 @@ inline auto solve_multi(Config const &config, std::string const &prg, Clingo::Pa
     std::vector<char const *> opts{"0", "-t8"};
     Clingo::Control ctl{opts};
     ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) -> void {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -243,10 +255,9 @@ inline auto solve_opt(Config const &config, std::string const &prg, Clingo::Part
     }
     Clingo::Control ctl{opts};
     ctl.add("base", {}, THEORY);
-    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) {
-        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) {
-            transform(
-                stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
+    Clingo::AST::with_builder(ctl, [prg](Clingo::AST::ProgramBuilder &builder) -> void {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
         });
     });
     ctl.register_propagator(p);
@@ -266,7 +277,7 @@ inline auto solve_opt(Config const &config, std::string const &prg, Clingo::Part
         } else {
             stat = ctl.statistics()["summary"];
             if (stat.has_subkey("costs")) {
-                bound = static_cast<val_t>(stat["costs"][size_t(0)].value());
+                bound = static_cast<val_t>(stat["costs"][static_cast<size_t>(0)].value());
             }
         }
         bounds.emplace_back(bound);

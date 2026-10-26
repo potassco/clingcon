@@ -595,7 +595,7 @@ auto Propagator::remove_minimize() -> UniqueMinimizeConstraint {
     --stats_step_.num_constraints;
 
     auto it = std::find_if(constraints_.begin(), constraints_.end(),
-                           [this](UniqueConstraint const &x) { return x.get() == minimize_; });
+                           [this](UniqueConstraint const &x) -> bool { return x.get() == minimize_; });
     assert(it != constraints_.end());
 
     UniqueMinimizeConstraint minimize{(it->release(), minimize_)};

@@ -244,11 +244,11 @@ TEST_CASE("sum", "[solving]") {
         SolveEventHandler handler{p};
         Clingo::Control ctl{{"100"}};
         ctl.add("base", {}, THEORY);
-        Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) {
-            Clingo::AST::parse_string(R"(&sum { ("a\"b\\c",0) } = 2.)", [&builder](Clingo::AST::Node const &stm) {
-                transform(
-                    stm, [&builder](Clingo::AST::Node const &stm) { builder.add(stm); }, true);
-            });
+        Clingo::AST::with_builder(ctl, [](Clingo::AST::ProgramBuilder &builder) -> void {
+            Clingo::AST::parse_string(
+                R"(&sum { ("a\"b\\c",0) } = 2.)", [&builder](Clingo::AST::Node const &stm) -> void {
+                    transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
+                });
         });
         ctl.register_propagator(p);
         ctl.ground({{"base", {}}});

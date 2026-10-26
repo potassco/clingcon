@@ -1,5 +1,9 @@
 # Changes
 
+## clingcon 5.2.2
+
+- improve build scripts (#123)
+
 ## clingcon 5.2.1
 
 - add option `--enable-python`
@@ -20,4 +24,5 @@
 - various bugs are fixed by updating to clingo 5.5.1
 
 ## clingcon 5.0.0
-  * initial release
+
+- initial release

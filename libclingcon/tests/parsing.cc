@@ -39,10 +39,9 @@ auto simplify(CoVarVec const &vec, bool drop_zero = true) -> sret {
 
 auto transform(char const *prg, bool shift = true) -> std::string {
     std::ostringstream oss;
-    Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
+    Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) -> void {
         if (ast.type() != Clingo::AST::Type::Program) {
-            transform(
-                ast, [&](Clingo::AST::Node const &ast) { oss << ast; }, shift);
+            transform(ast, [&](Clingo::AST::Node const &ast) -> void { oss << ast; }, shift);
         }
     });
     return oss.str();
@@ -208,9 +207,8 @@ auto parse(char const *prg) -> std::string {
     {
         Clingo::AST::ProgramBuilder builder{ctl};
         std::ostringstream oss;
-        Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) {
-            transform(
-                ast, [&](Clingo::AST::Node &&trans) { builder.add(trans); }, true);
+        Clingo::AST::parse_string(prg, [&](Clingo::AST::Node const &ast) -> void {
+            transform(ast, [&](Clingo::AST::Node &&trans) -> void { builder.add(trans); }, true);
         });
     }
     ctl.add("base", {}, THEORY);

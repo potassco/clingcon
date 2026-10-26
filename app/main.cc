@@ -1,8 +1,8 @@
 #include <clingcon.h>
 #include <clingo.hh>
 #include <fstream>
-#include <optional>
 #include <iostream>
+#include <optional>
 
 #ifdef CLINGCON_PROFILE
 #include <gperftools/profiler.h>
@@ -116,7 +116,7 @@ class ClingconApp final : public Clingo::Application, private Clingo::SolveEvent
     void main(Clingo::Control &control, Clingo::StringSpan files) override { // NOLINT(bugprone-exception-escape)
         handle_error(clingcon_register(theory_, control.to_c()));
 
-        Clingo::AST::with_builder(control, [&](Clingo::AST::ProgramBuilder &builder) {
+        Clingo::AST::with_builder(control, [&](Clingo::AST::ProgramBuilder &builder) -> void {
             Rewriter rewriter{theory_, builder.to_c()};
             rewriter.rewrite(control, files);
         });
