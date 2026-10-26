@@ -3,6 +3,8 @@
 ## clingcon 5.2.2
 
 - improve build scripts (#123)
+- extend syntax of `&dom` directives
+- extend syntax of `&diff` atoms
 
 ## clingcon 5.2.1
 
