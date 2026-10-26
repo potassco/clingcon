@@ -35,3 +35,6 @@ cmake.args = [
     '-DPYCLINGCON_ENABLE=pip',
     '-DPYCLINGCON_INSTALL_DIR=.',
 ]
+
+[tool.cibuildwheel.windows]
+repair-wheel-command = "delvewheel repair -w {dest_dir} -v --exclude \"_clingo*.pyd\" {wheel}"
