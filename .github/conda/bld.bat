@@ -1,13 +1,12 @@
-mkdir build
-
-cmake -G "Ninja" -H. -Bbuild ^
-    -DCLINGCON_MANAGE_RPATH=Off ^
-    -DCMAKE_BUILD_TYPE=Release ^
-    -DCMAKE_CXX_COMPILER="%CXX%" ^
-    -DCMAKE_INSTALL_BINDIR="." ^
-    -DCMAKE_INSTALL_PREFIX="%PREFIX%" ^
+cmake -G "Ninja" -S . -B build ^
+    -DPython_FIND_STRATEGY="LOCATION" ^
+    -DPython_EXECUTABLE="%PYTHON%" ^
+    -DPython_ROOT_DIR="%PREFIX%" ^
     -DPYCLINGCON_ENABLE="require" ^
-    -DPython_ROOT_DIR="%PREFIX%"
+    -DPYCLINGCON_INSTALL_DIR="%SP_DIR%" ^
+    -DCMAKE_INSTALL_PREFIX="%LIBRARY_PREFIX%" ^
+    -DCLINGCON_MANAGE_RPATH=Off ^
+    -DCMAKE_BUILD_TYPE=Release || exit /b 1
 
-cmake --build build
-cmake --build build --target install
+cmake --build build || exit /b 1
+cmake --build build --target install || exit /b 1

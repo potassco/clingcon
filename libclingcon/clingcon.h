@@ -38,9 +38,9 @@
 //! Minor version number.
 #define CLINGCON_VERSION_MINOR 2
 //! Revision number.
-#define CLINGCON_VERSION_REVISION 1
+#define CLINGCON_VERSION_REVISION 2
 //! String representation of version.
-#define CLINGCON_VERSION "5.2.1"
+#define CLINGCON_VERSION "5.2.2"
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,7 +77,7 @@ extern "C" {
 enum clingcon_value_type {
     clingcon_value_type_int = 0,
     clingcon_value_type_double = 1,
-    clingcon_value_type_symbol = 2
+    clingcon_value_type_symbol = 2,
 };
 //! Corresponding type to ::clingcon_value_type.
 typedef int clingcon_value_type_t;

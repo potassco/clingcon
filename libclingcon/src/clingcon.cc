@@ -139,11 +139,12 @@ template <class T>
 [[nodiscard]] auto parse_range_num(char const *begin, char const *end = nullptr,
                                    T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
     -> T {
-    assert(min <= max);
-    if (strncmp(begin, "min", end - begin) == 0) {
+    assert(begin != nullptr && min <= max);
+    size_t len = end != nullptr ? end - begin : std::strlen(begin);
+    if (strncmp(begin, "min", len) == 0) {
         return min;
     }
-    if (strncmp(begin, "max", end - begin) == 0) {
+    if (strncmp(begin, "max", len) == 0) {
         return max;
     }
     auto res = strtonum<T>(begin, end);
@@ -162,7 +163,7 @@ template <class T>
 template <class T>
 [[nodiscard]] auto parser_num(T &dest, T min = std::numeric_limits<T>::lowest(), T max = std::numeric_limits<T>::max())
     -> std::function<bool(const char *)> {
-    return [&dest, min, max](char const *value) {
+    return [&dest, min, max](char const *value) -> auto {
         dest = parse_num<T>(value, min, max);
         return true;
     };
@@ -256,6 +257,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
 }
 
 [[nodiscard]] auto parse_translate_clause(char const *value) -> std::pair<uint32_t, std::optional<uint64_t>> {
+    assert(value != nullptr);
     std::optional<val_t> total = std::nullopt;
     char const *comma = find_str(value, ',');
     if (*comma != '\0') {
@@ -281,21 +283,21 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
 }
 
 [[nodiscard]] auto parser_bool_thread(clingcon_theory &theory, Target target) -> std::function<bool(const char *)> {
-    return [&theory, target](char const *value) {
+    return [&theory, target](char const *value) -> bool {
         auto [val, thread] = parse_bool_thread(value);
         return theory.deferred.emplace(std::pair(target, thread), val).second;
     };
 }
 
 [[nodiscard]] auto parser_sign_value(clingcon_theory &theory, Target target) -> std::function<bool(const char *)> {
-    return [&theory, target](char const *value) {
+    return [&theory, target](char const *value) -> bool {
         auto [val, thread] = parse_sign_value(value);
         return theory.deferred.emplace(std::pair(target, thread), val).second;
     };
 }
 
 [[nodiscard]] auto parser_heuristic(clingcon_theory &theory) -> std::function<bool(const char *)> {
-    return [&theory](char const *value) {
+    return [&theory](char const *value) -> bool {
         auto [val, thread] = parse_heuristic(value);
         return theory.deferred.emplace(std::pair(Target::Heuristic, thread), val).second;
     };
@@ -304,7 +306,7 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
 template <class T, class U>
 [[nodiscard]] auto parser_translate_clause(T &translate_clauses, U &translate_clauses_total)
     -> std::function<bool(const char *)> {
-    return [&translate_clauses, &translate_clauses_total](char const *value) {
+    return [&translate_clauses, &translate_clauses_total](char const *value) -> auto {
         auto [clauses, clauses_total] = parse_translate_clause(value);
         translate_clauses = clauses;
         if (clauses_total) {
@@ -357,7 +359,7 @@ extern "C" auto clingcon_rewrite_ast(clingcon_theory_t *theory, clingo_ast_t *as
         clingo_ast_acquire(ast);
         Clingo::AST::Node ast_cpp{ast};
         transform(
-            ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) { handle_error(add(ast_trans.to_c(), data)); },
+            ast_cpp, [add, data](Clingo::AST::Node &&ast_trans) -> void { handle_error(add(ast_trans.to_c(), data)); },
             theory->shift_constraints);
     }
     CLINGCON_CATCH;

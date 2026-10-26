@@ -161,13 +161,13 @@ auto tag_terms(Clingo::AST::Node &ast, char const *tag) -> Clingo::AST::Node {
 }
 
 struct CStrCmp {
-    inline auto operator()(char const *a, char const *b) const -> bool { return std::strcmp(a, b) < 0; }
+    auto operator()(char const *a, char const *b) const -> bool { return std::strcmp(a, b) < 0; }
 };
 
 using VarSet = std::set<char const *, CStrCmp>;
 
 void collect_variables(VarSet &vars, Clingo::AST::Node const &ast) {
-    ast.visit_ast([&](Clingo::AST::Node const &child) {
+    ast.visit_ast([&](Clingo::AST::Node const &child) -> bool {
         if (child.type() == Clingo::AST::Type::Variable) {
             vars.emplace(child.get<char const *>(Clingo::AST::Attribute::Name));
         }
@@ -432,7 +432,7 @@ auto simplify(NonlinearTermVec &vec, bool drop_zero) -> val_t {
     }
 
     if (drop_zero) {
-        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; });
+        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) -> auto { return co_var.first == 0; });
     }
 
     vec.erase(jt, vec.end());
@@ -697,8 +697,8 @@ template <class TermVec>
 // Constraints are represented as a triple of a literal, its elements, and an
 // upper bound.
 template <class TermVec, bool is_sum = true>
-[[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom,
-                                    bool strict) -> bool {
+[[nodiscard]] auto parse_constraint(AbstractConstraintBuilder &builder, Clingo::TheoryAtom const &atom, bool strict)
+    -> bool {
     check_syntax(atom.has_guard());
 
     TermVec elements;
@@ -865,7 +865,7 @@ auto simplify(CoVarVec &vec, bool drop_zero) -> val_t {
     }
 
     if (drop_zero) {
-        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; });
+        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) -> auto { return co_var.first == 0; });
     }
 
     vec.erase(jt, vec.end());
@@ -900,11 +900,10 @@ auto parse(AbstractConstraintBuilder &builder, Clingo::TheoryAtoms theory_atoms)
         bool is_diff_h = match(atom.term(), "__diff_h", 0);
         bool is_nsum_h = match(atom.term(), "__nsum_h", 0);
         bool is_nsum_b = match(atom.term(), "__nsum_b", 0);
-        if (is_sum_b || is_sum_h) {
-            if (!parse_constraint<CoVarVec>(builder, atom, is_sum_b)) {
-                return false;
-            }
+        if ((is_sum_b || is_sum_h) && (!parse_constraint<CoVarVec>(builder, atom, is_sum_b))) {
+            return false;
         }
+
         if (is_diff_b || is_diff_h) {
             if (!parse_constraint<CoVarVec, false>(builder, atom, is_diff_b)) {
                 return false;

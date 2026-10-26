@@ -210,7 +210,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             if (co_r > 0) {
                 delta_r = -floordiv<sum_t>(slack + 1, -co_r);
                 value_r = vs_r.lower_bound() + delta_r;
-                assert(slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r - 1));
+                assert(slack - (co_r * delta_r) < 0 && 0 <= slack - (co_r * (delta_r - 1)));
                 // values above the upper bound are already true;
                 if (value_r >= vs_r.upper_bound()) {
                     continue;
@@ -222,7 +222,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             } else {
                 delta_r = floordiv<sum_t>(slack + 1, co_r);
                 value_r = vs_r.upper_bound() + delta_r;
-                assert(slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r + 1));
+                assert(slack - (co_r * delta_r) < 0 && 0 <= slack - (co_r * (delta_r + 1)));
                 // values below the lower bound are already false
                 if (value_r < vs_r.lower_bound()) {
                     continue;
@@ -235,7 +235,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
 
             // build the reason if the literal has not already been propagated
             if (lit_r == 0 || !ass.is_true(lit_r)) {
-                auto slack_r = slack - co_r * delta_r;
+                auto slack_r = slack - (co_r * delta_r);
                 assert(slack_r < 0);
                 auto &reason = solver.temp_reason();
                 // add the constraint itself
@@ -479,12 +479,12 @@ class SumConstraintState : public AbstractConstraintState {
                 n += 1;
             }
             if (co > 0) {
-                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.lower_bound());
                 auto value = floordiv<sum_t>(diff, co);
                 assert(value >= vs.lower_bound());
                 estimate += std::min<sum_t>(value + 1, vs.upper_bound()) - vs.lower_bound();
             } else {
-                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.upper_bound());
                 auto value = -floordiv<sum_t>(diff, -co);
                 assert(value <= vs.upper_bound());
                 estimate += vs.upper_bound() - std::max<sum_t>(value - 1, vs.lower_bound());
@@ -502,14 +502,14 @@ class SumConstraintState : public AbstractConstraintState {
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);
             if (co > 0) {
-                auto diff = slack + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.lower_bound());
                 auto value = floordiv<sum_t>(diff, co);
                 assert(value >= vs.lower_bound());
                 for (sum_t i = vs.lower_bound(), e = std::min<sum_t>(value + 1, vs.upper_bound()); i != e; ++i) {
                     wlits.emplace_back(-solver.get_literal(cc, vs, static_cast<val_t>(i)), co);
                 }
             } else {
-                auto diff = slack + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff = slack + (static_cast<sum_t>(co) * vs.upper_bound());
                 auto value = -floordiv<sum_t>(diff, -co);
                 assert(value <= vs.upper_bound());
                 for (sum_t i = std::max<sum_t>(value - 1, vs.lower_bound()), e = vs.upper_bound(); i != e; ++i) {
@@ -572,19 +572,19 @@ class SumConstraintState : public AbstractConstraintState {
             sum_t value_lower{0};
             sum_t value_upper{0};
             if (co > 0) {
-                auto diff_lower = upper + static_cast<sum_t>(co) * vs.upper_bound();
-                auto diff_upper = lower + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff_lower = upper + (static_cast<sum_t>(co) * vs.upper_bound());
+                auto diff_upper = lower + (static_cast<sum_t>(co) * vs.lower_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), floordiv<sum_t>(diff_lower, co) + 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), floordiv<sum_t>(diff_upper, co) + 1);
-                lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound());
-                upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper);
+                lower = lower - (static_cast<sum_t>(co) * (value_upper - vs.lower_bound()));
+                upper = upper + (static_cast<sum_t>(co) * (vs.upper_bound() - value_upper));
             } else {
-                auto diff_upper = upper + static_cast<sum_t>(co) * vs.lower_bound();
-                auto diff_lower = lower + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff_upper = upper + (static_cast<sum_t>(co) * vs.lower_bound());
+                auto diff_lower = lower + (static_cast<sum_t>(co) * vs.upper_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
-                lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
-                upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
+                lower = lower - (static_cast<sum_t>(co) * (value_lower - vs.upper_bound()));
+                upper = upper + (static_cast<sum_t>(co) * (vs.lower_bound() - value_lower));
             }
 
             n = value_upper - value_lower + 1;
@@ -604,7 +604,7 @@ class SumConstraintState : public AbstractConstraintState {
         std::vector<std::tuple<size_t, size_t, sum_t, sum_t, sum_t, sum_t>> todo{{0, 0, 0, 0, lower, upper}};
         std::vector<lit_t> clause(constraint_.size() + 1, 0);
 
-#if 0
+#ifdef CLINGCON_DEBUG
         CoVarVec elements;
         elements.assign(constraint_.begin(), constraint_.end());
         std::sort(elements.begin(), elements.end(), [&](auto const &a, auto const &b) {
@@ -620,14 +620,12 @@ class SumConstraintState : public AbstractConstraintState {
             sum_t min_b{0};
             if (a.first > 0) {
                 min_a = a.first * vs_a.lower_bound();
-            }
-            else {
+            } else {
                 min_a = a.first * vs_a.upper_bound();
             }
             if (b.first > 0) {
                 min_b = b.first * vs_b.lower_bound();
-            }
-            else {
+            } else {
                 min_b = b.first * vs_b.upper_bound();
             }
             if (min_a != min_b) {
@@ -689,19 +687,19 @@ class SumConstraintState : public AbstractConstraintState {
             auto &vs = solver.var_state(var);
 
             if (co > 0) {
-                auto diff_lower = upper + static_cast<sum_t>(co) * vs.upper_bound();
-                auto diff_upper = lower + static_cast<sum_t>(co) * vs.lower_bound();
+                auto diff_lower = upper + (static_cast<sum_t>(co) * vs.upper_bound());
+                auto diff_upper = lower + (static_cast<sum_t>(co) * vs.lower_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound() - 1, floordiv<sum_t>(diff_lower, co));
                 value_upper = std::min<sum_t>(vs.upper_bound() - 1, floordiv<sum_t>(diff_upper, co));
-                lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound() + 1);
-                upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper - 1);
+                lower = lower - (static_cast<sum_t>(co) * (value_upper - vs.lower_bound() + 1));
+                upper = upper + (static_cast<sum_t>(co) * (vs.upper_bound() - value_upper - 1));
             } else {
-                auto diff_upper = upper + static_cast<sum_t>(co) * vs.lower_bound();
-                auto diff_lower = lower + static_cast<sum_t>(co) * vs.upper_bound();
+                auto diff_upper = upper + (static_cast<sum_t>(co) * vs.lower_bound());
+                auto diff_lower = lower + (static_cast<sum_t>(co) * vs.upper_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
-                upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
-                lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
+                upper = upper + (static_cast<sum_t>(co) * (vs.lower_bound() - value_lower));
+                lower = lower - (static_cast<sum_t>(co) * (value_lower - vs.upper_bound()));
             }
 
             assert(vs.lower_bound() <= value_upper + 1);
@@ -849,7 +847,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
         std::vector<IntervalSet<sum_t>> domains;
         for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
             domains.emplace_back(domain_(solver, idx));
-            domains.back().enumerate([&](sum_t value) {
+            domains.back().enumerate([&](sum_t value) -> bool {
                 ++counts[value];
                 return true;
             });
@@ -861,7 +859,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
         for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
             DiffElement elem{constraint_[idx].fixed(), 1, INVALID_VAR};
             if (!constraint_[idx].empty()) {
-                domains[idx].enumerate([&](sum_t value) {
+                domains[idx].enumerate([&](sum_t value) -> bool {
                     if (counts[value] > 1) {
                         elem = var_(config, solver, idx, added);
                         return false;
@@ -1754,7 +1752,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
                                       It begin, It end) -> bool {
             // Note: the constraint could also be disabled as soon as all
             // subsequences became singletons.
-            std::sort(begin, end, [](auto const &a, auto const &b) { return upper(a) < upper(b); });
+            std::sort(begin, end, [](auto const &a, auto const &b) -> auto { return upper(a) < upper(b); });
             for (auto it = std::make_reverse_iterator(end), ie = std::make_reverse_iterator(begin); it != ie;) {
                 val_t min = lower(*it);
                 auto je = it.base();
@@ -1931,7 +1929,7 @@ DistinctConstraint::DistinctConstraint(lit_t lit, Elements const &elements, bool
 }
 
 auto DistinctConstraint::create(lit_t lit, Elements const &elements, bool sort) -> std::unique_ptr<DistinctConstraint> {
-    size_t size = sizeof(DistinctConstraint) + elements.size() * sizeof(DistinctElement);
+    size_t size = sizeof(DistinctConstraint) + (elements.size() * sizeof(DistinctElement));
     for (auto const &element : elements) {
         size += element.first.size() * sizeof(co_var_t);
     }
@@ -1950,7 +1948,7 @@ DisjointConstraint::DisjointConstraint(lit_t lit, CoVarVec const &elements)
 }
 
 auto DisjointConstraint::create(lit_t lit, CoVarVec const &elements) -> std::unique_ptr<DisjointConstraint> {
-    auto size = sizeof(DisjointConstraint) + elements.size() * sizeof(co_var_t);
+    auto size = sizeof(DisjointConstraint) + (elements.size() * sizeof(co_var_t));
     return std::unique_ptr<DisjointConstraint>{new (operator new(size)) DisjointConstraint(lit, elements)};
 }
 

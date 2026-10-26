@@ -73,7 +73,7 @@ template <class T, class S> inline auto safe_cast(S s) -> T {
 //! Calculate the midpoint of two values of integral type.
 template <typename I> auto midpoint(I a, I b) noexcept -> I {
     using U = std::make_unsigned_t<I>;
-    return static_cast<I>(static_cast<U>(a) + (static_cast<U>(b) - static_cast<U>(a)) / 2);
+    return static_cast<I>(static_cast<U>(a) + ((static_cast<U>(b) - static_cast<U>(a)) / 2));
 }
 
 template <typename I> auto floordiv(I n, I m) -> I {

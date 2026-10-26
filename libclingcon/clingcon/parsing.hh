@@ -116,8 +116,8 @@ class AbstractConstraintBuilder {
     //! Extend the minimize constraint.
     virtual void add_minimize(val_t co, var_t var) = 0;
     //! Add a distinct constraint.
-    [[nodiscard]] virtual auto add_distinct(lit_t lit,
-                                            std::vector<std::pair<CoVarVec, val_t>> const &elems) -> bool = 0;
+    [[nodiscard]] virtual auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems)
+        -> bool = 0;
     //! Add a disjoint constraint.
     [[nodiscard]] virtual auto add_disjoint(lit_t lit, CoVarVec const &elems) -> bool = 0;
     //! Add a domain for the given variable.
