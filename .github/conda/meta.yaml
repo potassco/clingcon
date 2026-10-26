@@ -14,14 +14,14 @@ source:
 requirements:
   build:
   - cmake
-  - ninja [win]
+  - ninja
   - {{ compiler('c') }}
   - {{ compiler('cxx') }}
   host:
   - clingo
   - python
   run:
-  - {{ pin_compatible('clingo') }}
+  - clingo
   - python
   - cffi
 
