@@ -95,11 +95,11 @@ release)
 dev)
     branch="${@:$OPTIND+1:1}"
     # .github/workflows/cibuildwheel.yml
-    #dispatch 35145908 "$wip" "$branch"
+    dispatch 35145908 "$wip" "$branch"
     # .github/workflows/conda-dev.yml
     dispatch 5239781 "$wip" "$branch"
     # .github/workflows/ppa-dev.yml
-    #dispatch 5245822 "$wip" "$branch"
+    dispatch 5245822 "$wip" "$branch"
     ;;
 *)
     echo "usage: trigger {list,dev,release}"
