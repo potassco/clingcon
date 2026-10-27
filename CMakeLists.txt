@@ -60,7 +60,7 @@ if(DEFINED SKBUILD)
     set(CLINGCON_INSTALL_WHEEL ON)
     find_package(pybind11 CONFIG REQUIRED)
     execute_process(
-        COMMAND "${Python_EXECUTABLE}" -c "import clingo, os; print(os.path.dirname(clingo.__file__))"
+        COMMAND "${Python_EXECUTABLE}" -c "import importlib.util, os; print(os.path.dirname(importlib.util.find_spec('clingo').origin))"
         OUTPUT_VARIABLE sp_dir
         OUTPUT_STRIP_TRAILING_WHITESPACE)
     add_library(clingo-interface INTERFACE)
