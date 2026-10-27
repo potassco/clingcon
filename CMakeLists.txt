@@ -160,8 +160,7 @@ if (PYCLINGCON_ENABLE STREQUAL "pip")
     endif()
     add_library(libclingo INTERFACE)
     execute_process(
-        COMMAND "${Python_EXECUTABLE}" -c
-            "import os, clingo; print(os.path.abspath(os.path.dirname(clingo.__file__)))"
+        COMMAND "${Python_EXECUTABLE}" -c "import importlib.util, os; print(os.path.dirname(importlib.util.find_spec('clingo').origin))"
         OUTPUT_VARIABLE PYCLINGCON_PIP_PATH
         OUTPUT_STRIP_TRAILING_WHITESPACE
         RESULT_VARIABLE _clingo_path_rc
