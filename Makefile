@@ -1,19 +1,32 @@
 BUILD_TYPE:=debug
-POTASSCO_PREFIX:=${HOME}/.local/opt/potassco/$(BUILD_TYPE)
-CXX_FLAGS := -stdlib=libc++ -Wall -Wextra -Wpedantic -Werror
-C_COMPILER := $(shell for c in clang-22 clang-21 clang-20 clang; do command -v $$c >/dev/null 2>&1 && { command -v $$c; break; }; done)
-CXX_COMPILER := $(shell for c in clang++-22 clang++-21 clang++-20 clang++; do command -v $$c >/dev/null 2>&1 && { command -v $$c; break; }; done)
 
 define cmake_options
 -S . \
 -B "build/$(BUILD_TYPE)" \
--DCMAKE_CXX_COMPILER="$(CXX_COMPILER)" \
--DCMAKE_C_COMPILER="$(C_COMPILER)" \
--DCMAKE_INSTALL_PREFIX="$(POTASSCO_PREFIX)" \
--DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
 -DCLINGCON_BUILD_TESTS=On \
 -DCMAKE_EXPORT_COMPILE_COMMANDS=On
 endef
+
+ifneq ($(CC),)
+	cmake_options += -DCMAKE_C_COMPILER="$(CC)"
+endif
+
+ifneq ($(CXX),)
+	cmake_options += -DCMAKE_CXX_COMPILER="$(CXX)"
+endif
+
+ifneq ($(CFLAGS),)
+	cmake_options += -DCMAKE_C_FLAGS="$(CFLAGS)"
+endif
+
+ifneq ($(CXXFLAGS),)
+	cmake_options += -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+endif
+
+ifneq ($(POTASSCO_PREFIX),)
+	cmake_options += -Dclingo_DIR="$(POTASSCO_PREFIX)/$(BUILD_TYPE)/lib/cmake/clingo"
+	cmake_options += -DCMAKE_INSTALL_PREFIX="$(POTASSCO_PREFIX)/$(BUILD_TYPE)"
+endif
 
 ifeq ($(BUILD_TYPE),profile)
 	cmake_options += -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCLINGCON_PROFILE=On
