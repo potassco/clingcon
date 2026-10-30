@@ -1,5 +1,6 @@
-BUILD_TYPE:=debug
-POTASSCO_PREFIX ?= $(shell printenv POTASSCO_PREFIX)
+BUILD_TYPE ?= debug
+POTASSCO_PREFIX ?=
+_BUILD_TYPE_UPPER := $(shell printf '%s' "$(BUILD_TYPE)" | tr '[:lower:]' '[:upper:]')
 
 define cmake_options
 -S . \
@@ -8,20 +9,20 @@ define cmake_options
 -DCMAKE_EXPORT_COMPILE_COMMANDS=On
 endef
 
-ifneq ($(CC),)
-	cmake_options += -DCMAKE_C_COMPILER="$(CC)"
+ifneq ($(CC_$(_BUILD_TYPE_UPPER)),)
+	cmake_options += -DCMAKE_C_COMPILER="$(CC_$(_BUILD_TYPE_UPPER))"
 endif
 
-ifneq ($(CXX),)
-	cmake_options += -DCMAKE_CXX_COMPILER="$(CXX)"
+ifneq ($(CXX_$(_BUILD_TYPE_UPPER)),)
+	cmake_options += -DCMAKE_CXX_COMPILER="$(CXX_$(_BUILD_TYPE_UPPER))"
 endif
 
-ifneq ($(CFLAGS),)
-	cmake_options += -DCMAKE_C_FLAGS="$(CFLAGS)"
+ifneq ($(CFLAGS_$(_BUILD_TYPE_UPPER)),)
+	cmake_options += -DCMAKE_C_FLAGS="$(CFLAGS_$(_BUILD_TYPE_UPPER))"
 endif
 
-ifneq ($(CXXFLAGS),)
-	cmake_options += -DCMAKE_CXX_FLAGS="$(CXXFLAGS)"
+ifneq ($(CXXFLAGS_$(_BUILD_TYPE_UPPER)),)
+	cmake_options += -DCMAKE_CXX_FLAGS="$(CXXFLAGS_$(_BUILD_TYPE_UPPER))"
 endif
 
 ifneq ($(POTASSCO_PREFIX),)
@@ -29,12 +30,13 @@ ifneq ($(POTASSCO_PREFIX),)
 	cmake_options += -DCMAKE_INSTALL_PREFIX="$(POTASSCO_PREFIX)/$(BUILD_TYPE)"
 endif
 
-ifeq ($(BUILD_TYPE),profile)
+ifeq ($(BUILD_TYPE),debug)
+	cmake_options += -DCMAKE_BUILD_TYPE="Debug"
+else ifeq ($(BUILD_TYPE),profile)
 	cmake_options += -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCLINGCON_PROFILE=On
 else
-	cmake_options += -DCMAKE_BUILD_TYPE="$(BUILD_TYPE)"
+	cmake_options += -DCMAKE_BUILD_TYPE="Release"
 endif
-
 
 .PHONY: all test compdb configure
 
