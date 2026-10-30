@@ -278,7 +278,7 @@ class Config {
     [[nodiscard]] auto size() const -> size_t { return solver_configs_.size(); }
 
     [[nodiscard]] auto has_heuristic() const -> bool {
-        return heuristic_ != Heuristic::None || std::ranges::any_of(solver_configs_, [](auto const &cfg) {
+        return heuristic_ != Heuristic::None || std::ranges::any_of(solver_configs_, [](auto const &cfg) -> auto {
                    return cfg.heuristic && cfg.heuristic != Heuristic::None;
                });
     }
@@ -401,10 +401,8 @@ class InitClauseCreator final : public AbstractClauseCreator {
             if (type == Clingo::WeightConstraintType::implication_left) {
                 return true;
             }
-        } else if (ass.is_false(lit)) {
-            if (type == Clingo::WeightConstraintType::implication_right) {
-                return true;
-            }
+        } else if (ass.is_false(lit) && (type == Clingo::WeightConstraintType::implication_right)) {
+            return true;
         }
 
         if (state_ == InitState::Translate) {

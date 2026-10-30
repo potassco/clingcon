@@ -28,4 +28,5 @@ repos:
         args: [--style=file, --version=23]
       - id: clang-tidy
         types_or: [c++, c]
+        exclude: "^(third_party/.*)$"
         args: [--version=23, "-fix", "--warnings-as-errors=*"]

@@ -14,7 +14,7 @@ namespace Clingcon {
 //! Application class to run clingcon.
 class App : public Clingo::App, private Clingo::SolveEventHandler {
   public:
-    App(Clingo::Library lib) : lib_{std::move(lib)} {}
+    explicit App(Clingo::Library lib) : lib_{std::move(lib)} {}
     //! Get program name to clingcon.
     auto do_program_name() noexcept -> std::string_view override { return "clingcon"; }
     //! Get the version.
@@ -73,6 +73,7 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
 auto main(int argc, char *argv[]) -> int { // NOLINT(bugprone-exception-escape)
     Clingo::Library lib;
     Clingcon::App app{lib};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     auto args = std::vector<std::string_view>{argv + 1, argv + argc};
     return Clingo::main(lib, args, &app);
 }

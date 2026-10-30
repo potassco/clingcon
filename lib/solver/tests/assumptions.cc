@@ -87,8 +87,8 @@ struct AFixture {
 TEST_CASE_METHOD(AFixture, "assumptions", "[assumptions]") {
     ctl.parse_string(THEORY);
     auto prg = Clingo::AST::Program{lib};
-    Clingo::AST::parse(lib, ENC, [&](auto const &stm) {
-        Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+    Clingo::AST::parse(lib, ENC, [&](auto const &stm) -> auto {
+        Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) -> void { prg.add(stm); }, true);
     });
     ctl.join(prg);
 

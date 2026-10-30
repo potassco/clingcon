@@ -19,6 +19,7 @@ Checks: >
   -readability-function-size,
   -readability-identifier-length,
   -readability-suspicious-call-argument,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
 WarningsAsErrors: ""
 HeaderFilterRegex: ""
 FormatStyle: none

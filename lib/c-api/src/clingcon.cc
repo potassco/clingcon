@@ -141,7 +141,7 @@ auto iequals(std::string_view a, std::string_view b) -> bool {
 
 template <typename Enum, size_t N> class EnumStringMap {
   public:
-    constexpr EnumStringMap(const std::array<std::pair<std::string_view, Enum>, N> &map) : map_{map} {}
+    constexpr explicit EnumStringMap(const std::array<std::pair<std::string_view, Enum>, N> &map) : map_{map} {}
 
     [[nodiscard]] auto from_string(std::string_view value) const -> Enum {
         for (const auto &[name, mode] : map_) {
@@ -172,7 +172,7 @@ constexpr auto make_enum_string_map(std::pair<std::string_view, Enum> const (&ma
 
 class ConfigClause {
   public:
-    ConfigClause(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigClause(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) {
         auto comma = value.find(',');
@@ -200,7 +200,7 @@ class ConfigClause {
 
 class ConfigBP {
   public:
-    ConfigBP(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigBP(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_weight_constraint_ratio(parse_num<double>(value)); }
 
@@ -221,7 +221,7 @@ class ConfigBP {
 
 class ConfigDistinct {
   public:
-    ConfigDistinct(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigDistinct(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_distinct_limit(parse_num<uint32_t>(value)); }
 
@@ -242,7 +242,7 @@ class ConfigDistinct {
 
 class ConfigOpt {
   public:
-    ConfigOpt(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigOpt(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_translate_minimize(parse_num<uint32_t>(value)); }
 
@@ -266,7 +266,7 @@ class ConfigOpt {
 
 class ConfigHeuristic {
   public:
-    ConfigHeuristic(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigHeuristic(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_heuristic(map_.from_string(value), index);
@@ -298,7 +298,7 @@ class ConfigHeuristic {
 
 class ConfigSign {
   public:
-    ConfigSign(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigSign(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         if (value == "+") {
@@ -349,7 +349,7 @@ auto parse_bool(std::string_view value) -> bool {
 
 class ConfigReason {
   public:
-    ConfigReason(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigReason(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_refine_reasons(parse_bool(value), index);
@@ -374,7 +374,7 @@ class ConfigReason {
 
 class ConfigIntroduce {
   public:
-    ConfigIntroduce(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigIntroduce(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_refine_introduce(parse_bool(value), index);
@@ -399,7 +399,7 @@ class ConfigIntroduce {
 
 class ConfigChain {
   public:
-    ConfigChain(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigChain(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_propagate_chain(parse_bool(value), index);
@@ -424,7 +424,7 @@ class ConfigChain {
 
 class ConfigSplit {
   public:
-    ConfigSplit(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigSplit(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) { cfg_->set_split_all(parse_bool(value), index); }
 
@@ -447,7 +447,7 @@ class ConfigSplit {
 
 class ConfigBool {
   public:
-    ConfigBool(bool &target) : target_{&target} {}
+    explicit ConfigBool(bool &target) : target_{&target} {}
 
     void set(std::string_view value) {
         if (iequals(value, "no") || iequals(value, "off") || iequals(value, "0")) {
@@ -467,7 +467,7 @@ class ConfigBool {
 
 class ConfigMin {
   public:
-    ConfigMin(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigMin(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_min_int(parse_num<val_t>(value, MIN_VAL, MAX_VAL)); }
 
@@ -485,7 +485,7 @@ class ConfigMin {
 
 class ConfigMax {
   public:
-    ConfigMax(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigMax(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_max_int(parse_num<val_t>(value, MIN_VAL, MAX_VAL)); }
 
@@ -625,10 +625,12 @@ struct clingcon_theory {
     static auto prepare(void *self, clingo_control_t *control) -> bool {
         CLINGO_TRY {
             if (auto *theory = static_cast<clingcon_theory *>(self); !theory->initialized) {
-                static constexpr clingo_propagator_t propagator = {init,  nullptr, propagate, undo,
-                                                                   check, nullptr, nullptr};
-                static constexpr clingo_propagator_t heuristic = {init,  nullptr, propagate, undo,
-                                                                  check, decide,  nullptr};
+                static constexpr clingo_propagator_t propagator = {
+                    init, nullptr, propagate, undo, check, nullptr, nullptr,
+                };
+                static constexpr clingo_propagator_t heuristic = {
+                    init, nullptr, propagate, undo, check, decide, nullptr,
+                };
                 theory->initialized = true;
                 auto &cnf = theory->propagator.config();
                 handle_error(clingo_control_register_propagator(control, cnf.has_heuristic() ? &heuristic : &propagator,

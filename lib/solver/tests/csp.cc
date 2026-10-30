@@ -246,8 +246,8 @@ TEST_CASE_METHOD(Fixture, "sum", "[solving]") {
         auto seh = SolveEventHandler{prp};
         ctl.parse_string(THEORY);
         auto prg = Clingo::AST::Program{lib};
-        Clingo::AST::parse(lib, R"(&sum { ("a\"b\\c",0) } = 2.)", [&](auto const &stm) {
-            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        Clingo::AST::parse(lib, R"(&sum { ("a\"b\\c",0) } = 2.)", [&](auto const &stm) -> auto {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) -> void { prg.add(stm); }, true);
         });
         ctl.join(prg);
         ctl.ground();
@@ -293,11 +293,9 @@ TEST_CASE_METHOD(Fixture, "conditional sum", "[solving]") {
     SECTION("multiple elements") {
         REQUIRE(solve("{a}. {b}. &dom{0..5}=x. &dom{0..5}=y. "
                       "&sum{ x:a; y:b } = 5. :- not a. :- not b.") ==
-                S({"a b x=0 y=5", "a b x=1 y=4", "a b x=2 y=3",
-                   "a b x=3 y=2", "a b x=4 y=1", "a b x=5 y=0"}));
+                S({"a b x=0 y=5", "a b x=1 y=4", "a b x=2 y=3", "a b x=3 y=2", "a b x=4 y=1", "a b x=5 y=0"}));
         REQUIRE(solve("{a}. {b}. &dom{5..5}=x. &dom{0..0}=y. "
-                      "&sum{ x:a; y:b } = 5. :- not a. :- b.") ==
-                S({"a x=5 y=0"}));
+                      "&sum{ x:a; y:b } = 5. :- not a. :- b.") == S({"a x=5 y=0"}));
         REQUIRE(solve("{a}. {b}. &sum{ x:a; y:b } = 5. :- a. :- b.", 0, 0) == S({}));
     }
     SECTION("coefficients and constants") {
@@ -311,22 +309,16 @@ TEST_CASE_METHOD(Fixture, "conditional sum", "[solving]") {
         REQUIRE(solve("{a}. &dom{0..0}=x. &sum{ x : not a } = 0. :- not a.") == S({"a x=0"}));
     }
     SECTION("mixed conditional and unconditional") {
-        REQUIRE(solve("{a}. &dom{2..2}=x. &sum{ x; y:a } = 5. :- not a.") ==
-                S({"a x=2 y=3"}));
-        REQUIRE(solve("{a}. &dom{2..2}=x. &dom{0..0}=y. &sum{ x; y:a } = 2. :- a.") ==
-                S({"x=2 y=0"}));
+        REQUIRE(solve("{a}. &dom{2..2}=x. &sum{ x; y:a } = 5. :- not a.") == S({"a x=2 y=3"}));
+        REQUIRE(solve("{a}. &dom{2..2}=x. &dom{0..0}=y. &sum{ x; y:a } = 2. :- a.") == S({"x=2 y=0"}));
     }
     SECTION("conjunction of conditions") {
-        REQUIRE(solve("{a}. {b}. &sum{ x : a,b } = 5. :- not a. :- not b.") ==
-                S({"a b x=5"}));
-        REQUIRE(solve("{a}. {b}. &dom{0..0}=x. &sum{ x : a,b } = 0. :- not a. :- b.") ==
-                S({"a x=0"}));
+        REQUIRE(solve("{a}. {b}. &sum{ x : a,b } = 5. :- not a. :- not b.") == S({"a b x=5"}));
+        REQUIRE(solve("{a}. {b}. &dom{0..0}=x. &sum{ x : a,b } = 0. :- not a. :- b.") == S({"a x=0"}));
     }
     SECTION("grounding") {
-        REQUIRE(solve("p(1..3). {a(N) : p(N)}. #show a/1. &sum{ N : a(N), p(N) } = 6.") ==
-                S({"a(1) a(2) a(3)"}));
-        REQUIRE(solve("p(1..3). {a(N) : p(N)}. #show a/1. &sum{ N : a(N), p(N) } = 3.") ==
-                S({"a(1) a(2)", "a(3)"}));
+        REQUIRE(solve("p(1..3). {a(N) : p(N)}. #show a/1. &sum{ N : a(N), p(N) } = 6.") == S({"a(1) a(2) a(3)"}));
+        REQUIRE(solve("p(1..3). {a(N) : p(N)}. #show a/1. &sum{ N : a(N), p(N) } = 3.") == S({"a(1) a(2)", "a(3)"}));
     }
 }
 

@@ -133,7 +133,7 @@ seq((T1,M),(T2,M),D) :- permutation(T1,T2), duration(T1,M,D).
     //! A handler to gather statistics in a DL theory.
     class Handler : public Clingo::SolveEventHandler {
       public:
-        Handler(Clingo::Theory &theory) : theory_{&theory} {}
+        explicit Handler(Clingo::Theory &theory) : theory_{&theory} {}
         //! Add theory specific statistics.
         void do_stats(Clingo::Stats step, Clingo::Stats accu) override { theory_->stats(step, accu); }
 

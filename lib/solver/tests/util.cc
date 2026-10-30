@@ -24,6 +24,7 @@
 
 #include "clingcon/util.hh"
 #include "clingcon/solver.hh"
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace Clingcon;
@@ -31,6 +32,7 @@ using namespace Clingcon;
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 
 struct Element {
+    // NOLINTNEXTLINE
     Element(int value) : value{value} {}
     int value;
     bool flag_unique{false};
@@ -42,7 +44,7 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
     for (val_t i = -n; i < n; ++i) {
         vs.set_literal(i, i + n + 1);
         int c = 0;
-        vs.with([&c, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) {
+        vs.with([&c, n](auto ib, auto ie, auto get_lit, auto get_val, auto inc) -> auto {
             for (auto it = ib; it != ie; inc(it)) {
                 ++c;
                 REQUIRE(get_lit(it) == get_val(it) + n + 1);
@@ -58,43 +60,47 @@ TEST_CASE("varstate", "[varstate]") { // NOLINT
             }
             // check lt
             c = 0;
-            vs.with_lt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (; it != ie; inc(it)) {
-                    ++c;
-                    REQUIRE(get_val(it) < j);
-                    REQUIRE(get_lit(it) == get_val(it) + n + 1);
-                }
-            });
+            vs.with_lt(j,
+                       [&c, j, n](auto it, auto ie, const auto &get_lit, const auto &get_val, const auto &inc) -> auto {
+                           for (; it != ie; inc(it)) {
+                               ++c;
+                               REQUIRE(get_val(it) < j);
+                               REQUIRE(get_lit(it) == get_val(it) + n + 1);
+                           }
+                       });
             REQUIRE(c == std::min(j + n, i + n + 1));
             // check le
             c = 0;
-            vs.with_le(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (; it != ie; inc(it)) {
-                    ++c;
-                    REQUIRE(get_val(it) <= j);
-                    REQUIRE(get_lit(it) == get_val(it) + n + 1);
-                }
-            });
+            vs.with_le(j,
+                       [&c, j, n](auto it, auto ie, const auto &get_lit, const auto &get_val, const auto &inc) -> auto {
+                           for (; it != ie; inc(it)) {
+                               ++c;
+                               REQUIRE(get_val(it) <= j);
+                               REQUIRE(get_lit(it) == get_val(it) + n + 1);
+                           }
+                       });
             REQUIRE(c == std::min(j + n + 1, i + n + 1));
             // check gt
             c = 0;
-            vs.with_gt(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (; it != ie; inc(it)) {
-                    ++c;
-                    REQUIRE(get_val(it) > j);
-                    REQUIRE(get_lit(it) == get_val(it) + n + 1);
-                }
-            });
+            vs.with_gt(j,
+                       [&c, j, n](auto it, auto ie, const auto &get_lit, const auto &get_val, const auto &inc) -> auto {
+                           for (; it != ie; inc(it)) {
+                               ++c;
+                               REQUIRE(get_val(it) > j);
+                               REQUIRE(get_lit(it) == get_val(it) + n + 1);
+                           }
+                       });
             REQUIRE(c == std::min(std::max(0, i - j), i + n + 1));
             // check ge
             c = 0;
-            vs.with_ge(j, [&c, j, n](auto it, auto ie, auto get_lit, auto get_val, auto inc) {
-                for (; it != ie; inc(it)) {
-                    ++c;
-                    REQUIRE(get_val(it) >= j);
-                    REQUIRE(get_lit(it) == get_val(it) + n + 1);
-                }
-            });
+            vs.with_ge(j,
+                       [&c, j, n](auto it, auto ie, const auto &get_lit, const auto &get_val, const auto &inc) -> auto {
+                           for (; it != ie; inc(it)) {
+                               ++c;
+                               REQUIRE(get_val(it) >= j);
+                               REQUIRE(get_lit(it) == get_val(it) + n + 1);
+                           }
+                       });
             REQUIRE(c == std::min(std::max(0, i - j + 1), i + n + 1));
         }
     }
@@ -143,7 +149,7 @@ TEST_CASE("util", "[util]") { // NOLINT
         REQUIRE(uniq.size() == 4);
 
         REQUIRE(uniq.contains(&elems[3]));
-        auto it = std::find(uniq.begin(), uniq.end(), &elems[3]);
+        auto it = std::ranges::find(uniq, &elems[3]);
         REQUIRE(it != uniq.end());
         uniq.erase(it);
         REQUIRE(uniq.size() == 3);
@@ -157,8 +163,8 @@ TEST_CASE("util", "[util]") { // NOLINT
     }
 
     SECTION("interval-set") {
-        auto equal = [](IntervalSet<int> &a, std::initializer_list<std::pair<const int, int>> b) {
-            return std::equal(a.begin(), a.end(), std::begin(b), std::end(b));
+        auto equal = [](IntervalSet<int> &a, std::initializer_list<std::pair<const int, int>> b) -> bool {
+            return std::ranges::equal(a, b);
         };
         IntervalSet<int> a;
 
@@ -183,7 +189,7 @@ TEST_CASE("util", "[util]") { // NOLINT
         a.add(3, 4);
         a.add(5, 7);
         std::vector<int> enu;
-        a.enumerate([&enu](int x) {
+        a.enumerate([&enu](int x) -> bool {
             enu.emplace_back(x);
             return true;
         });

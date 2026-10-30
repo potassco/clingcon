@@ -1,0 +1,6 @@
+InheritParentConfig: true
+Checks: >
+  -readability-magic-numbers,
+  -clang-diagnostic-c2y-extensions,
+  -bugprone-throwing-static-initialization,
+  -performance-inefficient-string-concatenation
