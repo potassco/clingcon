@@ -34,7 +34,7 @@ class ClingconApp(App):
     def __init__(self, lib: Library):
         theory = Theory(lib, create_theory())
         major, minor, revision = theory.version
-        super().__init__(theory.name, f"{major}.{minor}.{revision}")
+        super().__init__(theory.name, f"{major}.{minor}.{revision}", theory.commit_hash)
         self._lib = lib
         self._theory = theory
         globals()["THEORY"] = theory

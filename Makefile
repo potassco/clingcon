@@ -1,4 +1,5 @@
 BUILD_TYPE:=debug
+POTASSCO_PREFIX ?= $(shell printenv POTASSCO_PREFIX)
 
 define cmake_options
 -S . \

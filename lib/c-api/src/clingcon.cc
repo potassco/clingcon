@@ -26,6 +26,8 @@
 #include "clingcon/parsing.hh"
 #include "clingcon/propagator.hh"
 
+#include "clingcon_git_hash.h"
+
 #include <clingo/app.hh>
 #include <clingo/control.h>
 #include <clingo/control.hh>
@@ -79,8 +81,8 @@ auto check(clingo_assignment_t const *assignment, clingo_propagate_control_t *co
     CLINGO_CATCH;
 }
 
-auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data,
-            clingo_literal_t *result) -> bool {
+auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data, clingo_literal_t *result)
+    -> bool {
     CLINGO_TRY {
         *result = static_cast<Propagator *>(data)->decide(Clingo::Assignment{assignment}, fallback);
     }
@@ -133,7 +135,8 @@ inline auto to_lower(char c) -> char {
 
 //! Check if two strings are lower case equal.
 auto iequals(std::string_view a, std::string_view b) -> bool {
-    return a.size() == b.size() && std::ranges::equal(a, b, [](char a, char b) { return to_lower(a) == to_lower(b); });
+    return a.size() == b.size() &&
+           std::ranges::equal(a, b, [](char a, char b) -> bool { return to_lower(a) == to_lower(b); });
 }
 
 template <typename Enum, size_t N> class EnumStringMap {
@@ -524,7 +527,7 @@ auto desc_state() {
 }
 
 template <class T> auto parser(Config &config) {
-    return [&config](std::string_view value) { T{config}.set(value); };
+    return [&config](std::string_view value) -> auto { T{config}.set(value); };
 }
 
 //! Turn the comma separated suffix of value into a thread id.
@@ -540,14 +543,15 @@ auto parse_thread(std::string_view value) -> std::pair<std::optional<clingo_id_t
 }
 
 template <class T> auto parser_thread(Config &config) {
-    return [&config](std::string_view value) {
+    return [&config](std::string_view value) -> auto {
         auto [index, span] = parse_thread(value);
         T{config}.set(index, span);
     };
 }
 
 struct clingcon_theory {
-    static auto info([[maybe_unused]] void *self, clingo_string_t *name, int *major, int *minor, int *patch) -> bool {
+    static auto info([[maybe_unused]] void *self, clingo_string_t *name, int *major, int *minor, int *patch,
+                     clingo_string_t *hash) -> bool {
         using namespace std::string_view_literals;
         CLINGO_TRY {
             if (name != nullptr) {
@@ -563,6 +567,15 @@ struct clingcon_theory {
             }
             if (patch != nullptr) {
                 *patch = CLINGCON_VERSION_REVISION;
+            }
+            if (hash != nullptr) {
+#ifdef CLINGCON_GIT_HASH
+                constexpr auto str = std::string_view{CLINGCON_GIT_HASH};
+#else
+                constexpr auto str = std::string_view{""};
+#endif
+                hash->data = str.data();
+                hash->size = str.size();
             }
         }
         CLINGO_CATCH;
@@ -603,7 +616,7 @@ struct clingcon_theory {
         CLINGO_TRY {
             transform(
                 theory->lib, Clingo::AST::Node{ast, true},
-                [add, data](Clingo::AST::Node const &ast) { handle_error(add(c_cast(ast), data)); },
+                [add, data](Clingo::AST::Node const &ast) -> void { handle_error(add(c_cast(ast), data)); },
                 theory->shift_constraints);
         }
         CLINGO_CATCH;
