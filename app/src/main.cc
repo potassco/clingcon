@@ -3,7 +3,6 @@
 #include <clingo/app.hh>
 #include <clingo/theory.hh>
 
-#include <iostream>
 #include <utility>
 
 #ifdef CLINGCON_PROFILE
@@ -15,11 +14,19 @@ namespace Clingcon {
 //! Application class to run clingcon.
 class App : public Clingo::App, private Clingo::SolveEventHandler {
   public:
-    App(Clingo::Library lib) : lib_{std::move(lib)} {}
-    //! Set program name to clingcon.
+    explicit App(Clingo::Library lib) : lib_{std::move(lib)} {}
+    //! Get program name to clingcon.
     auto do_program_name() noexcept -> std::string_view override { return "clingcon"; }
-    //! Set the version.
+    //! Get the version.
     auto do_version() noexcept -> std::string_view override { return CLINGCON_VERSION; }
+    //! Get the commit hash.
+    auto do_commit_hash() noexcept -> std::string_view override {
+        try {
+            return theory_.commit_hash();
+        } catch (...) {
+            return "";
+        }
+    }
     //! Pass models to the theory.
     auto do_model(Clingo::Model model) -> bool override {
         theory_.model(model);
@@ -66,6 +73,7 @@ class App : public Clingo::App, private Clingo::SolveEventHandler {
 auto main(int argc, char *argv[]) -> int { // NOLINT(bugprone-exception-escape)
     Clingo::Library lib;
     Clingcon::App app{lib};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     auto args = std::vector<std::string_view>{argv + 1, argv + argc};
     return Clingo::main(lib, args, &app);
 }

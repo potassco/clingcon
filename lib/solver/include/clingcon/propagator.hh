@@ -55,7 +55,7 @@ class Propagator final : public Clingo::Heuristic {
     using VarSet = std::unordered_set<var_t>;
     using SigSet = std::set<Sig>;
 
-    Propagator(Clingo::Library lib) : lib_{std::move(lib)} {}
+    explicit Propagator(Clingo::Library lib) : lib_{std::move(lib)} {}
     Propagator(Propagator &&) = delete;
 
     //! Return statistics object.

@@ -47,7 +47,7 @@ using O = std::vector<std::optional<val_t>>;
 
 class SolveEventHandler : public Clingo::SolveEventHandler {
   public:
-    SolveEventHandler(Propagator &p) : p{&p} {}
+    explicit SolveEventHandler(Propagator &p) : p{&p} {}
     void do_stats(Clingo::Stats step, Clingo::Stats accu) override { p->on_statistics(step, accu); }
     auto do_model(Clingo::Model model) -> bool override {
         if (model.optimality_proven()) {
@@ -149,8 +149,8 @@ struct Fixture {
 
         ctl.parse_string(THEORY);
         auto prg = Clingo::AST::Program{lib};
-        Clingo::AST::parse(lib, str, [&](auto const &stm) {
-            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        Clingo::AST::parse(lib, str, [&](auto const &stm) -> auto {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) -> auto { prg.add(stm); }, true);
         });
         ctl.join(prg);
 
@@ -221,8 +221,8 @@ struct Fixture {
         ctl.parse_string(THEORY);
 
         auto prg = Clingo::AST::Program{lib};
-        Clingo::AST::parse(lib, str, [&](auto const &stm) {
-            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        Clingo::AST::parse(lib, str, [&](auto const &stm) -> auto {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) -> auto { prg.add(stm); }, true);
         });
         ctl.join(prg);
 
@@ -275,8 +275,8 @@ struct Fixture {
 
         ctl.parse_string(THEORY);
         auto prg = Clingo::AST::Program{lib};
-        Clingo::AST::parse(lib, str, [&](auto const &stm) {
-            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+        Clingo::AST::parse(lib, str, [&](auto const &stm) -> auto {
+            Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) -> auto { prg.add(stm); }, true);
         });
         ctl.join(prg);
 
@@ -295,7 +295,7 @@ struct Fixture {
             } else {
                 stat = ctl.stats()["summary"].map();
                 if (stat.contains("costs")) {
-                    bound = static_cast<val_t>(stat["costs"][size_t(0)].value());
+                    bound = static_cast<val_t>(stat["costs"][static_cast<size_t>(0)].value());
                 }
             }
             bounds.emplace_back(bound);

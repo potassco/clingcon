@@ -38,7 +38,7 @@ namespace {
 
 class TestBuilder : public Clingcon::AbstractConstraintBuilder {
   public:
-    TestBuilder(std::ostringstream &oss) : oss_{oss} {}
+    explicit TestBuilder(std::ostringstream &oss) : oss_{oss} {}
     TestBuilder(TestBuilder const &) = delete;
     TestBuilder(TestBuilder &&) = delete;
     auto operator=(TestBuilder const &) -> TestBuilder & = delete;
@@ -221,10 +221,10 @@ struct Fixture {
 
     [[nodiscard]] auto transform(std::string_view str, bool shift = true) const -> std::string {
         std::ostringstream oss;
-        Clingo::AST::parse(lib, str, [&](auto const &stm) {
+        Clingo::AST::parse(lib, str, [&](auto const &stm) -> auto {
             Clingcon::transform(
                 lib, stm,
-                [&](Clingo::AST::Node const &stm) {
+                [&](Clingo::AST::Node const &stm) -> void {
                     if (stm.type() != Clingo::AST::NodeType::statement_program) {
                         oss << stm.to_string();
                     }
@@ -239,8 +239,8 @@ struct Fixture {
         ctl.parse_string(THEORY);
         {
             auto prg = Clingo::AST::Program{lib};
-            Clingo::AST::parse(lib, str, [&](auto const &stm) {
-                Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) { prg.add(stm); }, true);
+            Clingo::AST::parse(lib, str, [&](auto const &stm) -> auto {
+                Clingcon::transform(lib, stm, [&](Clingo::AST::Node const &stm) -> void { prg.add(stm); }, true);
             });
             ctl.join(prg);
         }

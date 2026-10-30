@@ -553,8 +553,9 @@ class VarState {
         for (; ib != ie && *ib == 0; ++ib) {
         };
         return std::invoke(
-            std::forward<F>(f), ib, ie, [](auto it) { return *it; }, [&](auto it) { return get_val_(it); },
-            [ie](auto &it) {
+            std::forward<F>(f), ib, ie, [](auto it) -> auto { return *it; },
+            [&](auto it) -> auto { return get_val_(it); },
+            [ie](auto &it) -> auto {
                 for (++it; it != ie && *it == 0; ++it) {
                 };
             });
@@ -562,8 +563,8 @@ class VarState {
 
     template <typename F, typename It> auto call_map_(F &&f, It ib, It ie) const {
         return std::invoke(
-            std::forward<F>(f), ib, ie, [](auto it) { return it->second; }, [](auto it) { return it->first; },
-            [](auto &it) { ++it; });
+            std::forward<F>(f), ib, ie, [](auto it) -> auto { return it->second; },
+            [](auto it) -> auto { return it->first; }, [](auto &it) -> auto { ++it; });
     }
 
     var_t var_;                    //!< variable associated with the state

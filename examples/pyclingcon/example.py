@@ -1,8 +1,7 @@
+from clingcon import create_theory
 from clingo.control import Control
 from clingo.core import Library
 from clingo.theory import Theory
-
-from clingcon import create_theory
 
 enc = "a. &sum { x } >= 1. &sum { x } <= 3."
 

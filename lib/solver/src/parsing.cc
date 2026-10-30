@@ -134,14 +134,14 @@ auto shift_rule(Clingo::Library const &lib, Clingo::AST::Node ast) -> Clingo::AS
         check_syntax(guard.has_value());
         if (lit.number(Attribute::sign) != Sign::single) {
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-            guard = guard->update<NodeType::theory_right_guard>(lib, [&]<Attribute Attr>() {
+            guard = guard->update<NodeType::theory_right_guard>(lib, [&]<Attribute Attr>() -> auto {
                 if constexpr (Attr == Attribute::theory_operator) {
                     return negate_relation(guard->string(Attribute::theory_operator));
                 }
             });
         }
         body.erase(it);
-        return ast.update<NodeType::statement_rule>(lib, [&]<Attribute Attr>() {
+        return ast.update<NodeType::statement_rule>(lib, [&]<Attribute Attr>() -> auto {
             if constexpr (Attr == Attribute::head) {
                 return Node::create<NodeType::head_theory_atom>(lib, lit.location(Attribute::location), name, elems,
                                                                 guard);
@@ -158,7 +158,7 @@ auto shift_rule(Clingo::Library const &lib, Clingo::AST::Node ast) -> Clingo::AS
 [[maybe_unused]] auto tag_terms(Clingo::Library const &lib, Clingo::AST::Node const &ast, std::string_view tag)
     -> Clingo::AST::Node {
     using namespace Clingo::AST;
-    auto tag_string = [tag](std::string_view str) {
+    auto tag_string = [tag](std::string_view str) -> std::string {
         auto res = std::string{"__"};
         res.reserve(res.size() + str.size() + tag.size());
         res += str;
@@ -172,7 +172,7 @@ auto shift_rule(Clingo::Library const &lib, Clingo::AST::Node ast) -> Clingo::AS
         return Node::create<NodeType::term_symbolic>(lib, ast.location(Attribute::location), sym);
     }
     if (ast.type() == NodeType::term_function) {
-        return ast.update<NodeType::term_function>(lib, [&]<Attribute Attr>() {
+        return ast.update<NodeType::term_function>(lib, [&]<Attribute Attr>() -> auto {
             if constexpr (Attr == Attribute::name) {
                 return tag_string(ast.string(Attribute::name));
             }
@@ -188,7 +188,7 @@ void collect_variables(VarSet &vars, Clingo::AST::Node const &ast) {
         ast.type() == Clingo::AST::NodeType::theory_term_variable) {
         vars.emplace(ast.string(Clingo::AST::Attribute::name));
     } else {
-        ast.accept([&vars](auto const &child) { collect_variables(vars, child); });
+        ast.accept([&vars](auto const &child) -> auto { collect_variables(vars, child); });
     }
 }
 
@@ -215,7 +215,7 @@ template <Clingo::AST::NodeType N> struct Update {
 // NOTE: condidate to put in clingo
 class Unpooler {
   public:
-    Unpooler(Clingo::Library const &lib) : lib_{&lib} {}
+    explicit Unpooler(Clingo::Library const &lib) : lib_{&lib} {}
 
     //! Unpools vectors of simple literals and terms.
     auto unpool(std::vector<Clingo::AST::Node> const &nodes) -> std::vector<std::vector<Clingo::AST::Node>> {
@@ -250,7 +250,7 @@ class Unpooler {
             case NodeType::right_guard: {
                 std::vector<Node> result;
                 for (auto const &arg : unpool(node.node(Attribute::term))) {
-                    result.emplace_back(node.update<NodeType::right_guard>(*lib_, [&]<Attribute Attr>() {
+                    result.emplace_back(node.update<NodeType::right_guard>(*lib_, [&]<Attribute Attr>() -> auto {
                         if constexpr (Attr == Attribute::term) {
                             return arg;
                         }
@@ -262,7 +262,7 @@ class Unpooler {
                 std::vector<Node> result;
                 for (auto const &pool : node.nodes(Attribute::pool)) {
                     for (auto const &arg : unpool(pool)) {
-                        result.emplace_back(node.update<NodeType::term_function>(*lib_, [&]<Attribute Attr>() {
+                        result.emplace_back(node.update<NodeType::term_function>(*lib_, [&]<Attribute Attr>() -> auto {
                             if constexpr (Attr == Attribute::pool) {
                                 return std::vector{arg};
                             }
@@ -275,7 +275,7 @@ class Unpooler {
                 std::vector<Node> result;
                 for (auto const &term : node.nodes(Attribute::pool)) {
                     for (auto const &unpooled : unpool(term)) {
-                        result.emplace_back(node.update<NodeType::term_absolute>(*lib_, [&]<Attribute Attr>() {
+                        result.emplace_back(node.update<NodeType::term_absolute>(*lib_, [&]<Attribute Attr>() -> auto {
                             if constexpr (Attr == Attribute::pool) {
                                 return std::vector{unpooled};
                             }
@@ -288,14 +288,15 @@ class Unpooler {
                 std::vector<Node> result;
                 for (auto const &lhs : unpool(node.node(Attribute::left))) {
                     for (auto const &rhs : unpool(node.node(Attribute::right))) {
-                        result.emplace_back(node.update<NodeType::term_binary_operation>(*lib_, [&]<Attribute Attr>() {
-                            if constexpr (Attr == Attribute::left) {
-                                return lhs;
-                            }
-                            if constexpr (Attr == Attribute::right) {
-                                return rhs;
-                            }
-                        }));
+                        result.emplace_back(
+                            node.update<NodeType::term_binary_operation>(*lib_, [&]<Attribute Attr>() -> auto {
+                                if constexpr (Attr == Attribute::left) {
+                                    return lhs;
+                                }
+                                if constexpr (Attr == Attribute::right) {
+                                    return rhs;
+                                }
+                            }));
                     }
                 }
                 return result;
@@ -304,7 +305,7 @@ class Unpooler {
                 std::vector<Node> result;
                 for (auto const &pool : node.nodes(Attribute::pool)) {
                     for (auto const &arg : unpool(pool)) {
-                        result.emplace_back(node.update<NodeType::term_tuple>(*lib_, [&]<Attribute Attr>() {
+                        result.emplace_back(node.update<NodeType::term_tuple>(*lib_, [&]<Attribute Attr>() -> auto {
                             if constexpr (Attr == Attribute::pool) {
                                 return std::vector{arg};
                             }
@@ -316,11 +317,12 @@ class Unpooler {
             case Clingo::AST::NodeType::term_unary_operation: {
                 std::vector<Node> result;
                 for (auto const &rhs : unpool(node.node(Attribute::right))) {
-                    result.emplace_back(node.update<NodeType::term_unary_operation>(*lib_, [&]<Attribute Attr>() {
-                        if constexpr (Attr == Attribute::right) {
-                            return rhs;
-                        }
-                    }));
+                    result.emplace_back(
+                        node.update<NodeType::term_unary_operation>(*lib_, [&]<Attribute Attr>() -> auto {
+                            if constexpr (Attr == Attribute::right) {
+                                return rhs;
+                            }
+                        }));
                 }
                 return result;
             }
@@ -328,14 +330,15 @@ class Unpooler {
                 std::vector<Node> result;
                 for (auto const &lhs : unpool(node.node(Attribute::left))) {
                     for (auto const &rhs : unpool(node.nodes(Attribute::right))) {
-                        result.emplace_back(node.update<NodeType::literal_comparison>(*lib_, [&]<Attribute Attr>() {
-                            if constexpr (Attr == Attribute::left) {
-                                return lhs;
-                            }
-                            if constexpr (Attr == Attribute::right) {
-                                return rhs;
-                            }
-                        }));
+                        result.emplace_back(
+                            node.update<NodeType::literal_comparison>(*lib_, [&]<Attribute Attr>() -> auto {
+                                if constexpr (Attr == Attribute::left) {
+                                    return lhs;
+                                }
+                                if constexpr (Attr == Attribute::right) {
+                                    return rhs;
+                                }
+                            }));
                     }
                 }
                 return result;
@@ -343,7 +346,7 @@ class Unpooler {
             case Clingo::AST::NodeType::literal_symbolic: {
                 std::vector<Node> result;
                 for (auto const &atom : unpool(node.node(Attribute::atom))) {
-                    result.emplace_back(node.update<NodeType::literal_symbolic>(*lib_, [&]<Attribute Attr>() {
+                    result.emplace_back(node.update<NodeType::literal_symbolic>(*lib_, [&]<Attribute Attr>() -> auto {
                         if constexpr (Attr == Attribute::atom) {
                             return atom;
                         }
@@ -404,7 +407,7 @@ auto lift(Clingo::Library const &lib, Clingo::AST::Node const &ast) -> std::opti
         return sub;
     };
     if (auto x = trans(ast)) {
-        return x->update<NodeType::theory_atom_element>(lib, [&]<A Attr>() {
+        return x->update<NodeType::theory_atom_element>(lib, [&]<A Attr>() -> auto {
             if constexpr (Attr == A::condition) {
                 auto cond = x->nodes(A::condition);
                 cond.insert(cond.end(), lifted.begin(), lifted.end());
@@ -423,7 +426,7 @@ auto rewrite_elements(Clingo::Library const &lib, Clingo::AST::Node const &ast) 
     Unpooler upl{lib};
     for (auto const &elem : ast.nodes(Attribute::elements)) {
         for (auto const &cond : upl.unpool(elem.nodes(Attribute::condition))) {
-            auto x = elem.update<NodeType::theory_atom_element>(lib, [&]<Attribute A>() {
+            auto x = elem.update<NodeType::theory_atom_element>(lib, [&]<Attribute A>() -> auto {
                 if constexpr (A == Attribute::condition) {
                     return cond;
                 }
@@ -434,7 +437,7 @@ auto rewrite_elements(Clingo::Library const &lib, Clingo::AST::Node const &ast) 
             result.emplace_back(std::move(x));
         }
     }
-    return ast.update<T>(lib, [&]<Attribute A>() {
+    return ast.update<T>(lib, [&]<Attribute A>() -> auto {
         if constexpr (A == Attribute::elements) {
             return result;
         }
@@ -466,7 +469,7 @@ auto rewrite_tuple(Clingo::Library const &lib, Clingo::AST::Node const &ast) -> 
                 auto num = Node::create<T::theory_term_variable>(lib, loc, name, false);
                 tuple.emplace_back(std::move(num));
             }
-            return ast.update<T::theory_atom_element>(lib, [&]<A Attr>() {
+            return ast.update<T::theory_atom_element>(lib, [&]<A Attr>() -> auto {
                 if constexpr (Attr == A::tuple) {
                     return tuple;
                 }
@@ -632,17 +635,6 @@ using VarVec = std::vector<var_t>;
 using NonlinearTerm = std::pair<val_t, VarVec>;
 using NonlinearTermVec = std::vector<NonlinearTerm>;
 
-// NOTE: no need for a good hash function
-struct VectorHash {
-    template <class T> auto operator()(std::vector<T> const &vec) const -> std::size_t {
-        std::size_t ret = 0;
-        for (auto &i : vec) {
-            ret += std::hash<T>()(i);
-        }
-        return ret;
-    }
-};
-
 void push_co(val_t co, CoVarVec &res) {
     res.emplace_back(co, INVALID_VAR);
 }
@@ -686,6 +678,17 @@ void push_value(Clingo::Symbol const &sym, NonlinearTermVec &res) {
 }
 using Clingcon::simplify;
 
+// NOTE: no need for a good hash function
+struct VectorHash {
+    template <class T> [[maybe_unused]] auto operator()(std::vector<T> const &vec) const -> std::size_t {
+        std::size_t ret = 0;
+        for (auto &i : vec) {
+            ret += std::hash<T>()(i);
+        }
+        return ret;
+    }
+};
+
 auto simplify(NonlinearTermVec &vec, bool drop_zero) -> val_t {
     static thread_local std::unordered_map<VarVec, NonlinearTermVec::iterator, VectorHash> seen;
     val_t rhs = 0;
@@ -712,7 +715,7 @@ auto simplify(NonlinearTermVec &vec, bool drop_zero) -> val_t {
     }
 
     if (drop_zero) {
-        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; });
+        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) -> auto { return co_var.first == 0; });
     }
 
     vec.erase(jt, vec.end());
@@ -1209,7 +1212,7 @@ auto simplify(CoVarVec &vec, bool drop_zero) -> val_t {
     }
 
     if (drop_zero) {
-        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) { return co_var.first == 0; });
+        jt = std::remove_if(vec.begin(), jt, [](auto &co_var) -> auto { return co_var.first == 0; });
     }
 
     vec.erase(jt, vec.end());
@@ -1233,7 +1236,7 @@ void transform(Clingo::Library const &lib, Clingo::AST::Node const &ast, NodeCal
         res = shift_rule(lib, ast);
     }
     if (auto x = rewrite_theory(lib, res ? *res : ast)) {
-        res = x;
+        res = std::move(x);
     }
     cb(res ? *std::move(res) : ast);
 }
@@ -1246,11 +1249,10 @@ auto parse(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Cling
         bool is_diff_h = match(atom.name(), "__diff_h", 0);
         bool is_nsum_h = match(atom.name(), "__nsum_h", 0);
         bool is_nsum_b = match(atom.name(), "__nsum_b", 0);
-        if (is_sum_b || is_sum_h) {
-            if (!parse_constraint<CoVarVec>(lib, builder, atom, is_sum_b)) {
-                return false;
-            }
+        if ((is_sum_b || is_sum_h) && (!parse_constraint<CoVarVec>(lib, builder, atom, is_sum_b))) {
+            return false;
         }
+
         if (is_diff_b || is_diff_h) {
             if (!parse_constraint<CoVarVec, false>(lib, builder, atom, is_diff_b)) {
                 return false;
@@ -1278,10 +1280,8 @@ auto parse(Clingo::Library const &lib, AbstractConstraintBuilder &builder, Cling
             if (!parse_objective(lib, builder, atom, 1)) {
                 return false;
             }
-        } else if (match(atom.name(), "maximize", 0)) {
-            if (!parse_objective(lib, builder, atom, -1)) {
-                return false;
-            }
+        } else if (match(atom.name(), "maximize", 0) && (!parse_objective(lib, builder, atom, -1))) {
+            return false;
         }
     }
     return true;

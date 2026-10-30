@@ -26,6 +26,8 @@
 #include "clingcon/parsing.hh"
 #include "clingcon/propagator.hh"
 
+#include "clingcon_git_hash.h"
+
 #include <clingo/app.hh>
 #include <clingo/control.h>
 #include <clingo/control.hh>
@@ -79,8 +81,8 @@ auto check(clingo_assignment_t const *assignment, clingo_propagate_control_t *co
     CLINGO_CATCH;
 }
 
-auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data,
-            clingo_literal_t *result) -> bool {
+auto decide(clingo_assignment_t const *assignment, clingo_literal_t fallback, void *data, clingo_literal_t *result)
+    -> bool {
     CLINGO_TRY {
         *result = static_cast<Propagator *>(data)->decide(Clingo::Assignment{assignment}, fallback);
     }
@@ -133,12 +135,13 @@ inline auto to_lower(char c) -> char {
 
 //! Check if two strings are lower case equal.
 auto iequals(std::string_view a, std::string_view b) -> bool {
-    return a.size() == b.size() && std::ranges::equal(a, b, [](char a, char b) { return to_lower(a) == to_lower(b); });
+    return a.size() == b.size() &&
+           std::ranges::equal(a, b, [](char a, char b) -> bool { return to_lower(a) == to_lower(b); });
 }
 
 template <typename Enum, size_t N> class EnumStringMap {
   public:
-    constexpr EnumStringMap(const std::array<std::pair<std::string_view, Enum>, N> &map) : map_{map} {}
+    constexpr explicit EnumStringMap(const std::array<std::pair<std::string_view, Enum>, N> &map) : map_{map} {}
 
     [[nodiscard]] auto from_string(std::string_view value) const -> Enum {
         for (const auto &[name, mode] : map_) {
@@ -169,7 +172,7 @@ constexpr auto make_enum_string_map(std::pair<std::string_view, Enum> const (&ma
 
 class ConfigClause {
   public:
-    ConfigClause(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigClause(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) {
         auto comma = value.find(',');
@@ -197,7 +200,7 @@ class ConfigClause {
 
 class ConfigBP {
   public:
-    ConfigBP(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigBP(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_weight_constraint_ratio(parse_num<double>(value)); }
 
@@ -218,7 +221,7 @@ class ConfigBP {
 
 class ConfigDistinct {
   public:
-    ConfigDistinct(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigDistinct(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_distinct_limit(parse_num<uint32_t>(value)); }
 
@@ -239,7 +242,7 @@ class ConfigDistinct {
 
 class ConfigOpt {
   public:
-    ConfigOpt(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigOpt(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_translate_minimize(parse_num<uint32_t>(value)); }
 
@@ -263,7 +266,7 @@ class ConfigOpt {
 
 class ConfigHeuristic {
   public:
-    ConfigHeuristic(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigHeuristic(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_heuristic(map_.from_string(value), index);
@@ -295,7 +298,7 @@ class ConfigHeuristic {
 
 class ConfigSign {
   public:
-    ConfigSign(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigSign(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         if (value == "+") {
@@ -346,7 +349,7 @@ auto parse_bool(std::string_view value) -> bool {
 
 class ConfigReason {
   public:
-    ConfigReason(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigReason(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_refine_reasons(parse_bool(value), index);
@@ -371,7 +374,7 @@ class ConfigReason {
 
 class ConfigIntroduce {
   public:
-    ConfigIntroduce(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigIntroduce(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_refine_introduce(parse_bool(value), index);
@@ -396,7 +399,7 @@ class ConfigIntroduce {
 
 class ConfigChain {
   public:
-    ConfigChain(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigChain(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) {
         cfg_->set_propagate_chain(parse_bool(value), index);
@@ -421,7 +424,7 @@ class ConfigChain {
 
 class ConfigSplit {
   public:
-    ConfigSplit(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigSplit(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::optional<size_t> index, std::string_view value) { cfg_->set_split_all(parse_bool(value), index); }
 
@@ -444,7 +447,7 @@ class ConfigSplit {
 
 class ConfigBool {
   public:
-    ConfigBool(bool &target) : target_{&target} {}
+    explicit ConfigBool(bool &target) : target_{&target} {}
 
     void set(std::string_view value) {
         if (iequals(value, "no") || iequals(value, "off") || iequals(value, "0")) {
@@ -464,7 +467,7 @@ class ConfigBool {
 
 class ConfigMin {
   public:
-    ConfigMin(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigMin(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_min_int(parse_num<val_t>(value, MIN_VAL, MAX_VAL)); }
 
@@ -482,7 +485,7 @@ class ConfigMin {
 
 class ConfigMax {
   public:
-    ConfigMax(Config &cfg) : cfg_{&cfg} {}
+    explicit ConfigMax(Config &cfg) : cfg_{&cfg} {}
 
     void set(std::string_view value) { cfg_->set_max_int(parse_num<val_t>(value, MIN_VAL, MAX_VAL)); }
 
@@ -524,7 +527,7 @@ auto desc_state() {
 }
 
 template <class T> auto parser(Config &config) {
-    return [&config](std::string_view value) { T{config}.set(value); };
+    return [&config](std::string_view value) -> auto { T{config}.set(value); };
 }
 
 //! Turn the comma separated suffix of value into a thread id.
@@ -540,14 +543,15 @@ auto parse_thread(std::string_view value) -> std::pair<std::optional<clingo_id_t
 }
 
 template <class T> auto parser_thread(Config &config) {
-    return [&config](std::string_view value) {
+    return [&config](std::string_view value) -> auto {
         auto [index, span] = parse_thread(value);
         T{config}.set(index, span);
     };
 }
 
 struct clingcon_theory {
-    static auto info([[maybe_unused]] void *self, clingo_string_t *name, int *major, int *minor, int *patch) -> bool {
+    static auto info([[maybe_unused]] void *self, clingo_string_t *name, int *major, int *minor, int *patch,
+                     clingo_string_t *hash) -> bool {
         using namespace std::string_view_literals;
         CLINGO_TRY {
             if (name != nullptr) {
@@ -563,6 +567,15 @@ struct clingcon_theory {
             }
             if (patch != nullptr) {
                 *patch = CLINGCON_VERSION_REVISION;
+            }
+            if (hash != nullptr) {
+#ifdef CLINGCON_GIT_HASH
+                constexpr auto str = std::string_view{CLINGCON_GIT_HASH};
+#else
+                constexpr auto str = std::string_view{""};
+#endif
+                hash->data = str.data();
+                hash->size = str.size();
             }
         }
         CLINGO_CATCH;
@@ -603,7 +616,7 @@ struct clingcon_theory {
         CLINGO_TRY {
             transform(
                 theory->lib, Clingo::AST::Node{ast, true},
-                [add, data](Clingo::AST::Node const &ast) { handle_error(add(c_cast(ast), data)); },
+                [add, data](Clingo::AST::Node const &ast) -> void { handle_error(add(c_cast(ast), data)); },
                 theory->shift_constraints);
         }
         CLINGO_CATCH;
@@ -612,10 +625,12 @@ struct clingcon_theory {
     static auto prepare(void *self, clingo_control_t *control) -> bool {
         CLINGO_TRY {
             if (auto *theory = static_cast<clingcon_theory *>(self); !theory->initialized) {
-                static constexpr clingo_propagator_t propagator = {init,  nullptr, propagate, undo,
-                                                                   check, nullptr, nullptr};
-                static constexpr clingo_propagator_t heuristic = {init,  nullptr, propagate, undo,
-                                                                  check, decide,  nullptr};
+                static constexpr clingo_propagator_t propagator = {
+                    init, nullptr, propagate, undo, check, nullptr, nullptr,
+                };
+                static constexpr clingo_propagator_t heuristic = {
+                    init, nullptr, propagate, undo, check, decide, nullptr,
+                };
                 theory->initialized = true;
                 auto &cnf = theory->propagator.config();
                 handle_error(clingo_control_register_propagator(control, cnf.has_heuristic() ? &heuristic : &propagator,

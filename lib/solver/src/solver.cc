@@ -76,7 +76,7 @@ class Solver::Level {
     //! bounds are used.
     void update_constraints_(Solver &solver, var_t var, val_t diff) const {
         auto &watches = solver.var_watches_[var];
-        erase_if(watches, [&](auto const &value_cs) {
+        erase_if(watches, [&](auto const &value_cs) -> auto {
             if (!value_cs.second->removable(level_)) {
                 if (value_cs.second->update(value_cs.first, diff)) {
                     Level::mark_todo(solver, *value_cs.second);
@@ -198,19 +198,19 @@ class Solver::Level {
 
         for (auto &watches : solver.var_watches_) {
             watches.erase(std::remove_if(watches.begin(), watches.end(),
-                                         [in_removed](auto &watch) { return in_removed(*watch.second); }),
+                                         [in_removed](auto &watch) -> auto { return in_removed(*watch.second); }),
                           watches.end());
         }
 
         solver.inactive_.erase(std::remove_if(solver.inactive_.begin(), solver.inactive_.end(),
-                                              [in_removed](auto *cs) {
+                                              [in_removed](auto *cs) -> auto {
                                                   cs->mark_active();
                                                   return in_removed(*cs);
                                               }),
                                solver.inactive_.end());
 
         solver.todo_.erase(std::remove_if(solver.todo_.begin(), solver.todo_.end(),
-                                          [in_removed](auto *cs) {
+                                          [in_removed](auto *cs) -> auto {
                                               cs->mark_todo(false);
                                               return in_removed(*cs);
                                           }),
@@ -596,7 +596,7 @@ auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     // has to be removed.
     if (jdx < constraints.size()) {
         std::sort(constraints.begin() + static_cast<ptrdiff_t>(jdx), constraints.end());
-        auto in_removed = [jdx, &constraints](AbstractConstraintState &cs) {
+        auto in_removed = [jdx, &constraints](AbstractConstraintState &cs) -> bool {
             struct {
                 auto operator()(UniqueConstraint const &a, AbstractConstraint const *b) -> bool { return a.get() < b; }
                 auto operator()(AbstractConstraint const *b, UniqueConstraint const &a) -> bool { return b < a.get(); }
@@ -625,18 +625,19 @@ auto Solver::translate(InitClauseCreator &cc, Statistics &stats, Config const &c
     // handle this.
     if (conf.add_order_clauses) {
         for (auto &vs : var2vs_) {
-            if (!vs.with([&](auto ib, auto ie, auto get_lit, auto, auto inc) { // NOLINT(readability-named-parameter)
-                    lit_t prev = -TRUE_LIT;
-                    for (auto it = ib; it != ie; inc(it)) {
-                        auto lit = get_lit(it);
-                        // lit<=val-1  => lit<=val
-                        if (prev != -TRUE_LIT && !cc.add_clause(std::to_array({-prev, lit}))) {
-                            return false;
+            if (!vs.with(
+                    [&](auto ib, auto ie, auto get_lit, auto, auto inc) -> auto { // NOLINT(readability-named-parameter)
+                        lit_t prev = -TRUE_LIT;
+                        for (auto it = ib; it != ie; inc(it)) {
+                            auto lit = get_lit(it);
+                            // lit<=val-1  => lit<=val
+                            if (prev != -TRUE_LIT && !cc.add_clause(std::to_array({-prev, lit}))) {
+                                return false;
+                            }
+                            prev = lit;
                         }
-                        prev = lit;
-                    }
-                    return true;
-                })) {
+                        return true;
+                    })) {
                 return false;
             }
         }
@@ -740,10 +741,11 @@ auto Solver::update_upper_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
     }
     assert(vs.lower_bound() <= vs.upper_bound());
     return ass.is_true(succ_lit) ||
-           vs.with_gt(value, [&](auto it, auto ie, auto &&get_lit, [[maybe_unused]] auto const &get_val, auto &&inc) {
-               return propagate_variables_<1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
-                                              std::forward<decltype(inc)>(inc));
-           });
+           vs.with_gt(value,
+                      [&](auto it, auto ie, auto &&get_lit, [[maybe_unused]] auto const &get_val, auto &&inc) -> auto {
+                          return propagate_variables_<1>(cc, lit, it, ie, std::forward<decltype(get_lit)>(get_lit),
+                                                         std::forward<decltype(inc)>(inc));
+                      });
 }
 
 auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit_t lit, val_t value, lit_t prev_lit)
@@ -760,11 +762,15 @@ auto Solver::update_lower_(Level &lvl, AbstractClauseCreator &cc, var_t var, lit
         lvl.update_lower(*this, vs, value);
     }
     assert(vs.lower_bound() <= vs.upper_bound());
-    return ass.is_true(-prev_lit) || vs.with_lt(value, [&]<class It>(It &&it, It &&ie, auto &&get_lit,
-                                                                     [[maybe_unused]] auto const &get_val, auto &&inc) {
-        return propagate_variables_<-1>(cc, lit, std::forward<It>(it), std::forward<It>(ie),
-                                        std::forward<decltype(get_lit)>(get_lit), std::forward<decltype(inc)>(inc));
-    });
+    return ass.is_true(-prev_lit) ||
+           vs.with_lt(value,
+                      // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
+                      [&]<class It>(It &&it, It &&ie, auto &&get_lit, [[maybe_unused]] auto const &get_val,
+                                    auto &&inc) -> auto {
+                          return propagate_variables_<-1>(cc, lit, std::forward<It>(it), std::forward<It>(ie),
+                                                          std::forward<decltype(get_lit)>(get_lit),
+                                                          std::forward<decltype(inc)>(inc));
+                      });
 }
 
 auto Solver::update_domain_(AbstractClauseCreator &cc, lit_t lit) -> bool {
@@ -935,7 +941,7 @@ auto Solver::decide(Clingo::Assignment const &assign, lit_t fallback) -> lit_t {
 }
 
 void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
-    auto split = [&](VarState &vs) {
+    auto split = [&](VarState &vs) -> bool {
         if (!vs.is_assigned()) {
             auto value = midpoint(vs.lower_bound(), vs.upper_bound());
             static_cast<void>(get_literal(cc, vs, value));
@@ -957,7 +963,7 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
         auto im = ib + split_last_;
         auto ie = var2vs_.end();
 
-        auto split_once = [&](auto it) {
+        auto split_once = [&](auto it) -> auto {
             if (split(*it)) {
                 split_last_ = it - ib;
                 return true;

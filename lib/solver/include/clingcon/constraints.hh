@@ -92,7 +92,7 @@ class SumConstraint final : public AbstractConstraint {
         auto rng = std::span{elements_, elems.size()}; // NOLINT
         std::ranges::copy(elems, rng.begin());
         if (sort) {
-            std::ranges::sort(rng, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); });
+            std::ranges::sort(rng, [](auto a, auto b) -> auto { return std::abs(a.first) > std::abs(b.first); });
         }
     }
 
@@ -199,7 +199,7 @@ class MinimizeConstraint final : public AbstractConstraint {
         auto rng = std::span{elements_, elems.size()}; // NOLINT
         std::ranges::copy(elems, rng.begin());
         if (sort) {
-            std::ranges::sort(rng, [](auto a, auto b) { return std::abs(a.first) > std::abs(b.first); });
+            std::ranges::sort(rng, [](auto a, auto b) -> auto { return std::abs(a.first) > std::abs(b.first); });
         }
     }
 

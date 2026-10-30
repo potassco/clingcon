@@ -73,7 +73,7 @@ template <class T, class S> inline auto safe_cast(S s) -> T {
 //! Calculate the midpoint of two values of integral type.
 template <typename I> auto midpoint(I a, I b) noexcept -> I {
     using U = std::make_unsigned_t<I>;
-    return static_cast<I>(static_cast<U>(a) + (static_cast<U>(b) - static_cast<U>(a)) / 2);
+    return static_cast<I>(static_cast<U>(a) + ((static_cast<U>(b) - static_cast<U>(a)) / 2));
 }
 
 template <typename I> auto floordiv(I n, I m) -> I {
@@ -103,7 +103,7 @@ class Timer {
 
   public:
     //! Start the timer given a target where to store the elapsed time.
-    Timer(double &target) : target_{target}, start_{Clock::now()} {}
+    explicit Timer(double &target) : target_{target}, start_{Clock::now()} {}
 
     //! Stop the timer storing the result.
     ~Timer() { target_ += Duration{Clock::now() - start_}.count(); }
@@ -133,11 +133,11 @@ template <class T> struct FlagUnique {
 template <typename T, class Flagger = FlagUnique<T>> class UniqueVector : private Flagger {
   public:
     using Vector = std::vector<T>;
-    using Iterator = typename Vector::iterator;
-    using ConstIterator = typename Vector::const_iterator;
+    using Iterator = Vector::iterator;
+    using ConstIterator = Vector::const_iterator;
 
     //! Create an empty vector.
-    UniqueVector(const Flagger &m = Flagger()) : Flagger(m) {}
+    explicit UniqueVector(const Flagger &m = Flagger()) : Flagger(m) {}
 
     //! Destroy the vector but does *not* unmarking the contained elements.
     ~UniqueVector() = default;
@@ -231,8 +231,8 @@ template <typename T, class Flagger = FlagUnique<T>> class UniqueVector : privat
 template <typename T> class IntervalSet {
   public:
     using Map = std::map<T, T>;
-    using Iterator = typename Map::const_iterator;
-    using ReverseIterator = typename Map::const_reverse_iterator;
+    using Iterator = Map::const_iterator;
+    using ReverseIterator = Map::const_reverse_iterator;
 
     //! Create an empty interval set.
     IntervalSet() = default;

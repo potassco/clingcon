@@ -32,19 +32,13 @@ def find(path, target):
             elif re.match(r"^.*\.(yy)$", filename):
                 name, ext = os.path.splitext(filename)
                 path = "".join([d + "/" for d in components[:-1]])
-                header[os.path.join(root, name)] = (
-                    """\
+                header[os.path.join(root, name)] = """\
     "${{CMAKE_CURRENT_SOURCE_DIR}}/{path}{name}{ext}"
     ${{BISON_{name}_OUTPUTS}}
-""".format(
-                        name=name, ext=ext, path=path
-                    )
-                )
+""".format(name=name, ext=ext, path=path)
                 output += """\
 bison_target_or_gen("{path}{name}{ext}")
-""".format(
-                    name=name, path=path, ext=ext
-                )
+""".format(name=name, path=path, ext=ext)
             elif re.match(r"^.*\.(xh|xch)$", filename):
                 header.setdefault(root, "")
                 name, ext = os.path.splitext(filename)
@@ -52,19 +46,13 @@ bison_target_or_gen("{path}{name}{ext}")
                 options = ""
                 if ext == ".xch":
                     options = " OPTIONS -c"
-                header[
-                    root
-                ] += """\
+                header[root] += """\
     "${{CMAKE_CURRENT_SOURCE_DIR}}{path}/{name}{ext}"
     ${{RE2C_{name}_OUTPUT}}
-""".format(
-                    name=name, ext=ext, path=path
-                )
+""".format(name=name, ext=ext, path=path)
                 output += """\
 re2c_target_or_gen("{path}/{name}{ext}")
-""".format(
-                    name=name, path=path, ext=ext, options=options
-                )
+""".format(name=name, path=path, ext=ext, options=options)
 
     output += 'set(ide_{}_group "{} Files")\n'.format(target, target.title())
 

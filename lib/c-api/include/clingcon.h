@@ -65,7 +65,7 @@ extern "C" {
 #endif
 #endif
 
-CLINGCON_VISIBILITY_DEFAULT bool clingcon_create(clingo_lib_t *lib, clingo_theory_t *theory);
+CLINGCON_VISIBILITY_DEFAULT auto clingcon_create(clingo_lib_t *lib, clingo_theory_t *theory) -> bool;
 
 #ifdef __cplusplus
 }

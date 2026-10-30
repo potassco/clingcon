@@ -34,7 +34,7 @@ namespace {
 //! Implements propagation for sum and minimize constraints.
 template <bool tagged, typename T> class SumConstraintStateImpl final : public T {
   public:
-    SumConstraintStateImpl(decltype(T::constraint_) constraint) : T{constraint} {}
+    explicit SumConstraintStateImpl(decltype(T::constraint_) constraint) : T{constraint} {}
     SumConstraintStateImpl(SumConstraintStateImpl &&) = delete;
 
     [[nodiscard]] auto copy() const -> UniqueConstraintState override {
@@ -206,7 +206,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             if (co_r > 0) {
                 delta_r = -floordiv<sum_t>(slack + 1, -co_r);
                 value_r = vs_r.lower_bound() + delta_r;
-                assert(slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r - 1));
+                assert(slack - (co_r * delta_r) < 0 && 0 <= slack - (co_r * (delta_r - 1)));
                 // values above the upper bound are already true;
                 if (value_r >= vs_r.upper_bound()) {
                     continue;
@@ -218,7 +218,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             } else {
                 delta_r = floordiv<sum_t>(slack + 1, co_r);
                 value_r = vs_r.upper_bound() + delta_r;
-                assert(slack - co_r * delta_r < 0 && 0 <= slack - co_r * (delta_r + 1));
+                assert(slack - (co_r * delta_r) < 0 && 0 <= slack - (co_r * (delta_r + 1)));
                 // values below the lower bound are already false
                 if (value_r < vs_r.lower_bound()) {
                     continue;
@@ -439,7 +439,7 @@ class SumConstraintState : public AbstractConstraintState {
     }
 
   private:
-    SumConstraintState(SumConstraint &constraint) : constraint_{constraint} {}
+    explicit SumConstraintState(SumConstraint &constraint) : constraint_{constraint} {}
 
     SumConstraintState(SumConstraintState const &x)
         : AbstractConstraintState{} // NOLINT
@@ -566,15 +566,15 @@ class SumConstraintState : public AbstractConstraintState {
                 auto diff_upper = lower + (static_cast<sum_t>(co) * vs.lower_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), floordiv<sum_t>(diff_lower, co) + 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), floordiv<sum_t>(diff_upper, co) + 1);
-                lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound());
-                upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper);
+                lower = lower - (static_cast<sum_t>(co) * (value_upper - vs.lower_bound()));
+                upper = upper + (static_cast<sum_t>(co) * (vs.upper_bound() - value_upper));
             } else {
                 auto diff_upper = upper + (static_cast<sum_t>(co) * vs.lower_bound());
                 auto diff_lower = lower + (static_cast<sum_t>(co) * vs.upper_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
-                lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
-                upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
+                lower = lower - (static_cast<sum_t>(co) * (value_lower - vs.upper_bound()));
+                upper = upper + (static_cast<sum_t>(co) * (vs.lower_bound() - value_lower));
             }
 
             n = value_upper - value_lower + 1;
@@ -683,15 +683,15 @@ class SumConstraintState : public AbstractConstraintState {
                 auto diff_upper = lower + (static_cast<sum_t>(co) * vs.lower_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound() - 1, floordiv<sum_t>(diff_lower, co));
                 value_upper = std::min<sum_t>(vs.upper_bound() - 1, floordiv<sum_t>(diff_upper, co));
-                lower = lower - static_cast<sum_t>(co) * (value_upper - vs.lower_bound() + 1);
-                upper = upper + static_cast<sum_t>(co) * (vs.upper_bound() - value_upper - 1);
+                lower = lower - (static_cast<sum_t>(co) * (value_upper - vs.lower_bound() + 1));
+                upper = upper + (static_cast<sum_t>(co) * (vs.upper_bound() - value_upper - 1));
             } else {
                 auto diff_upper = upper + (static_cast<sum_t>(co) * vs.lower_bound());
                 auto diff_lower = lower + (static_cast<sum_t>(co) * vs.upper_bound());
                 value_lower = std::max<sum_t>(vs.lower_bound(), -floordiv<sum_t>(diff_lower, -co) - 1);
                 value_upper = std::min<sum_t>(vs.upper_bound(), -floordiv<sum_t>(diff_upper, -co) - 1);
-                upper = upper + static_cast<sum_t>(co) * (vs.lower_bound() - value_lower);
-                lower = lower - static_cast<sum_t>(co) * (value_lower - vs.upper_bound());
+                upper = upper + (static_cast<sum_t>(co) * (vs.lower_bound() - value_lower));
+                lower = lower - (static_cast<sum_t>(co) * (value_lower - vs.upper_bound()));
             }
 
             assert(vs.lower_bound() <= value_upper + 1);
@@ -756,7 +756,7 @@ class MinimizeConstraintState : public AbstractConstraintState {
     }
 
   private:
-    MinimizeConstraintState(MinimizeConstraint &constraint) : constraint_{constraint} {}
+    explicit MinimizeConstraintState(MinimizeConstraint &constraint) : constraint_{constraint} {}
 
     MinimizeConstraintState(MinimizeConstraintState const &x)
         : AbstractConstraintState{} // NOLINT
@@ -787,7 +787,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
     using DiffVec = std::vector<DiffElement>;
 
   public:
-    DistinctConstraintState(DistinctConstraint &constraint) : constraint_{constraint} {
+    explicit DistinctConstraintState(DistinctConstraint &constraint) : constraint_{constraint} {
         assigned_.resize(constraint_.size());
         in_dirty_.resize(constraint_.size(), false);
         in_todo_lower_.resize(constraint_.size(), false);
@@ -839,7 +839,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
         std::vector<IntervalSet<sum_t>> domains;
         for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
             domains.emplace_back(domain_(solver, idx));
-            domains.back().enumerate([&](sum_t value) {
+            domains.back().enumerate([&](sum_t value) -> bool {
                 ++counts[value];
                 return true;
             });
@@ -851,7 +851,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
         for (uint32_t idx = 0, end = constraint_.size(); idx != end; ++idx) {
             DiffElement elem{constraint_[idx].fixed(), 1, INVALID_VAR};
             if (!constraint_[idx].empty()) {
-                domains[idx].enumerate([&](sum_t value) {
+                domains[idx].enumerate([&](sum_t value) -> bool {
                     if (counts[value] > 1) {
                         elem = var_(config, solver, idx, added);
                         return false;
@@ -1305,7 +1305,7 @@ class DistinctConstraintState final : public AbstractConstraintState {
 //! Capture the state of a nonlinear constraint.
 class NonlinearConstraintState : public AbstractConstraintState {
   public:
-    NonlinearConstraintState(NonlinearConstraint &constraint) : constraint_{constraint} {}
+    explicit NonlinearConstraintState(NonlinearConstraint &constraint) : constraint_{constraint} {}
 
     NonlinearConstraintState() = delete;
     NonlinearConstraintState(NonlinearConstraintState const &) = delete;
@@ -1739,7 +1739,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
                                       It begin, It end) -> bool {
             // Note: the constraint could also be disabled as soon as all
             // subsequences became singletons.
-            std::sort(begin, end, [](auto const &a, auto const &b) { return upper(a) < upper(b); });
+            std::sort(begin, end, [](auto const &a, auto const &b) -> auto { return upper(a) < upper(b); });
             for (auto it = std::make_reverse_iterator(end), ie = std::make_reverse_iterator(begin); it != ie;) {
                 val_t min = lower(*it);
                 auto je = it.base();
@@ -1763,7 +1763,7 @@ class DisjointConstraintState final : public AbstractConstraintState {
     };
 
   public:
-    DisjointConstraintState(DisjointConstraint &constraint) : constraint_{constraint} {
+    explicit DisjointConstraintState(DisjointConstraint &constraint) : constraint_{constraint} {
         intervals_.reserve(constraint.size());
         for (auto const &[val, var] : constraint_) {
             intervals_.emplace_back(Interval{var, 0, 0, 0, 0, val, 0});

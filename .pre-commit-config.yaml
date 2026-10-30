@@ -8,25 +8,25 @@ repos:
         exclude: ^.github/
 
   - repo: https://github.com/pycqa/isort
-    rev: 9.0.2
+    rev: 10.0.0b1
     hooks:
       - id: isort
         args: ["--profile", "black"]
         exclude: ^.github/
 
   - repo: https://github.com/psf/black
-    rev: 26.10.0
+    rev: 26.10.1
     hooks:
       - id: black
         exclude: ^.github/
 
   - repo: https://github.com/cpp-linter/cpp-linter-hooks
-    rev: v1.6.1
+    rev: v1.8.1
     hooks:
       - id: clang-format
         types_or: [c++, c]
-        args: [--style=file, --version=22]
+        args: [--style=file, --version=23]
       - id: clang-tidy
         types_or: [c++, c]
-        args:
-          [--checks=.clang-tidy, --version=22, "-fix", "--warnings-as-errors=*"]
+        exclude: "^(third_party/.*)$"
+        args: [--version=23, "-fix", "--warnings-as-errors=*"]

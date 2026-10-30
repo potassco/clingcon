@@ -29,13 +29,15 @@ else()
     set(lib_type STATIC)
 endif()
 
+potassco_git_hash(clingcon)
+
 add_library(clingcon ${lib_type})
 clingcon_target_properties(TARGET clingcon FOLDER "lib" TYPE default)
 target_sources(clingcon PRIVATE ${header} ${source})
 target_include_directories(clingcon PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_link_libraries(clingcon PUBLIC clingo::clingo PRIVATE clingcon-solver)
+target_link_libraries(clingcon PUBLIC clingo::clingo PRIVATE clingcon-hash clingcon-solver)
 if(CLINGCON_USE_VISIBILITY)
     target_compile_definitions(clingcon PRIVATE "$<BUILD_INTERFACE:CLINGCON_BUILD_LIBRARY>")
 else()
@@ -90,7 +92,7 @@ if(CLINGCON_BUILD_TESTS)
     add_library(clingcon_t STATIC)
     clingcon_target_properties(TARGET clingcon_t FOLDER "lib")
     target_sources(clingcon_t PRIVATE ${header} ${source})
-    target_link_libraries(clingcon_t PUBLIC clingcon-solver_t)
+    target_link_libraries(clingcon_t PUBLIC clingcon-solver_t PRIVATE clingcon-hash)
     target_include_directories(clingcon_t PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
     target_compile_definitions(clingcon_t PUBLIC CLINGCON_NO_VISIBILITY)
 
