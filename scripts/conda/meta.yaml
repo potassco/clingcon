@@ -38,7 +38,7 @@ test:
 about:
   home: https://potassco.org/
   license: MIT
-  summary: A solver for logic programs with difference constraints.
+  summary: A solver for logic programs with integer constraints constraints.
   description: The clingcon solver extends the clingo ASP system with support for linear constraints over integers.
   license_file: LICENSE.md
   doc_url: https://potassco.org/
