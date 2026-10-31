@@ -19,11 +19,9 @@ requirements:
   - {{ compiler('c') }}
   - {{ compiler('cxx') }}
   host:
-  - clingo
   - python
-  - libpython
+  - clingo
   run:
-  - libpython
   - python
   - clingo
 

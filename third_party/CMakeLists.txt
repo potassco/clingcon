@@ -1,3 +1,7 @@
+if(CLINGCON_BUILD_PYTHON AND NOT DEFINED SKBUILD)
+    add_subdirectory(pybind11)
+endif()
+
 if(CLINGCON_BUILD_TESTS)
     if(NOT TARGET Catch2::Catch2WithMain)
         if(CLINGCON_USE_LOCAL_CATCH)
@@ -13,10 +17,6 @@ if(CLINGCON_BUILD_TESTS)
         list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/pytest-cmake/cmake")
         find_package(Pytest 8.0.0 REQUIRED)
     endif()
-endif()
-
-if(CLINGCON_BUILD_PYTHON AND NOT DEFINED SKBUILD)
-    add_subdirectory(pybind11)
 endif()
 
 add_library(libwide-integer INTERFACE)

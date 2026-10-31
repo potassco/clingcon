@@ -62,3 +62,4 @@ jobs:
         run: |
           cmake --install build --config Release
           clingcon --version
+          python -c 'import clingcon; clingcon._pyclingcon()' --version
