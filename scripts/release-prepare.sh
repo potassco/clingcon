@@ -30,7 +30,9 @@ git worktree add "${dir}" ${gitref}
     for submodule in "${submodules[@]}"; do
         git rm "${submodule}"
     done
-    git rm TODO.md
+    if [[ -e TODO.md ]]; then 
+        git rm TODO.md
+    fi
     git commit -m "${message}"
 
     for submodule in "${submodules[@]}"; do
