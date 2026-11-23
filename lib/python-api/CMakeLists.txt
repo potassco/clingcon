@@ -7,11 +7,26 @@ set(source
     ${source-group})
 # ]]]
 
-pybind11_add_module(pyclingcon)
-target_sources(pyclingcon PRIVATE ${source})
+if(TARGET Python::SABIModule)
+    set(pyclingcon_sabi USE_SABI 3.11)
+else()
+    set(pyclingcon_sabi)
+endif()
+Python_add_library(pyclingcon MODULE WITH_SOABI ${pyclingcon_sabi} "${source}")
+# FindPython may pick the abi3t suffix for Python 3.15 and later but the
+# module targets abi3, which is only compatible with GIL-enabled builds
+get_target_property(pyclingcon_suffix pyclingcon SUFFIX)
+if(pyclingcon_sabi AND pyclingcon_suffix AND NOT Python_FREE_THREADED)
+    string(REPLACE ".abi3t" ".abi3" pyclingcon_suffix "${pyclingcon_suffix}")
+    set_target_properties(pyclingcon PROPERTIES SUFFIX "${pyclingcon_suffix}")
+endif()
 clingcon_target_properties(TARGET pyclingcon FOLDER "lib" SUBDIR "python")
 set_target_properties(pyclingcon PROPERTIES OUTPUT_NAME "clingcon")
-target_link_libraries(pyclingcon PRIVATE clingcon Python::Module)
+target_link_libraries(pyclingcon PRIVATE clingcon)
+if(WIN32)
+    # rely on CMake for linking instead of the pragma in pyconfig.h (Python 3.14+)
+    target_compile_definitions(pyclingcon PRIVATE Py_NO_LINK_LIB)
+endif()
 
 if(CLINGCON_INSTALL_WHEEL)
     install(TARGETS pyclingcon
@@ -48,7 +63,7 @@ elseif(CLINGCON_INSTALL_DEFAULT)
     endif()
     message(STATUS "Python module path: ${python_install_dir}")
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/INSTALLER" "pip\n")
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/METADATA" "Metadata-Version: 1.1\nName: clingo\nVersion: ${CLINGCON_VERSION}\n")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/METADATA" "Metadata-Version: 1.1\nName: clingcon\nVersion: ${CLINGCON_VERSION}\n")
     install(
         FILES "${CMAKE_CURRENT_BINARY_DIR}/INSTALLER" "${CMAKE_CURRENT_BINARY_DIR}/METADATA"
         DESTINATION "${python_install_dir}/clingcon-${CLINGCON_VERSION}.dist-info")

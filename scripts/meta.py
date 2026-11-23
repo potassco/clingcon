@@ -1,5 +1,6 @@
 import os
 import re
+from importlib.metadata import version as dist_version
 from pathlib import Path
 
 from config import Config
@@ -30,9 +31,9 @@ def pypi_index() -> str:
     return "test.pypi" if extra_index_url else "pypi"
 
 
-def dynamic_metadata(_settings, _project):
+def project_version() -> str:
     """
-    Dynamically generate version number.
+    Get the version of the project.
 
     Returns the version from the pkg_info file if it exists, otherwise
     generates a version number based on the base version and build number. The
@@ -42,7 +43,7 @@ def dynamic_metadata(_settings, _project):
     """
     version = pkg_version()
     if version is not None:
-        return {"version": version}
+        return version
 
     cfg = Config()
     base = cfg.get_version()
@@ -58,4 +59,27 @@ def dynamic_metadata(_settings, _project):
 
     build = f".post{num}" if num > 0 else ""
 
-    return {"version": f"{base}{build}"}
+    return f"{base}{build}"
+
+
+def clingo_requirement() -> str:
+    """
+    Get the requirement on clingo matching the clingo used for building.
+
+    The module links against the C library of clingo, which is only compatible
+    within a minor version.
+    """
+    # NOTE: local versions are not permitted in version specifiers
+    version = dist_version("clingo").split("+")[0]
+    m = re.match(r"(\d+)\.(\d+)", version)
+    if m is None:
+        raise ValueError(f"unexpected clingo version: {version}")
+    major, minor = m.group(1), int(m.group(2))
+    return f"clingo>={version},<{major}.{minor + 1}"
+
+
+def dynamic_metadata(_settings, _project):
+    """
+    Dynamically generate the version number and the dependencies.
+    """
+    return {"version": project_version(), "dependencies": [clingo_requirement()]}
