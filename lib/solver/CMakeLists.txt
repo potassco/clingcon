@@ -38,11 +38,11 @@ set(test
     ${test-group-tests})
 # ]]]
 
-add_library(clingcon-solver STATIC)
+add_library(clingcon-solver OBJECT)
 clingcon_target_properties(TARGET clingcon-solver FOLDER "lib" TYPE extra)
 target_sources(clingcon-solver PRIVATE ${header} ${source})
 target_include_directories(clingcon-solver PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
-target_link_libraries(clingcon-solver PUBLIC clingo::clingo libwide-integer)
+target_link_libraries(clingcon-solver PUBLIC clingo::clingo $<BUILD_INTERFACE:libwide-integer>)
 if(CLINGCON_PROFILE)
     target_compile_definitions(clingcon-solver PUBLIC CLINGCON_PROFILE)
     target_link_libraries(clingcon-solver PUBLIC Gperftools::Profiler)

@@ -37,7 +37,7 @@ target_sources(clingcon PRIVATE ${header} ${source})
 target_include_directories(clingcon PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_link_libraries(clingcon PUBLIC clingo::clingo PRIVATE clingcon-hash clingcon-solver)
+target_link_libraries(clingcon PUBLIC clingo::clingo PRIVATE $<BUILD_INTERFACE:clingcon-hash> clingcon-solver)
 if(CLINGCON_USE_VISIBILITY)
     target_compile_definitions(clingcon PRIVATE "$<BUILD_INTERFACE:CLINGCON_BUILD_LIBRARY>")
 else()

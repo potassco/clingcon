@@ -1,3 +1,7 @@
 @PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(clingo 6.0.0)
+
 include("${CMAKE_CURRENT_LIST_DIR}/clingcon-targets.cmake")
 check_required_components(clingcon)
