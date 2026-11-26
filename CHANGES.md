@@ -1,5 +1,11 @@
 # Changes
 
+## clingcon 5.2.3
+
+- detect cycles of constraints that tighten bounds round after round (#95)
+- add `@priority` levels for `&minimize` and `&maximize` with `--lex-opt` (#96)
+- fix the constant of an objective changing its sign in later solve calls
+
 ## clingcon 5.2.2
 
 - improve build scripts (#123)

@@ -45,8 +45,17 @@ using sum_t = int64_t;                       //!< type for summing up values
 using nsum_t = math::wide_integer::int128_t; //!< type for summing up values of nonlinear terms
 using co_var_t = std::pair<val_t, var_t>;    //!< coefficient/variable pair
 using CoVarVec = std::vector<co_var_t>;
+using sum_var_t = std::pair<sum_t, var_t>; //!< coefficient/variable pair of a minimize constraint
+using SumVarVec = std::vector<sum_var_t>;
 
 enum class Heuristic : val_t { None, MaxChain };
+
+//! The strategy to optimize the levels of a minimize constraint.
+enum class LexOptMode : uint8_t {
+    Auto,      //!< multi-shot if the application drives the steps and one thread is used, weighted otherwise
+    MultiShot, //!< one solve call per level
+    Weighted,  //!< fold the levels into one minimize constraint with mixed-radix weights
+};
 
 //! The maximum value for variables/coefficients in clingcon.
 //!
@@ -59,6 +68,12 @@ constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max() / 2;
 //! The minimum is chosen so that the product of two values will always fit
 //! into Clingcon::sum_t.
 constexpr val_t MIN_VAL = -MAX_VAL;
+//! The largest magnitude of a minimize constraint.
+//!
+//! The coefficients of a minimize constraint are sums, so that the weights of
+//! folded optimization levels fit. Its propagation adds a few values of this
+//! magnitude, which leaves room in the type of the cost.
+constexpr sum_t MAX_COST = std::numeric_limits<sum_t>::max() / 16;
 
 // defaults for solver config
 constexpr val_t DEFAULT_SIGN_VALUE{0};
@@ -111,6 +126,7 @@ struct SolverStatistics {
         refined_reason += stats.refined_reason;
         introduced_reason += stats.introduced_reason;
         literals += stats.literals;
+        cycles += stats.cycles;
     }
 
     double time_propagate{0};
@@ -119,6 +135,7 @@ struct SolverStatistics {
     uint64_t refined_reason{0};
     uint64_t introduced_reason{0};
     uint64_t literals{0};
+    uint64_t cycles{0}; //!< number of conflicts from cycles of constraints that tighten bounds
 };
 
 //! Propagator specific statistics.
@@ -239,6 +256,7 @@ struct Config {
     bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
+    LexOptMode lex_opt{LexOptMode::Auto};
 };
 
 //! Class to add solver literals, create clauses, and access the current

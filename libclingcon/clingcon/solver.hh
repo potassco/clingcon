@@ -98,10 +98,11 @@ class AbstractConstraintState {
     //! Inform the solver about updated bounds of a variable.
     //!
     //! Value i depends on the value passed when registering the watch and diff
-    //! is the change to the bound of the watched variable.
-    [[nodiscard]] virtual auto update(val_t i, val_t diff) -> bool = 0;
+    //! is the change to the bound of the watched variable. The value is a sum
+    //! so that it can hold the coefficients of a minimize constraint.
+    [[nodiscard]] virtual auto update(sum_t i, val_t diff) -> bool = 0;
     //! Similar to update but when the bound of a variable is backtracked.
-    virtual void undo(val_t i, val_t diff) = 0;
+    virtual void undo(sum_t i, val_t diff) = 0;
     //! Propagates the constraint.
     [[nodiscard]] virtual auto propagate(Solver &solver, AbstractClauseCreator &cc, bool check_state) -> bool = 0;
     //! Check if the solver meets the state invariants.
@@ -645,10 +646,10 @@ class Solver {
     //!
     //! The integer `i` is additional information passed to the constraint
     //! state upon notification.
-    void add_var_watch(var_t var, val_t i, AbstractConstraintState &cs);
+    void add_var_watch(var_t var, sum_t i, AbstractConstraintState &cs);
 
     //! Remove a previously added watch.
-    void remove_var_watch(var_t var, val_t i, AbstractConstraintState &cs);
+    void remove_var_watch(var_t var, sum_t i, AbstractConstraintState &cs);
 
     //! Mark a constraint state as inactive.
     void mark_inactive(AbstractConstraintState &cs);
@@ -663,6 +664,94 @@ class Solver {
     //! fixed global literals to the true/false literal, and resets the minimize
     //! constraint.
     void update();
+
+    //! @name Propagation Cycles
+    //! @{
+
+    //! Where the current bound of a variable comes from.
+    //!
+    //! A sum constraint that tightens a bound records which bound of one of
+    //! its other variables it used, namely the one that changed last.
+    //! Following these records finds cycles of constraints that tighten each
+    //! other's bounds round after round.
+    struct BoundOrigin {
+        co_var_t const *begin{nullptr};       //!< the elements of a sum constraint
+        co_var_t const *end{nullptr};         //!< the end of these elements
+        sum_var_t const *wide_begin{nullptr}; //!< the elements of the minimize constraint, which are sums
+        sum_var_t const *wide_end{nullptr};   //!< the end of these elements
+        sum_t rhs{0};                         //!< the right-hand side of the constraint
+        lit_t lit{0};                         //!< the literal of the constraint
+        var_t var{INVALID_VAR};               //!< the variable whose bound the constraint used
+        sum_t co_var{0};                      //!< the coefficient of that variable
+        sum_t co_bound{0};                    //!< the coefficient of the tightened variable
+        level_t level{0};                     //!< the decision level of the tightening
+        uint32_t stamp{0};                    //!< the order of the tightening
+        uint32_t count{0};                    //!< tightenings of the bound on the level
+        uint32_t visit{0};                    //!< the last cycle check that passed this bound
+        bool upper{false};                    //!< whether the used bound is an upper bound
+        bool tagged{false};                   //!< whether the constraint's reasons are volatile
+
+        //! Check whether the origin holds no constraint.
+        [[nodiscard]] auto empty() const -> bool { return begin == nullptr && wide_begin == nullptr; }
+
+        //! Call f(co, var) for each element of the constraint.
+        template <class F> void for_each_element(F &&f) const {
+            if (begin != nullptr) {
+                for (auto const *it = begin; it != end; ++it) {
+                    f(static_cast<sum_t>(it->first), it->second);
+                }
+            } else {
+                for (auto const *it = wide_begin; it != wide_end; ++it) {
+                    f(it->first, it->second);
+                }
+            }
+        }
+    };
+
+    //! Record that a sum constraint tightened the lower or upper bound of a
+    //! variable.
+    //!
+    //! Returns true if the bound has been tightened often enough on the
+    //! current decision level to look for a cycle: after 8, 16, 32 and so on
+    //! tightenings, so that a long chain of constraints that only happens to
+    //! tighten a bound often is not followed again at every step.
+    auto record_bound_origin(var_t var, bool upper, co_var_t const *begin, co_var_t const *end, sum_t rhs, lit_t lit,
+                             bool tagged, sum_t co_bound, level_t level) -> bool;
+
+    //! The same for the minimize constraint, whose coefficients are sums.
+    auto record_bound_origin(var_t var, bool upper, sum_var_t const *begin, sum_var_t const *end, sum_t rhs, lit_t lit,
+                             bool tagged, sum_t co_bound, level_t level) -> bool;
+
+    //! Forget where the bounds came from.
+    //!
+    //! The origins point into the constraints; this has to be called when
+    //! constraints are destroyed, as translation does during initialization.
+    void reset_bound_origins();
+
+    //! Look for a cycle of constraints that tighten the given bound round
+    //! after round and add a conflicting clause if the cycle proves that the
+    //! current bounds cannot be satisfied.
+    //!
+    //! Bound propagation over such a cycle would walk through the domains of
+    //! the variables one value at a time. The clause consists of the literals
+    //! of the constraints on the cycle, the bounds of their other variables,
+    //! and the bound the cycle started from.
+    //!
+    //! The check follows, for each bound, the bound that changed last among
+    //! the other variables of the constraint. A cycle that runs through a
+    //! different variable of a constraint, a cycle longer than the limit on
+    //! the chain, or a cycle whose composed slope and offset exceed the range
+    //! of the exact arithmetic is not found. Only sum constraints record
+    //! origins; distinct and nonlinear constraints do not take part.
+    //!
+    //! Returns false if a clause has been added.
+    [[nodiscard]] auto check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool upper) -> bool;
+
+    //! The order of the last bound tightening before the given decision level
+    //! was entered, or zero if the level is not the current one.
+    [[nodiscard]] auto level_origin_stamp_(level_t level) const -> uint32_t;
+
+    //! @}
 
     //! Integrate the lower and upper bounds from State `other`.
     //!
@@ -722,9 +811,15 @@ class Solver {
 
     //! Enable translation of minimize constraint.
     //!
-    //! Note that the translation of minimize constraints cannot be disabled once enabled.
+    //! Note that the translation of minimize constraints cannot be disabled within a solve call.
     //! Furthermore, translation only happens in the master solver.
     void enable_translate_minimize() { translate_minimize_ = true; }
+
+    //! Disable translation of minimize constraint.
+    //!
+    //! This is used between the solve calls of a lexicographic optimization so
+    //! that the constraint of the next level is not translated.
+    void disable_translate_minimize() { translate_minimize_ = false; }
 
     //! Return true if the minimize constraint has to be translated.
     [[nodiscard]] auto translate_minimize() const -> bool { return translate_minimize_; }
@@ -835,6 +930,19 @@ class Solver {
     SolverStatistics &stats_;
     //! Vector of all VarState objects.
     std::vector<VarState> var2vs_;
+    //! Where the current lower bounds of the variables come from.
+    //! Record a bound origin for elements of either width.
+    template <class Elem>
+    auto record_bound_origin_(var_t var, bool upper, Elem const *begin, Elem const *end, sum_t rhs, lit_t lit,
+                              bool tagged, sum_t co_bound, level_t level) -> bool;
+
+    std::vector<BoundOrigin> origin_lower_;
+    //! Where the current upper bounds of the variables come from.
+    std::vector<BoundOrigin> origin_upper_;
+    //! The order of the last bound tightening recorded.
+    uint32_t origin_stamp_{0};
+    //! The number of cycle checks so far; marks the bounds a check passed.
+    uint32_t cycle_visit_{0};
     //! Vector for per decision level state.
     std::vector<Level> levels_;
     //! Map from order literals to a list of var_t, val_t pairs.
@@ -848,7 +956,7 @@ class Solver {
     std::unordered_map<AbstractConstraint *, UniqueConstraintState> c2cs_;
     //! Watches mapping variables to a constraint state and a constraint
     //! specific integer value.
-    std::vector<std::vector<std::pair<val_t, AbstractConstraintState *>>> var_watches_;
+    std::vector<std::vector<std::pair<sum_t, AbstractConstraintState *>>> var_watches_;
     //! Upper bound changes to variables since last check call.
     std::vector<val_t> udiff_;
     //! Set of variables whose upper bounds changed since the last check call.
@@ -869,7 +977,7 @@ class Solver {
     std::vector<AbstractConstraintState *> inactive_;
     //! List of variable/coefficient/constraint triples that have been removed
     //! from the Solver::v2cs_ map.
-    std::vector<std::tuple<var_t, val_t, AbstractConstraintState *>> removed_var_watches_;
+    std::vector<std::tuple<var_t, sum_t, AbstractConstraintState *>> removed_var_watches_;
     //! Reason vector to avoid unnecessary allocations.
     std::vector<lit_t> temp_reason_;
     //! Offset to speed up Solver::check_full.
