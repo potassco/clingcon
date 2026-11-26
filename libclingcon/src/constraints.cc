@@ -279,6 +279,14 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
 
                 // Literals might not be propagated on level 0.
                 assert(ass.is_true(lit_r) || ass.decision_level() == 0);
+
+                // A bound that keeps getting tightened on the same decision
+                // level may be caught in a cycle of constraints.
+                if (solver.record_bound_origin(var_r, co_r > 0, T::constraint_.begin(), T::constraint_.end(), rhs, clit,
+                                               tagged, co_r, ass.decision_level()) &&
+                    !solver.check_propagation_cycle(cc, var_r, co_r > 0)) {
+                    return false;
+                }
             }
         }
         return true;

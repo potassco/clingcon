@@ -25,6 +25,8 @@
 #include "clingcon/solver.hh"
 #include "clingcon/util.hh"
 
+#include <algorithm>
+#include <array>
 #include <clingo.hh>
 #include <unordered_set>
 
@@ -35,9 +37,13 @@ class Solver::Level {
   public:
     Level(Solver &solver, level_t level)
         : level_{level}, undo_lower_offset_{solver.undo_lower_.size()}, undo_upper_offset_{solver.undo_upper_.size()},
-          inactive_offset_{solver.inactive_.size()}, removed_var_watches_offset_{solver.removed_var_watches_.size()} {}
+          inactive_offset_{solver.inactive_.size()}, removed_var_watches_offset_{solver.removed_var_watches_.size()},
+          origin_stamp_{solver.origin_stamp_} {}
 
     [[nodiscard]] auto level() const -> level_t { return level_; }
+
+    //! The order of the last bound tightening before this level was entered.
+    [[nodiscard]] auto origin_stamp() const -> uint32_t { return origin_stamp_; }
 
     //! Update the lower bound of a var state.
     void update_lower(Solver &solver, VarState &vs, val_t value) const {
@@ -280,6 +286,7 @@ class Solver::Level {
     size_t undo_upper_offset_;
     size_t inactive_offset_;
     size_t removed_var_watches_offset_;
+    uint32_t origin_stamp_;
 };
 
 //! Helper class to efficiently handle order literal lookups
@@ -356,8 +363,9 @@ Solver::Solver(Solver &&x) noexcept
       var_watches_{std::move(x.var_watches_)}, udiff_{std::move(x.udiff_)}, in_udiff_{std::move(x.in_udiff_)},
       ldiff_{std::move(x.ldiff_)}, in_ldiff_{std::move(x.in_ldiff_)}, todo_{std::move(x.todo_)},
       lit2cs_{std::move(x.lit2cs_)}, temp_reason_{std::move(x.temp_reason_)}, split_last_{x.split_last_},
-      trail_offset_{x.trail_offset_}, minimize_bound_{std::move(x.minimize_bound_)},
-      minimize_level_{x.minimize_level_} {}
+      trail_offset_{x.trail_offset_}, minimize_bound_{std::move(x.minimize_bound_)}, minimize_level_{x.minimize_level_},
+      origin_lower_{std::move(x.origin_lower_)}, origin_upper_{std::move(x.origin_upper_)},
+      origin_stamp_{x.origin_stamp_}, cycle_visit_{x.cycle_visit_} {}
 #else
 Solver::Solver(Solver &&x) noexcept = default;
 #endif
@@ -984,7 +992,271 @@ void Solver::check_full(AbstractClauseCreator &cc, bool check_solution) {
     }
 }
 
+namespace {
+
+//! The number of tightenings of a bound on one decision level after which
+//! the solver looks for a propagation cycle.
+constexpr uint32_t CYCLE_CHECK_THRESHOLD{8};
+
+//! The longest chain of origins that is followed.
+constexpr size_t CYCLE_MAX_LENGTH{64};
+
+//! The number of tightenings on the current level below which a bound cannot
+//! be on a cycle that is still going: every bound on such a cycle is
+//! tightened once per round, and the check starts only after the bound it
+//! starts from has been tightened CYCLE_CHECK_THRESHOLD times.
+constexpr uint32_t CYCLE_CHAIN_MIN_COUNT{CYCLE_CHECK_THRESHOLD / 2};
+
+//! A rational number with a positive denominator.
+struct Rational {
+    nsum_t num{0};
+    nsum_t den{1};
+};
+
+auto abs_wide(nsum_t const &x) -> nsum_t { return x < 0 ? -x : x; }
+
+auto gcd_wide(nsum_t a, nsum_t b) -> nsum_t {
+    a = abs_wide(a);
+    b = abs_wide(b);
+    while (b != 0) {
+        auto t = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+//! Normalize the sign and reduce the fraction.
+auto normalize(Rational r) -> Rational {
+    if (r.den < 0) {
+        r.num = -r.num;
+        r.den = -r.den;
+    }
+    auto d = gcd_wide(r.num, r.den);
+    if (d > 1) {
+        r.num /= d;
+        r.den /= d;
+    }
+    return r;
+}
+
+auto mul(Rational const &a, Rational const &b) -> Rational { return normalize({a.num * b.num, a.den * b.den}); }
+
+auto add(Rational const &a, Rational const &b) -> Rational {
+    return normalize({a.num * b.den + b.num * a.den, a.den * b.den});
+}
+
+//! Whether the numbers are small enough for further products to fit.
+auto fits(Rational const &r) -> bool {
+    nsum_t const limit = nsum_t{1} << 62; // NOLINT
+    return abs_wide(r.num) < limit && r.den < limit;
+}
+
+} // namespace
+
+void Solver::reset_bound_origins() {
+    origin_lower_.clear();
+    origin_upper_.clear();
+    origin_stamp_ = 0;
+    cycle_visit_ = 0;
+}
+
+auto Solver::level_origin_stamp_(level_t level) const -> uint32_t {
+    return !levels_.empty() && levels_.back().level() == level ? levels_.back().origin_stamp() : 0;
+}
+
+auto Solver::record_bound_origin(var_t var, bool upper, std::pair<val_t, var_t> const *begin,
+                                 std::pair<val_t, var_t> const *end, sum_t rhs, lit_t lit, bool tagged, val_t co_bound,
+                                 level_t level) -> bool {
+    if (var2vs_.size() > origin_lower_.size()) {
+        origin_lower_.resize(var2vs_.size());
+        origin_upper_.resize(var2vs_.size());
+    }
+
+    // The bound that changed last among the other variables of the
+    // constraint is the one the constraint reacted to.
+    BoundOrigin origin;
+    origin.begin = begin;
+    origin.end = end;
+    origin.rhs = rhs;
+    origin.lit = lit;
+    origin.tagged = tagged;
+    origin.co_bound = co_bound;
+    origin.level = level;
+    origin.stamp = ++origin_stamp_;
+    uint32_t latest = 0;
+    for (auto const *it = begin; it != end; ++it) {
+        auto [co, other] = *it;
+        if (other == var || other >= origin_lower_.size()) {
+            continue;
+        }
+        auto const &used = co > 0 ? origin_lower_[other] : origin_upper_[other];
+        if (used.begin != nullptr && used.level <= level && used.stamp > latest) {
+            latest = used.stamp;
+            origin.var = other;
+            origin.co_var = co;
+            origin.upper = co < 0;
+        }
+    }
+
+    // Count the tightenings since the level was entered, not those of an
+    // earlier branch that reached the same level number.
+    auto &slot = upper ? origin_upper_[var] : origin_lower_[var];
+    bool same = slot.begin != nullptr && slot.level == level && slot.stamp > level_origin_stamp_(level);
+    origin.count = same ? slot.count + 1 : 1;
+    origin.visit = slot.visit;
+    slot = origin;
+    return origin.count >= CYCLE_CHECK_THRESHOLD && (origin.count & (origin.count - 1)) == 0;
+}
+
+auto Solver::check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool upper) -> bool {
+    auto ass = cc.assignment();
+    auto level = ass.decision_level();
+
+    // Follow the origins until a bound repeats. The chain is in the order
+    // "derived from": the first bound was tightened using the second one.
+    // Every bound on a cycle that is still going has been tightened
+    // repeatedly on this level, so a bound that was not ends the search.
+    std::array<std::pair<var_t, bool>, CYCLE_MAX_LENGTH> chain_buf;
+    size_t chain_size = 0;
+    auto begin_stamp = level_origin_stamp_(level);
+    auto visit = ++cycle_visit_;
+    std::pair<var_t, bool> node{var, upper};
+    size_t start = 0;
+    while (true) {
+        auto &origin = node.second ? origin_upper_[node.first] : origin_lower_[node.first];
+        if (origin.visit == visit) {
+            start = static_cast<size_t>(std::find(chain_buf.begin(), chain_buf.begin() + chain_size, node) -
+                                        chain_buf.begin());
+            break;
+        }
+        if (chain_size >= CYCLE_MAX_LENGTH) {
+            return true;
+        }
+        // An origin is stale if it belongs to another decision level or an
+        // earlier branch, or if the literal of its constraint is no longer
+        // true.
+        if (origin.begin == nullptr || origin.level != level || origin.stamp <= begin_stamp ||
+            origin.count < CYCLE_CHAIN_MIN_COUNT || origin.var == INVALID_VAR || !ass.is_true(origin.lit)) {
+            return true;
+        }
+        origin.visit = visit;
+        chain_buf[chain_size++] = node;
+        node = {origin.var, origin.upper};
+    }
+    // The mark of an earlier check can coincide with the mark of this one
+    // once the counter of the checks has wrapped around. Such a bound is not
+    // on the chain, and there is no cycle to look at.
+    if (start == chain_size) {
+        return true;
+    }
+    std::vector<std::pair<var_t, bool>> chain(chain_buf.begin(), chain_buf.begin() + chain_size);
+
+    // Compose the maps along the cycle in the order in which propagation
+    // applies them: the last bound in the chain tightens the one before it,
+    // and so on up to the first bound of the cycle. Each constraint gives
+    // bound_r = (rhs - co_t * bound_t - rest) / co_r, where rest sums the
+    // other variables at their current bounds.
+    Rational slope{1, 1};
+    Rational offset{0, 1};
+    for (size_t i = chain.size(); i > start; --i) {
+        auto [r, r_upper] = chain[i - 1];
+        auto const &origin = r_upper ? origin_upper_[r] : origin_lower_[r];
+        sum_t rest = 0;
+        for (auto const *it = origin.begin; it != origin.end; ++it) {
+            auto [co, other] = *it;
+            if (other == r || other == origin.var) {
+                continue;
+            }
+            auto const &vs = var2vs_[other];
+            rest += static_cast<sum_t>(co) * (co > 0 ? vs.lower_bound() : vs.upper_bound());
+        }
+        // Every operand stays below 2^62, so no product of two of them
+        // wraps the 128-bit integers.
+        Rational step_slope = normalize({nsum_t{-origin.co_var}, nsum_t{origin.co_bound}});
+        Rational step_offset = normalize({nsum_t{origin.rhs - rest}, nsum_t{origin.co_bound}});
+        if (!fits(step_slope) || !fits(step_offset)) {
+            return true;
+        }
+        auto scaled = mul(step_slope, offset);
+        if (!fits(scaled)) {
+            return true;
+        }
+        offset = add(scaled, step_offset);
+        slope = mul(step_slope, slope);
+        if (!fits(slope) || !fits(offset)) {
+            return true;
+        }
+    }
+
+    // A cycle whose slope is at least one and whose map moves the bound it
+    // started from further in the same direction never stops: the bounds
+    // that it uses cannot be satisfied together.
+    if (slope.num < slope.den) {
+        return true;
+    }
+    auto [root, root_upper] = chain[start];
+    auto &root_vs = var2vs_[root];
+    auto bound = static_cast<sum_t>(root_upper ? root_vs.upper_bound() : root_vs.lower_bound());
+    Rational const at{nsum_t{bound}, 1};
+    if (!fits(at)) {
+        return true;
+    }
+    auto scaled = mul(slope, at);
+    if (!fits(scaled)) {
+        return true;
+    }
+    auto image = add(scaled, offset);
+    if (!fits(image)) {
+        return true;
+    }
+    bool moves = root_upper ? image.num < nsum_t{bound} * image.den : image.num > nsum_t{bound} * image.den;
+    if (!moves) {
+        return true;
+    }
+
+    // The clause: the literals of the constraints on the cycle, the bounds
+    // of their other variables, and the bound the cycle started from.
+    auto &clause = temp_reason();
+    clause.clear();
+    auto add_bound = [&](var_t other, bool other_upper) -> void {
+        auto &vs = var2vs_[other];
+        auto lit = other_upper ? -get_literal(cc, vs, vs.upper_bound()) : get_literal(cc, vs, vs.lower_bound() - 1);
+        if (!ass.is_fixed(lit)) {
+            clause.emplace_back(lit);
+        }
+    };
+    bool tagged = false;
+    for (size_t i = start; i < chain.size(); ++i) {
+        auto [r, r_upper] = chain[i];
+        auto const &origin = r_upper ? origin_upper_[r] : origin_lower_[r];
+        tagged = tagged || origin.tagged;
+        if (!ass.is_fixed(origin.lit)) {
+            clause.emplace_back(-origin.lit);
+        }
+        for (auto const *it = origin.begin; it != origin.end; ++it) {
+            auto [co, other] = *it;
+            if (other == r || other == origin.var) {
+                continue;
+            }
+            add_bound(other, co < 0);
+        }
+    }
+    add_bound(root, root_upper);
+    ++stats_.cycles;
+    // During initialization clauses are queued; propagating commits them, so
+    // the conflict stops the walk right away instead of at the end.
+    // The reasons of a tagged constraint hold only for the current solve
+    // call, the bound of the minimize constraint among them, so the clause
+    // is volatile if such a constraint is on the cycle.
+    auto type = tagged ? Clingo::ClauseType::Volatile : Clingo::ClauseType::Learnt;
+    return cc.add_clause(clause, type) && cc.propagate();
+}
+
 void Solver::update() {
+    // the origins of the bounds belong to the previous solve call
+    reset_bound_origins();
+
     // reset minimize state
     minimize_bound_.reset();
     minimize_level_ = 0;

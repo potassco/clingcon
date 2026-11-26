@@ -664,6 +664,73 @@ class Solver {
     //! constraint.
     void update();
 
+    //! @name Propagation Cycles
+    //! @{
+
+    //! Where the current bound of a variable comes from.
+    //!
+    //! A sum constraint that tightens a bound records which bound of one of
+    //! its other variables it used, namely the one that changed last.
+    //! Following these records finds cycles of constraints that tighten each
+    //! other's bounds round after round.
+    struct BoundOrigin {
+        std::pair<val_t, var_t> const *begin{nullptr}; //!< the elements of the constraint
+        std::pair<val_t, var_t> const *end{nullptr};   //!< the end of the elements
+        sum_t rhs{0};                                  //!< the right-hand side of the constraint
+        lit_t lit{0};                                  //!< the literal of the constraint
+        var_t var{INVALID_VAR};                        //!< the variable whose bound the constraint used
+        val_t co_var{0};                               //!< the coefficient of that variable
+        val_t co_bound{0};                             //!< the coefficient of the tightened variable
+        level_t level{0};                              //!< the decision level of the tightening
+        uint32_t stamp{0};                             //!< the order of the tightening
+        uint32_t count{0};                             //!< tightenings of the bound on the level
+        uint32_t visit{0};                             //!< the last cycle check that passed this bound
+        bool upper{false};                             //!< whether the used bound is an upper bound
+        bool tagged{false};                            //!< whether the constraint's reasons are volatile
+    };
+
+    //! Record that a sum constraint tightened the lower or upper bound of a
+    //! variable.
+    //!
+    //! Returns true if the bound has been tightened often enough on the
+    //! current decision level to look for a cycle: after 8, 16, 32 and so on
+    //! tightenings, so that a long chain of constraints that only happens to
+    //! tighten a bound often is not followed again at every step.
+    auto record_bound_origin(var_t var, bool upper, std::pair<val_t, var_t> const *begin,
+                             std::pair<val_t, var_t> const *end, sum_t rhs, lit_t lit, bool tagged, val_t co_bound,
+                             level_t level) -> bool;
+
+    //! Forget where the bounds came from.
+    //!
+    //! The origins point into the constraints; this has to be called when
+    //! constraints are destroyed, as translation does during initialization.
+    void reset_bound_origins();
+
+    //! Look for a cycle of constraints that tighten the given bound round
+    //! after round and add a conflicting clause if the cycle proves that the
+    //! current bounds cannot be satisfied.
+    //!
+    //! Bound propagation over such a cycle would walk through the domains of
+    //! the variables one value at a time. The clause consists of the literals
+    //! of the constraints on the cycle, the bounds of their other variables,
+    //! and the bound the cycle started from.
+    //!
+    //! The check follows, for each bound, the bound that changed last among
+    //! the other variables of the constraint. A cycle that runs through a
+    //! different variable of a constraint, a cycle longer than the limit on
+    //! the chain, or a cycle whose composed slope and offset exceed the range
+    //! of the exact arithmetic is not found. Only sum constraints record
+    //! origins; distinct and nonlinear constraints do not take part.
+    //!
+    //! Returns false if a clause has been added.
+    [[nodiscard]] auto check_propagation_cycle(AbstractClauseCreator &cc, var_t var, bool upper) -> bool;
+
+    //! The order of the last bound tightening before the given decision level
+    //! was entered, or zero if the level is not the current one.
+    [[nodiscard]] auto level_origin_stamp_(level_t level) const -> uint32_t;
+
+    //! @}
+
     //! Integrate the lower and upper bounds from State `other`.
     //!
     //! The function might add clauses to fix literals that have to be updated.
@@ -835,6 +902,14 @@ class Solver {
     SolverStatistics &stats_;
     //! Vector of all VarState objects.
     std::vector<VarState> var2vs_;
+    //! Where the current lower bounds of the variables come from.
+    std::vector<BoundOrigin> origin_lower_;
+    //! Where the current upper bounds of the variables come from.
+    std::vector<BoundOrigin> origin_upper_;
+    //! The order of the last bound tightening recorded.
+    uint32_t origin_stamp_{0};
+    //! The number of cycle checks so far; marks the bounds a check passed.
+    uint32_t cycle_visit_{0};
     //! Vector for per decision level state.
     std::vector<Level> levels_;
     //! Map from order literals to a list of var_t, val_t pairs.
