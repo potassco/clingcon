@@ -36,7 +36,10 @@ class Rewriter {
 
 class ClingconApp final : public Clingo::Application, private Clingo::SolveEventHandler {
   public:
-    ClingconApp() { handle_error(clingcon_create(&theory_)); }
+    ClingconApp() {
+        handle_error(clingcon_create(&theory_));
+        clingcon_enable_steps(theory_);
+    }
 
     ClingconApp(ClingconApp const &) = delete;
     ClingconApp(ClingconApp &&) = delete;
@@ -126,7 +129,12 @@ class ClingconApp final : public Clingo::Application, private Clingo::SolveEvent
 #ifdef CLINGCON_PROFILE
         ProfilerStart("clingcon.solve.prof");
 #endif
-        control.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
+        // Options like --lex-opt=multi-shot optimize in several solve calls.
+        bool more = false;
+        do {
+            auto result = control.solve(Clingo::SymbolicLiteralSpan{}, this, false, false).get();
+            handle_error(clingcon_step(theory_, result.is_exhausted(), &more));
+        } while (more);
 #ifdef CLINGCON_PROFILE
         ProfilerStop();
 #endif

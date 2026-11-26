@@ -146,10 +146,10 @@ inline auto solve(Config const &config, std::string const &prg) -> S {
         CoVarVec elems;
         elems.reserve(minimize->size());
         for (auto [co, var] : *minimize) {
-            elems.emplace_back(co, var);
+            elems.emplace_back(static_cast<val_t>(co), var);
         }
         val_t bound = static_cast<val_t>(ctl.statistics()["user_step"]["Clingcon"]["Cost"].value());
-        p.add_constraint(SumConstraint::create(TRUE_LIT, bound + minimize->adjust(), elems, true));
+        p.add_constraint(SumConstraint::create(TRUE_LIT, static_cast<val_t>(bound + minimize->adjust()), elems, true));
         handler.models.erase(handler.models.begin(), handler.models.end() - 1);
     }
     std::sort(handler.models.begin(), handler.models.end());

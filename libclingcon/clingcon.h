@@ -134,6 +134,25 @@ CLINGCON_VISIBILITY_DEFAULT bool clingcon_validate_options(clingcon_theory_t *th
 //! Callback for models.
 CLINGCON_VISIBILITY_DEFAULT bool clingcon_on_model(clingcon_theory_t *theory, clingo_model_t *model);
 
+//! Enable optimization in several solve calls.
+//!
+//! With `--lex-opt=multi-shot`, each @priority level is optimized in its own
+//! solve call. An application supports this by calling this function before
+//! its first solve call and clingcon_step after every solve call; as long as
+//! the latter reports more work, it calls solve again on the same control
+//! object. Options that need this are rejected if it has not been called.
+CLINGCON_VISIBILITY_DEFAULT void clingcon_enable_steps(clingcon_theory_t *theory);
+
+//! Prepare the next solve call after the previous one has returned.
+//!
+//! `exhausted` says whether the solve call ran to completion, which is what
+//! clingo's solve result reports as exhausted; a call cut short by a limit
+//! on models or time or by an interrupt has not finished its level, and
+//! `more` is set to false. Otherwise `more` is set to true if the
+//! optimization needs another solve call. The level for that call is already
+//! in place when this function returns.
+CLINGCON_VISIBILITY_DEFAULT bool clingcon_step(clingcon_theory_t *theory, bool exhausted, bool *more);
+
 //! Obtain a symbol index which can be used to get the value of a symbol.
 //!
 //! Returns true if the symbol exists.

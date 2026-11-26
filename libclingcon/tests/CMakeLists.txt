@@ -4,8 +4,10 @@ set(source-group
     "${CMAKE_CURRENT_SOURCE_DIR}/assumptions.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/csp.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/fs.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/heuristic.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/money.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/parsing.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/priority.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/solve.hh"
     "${CMAKE_CURRENT_SOURCE_DIR}/util.cc")
 source_group("${ide_source_group}" FILES ${source-group})

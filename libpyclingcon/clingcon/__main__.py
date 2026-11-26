@@ -25,6 +25,7 @@ class ClingconApp(Application):
     def __init__(self, name: str):
         self._enable_python = Flag()
         self.__theory = ClingconTheory()
+        self.__theory.enable_steps()
         self.program_name = name
         self.version = ".".join(str(x) for x in self.__theory.version())
 
@@ -95,7 +96,11 @@ class ClingconApp(Application):
         control.ground([("base", [])])
         self.__theory.prepare(control)
 
-        control.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
+        # Options like --lex-opt=multi-shot optimize in several solve calls.
+        more = True
+        while more:
+            result = control.solve(on_model=self.__on_model, on_statistics=self.__on_statistics)
+            more = self.__theory.step(result.exhausted)
 
     def __on_model(self, model: Model):
         """

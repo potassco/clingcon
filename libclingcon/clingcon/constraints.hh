@@ -163,9 +163,9 @@ class MinimizeConstraint final : public AbstractConstraint {
     ~MinimizeConstraint() override = default;
 
     //! Create a new sum constraint.
-    [[nodiscard]] static auto create(val_t adjust, CoVarVec const &elems, bool sort)
+    [[nodiscard]] static auto create(sum_t adjust, SumVarVec const &elems, bool sort)
         -> std::unique_ptr<MinimizeConstraint> {
-        auto size = sizeof(MinimizeConstraint) + (elems.size() * sizeof(std::pair<val_t, var_t>));
+        auto size = sizeof(MinimizeConstraint) + (elems.size() * sizeof(sum_var_t));
         return std::unique_ptr<MinimizeConstraint>{new (operator new(size)) MinimizeConstraint(adjust, elems, sort)};
     }
 
@@ -176,24 +176,31 @@ class MinimizeConstraint final : public AbstractConstraint {
     [[nodiscard]] auto literal() const -> lit_t override { return TRUE_LIT; }
 
     //! Get the adjustment of the constraint.
-    [[nodiscard]] auto adjust() const -> val_t { return adjust_; }
+    [[nodiscard]] auto adjust() const -> sum_t { return adjust_; }
 
     //! Get the number of elements in the constraint.
     [[nodiscard]] auto size() const -> size_t { return size_; }
 
     //! Access the i-th element.
-    [[nodiscard]] auto operator[](size_t i) const -> std::pair<val_t, var_t> { return elements_[i]; }
+    [[nodiscard]] auto operator[](size_t i) const -> sum_var_t { return elements_[i]; }
 
     //! Pointer to the first element of the constraint.
-    [[nodiscard]] auto begin() const -> std::pair<val_t, var_t> const * { return elements_; }
+    [[nodiscard]] auto begin() const -> sum_var_t const * { return elements_; }
 
     //! Pointer after the last element of the constraint.
-    [[nodiscard]] auto end() const -> std::pair<val_t, var_t> const * {
+    [[nodiscard]] auto end() const -> sum_var_t const * {
         return elements_ + size_; // NOLINT
     }
 
+    //! Keep the constraint from being translated into clingo's minimize
+    //! constraint.
+    void set_no_translate(bool value) { no_translate_ = value; }
+
+    //! Check whether translation of the constraint is suppressed.
+    [[nodiscard]] auto no_translate() const -> bool { return no_translate_; }
+
   private:
-    MinimizeConstraint(val_t adjust, CoVarVec const &elems, bool sort)
+    MinimizeConstraint(sum_t adjust, SumVarVec const &elems, bool sort)
         : adjust_{adjust}, size_{static_cast<uint32_t>(elems.size())} {
         std::copy(elems.begin(), elems.end(), elements_);
         if (sort) {
@@ -203,11 +210,13 @@ class MinimizeConstraint final : public AbstractConstraint {
     }
 
     //! Integer adjustment of the constraint.
-    val_t adjust_;
+    sum_t adjust_;
     //! Number of elements in the constraint.
     uint32_t size_;
+    //! Whether translation into clingo's minimize constraint is suppressed.
+    bool no_translate_{false};
     //! List of integer/string pairs representing coefficient and variable.
-    std::pair<val_t, var_t> elements_[]; // NOLINT
+    sum_var_t elements_[]; // NOLINT
 };
 
 class DistinctElement {

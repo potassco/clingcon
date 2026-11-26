@@ -126,7 +126,12 @@ class TestBuilder : public Clingcon::AbstractConstraintBuilder {
         return true;
     }
 
-    void add_minimize(val_t co, var_t var) override { minimize_.emplace_back(co, var); }
+    void add_minimize(val_t co, var_t var, int level) override {
+        static_cast<void>(level);
+        minimize_.emplace_back(co, var);
+    }
+
+    void add_search_annotation(SearchAnnotation annotation) override { static_cast<void>(annotation); }
 
     auto add_distinct(lit_t lit, std::vector<std::pair<CoVarVec, val_t>> const &elems) -> bool override {
         oss_ << lit << " -> ";
