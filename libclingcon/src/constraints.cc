@@ -24,6 +24,8 @@
 
 #include "clingcon/constraints.hh"
 
+#include <algorithm>
+
 #include <set>
 #include <stdexcept>
 
@@ -82,8 +84,8 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
         }
     }
 
-    void undo(val_t i, val_t diff) override {
-        sum_t x = static_cast<sum_t>(i) * diff;
+    void undo(sum_t i, val_t diff) override {
+        sum_t x = i * diff;
         if (x > 0) {
             T::lower_bound_ -= x;
         } else {
@@ -91,8 +93,8 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
         }
     }
 
-    [[nodiscard]] auto update(val_t i, val_t diff) -> bool override {
-        sum_t x = static_cast<sum_t>(i) * diff;
+    [[nodiscard]] auto update(sum_t i, val_t diff) -> bool override {
+        sum_t x = i * diff;
         assert(x != 0);
         if (x < 0) {
             T::upper_bound_ += x;
@@ -130,7 +132,12 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
             }
         }
 
-        if (lhs > rhs) {
+        // The bound of a minimize constraint is enforced through volatile
+        // clauses. At the root of a solve call that starts with a bound, the
+        // facts of the program can violate it before clasp has processed
+        // the step literal; the solve call then ends unsatisfiable. Below
+        // the root a violated bound is an error like for any constraint.
+        if (lhs > rhs && !(T::dynamic_rhs && solver.check_at_root())) {
             throw std::logic_error("invalid solution");
         }
     }
@@ -279,6 +286,14 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
 
                 // Literals might not be propagated on level 0.
                 assert(ass.is_true(lit_r) || ass.decision_level() == 0);
+
+                // A bound that keeps getting tightened on the same decision
+                // level may be caught in a cycle of constraints.
+                if (solver.record_bound_origin(var_r, co_r > 0, T::constraint_.begin(), T::constraint_.end(), rhs, clit,
+                                               tagged, co_r, ass.decision_level()) &&
+                    !solver.check_propagation_cycle(cc, var_r, co_r > 0)) {
+                    return false;
+                }
             }
         }
         return true;
@@ -312,7 +327,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
     }
 
     [[nodiscard]] auto calculate_reason_(Solver &solver, AbstractClauseCreator &cc, sum_t &slack, VarState &vs,
-                                         val_t co) -> std::pair<bool, lit_t> {
+                                         sum_t co) -> std::pair<bool, lit_t> {
         auto ass = cc.assignment();
         uint64_t found = 0;
         lit_t lit{0};
@@ -332,7 +347,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                     if (auto olit = vs.order_lit_ge(static_cast<val_t>(value - 1));
                         olit.has_value() && olit->second + 1 < current) {
                         found = 1;
-                        slack -= static_cast<sum_t>(co) * (olit->second + 1 - current);
+                        slack -= co * (olit->second + 1 - current);
                         current = olit->second + 1;
                         assert(slack < 0);
                         lit = olit->first;
@@ -352,7 +367,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         value < current) {
                         ++solver.statistics().introduced_reason;
                         found = 1;
-                        slack -= static_cast<sum_t>(co) * (value - current);
+                        slack -= co * (value - current);
                         assert(slack < 0);
                         auto refined = solver.get_literal(cc, vs, static_cast<val_t>(value - 1));
                         assert(!ass.is_true(refined));
@@ -375,7 +390,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                     if (auto olit = vs.order_lit_le(static_cast<val_t>(value));
                         olit.has_value() && olit->second > current) {
                         found = 1;
-                        slack -= static_cast<sum_t>(co) * (olit->second - current);
+                        slack -= co * (olit->second - current);
                         current = olit->second;
                         assert(slack < 0);
                         lit = -olit->first;
@@ -389,7 +404,7 @@ template <bool tagged, typename T> class SumConstraintStateImpl final : public T
                         value > current) {
                         ++solver.statistics().introduced_reason;
                         found = 1;
-                        slack -= static_cast<sum_t>(co) * (value - current);
+                        slack -= co * (value - current);
                         assert(slack < 0);
                         auto refined = -solver.get_literal(cc, vs, static_cast<val_t>(value));
                         assert(!ass.is_true(refined));
@@ -456,6 +471,9 @@ class SumConstraintState : public AbstractConstraintState {
           ,
           constraint_{x.constraint_}, lower_bound_{x.lower_bound_}, upper_bound_{x.upper_bound_},
           inactive_level_{x.inactive_level_}, todo_{x.todo_} {}
+
+    //! The right-hand side is part of the constraint.
+    static constexpr bool dynamic_rhs = false;
 
     [[nodiscard]] static constexpr auto has_rhs(Solver &solver) -> bool {
         static_cast<void>(solver);
@@ -742,6 +760,13 @@ class MinimizeConstraintState : public AbstractConstraintState {
         -> std::pair<bool, bool> final {
         static_cast<void>(added);
 
+        // A constraint of one optimization level is not translated into
+        // clingo's minimize constraint; the translation persists between the
+        // solve calls and would carry over into the next level.
+        if (constraint_.no_translate()) {
+            return {true, false};
+        }
+
         bool translate = solver.translate_minimize();
         translate = translate || config.translate_minimize == std::numeric_limits<uint32_t>::max();
         translate = translate || required_literals(solver) < config.translate_minimize;
@@ -750,13 +775,21 @@ class MinimizeConstraintState : public AbstractConstraintState {
             return {true, false};
         }
 
+        // The coefficients of a folded constraint can exceed the range of a
+        // value, which the weights of clingo's minimize statements have.
+        auto fits = [](sum_t x) -> bool { return MIN_VAL <= x && x <= MAX_VAL; };
+        if (!fits(constraint_.adjust()) ||
+            !std::all_of(constraint_.begin(), constraint_.end(), [&](auto elem) -> auto { return fits(elem.first); })) {
+            return {true, false};
+        }
+
         solver.enable_translate_minimize();
-        cc.add_minimize(TRUE_LIT, -constraint_.adjust(), 0);
+        cc.add_minimize(TRUE_LIT, static_cast<val_t>(-constraint_.adjust()), 0);
         for (auto [co, var] : constraint_) {
             auto &vs = solver.var_state(var);
-            cc.add_minimize(TRUE_LIT, safe_mul(co, vs.min_bound()), 0);
+            cc.add_minimize(TRUE_LIT, safe_mul(static_cast<val_t>(co), vs.min_bound()), 0);
             for (auto value = vs.min_bound(); value < vs.max_bound(); ++value) {
-                cc.add_minimize(-solver.get_literal(cc, vs, value), co, 0);
+                cc.add_minimize(-solver.get_literal(cc, vs, value), static_cast<val_t>(co), 0);
             }
         }
 
@@ -772,15 +805,13 @@ class MinimizeConstraintState : public AbstractConstraintState {
           constraint_{x.constraint_}, lower_bound_{x.lower_bound_}, upper_bound_{x.upper_bound_},
           inactive_level_{x.inactive_level_}, todo_{x.todo_} {}
 
+    //! The right-hand side is the bound of the minimize constraint, which
+    //! changes during solving.
+    static constexpr bool dynamic_rhs = true;
+
     [[nodiscard]] static auto has_rhs(Solver &solver) -> bool { return solver.minimize_bound().has_value(); }
 
-    [[nodiscard]] static auto rhs(Solver &solver) -> val_t {
-        auto ret = *solver.minimize_bound();
-        if (MIN_VAL > ret || ret > MAX_VAL) {
-            throw std::overflow_error("bound value out of range");
-        }
-        return static_cast<val_t>(ret);
-    }
+    [[nodiscard]] static auto rhs(Solver &solver) -> sum_t { return *solver.minimize_bound(); }
 
     MinimizeConstraint &constraint_;
     sum_t lower_bound_{0};
@@ -930,18 +961,18 @@ class DistinctConstraintState final : public AbstractConstraintState {
 
     //! Add an element whose bound has changed to the todo list and mark it as
     //! dirty.
-    [[nodiscard]] auto update(val_t i, val_t diff) -> bool override {
+    [[nodiscard]] auto update(sum_t i, val_t diff) -> bool override {
         static_cast<void>(diff);
-        uint32_t idx = std::abs(i) - 1;
+        auto idx = static_cast<uint32_t>(std::abs(i) - 1);
 
         mark_dirty_(idx);
         mark_todo_(i, idx);
         return true;
     }
 
-    void undo(val_t i, val_t diff) override {
+    void undo(sum_t i, val_t diff) override {
         static_cast<void>(diff);
-        uint32_t idx = std::abs(i) - 1;
+        auto idx = static_cast<uint32_t>(std::abs(i) - 1);
 
         // mark given element as dirty
         mark_dirty_(idx);
@@ -1365,7 +1396,7 @@ class NonlinearConstraintState : public AbstractConstraintState {
     //!
     //! Value i depends on the value passed when registering the watch and diff
     //! is the change to the bound of the watched variable.
-    [[nodiscard]] auto update(val_t i, val_t diff) -> bool override {
+    [[nodiscard]] auto update(sum_t i, val_t diff) -> bool override {
         // Note: there is no need to calculate intermediate state because the
         // bound propagation is constant time. The function simply returns true
         // to enqueue the constraint for propagation.
@@ -1375,7 +1406,7 @@ class NonlinearConstraintState : public AbstractConstraintState {
     }
 
     //! Similar to update but when the bound of a variable is backtracked.
-    void undo(val_t i, val_t diff) override {
+    void undo(sum_t i, val_t diff) override {
         static_cast<void>(i);
         static_cast<void>(diff);
     }
@@ -1815,13 +1846,13 @@ class DisjointConstraintState final : public AbstractConstraintState {
         return std::unique_ptr<DisjointConstraintState>{new DisjointConstraintState(*this)};
     }
 
-    [[nodiscard]] auto update(val_t i, val_t diff) -> bool override {
+    [[nodiscard]] auto update(sum_t i, val_t diff) -> bool override {
         static_cast<void>(i);
         static_cast<void>(diff);
         return true;
     }
 
-    void undo(val_t i, val_t diff) override {
+    void undo(sum_t i, val_t diff) override {
         static_cast<void>(i);
         static_cast<void>(diff);
         force_update_ = true;

@@ -239,6 +239,29 @@ TEST_CASE("sum", "[solving]") {
         REQUIRE(solve("&sum { v(X) } = X :- X=1..3. &sum { v(X) : X=1..2; v(X) : X=2..3 } = x.") ==
                 S({"x=8 v(1)=1 v(2)=2 v(3)=3"}));
     }
+    SECTION("equality in a body") {
+        // Guessing both directions of the equality false activates two
+        // contradictory bounds, and propagating them walks through the
+        // domain one value at a time. The parser rules that guess out, so
+        // the number of order atoms stays small on a large domain.
+        Propagator p;
+        p.config() = create_configs(-100000, 100000).front();
+        SolveEventHandler handler{p};
+        Clingo::Control ctl{{"1", "-t1"}};
+        ctl.add("base", {}, THEORY);
+        std::string prg = "a :- &sum { x; y } = 4.";
+        Clingo::AST::with_builder(ctl, [&prg](Clingo::AST::ProgramBuilder &builder) -> void {
+            Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+                transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
+            });
+        });
+        ctl.register_propagator(p);
+        ctl.ground({{"base", {}}});
+        REQUIRE(ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_satisfiable());
+        auto introduced =
+            ctl.statistics()["user_step"]["Clingcon"]["Thread"][static_cast<size_t>(0)]["Literals introduced"].value();
+        REQUIRE(introduced < 1000);
+    }
     SECTION("string") {
         Propagator p;
         SolveEventHandler handler{p};
@@ -262,6 +285,185 @@ TEST_CASE("sum", "[solving]") {
                                                                    Clingo::Number(2)}));
             }
         }
+    }
+}
+
+namespace {
+
+// Solves a program on one thread with the given domain and returns whether
+// it is satisfiable and how many order atoms the solve call introduced.
+auto solve_counting(std::string const &prg, val_t min_int, val_t max_int) -> std::pair<bool, double> {
+    Propagator p;
+    p.config() = create_configs(min_int, max_int).front();
+    SolveEventHandler handler{p};
+    Clingo::Control ctl{{"1", "-t1"}};
+    ctl.add("base", {}, THEORY);
+    Clingo::AST::with_builder(ctl, [&prg](Clingo::AST::ProgramBuilder &builder) -> void {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
+        });
+    });
+    ctl.register_propagator(p);
+    ctl.ground({{"base", {}}});
+    auto satisfiable = ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_satisfiable();
+    auto introduced =
+        ctl.statistics()["user_step"]["Clingcon"]["Thread"][static_cast<size_t>(0)]["Literals introduced"].value();
+    return {satisfiable, introduced};
+}
+
+} // namespace
+
+TEST_CASE("bounds", "[solving]") {
+    // Two constraints over the same expression whose bounds cannot both hold
+    // get a clause when they are created, so the search never propagates the
+    // two of them against each other through a large domain.
+    constexpr char const *PAIR = "l1 :- &sum { x; y } <= 4. l2 :- &sum { x; y } >= 4. ";
+    SECTION("contradictory bounds from a guess") {
+        auto [satisfiable, introduced] = solve_counting(std::string{PAIR} + ":- l1.", -100000, 100000);
+        REQUIRE(satisfiable);
+        REQUIRE(introduced < 1000);
+    }
+    SECTION("contradictory bounds forced") {
+        auto [satisfiable, introduced] = solve_counting(std::string{PAIR} + ":- l1. :- l2.", -100000, 100000);
+        REQUIRE(!satisfiable);
+        REQUIRE(introduced < 1000);
+    }
+    SECTION("contradictory facts") {
+        auto [satisfiable, introduced] = solve_counting("&sum { x } < y. &sum { y } < x.", -100000, 100000);
+        REQUIRE(!satisfiable);
+        REQUIRE(introduced < 1000);
+    }
+    SECTION("proportional coefficients") {
+        auto [satisfiable, introduced] =
+            solve_counting("l1 :- &sum { 2*x; 2*y } <= 8. l2 :- &sum { 3*x; 3*y } >= 12. :- l1.", -100000, 100000);
+        REQUIRE(satisfiable);
+        REQUIRE(introduced < 1000);
+    }
+    SECTION("models are unchanged") {
+        REQUIRE(solve("&dom { 0..2 } = x. &dom { 0..2 } = y. l1 :- &sum { x; y } <= 1. l2 :- &sum { x; y } >= 2.") ==
+                S({"l1 x=0 y=0", "l1 x=0 y=1", "l1 x=1 y=0", "l2 x=0 y=2", "l2 x=1 y=1", "l2 x=1 y=2", "l2 x=2 y=0",
+                   "l2 x=2 y=1", "l2 x=2 y=2"}));
+    }
+    SECTION("multi-shot") {
+        // The constraint of the second step contradicts the one of the first.
+        auto result = solve_multi(create_configs(0, 10).front(),
+                                  "#program base. &dom { 0..10 } = x. &dom { 0..10 } = y. &sum { x } = 3. "
+                                  "l1 :- &sum { x; y } <= 4. :- l1. "
+                                  "#program step. l2 :- &sum { x; y } >= 4. :- l2.",
+                                  {{"base", {}}, {"step", {}}});
+        REQUIRE(result.size() == 10);
+        REQUIRE(result.back() == "---");
+    }
+}
+
+namespace {
+
+// What a solve call on one thread reports besides its models.
+struct CountReport {
+    bool satisfiable{false};
+    double literals{0}; //!< the "Literals introduced" statistic
+    double cycles{0};   //!< the "Propagation cycles" statistic
+};
+
+// Solves a program on one thread with the given domain and clasp options.
+auto solve_report(std::string const &prg, val_t min_int, val_t max_int, std::vector<char const *> const &opts = {})
+    -> CountReport {
+    Propagator p;
+    p.config() = create_configs(min_int, max_int).front();
+    SolveEventHandler handler{p};
+    std::vector<char const *> args{"1", "-t1"};
+    args.insert(args.end(), opts.begin(), opts.end());
+    Clingo::Control ctl{args};
+    ctl.add("base", {}, THEORY);
+    Clingo::AST::with_builder(ctl, [&prg](Clingo::AST::ProgramBuilder &builder) -> void {
+        Clingo::AST::parse_string(prg.c_str(), [&builder](Clingo::AST::Node const &stm) -> void {
+            transform(stm, [&builder](Clingo::AST::Node const &stm) -> void { builder.add(stm); }, true);
+        });
+    });
+    ctl.register_propagator(p);
+    ctl.ground({{"base", {}}});
+    CountReport report;
+    report.satisfiable = ctl.solve(Clingo::LiteralSpan{}, &handler, false, false).get().is_satisfiable();
+    auto thread = ctl.statistics()["user_step"]["Clingcon"]["Thread"][static_cast<size_t>(0)];
+    report.literals = thread["Literals introduced"].value();
+    report.cycles = thread["Propagation cycles"].value();
+    return report;
+}
+
+} // namespace
+
+TEST_CASE("cycles", "[solving]") {
+    // Constraints that tighten each other's bounds round after round walk
+    // through the domains one value at a time. The solver follows the
+    // origins of the bounds, finds the cycle, and adds a conflicting clause.
+    constexpr val_t WIDE = 1000000;
+    constexpr char const *CHAIN = "&sum { x } <= y - 1. &sum { y } <= z - 1. ";
+    SECTION("chain of differences forced") {
+        auto report = solve_report(std::string{CHAIN} + "&sum { z } <= x - 1.", -WIDE, WIDE);
+        REQUIRE(!report.satisfiable);
+        REQUIRE(report.cycles >= 1);
+    }
+    SECTION("chain of differences from a guess") {
+        auto report = solve_report(std::string{CHAIN} + "l :- &sum { z } >= x.", -WIDE, WIDE);
+        REQUIRE(report.satisfiable);
+        REQUIRE(report.cycles >= 1);
+        REQUIRE(report.literals < 1000);
+    }
+    SECTION("guess kept by a domain heuristic") {
+        auto report = solve_report(std::string{CHAIN} + "l :- &sum { z } <= x - 1. #heuristic l. [1, true]", -WIDE,
+                                   WIDE, {"--heuristic=Domain"});
+        REQUIRE(report.satisfiable);
+        REQUIRE(report.cycles >= 1);
+        REQUIRE(report.literals < 1000);
+    }
+    SECTION("loop through sums forced") {
+        auto report = solve_report("&sum { x; y } <= 3. &sum { y; z } >= 5. &sum { x } >= z.", -WIDE, WIDE);
+        REQUIRE(!report.satisfiable);
+        REQUIRE(report.cycles >= 1);
+    }
+    SECTION("loop through sums from a guess") {
+        auto report = solve_report("&sum { x; y } <= 3. &sum { y; z } >= 5. l :- &sum { x } < z.", -WIDE, WIDE);
+        REQUIRE(report.satisfiable);
+        REQUIRE(report.cycles >= 1);
+        REQUIRE(report.literals < 1000);
+    }
+    SECTION("unit gain with coefficients") {
+        // The slopes 1/2, 1 and 2 multiply to one, and no two constraints
+        // share an expression.
+        auto report = solve_report("&sum { 2*x } <= y. &sum { y } <= z. &sum { z } <= 2*x - 1.", -WIDE, WIDE);
+        REQUIRE(!report.satisfiable);
+        REQUIRE(report.cycles >= 1);
+    }
+    SECTION("gain above one with a bound") {
+        // The bounds move geometrically, so the conflict is found in a few
+        // rounds without the cycle check.
+        auto report = solve_report("&sum { x } <= 2*y - 1. &sum { y } <= x. &sum { x } <= 0.", -WIDE, WIDE);
+        REQUIRE(!report.satisfiable);
+    }
+    SECTION("gain above one keeps its models") {
+        REQUIRE(solve("&dom { -5..5 } = x. &dom { -5..5 } = y. &sum { x } <= 2*y - 1. &sum { y } <= x.") ==
+                S({"x=1 y=1", "x=2 y=2", "x=3 y=2", "x=3 y=3", "x=4 y=3", "x=4 y=4", "x=5 y=3", "x=5 y=4", "x=5 y=5"}));
+    }
+    SECTION("converging loop keeps its models") {
+        REQUIRE(solve("&dom { 0..4 } = x. &dom { 0..4 } = y. &sum { 2*x } <= y. &sum { y } <= x.") == S({"x=0 y=0"}));
+    }
+    SECTION("guessed loop keeps its models") {
+        auto models = solve("&dom { 0..5 } = x. &dom { 0..5 } = y. &dom { 0..5 } = z. "
+                            "&sum { x } <= y - 1. &sum { y } <= z - 1. l :- &sum { z } >= x.");
+        REQUIRE(models.size() == 20);
+        for (auto const &model : models) {
+            REQUIRE(model.rfind("l ", 0) == 0);
+        }
+    }
+    SECTION("multi-shot") {
+        // The constraint of the second step closes the cycle.
+        auto result = solve_multi(create_configs(0, 10).front(),
+                                  "#program base. &dom { 0..10 } = a. &dom { 0..10 } = b. &dom { 0..10 } = c. "
+                                  "&dom { 0..10 } = d. &dom { 0..10 } = e. &sum { a } = 0. &sum { e } = 4. "
+                                  "&sum { a } <= b - 1. &sum { b } <= c - 1. &sum { c } <= d - 1. &sum { d } <= e - 1. "
+                                  "#program step. &sum { e } <= a - 1.",
+                                  {{"base", {}}, {"step", {}}});
+        REQUIRE(result == S({"a=0 b=1 c=2 d=3 e=4", "---"}));
     }
 }
 

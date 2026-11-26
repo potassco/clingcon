@@ -32,6 +32,7 @@
 #include <map>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 #define CLINGCON_TRY try // NOLINT
 #define CLINGCON_CATCH                                                                                                 \
@@ -109,8 +110,57 @@ auto heuristic_str(Heuristic heu) -> char const * {
         case Heuristic::MaxChain: {
             return "max-chain";
         }
+        case Heuristic::EarliestStart: {
+            return "earliest-start";
+        }
+        case Heuristic::TightestWindow: {
+            return "tightest-window";
+        }
     };
     return "";
+}
+
+auto lex_opt_str(LexOptMode mode) -> char const * {
+    switch (mode) {
+        case LexOptMode::Auto: {
+            return "auto";
+        }
+        case LexOptMode::MultiShot: {
+            return "multi-shot";
+        }
+        case LexOptMode::Weighted: {
+            return "weighted";
+        }
+    };
+    return "";
+}
+
+auto bound_step_str(BoundStep step) -> char const * {
+    switch (step) {
+        case BoundStep::Linear: {
+            return "linear";
+        }
+        case BoundStep::Bisect: {
+            return "bisect";
+        }
+        case BoundStep::Hybrid: {
+            return "hybrid";
+        }
+    };
+    return "";
+}
+
+[[nodiscard]] auto parse_lex_opt(char const *value) -> LexOptMode {
+    if (std::strcmp(value, "auto") == 0) {
+        return LexOptMode::Auto;
+    }
+    if (std::strcmp(value, "multi-shot") == 0) {
+        return LexOptMode::MultiShot;
+    }
+    if (std::strcmp(value, "weighted") == 0) {
+        return LexOptMode::Weighted;
+    }
+    throw std::invalid_argument("invalid argument");
 }
 
 template <typename... Args> [[nodiscard]] auto format(Args &&...args) -> std::string {
@@ -279,6 +329,34 @@ void set_value(Target target, Config &config, std::pair<val_t, std::optional<uin
     if (std::strncmp(value, "max-chain", comma - value) == 0) {
         return {static_cast<val_t>(Heuristic::MaxChain), thread};
     }
+    if (std::strncmp(value, "earliest-start", comma - value) == 0) {
+        return {static_cast<val_t>(Heuristic::EarliestStart), thread};
+    }
+    if (std::strncmp(value, "tightest-window", comma - value) == 0) {
+        return {static_cast<val_t>(Heuristic::TightestWindow), thread};
+    }
+    throw std::invalid_argument("invalid argument");
+}
+
+//! Parse a bound stepping mode, which sets Config::hybrid_k for `hybrid:K`.
+void parse_bound_step(char const *value, Config &config) {
+    if (std::strcmp(value, "linear") == 0) {
+        config.bound_step = BoundStep::Linear;
+        return;
+    }
+    if (std::strcmp(value, "bisect") == 0) {
+        config.bound_step = BoundStep::Bisect;
+        return;
+    }
+    char const *colon = find_str(value, ':');
+    if (std::string_view{value, static_cast<size_t>(colon - value)} == "hybrid") {
+        config.bound_step = BoundStep::Hybrid;
+        if (*colon != '\0') {
+            config.hybrid_k =
+                static_cast<uint32_t>(parse_num<int64_t>(colon + 1, 1, std::numeric_limits<uint32_t>::max())); // NOLINT
+        }
+        return;
+    }
     throw std::invalid_argument("invalid argument");
 }
 
@@ -338,17 +416,10 @@ extern "C" void clingcon_version(int *major, int *minor, int *patch) {
 }
 
 extern "C" auto clingcon_register(clingcon_theory_t *theory, clingo_control_t *control) -> bool {
-    // Note: The decide function is passed here for performance reasons.
-    auto &config = theory->propagator.config();
-    bool has_heuristic = config.default_solver_config.heuristic != Heuristic::None;
-    for (auto &sconfig : config.solver_configs) {
-        if (has_heuristic) {
-            break;
-        }
-        has_heuristic = sconfig.heuristic != Heuristic::None;
-    }
-
-    static clingo_propagator_t propagator = {init, propagate, undo, check, has_heuristic ? decide : nullptr};
+    // Note: The decide function is always passed because &heuristic
+    // directives are only known after grounding. It returns the literal of
+    // clasp's own heuristic right away if there is nothing to do.
+    static clingo_propagator_t propagator = {init, propagate, undo, check, decide};
     return clingo_control_add(control, "base", nullptr, 0, Clingcon::THEORY) &&
            clingo_control_register_propagator(control, &propagator, &theory->propagator, false);
 }
@@ -412,6 +483,12 @@ extern "C" auto clingcon_configure(clingcon_theory_t *theory, char const *key, c
             config.translate_minimize = parse_num<uint32_t>(value);
         } else if (std::strcmp(key, "add-order-clauses") == 0) {
             config.add_order_clauses = parse_bool(value);
+        }
+        // optimization
+        else if (std::strcmp(key, "lex-opt") == 0) {
+            config.lex_opt = parse_lex_opt(value);
+        } else if (std::strcmp(key, "bound-step") == 0) {
+            parse_bound_step(value, config);
         }
         // hidden/debug
         else if (std::strcmp(key, "min-int") == 0) {
@@ -491,14 +568,48 @@ extern "C" auto clingcon_register_options(clingcon_theory_t *theory, clingo_opti
                 .c_str(),
             config.add_order_clauses);
 
+        // optimization
+        opts.add(
+            group, "lex-opt",
+            format("Optimize the levels of the minimize constraint [", lex_opt_str(config.lex_opt),
+                   "]\n"
+                   "      <arg>: {auto|multi-shot|weighted}\n"
+                   "        auto      : multi-shot if the application steps through the levels\n"
+                   "                    and one thread is used, weighted otherwise\n"
+                   "        multi-shot: optimize one level per solve call\n"
+                   "        weighted  : fold the levels into one minimize constraint")
+                .c_str(),
+            [&config](char const *value) -> bool {
+                config.lex_opt = parse_lex_opt(value);
+                return true;
+            },
+            false, "<arg>");
+        opts.add(
+            group, "bound-step",
+            format("Pick the bound posted after a model [", bound_step_str(config.bound_step),
+                   "]\n"
+                   "      <arg>: {linear|bisect|hybrid[:K]}\n"
+                   "        linear    : the value of the model minus one\n"
+                   "        bisect    : the midpoint between the lower bound and that value\n"
+                   "        hybrid[:K]: bisect while the gap is larger than K, then linear [",
+                   config.hybrid_k, "]")
+                .c_str(),
+            [&config](char const *value) -> bool {
+                parse_bound_step(value, config);
+                return true;
+            },
+            false, "<arg>");
+
         // propagation
         opts.add(group, "order-heuristic",
                  format("Make the decision heuristic aware of order literals [",
                         heuristic_str(config.default_solver_config.heuristic),
                         "]\n"
-                        "      <arg>: {none,max-chain}[,<i>]\n"
-                        "        none     : use clasp's heuristic\n"
-                        "        max-chain: assign chains of literals\n"
+                        "      <arg>: {none,max-chain,earliest-start,tightest-window}[,<i>]\n"
+                        "        none           : use clasp's heuristic\n"
+                        "        max-chain      : assign chains of literals\n"
+                        "        earliest-start : branch on the lower bound of the variable\n"
+                        "        tightest-window: split the domain of the variable\n"
                         "      <i>  : Only enable for thread <i>")
                      .c_str(),
                  parser_heuristic(*theory), true);
@@ -574,6 +685,11 @@ extern "C" auto clingcon_validate_options(clingcon_theory_t *theory) -> bool {
         if (config.min_int > config.max_int) {
             throw std::runtime_error("min-int must be smaller than or equal to max-int");
         }
+
+        if ((config.lex_opt == LexOptMode::MultiShot || config.bound_step != BoundStep::Linear) &&
+            !theory->propagator.steps_enabled()) {
+            throw std::runtime_error(STEPS_REQUIRED_MESSAGE);
+        }
     }
     CLINGCON_CATCH;
 }
@@ -583,6 +699,13 @@ extern "C" auto clingcon_on_model(clingcon_theory_t *theory, clingo_model_t *mod
         Clingo::Model m{model};
         theory->propagator.on_model(m);
     }
+    CLINGCON_CATCH;
+}
+
+extern "C" void clingcon_enable_steps(clingcon_theory_t *theory) { theory->propagator.enable_steps(); }
+
+extern "C" auto clingcon_step(clingcon_theory_t *theory, bool exhausted, bool *more) -> bool {
+    CLINGCON_TRY { *more = theory->propagator.step(exhausted); }
     CLINGCON_CATCH;
 }
 

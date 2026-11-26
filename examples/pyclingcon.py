@@ -5,6 +5,7 @@ from clingcon import ClingconTheory
 prg = '&sum { x } >= 1. &sum { x } <= 3.'
 
 thy = ClingconTheory()
+thy.enable_steps()
 ctl = Control(['0'])
 thy.register(ctl)
 with ProgramBuilder(ctl) as bld:
@@ -12,6 +13,11 @@ with ProgramBuilder(ctl) as bld:
 
 ctl.ground([('base', [])])
 thy.prepare(ctl)
-with ctl.solve(yield_=True, on_model=thy.on_model) as hnd:
-    for mdl in hnd:
-        print([f'{key}={val}' for key, val in thy.assignment(mdl.thread_id)])
+more = True
+while more:
+    with ctl.solve(yield_=True, on_model=thy.on_model) as hnd:
+        for mdl in hnd:
+            print([f'{key}={val}' for key, val in thy.assignment(mdl.thread_id)])
+        result = hnd.get()
+    # with @priority levels, each level is optimized in its own solve call
+    more = thy.step(result.exhausted)

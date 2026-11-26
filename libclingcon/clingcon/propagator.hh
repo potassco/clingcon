@@ -29,6 +29,7 @@
 #include <clingcon/solver.hh>
 
 #include <atomic>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -40,6 +41,12 @@
 namespace Clingcon {
 
 using UniqueMinimizeConstraint = std::unique_ptr<MinimizeConstraint>;
+
+//! Message for options that need more than one solve call.
+constexpr char const *STEPS_REQUIRED_MESSAGE = "--lex-opt=multi-shot optimizes one level per solve call and "
+                                               "--bound-step=bisect or hybrid can need another solve call to "
+                                               "prove optimality; call clingcon_enable_steps before the first "
+                                               "solve call and clingcon_step after every solve call";
 
 //! A propagator for CSP constraints.
 class Propagator final : public Clingo::Heuristic {
@@ -54,7 +61,7 @@ class Propagator final : public Clingo::Heuristic {
     Propagator(Propagator &&) = delete;
     auto operator=(Propagator const &) -> Propagator & = delete;
     auto operator=(Propagator &&) -> Propagator & = delete;
-    ~Propagator() override = default;
+    ~Propagator() override;
 
     //! Return statistics object.
     auto statistics() -> Statistics const & { return stats_step_; }
@@ -149,6 +156,53 @@ class Propagator final : public Clingo::Heuristic {
     //! Removes the minimize constraint from the lookup lists.
     auto remove_minimize() -> UniqueMinimizeConstraint;
 
+    //! @name Optimization in several solve calls
+    //! @{
+
+    //! Announce that the application calls Propagator::step after each solve
+    //! call.
+    void enable_steps() { steps_enabled_ = true; }
+
+    //! Check whether the application drives the optimization.
+    [[nodiscard]] auto steps_enabled() const -> bool { return steps_enabled_; }
+
+    //! Prepare the next solve call.
+    //!
+    //! This continues a bisection whose bound was refuted and, once that is
+    //! done, finishes the active optimization level and activates the next
+    //! one. It returns true if another solve call is needed. A solve call
+    //! that was cut short, because a limit on models or time was reached or
+    //! the search was interrupted, has neither refuted its bound nor finished
+    //! its level; `exhausted` says whether the call ran to completion.
+    //! Calling this function again before the next solve call does nothing.
+    auto step(bool exhausted) -> bool;
+
+    //! @}
+
+    //! @name Multi-level optimization
+    //! @{
+
+    //! One level of a lexicographic optimization.
+    struct MinimizeLevel {
+        UniqueMinimizeConstraint constraint; //!< the constraint of the level while it is not active
+        MinimizeConstraint *ptr{nullptr};    //!< the constraint of the level
+        int priority{0};                     //!< the level given after `@`
+        sum_t locked_value{0};               //!< the optimum of the level once it is locked
+        bool locked{false};                  //!< whether the level has been optimized
+        bool lock_added{false};              //!< whether the constraint fixing the optimum has been added
+    };
+
+    //! Check whether the minimize constraint has more than one level.
+    [[nodiscard]] auto has_multi_level() const -> bool { return !minimize_levels_.empty(); }
+
+    //! Get the number of optimization levels.
+    [[nodiscard]] auto num_levels() const -> size_t { return minimize_levels_.size(); }
+
+    //! Get the value of each level in the last model.
+    [[nodiscard]] auto level_costs() const -> std::vector<sum_t> const & { return level_costs_; }
+
+    //! @}
+
   private:
     //! Get the solver associated with the given `thread_id`.
     [[nodiscard]] auto solver_(uint32_t thread_id) -> Solver & {
@@ -173,6 +227,9 @@ class Propagator final : public Clingo::Heuristic {
     //! Add collected statistics in stats to the clingo's statistics.
     static void add_statistics_(Clingo::UserStatistics &root, Statistics &stats);
 
+    //! Add the statistics of the optimization levels to clingo's statistics.
+    void add_level_statistics_(Clingo::UserStatistics &root);
+
     //! Add a constraint to the program that has already been added to the
     //! master solver.
     void add_constraint_(UniqueConstraint constraint);
@@ -189,6 +246,44 @@ class Propagator final : public Clingo::Heuristic {
     //! There must only be one active minimize constraints. Any previous
     //! minimize constraints have to be removed first.
     void add_minimize_(UniqueMinimizeConstraint minimize);
+
+    //! Lock the active level at its optimum and activate the next one.
+    //!
+    //! Returns true if there is another level to optimize.
+    auto advance_level() -> bool;
+
+    //! Give the solvers the &heuristic directives that apply to the active
+    //! optimization level.
+    void update_solver_annotations_();
+
+    //! The lower bound of the active minimize constraint that follows from
+    //! the bounds of its variables on decision level zero.
+    [[nodiscard]] auto static_minimize_lb_() -> sum_t;
+
+    //! Compute the lower bound of the active minimize constraint from the
+    //! domains of its variables.
+    //!
+    //! This runs while no solver thread is running because it reads the
+    //! variable bounds of the master solver.
+    void init_minimize_lb_();
+
+    //! Compute the bound to post after a model of the given value.
+    //!
+    //! This applies Config::bound_step and records the bound so that
+    //! bound_refuted_ can tell a bisection apart from an optimality proof.
+    auto compute_next_bound_(sum_t cost) -> sum_t;
+
+    //! Check whether the last posted bound leaves values unsearched.
+    //!
+    //! A bisection posts a bound below the value of the last model minus one.
+    //! A solve call that ends without a better model then rules out the values
+    //! up to that bound but not the ones between it and the last model.
+    [[nodiscard]] auto bound_refuted_() const -> bool;
+
+    //! Raise the lower bound above a refuted bound and post the next one.
+    //!
+    //! Returns true if another solve call is needed.
+    auto continue_bound_() -> bool;
 
     //! Value of minimize constraint, when no bound has been found yet.
     //!
@@ -207,7 +302,28 @@ class Propagator final : public Clingo::Heuristic {
     SigSet show_signature_;                       //!< signatures to show
     MinimizeConstraint *minimize_{nullptr};       //!< minimize constraint
     std::atomic<sum_t> minimize_bound_{no_bound}; //!< bound of the minimize constraint
-    bool show_{false};                            //!< whether there is a show statement
+    //! Cost of the last model.
+    //!
+    //! Propagator::on_statistics clears the statistics of the solve call
+    //! before the application calls Propagator::step, which needs the cost to
+    //! lock the level.
+    std::optional<sum_t> last_known_cost_;
+    std::vector<SearchAnnotation> search_annotations_;     //!< the &heuristic directives of the program
+    sum_t minimize_lb_{std::numeric_limits<sum_t>::min()}; //!< lower bound of the minimize constraint
+    sum_t last_bound_attempted_{no_bound};                 //!< the bound the last solve call ran with
+    std::vector<MinimizeLevel> minimize_levels_;           //!< the levels, highest priority first
+    std::set<int> minimize_levels_seen_;  //!< levels of the elements added to the minimize constraint so far
+    std::vector<sum_t> level_costs_;      //!< value of each level in the last model
+    uint32_t active_level_idx_{0};        //!< the level being optimized
+    bool minimize_lb_initialized_{false}; //!< whether minimize_lb_ belongs to the active constraint
+    bool has_model_{false};               //!< whether a model has been found in any solve call
+    bool steps_enabled_{false};           //!< whether the application calls Propagator::step
+    bool step_due_{false};                //!< whether the last solve call has to be followed by a step
+    bool bound_pending_{false};           //!< whether Propagator::step has set the bound of the next solve call
+    bool continued_{false};               //!< whether the current solve call continues a bisection
+    bool confirming_{false};              //!< whether the current solve call only reports the optimum again
+    uint32_t models_in_call_{0};          //!< the number of models of the current solve call
+    bool show_{false};                    //!< whether there is a show statement
 };
 
 } // namespace Clingcon

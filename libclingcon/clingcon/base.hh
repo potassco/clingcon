@@ -29,6 +29,7 @@
 #include <forward_list>
 #include <math/wide_integer/uintwide_t.h>
 #include <optional>
+#include <unordered_set>
 
 //! @file clingcon/base.hh
 //! Basic data types.
@@ -45,8 +46,72 @@ using sum_t = int64_t;                       //!< type for summing up values
 using nsum_t = math::wide_integer::int128_t; //!< type for summing up values of nonlinear terms
 using co_var_t = std::pair<val_t, var_t>;    //!< coefficient/variable pair
 using CoVarVec = std::vector<co_var_t>;
+using sum_var_t = std::pair<sum_t, var_t>; //!< coefficient/variable pair of a minimize constraint
+using SumVarVec = std::vector<sum_var_t>;
 
-enum class Heuristic : val_t { None, MaxChain };
+enum class Heuristic : val_t {
+    None,           //!< leave the decision to clasp
+    MaxChain,       //!< assign chains of order literals
+    EarliestStart,  //!< branch on the lower bound of the variable of the fallback literal
+    TightestWindow, //!< split the domain of the variable of the fallback literal
+};
+
+//! The strategy to optimize the levels of a minimize constraint.
+enum class LexOptMode : uint8_t {
+    Auto,      //!< multi-shot if the application drives the steps and one thread is used, weighted otherwise
+    MultiShot, //!< one solve call per level
+    Weighted,  //!< fold the levels into one minimize constraint with mixed-radix weights
+};
+
+//! The variable a &heuristic directive branches on.
+enum class VarSelection : uint8_t {
+    InputOrder,    //!< the first unassigned variable in the order of the directive
+    FirstFail,     //!< the smallest domain width, the upper bound minus the lower bound
+    AntiFirstFail, //!< the largest domain width
+    Smallest,      //!< the smallest lower bound
+    Largest,       //!< the largest upper bound
+    Degree,        //!< the largest number of constraints watching the variable
+    DomDeg,        //!< the smallest ratio of domain width to degree
+    Vsids,         //!< clasp selects the variable, the directive selects the value
+};
+
+//! The value a &heuristic directive tries first.
+enum class ValueSelection : uint8_t {
+    IndomainMin,          //!< the lower bound of the domain
+    IndomainMax,          //!< the upper bound of the domain
+    IndomainSplit,        //!< the lower half of the domain
+    IndomainReverseSplit, //!< the upper half of the domain
+};
+
+//! The tie-breaker of a &heuristic directive.
+enum class TieBreaker : uint8_t {
+    None,   //!< keep the variable that comes first
+    Degree, //!< take the variable that more constraints watch
+};
+
+//! A &heuristic directive.
+//!
+//! The directive selects one of its variables and an order literal of that
+//! variable whenever the decide callback runs and one of its variables is
+//! unassigned.
+struct SearchAnnotation {
+    std::vector<var_t> vars;           //!< the variables of the directive
+    std::unordered_set<var_t> var_set; //!< the variables of the directive for lookup
+    std::optional<int> opt_level;      //!< the @priority level the directive is scoped to
+    uint32_t priority{0};              //!< directives with a smaller priority are consulted first
+    VarSelection var_sel{VarSelection::InputOrder};
+    ValueSelection val_sel{ValueSelection::IndomainMin};
+    TieBreaker tie_breaker{TieBreaker::None};
+    bool all_vars{false}; //!< whether the directive covers all integer variables
+};
+
+//! The strategy to pick the bound posted after a model of a minimize
+//! constraint.
+enum class BoundStep : uint8_t {
+    Linear, //!< the value of the model minus one
+    Bisect, //!< the midpoint between the lower bound and the value of the model minus one
+    Hybrid, //!< bisect while the gap is larger than Config::hybrid_k, then step linearly
+};
 
 //! The maximum value for variables/coefficients in clingcon.
 //!
@@ -59,6 +124,12 @@ constexpr val_t MAX_VAL = std::numeric_limits<val_t>::max() / 2;
 //! The minimum is chosen so that the product of two values will always fit
 //! into Clingcon::sum_t.
 constexpr val_t MIN_VAL = -MAX_VAL;
+//! The largest magnitude of a minimize constraint.
+//!
+//! The coefficients of a minimize constraint are sums, so that the weights of
+//! folded optimization levels fit. Its propagation adds a few values of this
+//! magnitude, which leaves room in the type of the cost.
+constexpr sum_t MAX_COST = std::numeric_limits<sum_t>::max() / 16;
 
 // defaults for solver config
 constexpr val_t DEFAULT_SIGN_VALUE{0};
@@ -80,6 +151,7 @@ constexpr uint32_t DEFAULT_TRANSLATE_MINIMIZE{0};
 constexpr bool DEFAULT_CHECK_SOLUTION{true};
 constexpr bool DEFAULT_CHECK_STATE{false};
 constexpr bool DEFAULT_ADD_ORDER_CLAUSES{false};
+constexpr uint32_t DEFAULT_HYBRID_K{10};
 
 constexpr lit_t TRUE_LIT{1}; //!< The true literal.
 constexpr var_t INVALID_VAR{std::numeric_limits<var_t>::max()};
@@ -111,6 +183,7 @@ struct SolverStatistics {
         refined_reason += stats.refined_reason;
         introduced_reason += stats.introduced_reason;
         literals += stats.literals;
+        cycles += stats.cycles;
     }
 
     double time_propagate{0};
@@ -119,6 +192,7 @@ struct SolverStatistics {
     uint64_t refined_reason{0};
     uint64_t introduced_reason{0};
     uint64_t literals{0};
+    uint64_t cycles{0}; //!< number of conflicts from cycles of constraints that tighten bounds
 };
 
 //! Propagator specific statistics.
@@ -239,6 +313,9 @@ struct Config {
     bool add_order_clauses{DEFAULT_ADD_ORDER_CLAUSES};
     bool check_solution{DEFAULT_CHECK_SOLUTION};
     bool check_state{DEFAULT_CHECK_STATE};
+    LexOptMode lex_opt{LexOptMode::Auto};
+    BoundStep bound_step{BoundStep::Linear};
+    uint32_t hybrid_k{DEFAULT_HYBRID_K};
 };
 
 //! Class to add solver literals, create clauses, and access the current
